@@ -30,7 +30,9 @@ export function ReportCard({
           <Text fontWeight="Bold" className="text-sm text-gray-900">
             {title}
           </Text>
-          {subtitle ? <Text className="text-xs text-gray-400 mt-0.5">{subtitle}</Text> : null}
+          {subtitle ? (
+            <Text className="text-xs text-gray-400 mt-0.5">{subtitle}</Text>
+          ) : null}
         </View>
         {actionIcon && onAction ? (
           <PressableOpacity

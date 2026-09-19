@@ -1,7 +1,10 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { ActionMenu, type ActionMenuItem } from "@/src/shared/components/ActionMenu";
+import {
+  ActionMenu,
+  type ActionMenuItem,
+} from "@/src/shared/components/ActionMenu";
 import type { PageHeaderIconAction } from "@/src/shared/components/PageHeader";
 import { exportCsv } from "@/src/shared/lib/csv";
 import { cell, fieldsOf, flattenRow, header } from "./exportRowFormat";
@@ -68,7 +71,11 @@ export function useExportRows(
     setError(null);
     setBusy(true);
     try {
-      await write(loadFirst && options.loadMore ? await options.loadMore.loadAll() : latest.current);
+      await write(
+        loadFirst && options.loadMore
+          ? await options.loadMore.loadAll()
+          : latest.current,
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {

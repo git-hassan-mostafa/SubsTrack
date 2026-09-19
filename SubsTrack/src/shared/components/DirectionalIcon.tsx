@@ -2,10 +2,7 @@ import { I18nManager } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 type DirectionalIconName =
-  | "chevron-back"
-  | "chevron-forward"
-  | "arrow-back"
-  | "arrow-forward";
+  "chevron-back" | "chevron-forward" | "arrow-back" | "arrow-forward";
 
 const FLIPPED: Record<DirectionalIconName, DirectionalIconName> = {
   "chevron-back": "chevron-forward",

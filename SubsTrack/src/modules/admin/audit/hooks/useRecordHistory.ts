@@ -1,6 +1,10 @@
-import { useEffect, useState } from 'react';
-import type { AuditEntry, AuditRecordTarget, AuditSource } from '@/src/core/types';
-import auditService, { type AuditEntries } from '../services/AuditService';
+import { useEffect, useState } from "react";
+import type {
+  AuditEntry,
+  AuditRecordTarget,
+  AuditSource,
+} from "@/src/core/types";
+import auditService, { type AuditEntries } from "../services/AuditService";
 
 export interface RecordHistoryState {
   entries: AuditEntry[];
@@ -15,14 +19,15 @@ type Loader = (key: string) => Promise<AuditEntries>;
 const loadTargets: Loader = (key) =>
   auditService.getRecordsHistory(
     key
-      ? key.split('|').map((pair) => {
-          const [table, recordId] = pair.split(':');
+      ? key.split("|").map((pair) => {
+          const [table, recordId] = pair.split(":");
           return { table, recordId } as AuditRecordTarget;
         })
       : [],
   );
 
-const loadCustomer: Loader = (customerId) => auditService.getCustomerHistory(customerId);
+const loadCustomer: Loader = (customerId) =>
+  auditService.getCustomerHistory(customerId);
 
 /**
  * The fetch/loading/error machinery both History hooks share. `key` is a plain
@@ -37,7 +42,7 @@ function useAuditTimeline(key: string, load: Loader): RecordHistoryState {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [source, setSource] = useState<AuditSource>('server');
+  const [source, setSource] = useState<AuditSource>("server");
 
   useEffect(() => {
     let active = true;
@@ -73,8 +78,13 @@ function useAuditTimeline(key: string, load: Loader): RecordHistoryState {
  * (`recordItems`/`recordLoading`/`recordError`) that two open sheets would fight
  * over, plus a manual clear on close that was easy to forget.
  */
-export function useRecordHistory(targets: AuditRecordTarget[]): RecordHistoryState {
-  return useAuditTimeline(targets.map((tr) => `${tr.table}:${tr.recordId}`).join('|'), loadTargets);
+export function useRecordHistory(
+  targets: AuditRecordTarget[],
+): RecordHistoryState {
+  return useAuditTimeline(
+    targets.map((tr) => `${tr.table}:${tr.recordId}`).join("|"),
+    loadTargets,
+  );
 }
 
 /**

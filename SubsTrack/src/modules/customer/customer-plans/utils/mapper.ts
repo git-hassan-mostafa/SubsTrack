@@ -2,7 +2,9 @@ import type { CustomerPlan } from "@/src/core/types";
 import type { DbCustomerPlan } from "@/src/core/types/db";
 import { mapDbPlanToPlan } from "@/src/modules/admin/plans/utils/mapper";
 
-export function mapDbCustomerPlanToCustomerPlan(db: DbCustomerPlan): CustomerPlan {
+export function mapDbCustomerPlanToCustomerPlan(
+  db: DbCustomerPlan,
+): CustomerPlan {
   return {
     id: db.id,
     customerId: db.customer_id,

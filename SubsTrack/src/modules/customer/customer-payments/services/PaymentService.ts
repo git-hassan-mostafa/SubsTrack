@@ -27,14 +27,23 @@ import {
 } from "../utils/payOrder";
 
 class PaymentService {
-  voidOrderBlocker(targetMonths: string[], lineBills: MonthBill[]): string | null {
-    return blockingPaidMonths(this.paidBillingMonths(lineBills), targetMonths)[0] ?? null;
+  voidOrderBlocker(
+    targetMonths: string[],
+    lineBills: MonthBill[],
+  ): string | null {
+    return (
+      blockingPaidMonths(this.paidBillingMonths(lineBills), targetMonths)[0] ??
+      null
+    );
   }
 
   billVoidOrderBlocker(bill: MonthBill, lineBills: MonthBill[]): string | null {
     if (!bill.charge.billingMonth) return null;
     return this.voidOrderBlocker(
-      coveredBillingMonths(bill.charge.billingMonth, bill.charge.durationMonths),
+      coveredBillingMonths(
+        bill.charge.billingMonth,
+        bill.charge.durationMonths,
+      ),
       lineBills,
     );
   }
@@ -42,15 +51,27 @@ class PaymentService {
   assertVoidableInOrder(targetMonths: string[], lineBills: MonthBill[]): void {
     const blocking = this.voidOrderBlocker(targetMonths, lineBills);
     if (blocking) {
-      throw new Error(i18n.t("errors.later_month_paid", { month: billingMonthLabel(blocking) }));
+      throw new Error(
+        i18n.t("errors.later_month_paid", {
+          month: billingMonthLabel(blocking),
+        }),
+      );
     }
   }
 
-  assertUnskippableInOrder(targetMonths: string[], lineBills: MonthBill[]): void {
-    const blocking = blockingPaidMonths(this.paidBillingMonths(lineBills), targetMonths);
+  assertUnskippableInOrder(
+    targetMonths: string[],
+    lineBills: MonthBill[],
+  ): void {
+    const blocking = blockingPaidMonths(
+      this.paidBillingMonths(lineBills),
+      targetMonths,
+    );
     if (blocking.length > 0) {
       throw new Error(
-        i18n.t("errors.later_month_paid_unskip", { month: billingMonthLabel(blocking[0]) }),
+        i18n.t("errors.later_month_paid_unskip", {
+          month: billingMonthLabel(blocking[0]),
+        }),
       );
     }
   }
@@ -72,7 +93,9 @@ class PaymentService {
 
     for (const line of lines) {
       if (!line.active) continue;
-      const lineBills = bills.filter((b) => b.charge.customerPlanId === line.id);
+      const lineBills = bills.filter(
+        (b) => b.charge.customerPlanId === line.id,
+      );
       const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
       const startYear = new Date(line.startDate).getFullYear();
 
@@ -82,7 +105,13 @@ class PaymentService {
       let lineRequired = 0;
       let lineUnpaid = 0;
       for (let year = startYear; year <= currentYear; year++) {
-        for (const entry of this.buildMonthGrid(line, lineBills, lineSkips, year, unpaidRule)) {
+        for (const entry of this.buildMonthGrid(
+          line,
+          lineBills,
+          lineSkips,
+          year,
+          unpaidRule,
+        )) {
           if (entry.status === "paid" || entry.status === "unpaid") {
             lineRequired++;
             if (entry.status === "unpaid") lineUnpaid++;
@@ -93,7 +122,9 @@ class PaymentService {
           }
           if (entry.status !== "unpaid") continue;
           lineUncovered = true;
-          if (!isNotLateYet(unpaidRule, entry.year, entry.month, line.startDate)) {
+          if (
+            !isNotLateYet(unpaidRule, entry.year, entry.month, line.startDate)
+          ) {
             lineOverdue = true;
           }
         }
@@ -143,7 +174,7 @@ class PaymentService {
     skips: SkippedMonth[],
     unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
   ): Map<string, CustomerStatus> {
-    const billsByCustomer = groupBy(bills, (b) => b.charge.customerId ?? '');
+    const billsByCustomer = groupBy(bills, (b) => b.charge.customerId ?? "");
     const skipsByCustomer = groupBy(skips, (s) => s.customerId);
 
     const statuses = new Map<string, CustomerStatus>();
@@ -168,7 +199,7 @@ class PaymentService {
     skips: SkippedMonth[],
     unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
   ): Map<string, number> {
-    const billsByCustomer = groupBy(bills, (b) => b.charge.customerId ?? '');
+    const billsByCustomer = groupBy(bills, (b) => b.charge.customerId ?? "");
     const skipsByCustomer = groupBy(skips, (s) => s.customerId);
 
     const counts = new Map<string, number>();
@@ -201,8 +232,18 @@ class PaymentService {
   ): string[] {
     const { year: currentYear } = getCurrentYearMonth();
     const months: string[] = [];
-    for (let year = new Date(line.startDate).getFullYear(); year <= currentYear; year++) {
-      for (const entry of this.buildMonthGrid(line, lineBills, lineSkips, year, unpaidRule)) {
+    for (
+      let year = new Date(line.startDate).getFullYear();
+      year <= currentYear;
+      year++
+    ) {
+      for (const entry of this.buildMonthGrid(
+        line,
+        lineBills,
+        lineSkips,
+        year,
+        unpaidRule,
+      )) {
         if (entry.status === "unpaid") months.push(entry.billingMonth);
       }
     }
@@ -226,8 +267,18 @@ class PaymentService {
     );
 
     const months: string[] = [];
-    for (let year = new Date(line.startDate).getFullYear(); year <= endYear; year++) {
-      for (const entry of this.buildMonthGrid(line, lineBills, lineSkips, year, unpaidRule)) {
+    for (
+      let year = new Date(line.startDate).getFullYear();
+      year <= endYear;
+      year++
+    ) {
+      for (const entry of this.buildMonthGrid(
+        line,
+        lineBills,
+        lineSkips,
+        year,
+        unpaidRule,
+      )) {
         if (entry.status === "unpaid" || entry.status === "future") {
           months.push(entry.billingMonth);
         }
@@ -259,7 +310,9 @@ class PaymentService {
     );
     if (blocking.length > 0) {
       throw new Error(
-        i18n.t("errors.earlier_month_unpaid", { month: billingMonthLabel(blocking[0]) }),
+        i18n.t("errors.earlier_month_unpaid", {
+          month: billingMonthLabel(blocking[0]),
+        }),
       );
     }
   }
@@ -278,7 +331,10 @@ class PaymentService {
       if (skip.skipped) skipByMonth.set(skip.billingMonth, skip);
     }
 
-    const coverageMap = new Map<string, { bill: MonthBill; isGroupSecondary: boolean }>();
+    const coverageMap = new Map<
+      string,
+      { bill: MonthBill; isGroupSecondary: boolean }
+    >();
     for (const bill of bills) {
       const { charge } = bill;
       if (!charge.billingMonth) continue;
@@ -333,7 +389,7 @@ class PaymentService {
         status = "unpaid";
       }
 
-      const balance = isEffectivelyPaid ? (bill!.charge.amount - collected) : 0;
+      const balance = isEffectivelyPaid ? bill!.charge.amount - collected : 0;
 
       return {
         year,
@@ -351,7 +407,7 @@ class PaymentService {
   }
 }
 
-export default new PaymentService()
+export default new PaymentService();
 
 // Buckets rows by a key — used to slice one tenant-wide fetch per customer.
 function groupBy<T>(rows: T[], key: (row: T) => string): Map<string, T[]> {
@@ -370,7 +426,8 @@ function groupBy<T>(rows: T[], key: (row: T) => string): Map<string, T[]> {
 function buildCoverageSet(bills: MonthBill[]): Set<string> {
   const covered = new Set<string>();
   for (const { charge, collected } of bills) {
-    if (charge.voidedAt !== null || collected === 0 || !charge.billingMonth) continue;
+    if (charge.voidedAt !== null || collected === 0 || !charge.billingMonth)
+      continue;
     const [pYear, pMonthNum] = charge.billingMonth.split("-").map(Number);
     for (let d = 0; d < charge.durationMonths; d++) {
       const date = new Date(pYear, pMonthNum - 1 + d, 1);

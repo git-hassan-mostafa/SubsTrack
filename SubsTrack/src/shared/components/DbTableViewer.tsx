@@ -72,8 +72,16 @@ export function DbTableViewer({ tableName }: DbTableViewerProps) {
         {/* Header row */}
         <View className="flex-row bg-gray-100 border-b border-gray-200">
           {columns.map((col) => (
-            <View key={col} style={{ width: CELL_WIDTH }} className="px-3 py-2 border-r border-gray-200">
-              <Text fontWeight="SemiBold" className="text-xs text-gray-700" numberOfLines={1}>
+            <View
+              key={col}
+              style={{ width: CELL_WIDTH }}
+              className="px-3 py-2 border-r border-gray-200"
+            >
+              <Text
+                fontWeight="SemiBold"
+                className="text-xs text-gray-700"
+                numberOfLines={1}
+              >
                 {col}
               </Text>
             </View>
@@ -92,9 +100,17 @@ export function DbTableViewer({ tableName }: DbTableViewerProps) {
                 const value = item[col];
                 const isNull = value === null || value === undefined;
                 return (
-                  <View key={col} style={{ width: CELL_WIDTH }} className="px-3 py-2 border-r border-gray-100">
+                  <View
+                    key={col}
+                    style={{ width: CELL_WIDTH }}
+                    className="px-3 py-2 border-r border-gray-100"
+                  >
                     <Text
-                      className={isNull ? "text-xs text-gray-300 italic" : "text-xs text-gray-900"}
+                      className={
+                        isNull
+                          ? "text-xs text-gray-300 italic"
+                          : "text-xs text-gray-900"
+                      }
                       numberOfLines={2}
                     >
                       {isNull ? "NULL" : String(value)}

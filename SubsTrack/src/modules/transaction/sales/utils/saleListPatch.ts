@@ -1,5 +1,4 @@
-import type { Collection, Sale } from '@/src/core/types';
-
+import type { Collection, Sale } from "@/src/core/types";
 
 /** Newest first, which is how every sales list is sorted. */
 export function addSale(items: Sale[], sale: Sale): Sale[] {
@@ -35,7 +34,11 @@ export function applyVoidedSales(
   voided: Sale[],
   keepVoided: boolean,
 ): Sale[] {
-  if (!keepVoided) return removeSales(items, voided.map((s) => s.id));
+  if (!keepVoided)
+    return removeSales(
+      items,
+      voided.map((s) => s.id),
+    );
   const byId = new Map(voided.map((s) => [s.id, s]));
   return items.map((s) => byId.get(s.id) ?? s);
 }
@@ -49,12 +52,15 @@ export function applyVoidedSales(
  */
 export function applyCollectionToSales(
   items: Sale[],
-  collection: Pick<Collection, 'items'>,
+  collection: Pick<Collection, "items">,
   sign: 1 | -1 = 1,
 ): Sale[] {
   const paidByCharge = new Map<string, number>();
   for (const item of collection.items ?? []) {
-    paidByCharge.set(item.chargeId, (paidByCharge.get(item.chargeId) ?? 0) + item.amount);
+    paidByCharge.set(
+      item.chargeId,
+      (paidByCharge.get(item.chargeId) ?? 0) + item.amount,
+    );
   }
   if (paidByCharge.size === 0) return items;
   return items.map((s) => {
@@ -94,8 +100,11 @@ export function saleListPatches(
   return {
     created: (sale) => setItems((prev) => addSale(prev, sale)),
     updated: (sale) =>
-      setItems((prev) => replaceSale(prev, sale, (s) => s.customerId === customerId)),
-    collected: (collection) => setItems((prev) => applyCollectionToSales(prev, collection)),
+      setItems((prev) =>
+        replaceSale(prev, sale, (s) => s.customerId === customerId),
+      ),
+    collected: (collection) =>
+      setItems((prev) => applyCollectionToSales(prev, collection)),
     paymentVoided: (collection) =>
       setItems((prev) => applyCollectionToSales(prev, collection, -1)),
   };

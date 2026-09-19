@@ -1,11 +1,11 @@
-import type { BranchFilter } from '@/src/core/constants';
-import type { DbProduct, DbStockMovement } from '@/src/core/types/db';
+import type { BranchFilter } from "@/src/core/constants";
+import type { DbProduct, DbStockMovement } from "@/src/core/types/db";
 
 /** A ledger row to append. `id`, timestamps and the void fields are filled in
  *  by the repository — a movement is never born voided. */
 export type CreateStockMovementPayload = Omit<
   DbStockMovement,
-  'id' | 'created_at' | 'updated_at' | 'voided_at' | 'voided_by'
+  "id" | "created_at" | "updated_at" | "voided_at" | "voided_by"
 >;
 
 /** The columns a correction may touch. Everything else is what the movement IS —
@@ -13,7 +13,11 @@ export type CreateStockMovementPayload = Omit<
  *  The cost trio still travels together (ProductService builds it). */
 export type UpdateStockMovementPayload = Pick<
   DbStockMovement,
-  'quantity_delta' | 'unit_cost' | 'currency_id' | 'rate_per_usd_snapshot' | 'note'
+  | "quantity_delta"
+  | "unit_cost"
+  | "currency_id"
+  | "rate_per_usd_snapshot"
+  | "note"
 >;
 
 /** One stock purchase, for the Expenses view. Every costed, live, non-sale
@@ -40,14 +44,22 @@ export interface StockCostRow {
  */
 export interface IProductRepository {
   findAll(branchFilter?: BranchFilter): Promise<DbProduct[]>;
-  create(payload: Omit<DbProduct, 'id' | 'created_at' | 'updated_at'>): Promise<DbProduct>;
+  create(
+    payload: Omit<DbProduct, "id" | "created_at" | "updated_at">,
+  ): Promise<DbProduct>;
   update(
     id: string,
     payload: Partial<
       Pick<
         DbProduct,
-        | 'name' | 'description' | 'price' | 'currency_id'
-        | 'cost_price' | 'cost_currency_id' | 'branch_id' | 'active'
+        | "name"
+        | "description"
+        | "price"
+        | "currency_id"
+        | "cost_price"
+        | "cost_currency_id"
+        | "branch_id"
+        | "active"
       >
     >,
   ): Promise<DbProduct>;
@@ -61,9 +73,15 @@ export interface IProductRepository {
   stockOnHand(productIds?: string[]): Promise<Record<string, number>>;
   addMovements(payloads: CreateStockMovementPayload[]): Promise<void>;
   findMovement(id: string): Promise<DbStockMovement | null>;
-  updateMovement(id: string, payload: UpdateStockMovementPayload): Promise<DbStockMovement>;
+  updateMovement(
+    id: string,
+    payload: UpdateStockMovementPayload,
+  ): Promise<DbStockMovement>;
   voidMovement(id: string, voidedBy: string | null): Promise<DbStockMovement>;
-  movementsForProduct(productId: string, limit?: number): Promise<DbStockMovement[]>;
+  movementsForProduct(
+    productId: string,
+    limit?: number,
+  ): Promise<DbStockMovement[]>;
   stockCostsInRange(
     startIso: string,
     endExclusiveIso: string,

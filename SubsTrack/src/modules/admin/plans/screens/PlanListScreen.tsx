@@ -207,79 +207,78 @@ export function PlanListScreen() {
       />
 
       <ResponsiveContainer className="flex-1">
-      {/* Search stays mounted while selecting so its space remains and the list
+        {/* Search stays mounted while selecting so its space remains and the list
           never jumps; the selection toolbar (with the select-all checkbox) is
           overlaid on the header instead. */}
-      <SelectionOverlaySlot selecting={selectionActive}>
-        <View className="px-4 pt-4">
-          <SearchTextBox
-            searchText={searchText}
-            setSearchText={setSearchText}
+        <SelectionOverlaySlot selecting={selectionActive}>
+          <View className="px-4 pt-4">
+            <SearchTextBox
+              searchText={searchText}
+              setSearchText={setSearchText}
+            />
+          </View>
+        </SelectionOverlaySlot>
+        {error ? (
+          <View className="px-4 pt-4">
+            <ErrorBanner message={error} onDismiss={clearError} />
+          </View>
+        ) : null}
+        {exportError ? (
+          <View className="px-4 pt-4">
+            <ErrorBanner message={exportError} onDismiss={clearExportError} />
+          </View>
+        ) : null}
+
+        {loading && plans.length === 0 ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator color={COLORS.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={filtered}
+            keyExtractor={(p) => p.id}
+            contentContainerStyle={{
+              padding: 16,
+              paddingBottom: 96,
+              flexGrow: 1,
+            }}
+            refreshControl={
+              <RefreshControl
+                refreshing={loading}
+                onRefresh={() => {
+                  clearSelection();
+                  fetchPlans();
+                }}
+                tintColor={COLORS.primary}
+              />
+            }
+            renderItem={({ item }) => (
+              <PlanCard
+                plan={item}
+                onEdit={openEdit}
+                onMenu={setMenuPlan}
+                selectionMode={selectionActive}
+                selected={selectedIds.has(item.id)}
+                onToggleSelect={(p) => toggleSelect(p.id)}
+                onEnterSelection={(p) => enterSelection(p.id)}
+              />
+            )}
+            ListEmptyComponent={
+              <EmptyState
+                message={t("plans.no_plans")}
+                subMessage={t("plans.no_plans_hint")}
+                actionLabel={
+                  !debouncedSearch ? t("plans.create_first_plan") : undefined
+                }
+                onAction={!debouncedSearch ? openCreate : undefined}
+              />
+            }
           />
-        </View>
-      </SelectionOverlaySlot>
-      {error ? (
-        <View className="px-4 pt-4">
-          <ErrorBanner message={error} onDismiss={clearError} />
-        </View>
-      ) : null}
-      {exportError ? (
-        <View className="px-4 pt-4">
-          <ErrorBanner message={exportError} onDismiss={clearExportError} />
-        </View>
-      ) : null}
+        )}
 
-      {loading && plans.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color={COLORS.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(p) => p.id}
-          contentContainerStyle={{
-            padding: 16,
-            paddingBottom: 96,
-            flexGrow: 1,
-          }}
-          refreshControl={
-            <RefreshControl
-              refreshing={loading}
-              onRefresh={() => {
-                clearSelection();
-                fetchPlans();
-              }}
-              tintColor={COLORS.primary}
-            />
-          }
-          renderItem={({ item }) => (
-            <PlanCard
-              plan={item}
-              onEdit={openEdit}
-              onMenu={setMenuPlan}
-              selectionMode={selectionActive}
-              selected={selectedIds.has(item.id)}
-              onToggleSelect={(p) => toggleSelect(p.id)}
-              onEnterSelection={(p) => enterSelection(p.id)}
-            />
-          )}
-          ListEmptyComponent={
-            <EmptyState
-              message={t("plans.no_plans")}
-              subMessage={t("plans.no_plans_hint")}
-              actionLabel={
-                !debouncedSearch ? t("plans.create_first_plan") : undefined
-              }
-              onAction={!debouncedSearch ? openCreate : undefined}
-            />
-          }
-        />
-      )}
-
-      {!selectionActive && (
-        <FAB onPress={openCreate} accessibilityLabel={t("common.add")} />
-      )}
-
+        {!selectionActive && (
+          <FAB onPress={openCreate} accessibilityLabel={t("common.add")} />
+        )}
       </ResponsiveContainer>
 
       {formVisible && (

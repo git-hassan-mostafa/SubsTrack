@@ -79,7 +79,9 @@ export function SkipMonthSheet({
   return (
     <ConfirmDialog
       visible
-      title={isSkip ? t("payments.skip.skip_title") : t("payments.skip.unskip_title")}
+      title={
+        isSkip ? t("payments.skip.skip_title") : t("payments.skip.unskip_title")
+      }
       message={
         isSkip
           ? single
@@ -89,7 +91,11 @@ export function SkipMonthSheet({
             ? t("payments.skip.unskip_message", { monthYear: monthLabel })
             : t("payments.skip.unskip_message_many", { count: entries.length })
       }
-      confirmLabel={isSkip ? t("payments.skip.skip_action") : t("payments.skip.unskip_action")}
+      confirmLabel={
+        isSkip
+          ? t("payments.skip.skip_action")
+          : t("payments.skip.unskip_action")
+      }
       onConfirm={handleConfirm}
       onCancel={handleDismiss}
     >
@@ -110,7 +116,9 @@ export function SkipMonthSheet({
         />
       ) : existingNote ? (
         <View className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
-          <Text className="text-xs text-gray-500">{t("payments.skip.note_label")}</Text>
+          <Text className="text-xs text-gray-500">
+            {t("payments.skip.note_label")}
+          </Text>
           <Text className="text-sm text-gray-800 mt-0.5">{existingNote}</Text>
         </View>
       ) : null}

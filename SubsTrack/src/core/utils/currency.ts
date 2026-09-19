@@ -1,5 +1,5 @@
-import { isolate } from '@/src/core/utils/bidi';
-import type { Currency } from '@/src/core/types';
+import { isolate } from "@/src/core/utils/bidi";
+import type { Currency } from "@/src/core/types";
 
 export function toUsd(amount: number, source: Currency | null): number {
   if (source === null) return amount;
@@ -29,7 +29,10 @@ export function sumUsd(
   return rows.reduce((total, r) => total + r.amount / r.ratePerUsdSnapshot, 0);
 }
 
-export function findCurrency(currencies: Currency[], id: string | null): Currency | null {
+export function findCurrency(
+  currencies: Currency[],
+  id: string | null,
+): Currency | null {
   if (!id) return null;
   return currencies.find((c) => c.id === id) ?? null;
 }
@@ -56,18 +59,20 @@ export function formatMoney(
 ): string {
   const value = convert(amount, source, target);
   if (target === null) {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
   }
-  const formatted = new Intl.NumberFormat('en-US', {
+  const formatted = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: target.decimals,
     maximumFractionDigits: target.decimals,
   }).format(value);
-  return target.symbol ? `${formatted} ${target.symbol}` : `${formatted} ${target.code}`;
+  return target.symbol
+    ? `${formatted} ${target.symbol}`
+    : `${formatted} ${target.code}`;
 }
 
 // Folds money rows into one entry per physical currency (+ its USD value via
@@ -75,11 +80,18 @@ export function formatMoney(
 // the wallets and in the reports currency split — the two must agree, so this
 // lives here rather than inside either one.
 export function groupByCurrency(
-  rows: { amount: number; ratePerUsdSnapshot: number; currencyId: string | null }[],
+  rows: {
+    amount: number;
+    ratePerUsdSnapshot: number;
+    currencyId: string | null;
+  }[],
 ): { currencyId: string | null; amount: number; usd: number }[] {
-  const byCurrency = new Map<string, { currencyId: string | null; amount: number; usd: number }>();
+  const byCurrency = new Map<
+    string,
+    { currencyId: string | null; amount: number; usd: number }
+  >();
   for (const r of rows) {
-    const key = r.currencyId ?? 'USD';
+    const key = r.currencyId ?? "USD";
     const usd = r.amount / r.ratePerUsdSnapshot;
     const cur = byCurrency.get(key);
     if (cur) {
@@ -92,12 +104,16 @@ export function groupByCurrency(
   return [...byCurrency.values()].sort((a, b) => b.usd - a.usd);
 }
 
-
 // Drops the currency symbol/code formatMoney appends, leaving the bare number.
-function stripCurrencyLabel(formatted: string, target: Currency | null): string {
-  if (!target) return formatted.replace(/^\$/, '');
+function stripCurrencyLabel(
+  formatted: string,
+  target: Currency | null,
+): string {
+  if (!target) return formatted.replace(/^\$/, "");
   const suffix = ` ${target.symbol || target.code}`;
-  return formatted.endsWith(suffix) ? formatted.slice(0, -suffix.length) : formatted;
+  return formatted.endsWith(suffix)
+    ? formatted.slice(0, -suffix.length)
+    : formatted;
 }
 
 // "20/50 $" — collected out of owed, as one amount. The currency label rides on
@@ -108,7 +124,10 @@ export function formatPaidFraction(
   source: Currency | null,
   target: Currency | null,
 ): string {
-  const paidLabel = stripCurrencyLabel(formatMoney(paid, source, target), target);
+  const paidLabel = stripCurrencyLabel(
+    formatMoney(paid, source, target),
+    target,
+  );
   return isolate(`${paidLabel}/${formatMoney(due, source, target)}`);
 }
 
@@ -119,5 +138,8 @@ export function formatMoneyPair(
 ): { primary: string; approx: string | null } {
   const primary = formatMoney(amount, source, source);
   const same = (source?.id ?? null) === (display?.id ?? null);
-  return { primary, approx: same ? null : `≈ ${formatMoney(amount, source, display)}` };
+  return {
+    primary,
+    approx: same ? null : `≈ ${formatMoney(amount, source, display)}`,
+  };
 }

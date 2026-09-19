@@ -1,5 +1,5 @@
-import type { Currency } from '@/src/core/types';
-import { formatMoney } from '@/src/core/utils/currency';
+import type { Currency } from "@/src/core/types";
+import { formatMoney } from "@/src/core/utils/currency";
 
 /**
  * How every figure on the Expenses screen prints. Money out carries a leading

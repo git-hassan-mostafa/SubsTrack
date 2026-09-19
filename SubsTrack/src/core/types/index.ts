@@ -1,13 +1,14 @@
-import type { BranchFilter } from '@/src/core/constants';
+import type { BranchFilter } from "@/src/core/constants";
 
-export type UserRole = 'superadmin' | 'admin' | 'user';
+export type UserRole = "superadmin" | "admin" | "user";
 // A partially-paid month (a payment exists but `balance > 0`) is reported as
 // `paid` — the remaining amount is tracked as a debt, not as a month status.
 // The owed amount still rides along on `MonthEntry.balance` for drill-in views.
 // `skipped` = the user marked the month as "nothing expected here". It ranks
 // below `paid` (money always wins) and above `future`/`unpaid`, and it is never
 // payable — the month must be unskipped first.
-export type MonthStatus = 'paid' | 'unpaid' | 'future' | 'before_start' | 'skipped';
+export type MonthStatus =
+  "paid" | "unpaid" | "future" | "before_start" | "skipped";
 
 // The bill is planAllowance's unit, not customerAllowance's — see gotcha #149.
 export interface Tenant {
@@ -21,7 +22,8 @@ export interface Tenant {
   createdAt: string;
 }
 
-export type CustomerRequestStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
+export type CustomerRequestStatus =
+  "pending" | "accepted" | "declined" | "cancelled";
 
 // An admin asking the owner for more customer and/or service-line slots. One
 // pending row per tenant; accepting it raises both allowances by what was
@@ -190,11 +192,7 @@ export interface PlanPaidCount {
 // `CustomerStatus.overdue`; only `mixed` can (and `unpaid`, which the Overdue
 // pill replaces).
 export type CustomerMonthStatus =
-  | "paid"
-  | "mixed"
-  | "unpaid"
-  | "skipped"
-  | "not_due_yet";
+  "paid" | "mixed" | "unpaid" | "skipped" | "not_due_yet";
 
 // Everything the customer list needs about one customer, built in ONE pass from
 // buildMonthGrid. `status` answers "is this customer settled, and if not how
@@ -259,7 +257,7 @@ export interface Product {
 
 // Why a product's stock changed. 'sale' is written automatically by the sale
 // flow; the rest come from the product's stock sheet.
-export type StockReason = 'initial' | 'restock' | 'adjustment' | 'sale';
+export type StockReason = "initial" | "restock" | "adjustment" | "sale";
 
 // One entry in a product's stock ledger. Never deleted, and a 'sale' row is only
 // ever soft-voided (voiding a sale voids its movements). A MANUAL row can be
@@ -304,7 +302,7 @@ export interface Service {
 
 // What a sale line sells. A 'service' line may have no serviceId at all — that is
 // the ONE-OFF typed service, whose itemNameSnapshot is the whole record of the job.
-export type SaleLineType = 'product' | 'service';
+export type SaleLineType = "product" | "service";
 
 // One line within a sale — a product or a service. A sale (header) holds one or
 // more, in any mix. itemNameSnapshot + unitAmount are FROZEN at create time.
@@ -354,12 +352,12 @@ export interface Sale {
   customer?: Customer | null;
 }
 
-
-export type ChargeKind = 'month' | 'sale' | 'manual';
+export type ChargeKind = "month" | "sale" | "manual";
 
 // Derived, never stored. 'void' = the bill was a mistake; 'written_off' = it is
 // real but will never be paid (a recorded loss).
-export type ChargeStatus = 'open' | 'partial' | 'settled' | 'void' | 'written_off';
+export type ChargeStatus =
+  "open" | "partial" | "settled" | "void" | "written_off";
 
 export interface Charge {
   id: string;
@@ -457,7 +455,6 @@ export interface ChargeBalance {
   balance: number;
 }
 
-
 // One line of what a customer owes, whatever its source. A month that has never
 // been touched has NO charge row, so `chargeId` is null and the row was derived
 // from buildMonthGrid — collecting money is what turns it into a real bill.
@@ -548,22 +545,21 @@ export interface CollectionListItem {
   kind: WalletSource;
 }
 
-
 // The stored categories. 'stock' is never hand-picked — it labels the derived
 // rows. Labels + icons live in modules/transaction/expenses/utils/expenseCategories.ts.
 export type ExpenseCategory =
-  | 'stock'
-  | 'rent'
-  | 'salaries'
-  | 'utilities'
-  | 'fuel'
-  | 'transport'
-  | 'maintenance'
-  | 'equipment'
-  | 'internet'
-  | 'taxes'
-  | 'marketing'
-  | 'other';
+  | "stock"
+  | "rent"
+  | "salaries"
+  | "utilities"
+  | "fuel"
+  | "transport"
+  | "maintenance"
+  | "equipment"
+  | "internet"
+  | "taxes"
+  | "marketing"
+  | "other";
 
 // A stored expense row. (Derived stock costs are ExpenseItems only.)
 export interface Expense {
@@ -589,7 +585,7 @@ export interface Expense {
 // unified for display. `amount` is in the row's own currency.
 export interface ExpenseItem {
   id: string;
-  source: 'manual' | 'stock';
+  source: "manual" | "stock";
   category: ExpenseCategory;
   label: string;
   amount: number;
@@ -615,18 +611,13 @@ export interface ExpensesView {
   summary: ExpenseSummary;
 }
 
-
 // What a held hand-over PAID FOR. A collection can settle several bills at
 // once, so 'mixed' is a real state — the wallet says so rather than pretending
 // the cash belongs to one stream.
-export type WalletSource = 'month' | 'sale' | 'manual' | 'mixed';
+export type WalletSource = "month" | "sale" | "manual" | "mixed";
 
 // Why the viewer cannot receive a given wallet. null = they can.
-export type ReceiveBlock =
-  | 'self'
-  | 'rank'
-  | 'branch'
-  | null;
+export type ReceiveBlock = "self" | "rank" | "branch" | null;
 
 // One held transaction sitting in someone's wallet.
 // `amount` is the cash collected, in the row's own currency.
@@ -697,10 +688,9 @@ export interface TenantSetting {
   updatedAt: string;
 }
 
-
 // 'void' / 'restore' are updates too, kept distinct so the trail can be filtered
 // by what a staff member actually did.
-export type AuditAction = 'create' | 'update' | 'delete' | 'void' | 'restore';
+export type AuditAction = "create" | "update" | "delete" | "void" | "restore";
 
 // Tables the app records a trail for. sale_items is covered by its parent sale,
 // and collection_items have no life apart from their hand-over — a collection's
@@ -709,26 +699,26 @@ export type AuditAction = 'create' | 'update' | 'delete' | 'void' | 'restore';
 // what nothing else remembers is a quantity or cost changed after the fact.
 // See docs/features.md → Audit Trail.
 export type AuditTable =
-  | 'charges'
-  | 'collections'
-  | 'sales'
-  | 'customers'
-  | 'customer_plans'
-  | 'skipped_months'
-  | 'plans'
-  | 'products'
-  | 'services'
-  | 'stock_movements'
-  | 'branches'
-  | 'currencies'
-  | 'users'
-  | 'tenant_settings'
-  | 'customer_requests';
+  | "charges"
+  | "collections"
+  | "sales"
+  | "customers"
+  | "customer_plans"
+  | "skipped_months"
+  | "plans"
+  | "products"
+  | "services"
+  | "stock_movements"
+  | "branches"
+  | "currencies"
+  | "users"
+  | "tenant_settings"
+  | "customer_requests";
 
 // Where a set of audit rows actually came from — an OUTCOME, never a user choice.
 //   'server' — the complete history (plus this device's un-pushed rows merged in)
 //   'local'  — the device's rolling 30-day window, because the server was unreachable
-export type AuditSource = 'server' | 'local';
+export type AuditSource = "server" | "local";
 
 // One row to pull the trail for. Several of these merge into one timeline when an
 // entity spans more than one table (a customer plus its service lines).
@@ -780,8 +770,7 @@ export interface AuditFilter {
 //                        that day THIS month reads as "future" (nothing owed
 //                        yet). Last month stays red and owed — it is only not
 //                        "Overdue" yet. See gotcha #83.
-export type UnpaidStartRule = 'month_start' | 'customer_start_day';
-
+export type UnpaidStartRule = "month_start" | "customer_start_day";
 
 // One row of cash that ARRIVED. The three money-in sources (subscription
 // payments, sales, debt payments) each return this exact shape, so every report

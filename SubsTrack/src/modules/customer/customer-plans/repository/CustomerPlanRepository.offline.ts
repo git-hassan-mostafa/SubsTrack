@@ -1,8 +1,15 @@
-import type { DbCustomerPlan, DbPlan } from '@/src/core/types/db';
-import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { insertDirty, updateDirty, markDeleted } from '@/src/core/offline/db/dml';
-import { newId, nowIso } from '@/src/core/offline/ids';
-import type { CreateCustomerPlanPayload, ICustomerPlanRepository } from './ICustomerPlanRepository';
+import type { DbCustomerPlan, DbPlan } from "@/src/core/types/db";
+import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
+import {
+  insertDirty,
+  updateDirty,
+  markDeleted,
+} from "@/src/core/offline/db/dml";
+import { newId, nowIso } from "@/src/core/offline/ids";
+import type {
+  CreateCustomerPlanPayload,
+  ICustomerPlanRepository,
+} from "./ICustomerPlanRepository";
 
 /** SQLite-backed customer_plans repository (service lines). Mirrors `'*, plans(*)'`. */
 export class OfflineCustomerPlanRepository
@@ -11,14 +18,16 @@ export class OfflineCustomerPlanRepository
 {
   private async hydrate(line: DbCustomerPlan): Promise<DbCustomerPlan> {
     if (!line.plan_id) return { ...line, plans: null };
-    const plans = await this.rowsById<DbPlan>('plans', [line.plan_id]);
+    const plans = await this.rowsById<DbPlan>("plans", [line.plan_id]);
     return { ...line, plans: plans.get(line.plan_id) ?? null };
   }
 
   private async readById(id: string): Promise<DbCustomerPlan> {
-    const row = await this.first('SELECT * FROM customer_plans WHERE id = ?', [id]);
-    if (!row) this.handleError(new Error('Customer plan not found'));
-    return this.hydrate(this.decodeOne<DbCustomerPlan>('customer_plans', row)!);
+    const row = await this.first("SELECT * FROM customer_plans WHERE id = ?", [
+      id,
+    ]);
+    if (!row) this.handleError(new Error("Customer plan not found"));
+    return this.hydrate(this.decodeOne<DbCustomerPlan>("customer_plans", row)!);
   }
 
   async create(payload: CreateCustomerPlanPayload): Promise<DbCustomerPlan> {
@@ -38,11 +47,11 @@ export class OfflineCustomerPlanRepository
     };
     const owner = await this.customerAudit(payload.customer_id);
     await this.write(async (db) => {
-      await insertDirty(db, 'customer_plans', row);
+      await insertDirty(db, "customer_plans", row);
       await this.auditIn(db, {
-        table: 'customer_plans',
+        table: "customer_plans",
         recordId: row.id,
-        action: 'create',
+        action: "create",
         after: row,
         ...owner,
       });
@@ -53,21 +62,21 @@ export class OfflineCustomerPlanRepository
   private async patch(
     id: string,
     patch: Record<string, unknown>,
-    action: 'update' | 'restore',
+    action: "update" | "restore",
   ): Promise<DbCustomerPlan> {
     await this.write(async (db) => {
       const before = this.decodeOne<DbCustomerPlan>(
-        'customer_plans',
-        await this.first('SELECT * FROM customer_plans WHERE id = ?', [id]),
+        "customer_plans",
+        await this.first("SELECT * FROM customer_plans WHERE id = ?", [id]),
       );
-      await updateDirty(db, 'customer_plans', id, patch);
+      await updateDirty(db, "customer_plans", id, patch);
       const after = this.decodeOne<DbCustomerPlan>(
-        'customer_plans',
-        await this.first('SELECT * FROM customer_plans WHERE id = ?', [id]),
+        "customer_plans",
+        await this.first("SELECT * FROM customer_plans WHERE id = ?", [id]),
       );
       if (before && after) {
         await this.auditIn(db, {
-          table: 'customer_plans',
+          table: "customer_plans",
           recordId: id,
           action,
           before,
@@ -84,16 +93,19 @@ export class OfflineCustomerPlanRepository
     payload: Partial<
       Pick<
         DbCustomerPlan,
-        | 'plan_id'
-        | 'start_date'
-        | 'active'
-        | 'cancelled_at'
-        | 'custom_price'
-        | 'custom_currency_id'
+        | "plan_id"
+        | "start_date"
+        | "active"
+        | "cancelled_at"
+        | "custom_price"
+        | "custom_currency_id"
       >
     >,
   ): Promise<DbCustomerPlan> {
-    const action = payload.active === true && payload.cancelled_at === null ? 'restore' : 'update';
+    const action =
+      payload.active === true && payload.cancelled_at === null
+        ? "restore"
+        : "update";
     return this.patch(id, { ...payload, updated_at: nowIso() }, action);
   }
 
@@ -102,29 +114,33 @@ export class OfflineCustomerPlanRepository
     return this.patch(
       id,
       { active: false, cancelled_at: cancelledAt, updated_at: cancelledAt },
-      'update',
+      "update",
     );
   }
 
   async delete(id: string): Promise<void> {
     await this.write(async (db) => {
       const before = this.decodeOne<DbCustomerPlan>(
-        'customer_plans',
-        await this.first('SELECT * FROM customer_plans WHERE id = ?', [id]),
+        "customer_plans",
+        await this.first("SELECT * FROM customer_plans WHERE id = ?", [id]),
       );
       await db.runAsync(
         `DELETE FROM collection_items
           WHERE charge_id IN (SELECT id FROM charges WHERE customer_plan_id = ?)`,
         [id] as never[],
       );
-      await db.runAsync('DELETE FROM charges WHERE customer_plan_id = ?', [id] as never[]);
-      await db.runAsync('DELETE FROM customer_plans WHERE id = ?', [id] as never[]);
-      await markDeleted(db, 'customer_plans', id);
+      await db.runAsync("DELETE FROM charges WHERE customer_plan_id = ?", [
+        id,
+      ] as never[]);
+      await db.runAsync("DELETE FROM customer_plans WHERE id = ?", [
+        id,
+      ] as never[]);
+      await markDeleted(db, "customer_plans", id);
       if (before) {
         await this.auditIn(db, {
-          table: 'customer_plans',
+          table: "customer_plans",
           recordId: id,
-          action: 'delete',
+          action: "delete",
           before,
           ...(await this.customerAudit(before.customer_id)),
         });
@@ -143,7 +159,10 @@ export class OfflineCustomerPlanRepository
   }
 
   async countPayments(id: string): Promise<number> {
-    return this.count('SELECT COUNT(*) AS n FROM charges WHERE customer_plan_id = ?', [id]);
+    return this.count(
+      "SELECT COUNT(*) AS n FROM charges WHERE customer_plan_id = ?",
+      [id],
+    );
   }
 
   async findPaidLineIds(customerId: string): Promise<string[]> {

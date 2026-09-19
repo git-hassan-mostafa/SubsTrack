@@ -26,18 +26,18 @@ export interface MonthSection<T> {
 // UTC slice puts an early-morning row (before 03:00 at UTC+3) in yesterday's
 // bucket while the card's own formatDate still prints today.
 function dayOf(iso: string): string {
-  if (!iso.includes('T')) return iso.slice(0, 10);
+  if (!iso.includes("T")) return iso.slice(0, 10);
   const d = new Date(iso);
   const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
 
 // The year+month of that same local day, so a section header can never
 // disagree with the dates on the rows inside it.
 function yearMonthOf(iso: string): { year: number; month: number } {
-  const [year, month] = dayOf(iso).split('-').map(Number);
+  const [year, month] = dayOf(iso).split("-").map(Number);
   return { year, month };
 }
 

@@ -65,7 +65,9 @@ export function OptionFormSheet({ visible, option, onDismiss }: Props) {
         </View>
 
         <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
-          {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+          {error ? (
+            <ErrorBanner message={error} onDismiss={clearError} />
+          ) : null}
 
           <Input
             label="Key"

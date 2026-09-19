@@ -1,8 +1,11 @@
-import type { DbSkippedMonth } from '@/src/core/types/db';
-import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { upsertNaturalKeyDirty } from '@/src/core/offline/db/dml';
-import { deterministicId, nowIso } from '@/src/core/offline/ids';
-import type { ISkippedMonthRepository, SkippedMonthPayload } from './ISkippedMonthRepository';
+import type { DbSkippedMonth } from "@/src/core/types/db";
+import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
+import { upsertNaturalKeyDirty } from "@/src/core/offline/db/dml";
+import { deterministicId, nowIso } from "@/src/core/offline/ids";
+import type {
+  ISkippedMonthRepository,
+  SkippedMonthPayload,
+} from "./ISkippedMonthRepository";
 
 /**
  * SQLite-backed skipped months. Writes upsert on the natural key
@@ -17,15 +20,17 @@ export class OfflineSkippedMonthRepository
 {
   async findActiveByCustomer(customerId: string): Promise<DbSkippedMonth[]> {
     const rows = await this.all(
-      'SELECT * FROM skipped_months WHERE customer_id = ? AND skipped = 1 ORDER BY billing_month',
+      "SELECT * FROM skipped_months WHERE customer_id = ? AND skipped = 1 ORDER BY billing_month",
       [customerId],
     );
-    return this.decodeAll<DbSkippedMonth>('skipped_months', rows);
+    return this.decodeAll<DbSkippedMonth>("skipped_months", rows);
   }
 
   async findActive(): Promise<DbSkippedMonth[]> {
-    const rows = await this.all('SELECT * FROM skipped_months WHERE skipped = 1');
-    return this.decodeAll<DbSkippedMonth>('skipped_months', rows);
+    const rows = await this.all(
+      "SELECT * FROM skipped_months WHERE skipped = 1",
+    );
+    return this.decodeAll<DbSkippedMonth>("skipped_months", rows);
   }
 
   async upsertMany(payloads: SkippedMonthPayload[]): Promise<DbSkippedMonth[]> {
@@ -35,24 +40,28 @@ export class OfflineSkippedMonthRepository
     for (const p of payloads) {
       rows.push({
         ...p,
-        id: await deterministicId('skip', p.customer_plan_id, p.billing_month),
+        id: await deterministicId("skip", p.customer_plan_id, p.billing_month),
         created_at: now,
         updated_at: now,
       });
     }
-    const owners = new Map<string, { branchId: string | null; subject: string | null }>();
+    const owners = new Map<
+      string,
+      { branchId: string | null; subject: string | null }
+    >();
     for (const p of payloads) {
-      if (!owners.has(p.customer_id)) owners.set(p.customer_id, await this.customerAudit(p.customer_id));
+      if (!owners.has(p.customer_id))
+        owners.set(p.customer_id, await this.customerAudit(p.customer_id));
     }
     const storedIds = await this.write(async (db) => {
       const ids: string[] = [];
       for (const row of rows) {
-        const stored = await upsertNaturalKeyDirty(db, 'skipped_months', row);
+        const stored = await upsertNaturalKeyDirty(db, "skipped_months", row);
         ids.push(stored);
         await this.auditIn(db, {
-          table: 'skipped_months',
+          table: "skipped_months",
           recordId: stored,
-          action: row.skipped ? 'create' : 'restore',
+          action: row.skipped ? "create" : "restore",
           after: { ...row, id: stored },
           ...owners.get(row.customer_id),
         });

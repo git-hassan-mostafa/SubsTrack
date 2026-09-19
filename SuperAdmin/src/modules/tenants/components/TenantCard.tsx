@@ -42,9 +42,7 @@ export function TenantCard({ tenant, onPress, onEdit }: TenantCardProps) {
               {`${tenant.customerAllowance} customers · ${tenant.planAllowance} lines · $${tenant.pricePerPlanUsd} each`}
             </Text>
           </View>
-          <Text style={styles.date}>
-            {formatShortDate(tenant.createdAt)}
-          </Text>
+          <Text style={styles.date}>{formatShortDate(tenant.createdAt)}</Text>
         </View>
 
         {pending ? (

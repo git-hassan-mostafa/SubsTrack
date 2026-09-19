@@ -94,9 +94,7 @@ export function DashboardScreen() {
           <View className="flex-row mx-4 gap-3 mb-4">
             <PressableOpacity
               onPress={() => setCustomerFormOpen(true)}
-              className={
-                `${CARD_SURFACE} flex-1 flex-row items-center gap-3 px-4 py-3`
-              }
+              className={`${CARD_SURFACE} flex-1 flex-row items-center gap-3 px-4 py-3`}
             >
               <View className="w-9 h-9 rounded-xl bg-indigo-50 items-center justify-center">
                 <Ionicons
@@ -112,9 +110,7 @@ export function DashboardScreen() {
 
             <PressableOpacity
               onPress={() => setSaleFormOpen(true)}
-              className={
-                `${CARD_SURFACE} flex-1 flex-row items-center gap-3 px-4 py-3`
-              }
+              className={`${CARD_SURFACE} flex-1 flex-row items-center gap-3 px-4 py-3`}
             >
               <View className="w-9 h-9 rounded-xl bg-emerald-50 items-center justify-center">
                 <Ionicons

@@ -1,16 +1,15 @@
-import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
+import { create } from "zustand";
+import { immer } from "zustand/middleware/immer";
 import type {
   AuditAction,
   AuditEntry,
   AuditFilter,
   AuditSource,
   AuditTable,
-} from '@/src/core/types';
-import auditService from '@/src/modules/admin/audit/services/AuditService';
-import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import { getStore } from '@/src/state/globalStore';
-
+} from "@/src/core/types";
+import auditService from "@/src/modules/admin/audit/services/AuditService";
+import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
+import { getStore } from "@/src/state/globalStore";
 
 /**
  * The admin Audit Log screen's filter session + paged results.
@@ -84,7 +83,7 @@ export const useAuditStore = create<AuditState>()(
       loadingMore: false,
       error: null,
       searchToken: 0,
-      source: 'server',
+      source: "server",
       tableFilter: null,
       actionFilter: null,
       actorFilter: null,
@@ -93,7 +92,9 @@ export const useAuditStore = create<AuditState>()(
 
       fetchEntries: async () => {
         const token = get().searchToken;
-        const branchFilter = resolveBranchFilter(getStore().getState().auth.user);
+        const branchFilter = resolveBranchFilter(
+          getStore().getState().auth.user,
+        );
         set((state) => {
           state.loading = true;
           state.error = null;
@@ -129,7 +130,9 @@ export const useAuditStore = create<AuditState>()(
       fetchMoreEntries: async () => {
         const { loadingMore, hasMore, page, searchToken } = get();
         if (loadingMore || !hasMore) return;
-        const branchFilter = resolveBranchFilter(getStore().getState().auth.user);
+        const branchFilter = resolveBranchFilter(
+          getStore().getState().auth.user,
+        );
         set((state) => {
           state.loadingMore = true;
         });
@@ -231,7 +234,7 @@ export const useAuditStore = create<AuditState>()(
           state.loadingMore = false;
           state.error = null;
           state.searchToken += 1;
-          state.source = 'server';
+          state.source = "server";
           state.tableFilter = null;
           state.actionFilter = null;
           state.actorFilter = null;

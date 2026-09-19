@@ -21,7 +21,11 @@ interface Props {
 /** Top-N list with a rank number. Used for debtors, staff and products. */
 export function RankedList({ rows, emptyLabel, onPressRow }: Props) {
   if (rows.length === 0) {
-    return <Text className="text-xs text-gray-400 py-4 text-center">{emptyLabel}</Text>;
+    return (
+      <Text className="text-xs text-gray-400 py-4 text-center">
+        {emptyLabel}
+      </Text>
+    );
   }
 
   return (
@@ -49,7 +53,11 @@ export function RankedList({ rows, emptyLabel, onPressRow }: Props) {
               {row.amount}
             </Text>
             {onPressRow ? (
-              <Ionicons name="chevron-forward" size={14} color={COLORS.gray400} />
+              <Ionicons
+                name="chevron-forward"
+                size={14}
+                color={COLORS.gray400}
+              />
             ) : null}
           </View>
         );

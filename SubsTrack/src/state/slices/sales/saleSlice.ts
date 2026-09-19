@@ -1,6 +1,6 @@
-import type { StateCreator } from 'zustand';
-import type { Collection, Customer, Product, Sale } from '@/src/core/types';
-import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
+import type { StateCreator } from "zustand";
+import type { Collection, Customer, Product, Sale } from "@/src/core/types";
+import { PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
 import {
   addSale,
   applyCollectionToSales,
@@ -14,16 +14,16 @@ import {
   type CreateSaleInput,
   type SaleVoidResult,
   type UpdateSaleInput,
-} from '@/src/modules/transaction/sales';
-import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import { addMonthTotal } from '@/src/shared/lib/monthSections';
-import type { GlobalState } from '@/src/state/globalStore';
+} from "@/src/modules/transaction/sales";
+import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
+import { addMonthTotal } from "@/src/shared/lib/monthSections";
+import type { GlobalState } from "@/src/state/globalStore";
 
 /**
  * Which sales the list may hold. `live` is the DEFAULT and the unfiltered
  * state — a voided sale is only ever shown because someone asked for it.
  */
-export type SaleStatus = 'live' | 'voided' | 'all';
+export type SaleStatus = "live" | "voided" | "all";
 
 export interface SaleSlice {
   items: Sale[];
@@ -45,18 +45,28 @@ export interface SaleSlice {
   setSearchQuery: (q: string) => Promise<void>;
   setCustomerFilter: (customer: Customer | null) => Promise<void>;
   setProductFilter: (product: Product | null) => Promise<void>;
-  setDateRange: (fromDate: string | null, toDate: string | null) => Promise<void>;
+  setDateRange: (
+    fromDate: string | null,
+    toDate: string | null,
+  ) => Promise<void>;
   setStatus: (status: SaleStatus) => Promise<void>;
   clearFilters: () => Promise<void>;
   createSale: (input: CreateSaleInput) => Promise<Sale | null>;
   updateSale: (sale: Sale, input: UpdateSaleInput) => Promise<Sale | null>;
-  voidSale: (id: string, voidedBy: string, reason: string) => Promise<Sale | null>;
+  voidSale: (
+    id: string,
+    voidedBy: string,
+    reason: string,
+  ) => Promise<Sale | null>;
   voidSales: (
     ids: string[],
     voidedBy: string,
     reason: string,
   ) => Promise<SaleVoidResult>;
-  applyCollection: (collection: Pick<Collection, 'items'>, sign?: 1 | -1) => void;
+  applyCollection: (
+    collection: Pick<Collection, "items">,
+    sign?: 1 | -1,
+  ) => void;
   clearError: () => void;
   reset: () => void;
 }
@@ -75,7 +85,7 @@ const isFiltered = (s: SaleSlice): boolean =>
     s.productFilter ||
     s.fromDate ||
     s.toDate ||
-    s.status !== 'live'
+    s.status !== "live"
   );
 
 /**
@@ -90,13 +100,13 @@ const filterOptions = (s: SaleSlice, branchFilter: BranchFilter) => ({
   productId: s.productFilter?.id ?? null,
   fromDate: s.fromDate,
   toDate: s.toDate,
-  includeVoided: s.status !== 'live',
-  voidedOnly: s.status === 'voided',
+  includeVoided: s.status !== "live",
+  voidedOnly: s.status === "voided",
 });
 
 export const createSaleSlice: StateCreator<
   GlobalState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   SaleSlice
 > = (set, get) => ({
@@ -107,13 +117,13 @@ export const createSaleSlice: StateCreator<
   loading: false,
   loadingMore: false,
   error: null,
-  searchQuery: '',
+  searchQuery: "",
   searchToken: 0,
   customerFilter: null,
   productFilter: null,
   fromDate: null,
   toDate: null,
-  status: 'live',
+  status: "live",
 
   fetchSales: async () => {
     const token = get().sales.searchToken;
@@ -252,15 +262,22 @@ export const createSaleSlice: StateCreator<
   },
 
   clearFilters: async () => {
-    const { customerFilter, productFilter, fromDate, toDate, status } = get().sales;
-    if (!customerFilter && !productFilter && !fromDate && !toDate && status === 'live')
+    const { customerFilter, productFilter, fromDate, toDate, status } =
+      get().sales;
+    if (
+      !customerFilter &&
+      !productFilter &&
+      !fromDate &&
+      !toDate &&
+      status === "live"
+    )
       return;
     set((state) => {
       state.sales.customerFilter = null;
       state.sales.productFilter = null;
       state.sales.fromDate = null;
       state.sales.toDate = null;
-      state.sales.status = 'live';
+      state.sales.status = "live";
       state.sales.searchToken += 1;
       state.sales.page = 0;
       state.sales.items = [];
@@ -281,7 +298,9 @@ export const createSaleSlice: StateCreator<
         addMonthTotal(state.sales.monthlyTotals, sale.soldAt, saleUsd(sale));
         state.sales.loading = false;
       });
-      get().products.applyStockDelta(stockDelta(new Map(), cartUnits(input.items)));
+      get().products.applyStockDelta(
+        stockDelta(new Map(), cartUnits(input.items)),
+      );
       get().ledger.markOwedChanged();
       if (isFiltered(get().sales)) void get().sales.fetchSales();
       return sale;
@@ -336,12 +355,18 @@ export const createSaleSlice: StateCreator<
         state.sales.items = applyVoidedSales(
           state.sales.items,
           [voided],
-          state.sales.status !== 'live',
+          state.sales.status !== "live",
         );
-        addMonthTotal(state.sales.monthlyTotals, voided.soldAt, -saleUsd(voided));
+        addMonthTotal(
+          state.sales.monthlyTotals,
+          voided.soldAt,
+          -saleUsd(voided),
+        );
         state.sales.loading = false;
       });
-      get().products.applyStockDelta(stockDelta(savedUnits(voided.items), new Map()));
+      get().products.applyStockDelta(
+        stockDelta(savedUnits(voided.items), new Map()),
+      );
       get().ledger.markOwedChanged();
       return voided;
     } catch (e) {
@@ -359,12 +384,16 @@ export const createSaleSlice: StateCreator<
       state.sales.loading = true;
       state.sales.error = null;
     });
-    const { voided, failed } = await saleService.voidSales(ids, voidedBy, reason);
+    const { voided, failed } = await saleService.voidSales(
+      ids,
+      voidedBy,
+      reason,
+    );
     set((state) => {
       state.sales.items = applyVoidedSales(
         state.sales.items,
         voided,
-        state.sales.status !== 'live',
+        state.sales.status !== "live",
       );
       for (const s of voided) {
         addMonthTotal(state.sales.monthlyTotals, s.soldAt, -saleUsd(s));
@@ -385,7 +414,11 @@ export const createSaleSlice: StateCreator<
 
   applyCollection: (collection, sign = 1) =>
     set((state) => {
-      state.sales.items = applyCollectionToSales(state.sales.items, collection, sign);
+      state.sales.items = applyCollectionToSales(
+        state.sales.items,
+        collection,
+        sign,
+      );
     }),
 
   clearError: () =>
@@ -400,12 +433,12 @@ export const createSaleSlice: StateCreator<
       state.sales.hasMore = true;
       state.sales.loading = false;
       state.sales.error = null;
-      state.sales.searchQuery = '';
+      state.sales.searchQuery = "";
       state.sales.searchToken += 1;
       state.sales.customerFilter = null;
       state.sales.productFilter = null;
       state.sales.fromDate = null;
       state.sales.toDate = null;
-      state.sales.status = 'live';
+      state.sales.status = "live";
     }),
 });

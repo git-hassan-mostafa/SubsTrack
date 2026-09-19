@@ -71,7 +71,9 @@ export function TenantSettingsScreen() {
             />
           }
         >
-          {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+          {error ? (
+            <ErrorBanner message={error} onDismiss={clearError} />
+          ) : null}
           <CustomerAllowanceSection />
           <DisplayCurrencySection />
           <UnpaidRuleSection />

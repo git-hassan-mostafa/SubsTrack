@@ -1,14 +1,18 @@
-import type { StateCreator } from 'zustand';
-import type { AuthUser } from '@/src/core/types';
-import { authService } from '@/src/modules/authentication/auth';
-import type { GlobalState } from '@/src/state/globalStore';
+import type { StateCreator } from "zustand";
+import type { AuthUser } from "@/src/core/types";
+import { authService } from "@/src/modules/authentication/auth";
+import type { GlobalState } from "@/src/state/globalStore";
 
 export interface AuthSlice {
   user: AuthUser | null;
   tenantActive: boolean;
   loading: boolean;
   error: string | null;
-  login: (username: string, tenantCode: string, password: string) => Promise<void>;
+  login: (
+    username: string,
+    tenantCode: string,
+    password: string,
+  ) => Promise<void>;
   restoreSession: () => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
@@ -16,7 +20,10 @@ export interface AuthSlice {
 
 // After a successful auth (login or session restore), prime supporting slices
 // in parallel so all downstream pickers/formatters have data ready.
-async function primePostAuth(get: () => GlobalState, user: AuthUser): Promise<void> {
+async function primePostAuth(
+  get: () => GlobalState,
+  user: AuthUser,
+): Promise<void> {
   await Promise.all([
     get().currencies.fetchCurrencies(),
     get().branches.fetchBranches(),
@@ -28,7 +35,7 @@ async function primePostAuth(get: () => GlobalState, user: AuthUser): Promise<vo
 
 export const createAuthSlice: StateCreator<
   GlobalState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   AuthSlice
 > = (set, get) => ({
@@ -78,8 +85,7 @@ export const createAuthSlice: StateCreator<
   logout: async () => {
     try {
       await authService.logout();
-    } catch {
-    }
+    } catch {}
     get().billing.reset();
     set((state) => {
       state.auth.user = null;

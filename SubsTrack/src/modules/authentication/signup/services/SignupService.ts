@@ -1,5 +1,5 @@
 import i18n from "@/src/core/i18n";
-import repository from '../repository/SignupRepository';
+import repository from "../repository/SignupRepository";
 import {
   type CreateTenantInput,
   type CreateTenantResult,
@@ -76,4 +76,4 @@ class SignupService {
   }
 }
 
-export default new SignupService()
+export default new SignupService();

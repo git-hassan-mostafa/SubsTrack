@@ -1,12 +1,12 @@
-import type { BranchFilter } from '@/src/core/constants';
-import type { DbUser } from '@/src/core/types/db';
+import type { BranchFilter } from "@/src/core/constants";
+import type { DbUser } from "@/src/core/types/db";
 
 export interface CreateUserPayload {
   username: string;
   fullName: string;
   password: string;
   phone: string | null;
-  role: 'admin' | 'user';
+  role: "admin" | "user";
   tenantId: string;
   branchId: string | null;
 }
@@ -21,7 +21,12 @@ export interface IUserRepository {
   create(payload: CreateUserPayload): Promise<DbUser>;
   update(
     id: string,
-    payload: Partial<Pick<DbUser, 'username' | 'full_name' | 'phone_number' | 'role' | 'branch_id'>>,
+    payload: Partial<
+      Pick<
+        DbUser,
+        "username" | "full_name" | "phone_number" | "role" | "branch_id"
+      >
+    >,
   ): Promise<DbUser>;
   setActive(id: string, active: boolean): Promise<DbUser>;
   countPayments(id: string): Promise<number>;

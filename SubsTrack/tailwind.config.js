@@ -1,20 +1,17 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: [
-    './app/**/*.{js,jsx,ts,tsx}',
-    './src/**/*.{js,jsx,ts,tsx}',
-  ],
-  presets: [require('nativewind/preset')],
+  content: ["./app/**/*.{js,jsx,ts,tsx}", "./src/**/*.{js,jsx,ts,tsx}"],
+  presets: [require("nativewind/preset")],
   theme: {
     extend: {
       colors: {
-        primary: { DEFAULT: '#6366f1', dark: '#4f46e5' },
-        success: '#22c55e',
-        'success-light': '#f0fdf4',
-        danger: '#ef4444',
+        primary: { DEFAULT: "#6366f1", dark: "#4f46e5" },
+        success: "#22c55e",
+        "success-light": "#f0fdf4",
+        danger: "#ef4444",
       },
       fontFamily: {
-        cairo: ['Cairo', 'System'],
+        cairo: ["Cairo", "System"],
       },
     },
   },

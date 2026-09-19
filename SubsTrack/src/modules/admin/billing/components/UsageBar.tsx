@@ -14,8 +14,7 @@ interface Props {
 function toneFor(used: number, total: number): { fill: string; text: string } {
   if (total === 0 || used >= total)
     return { fill: "bg-danger", text: "text-danger" };
-  if (used / total >= 0.8)
-    return { fill: "bg-warning", text: "text-warning" };
+  if (used / total >= 0.8) return { fill: "bg-warning", text: "text-warning" };
   return { fill: "bg-primary", text: "text-gray-900" };
 }
 

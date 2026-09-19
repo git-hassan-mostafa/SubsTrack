@@ -22,7 +22,7 @@ export class AllowanceRepository
 }
 
 const impl: IAllowanceRepository =
-  Platform.OS === 'web'
+  Platform.OS === "web"
     ? new AllowanceRepository()
     : new OfflineAllowanceRepository();
 

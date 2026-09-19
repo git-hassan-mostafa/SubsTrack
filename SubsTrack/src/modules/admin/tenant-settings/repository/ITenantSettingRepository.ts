@@ -1,4 +1,4 @@
-import type { DbTenantSetting } from '@/src/core/types/db';
+import type { DbTenantSetting } from "@/src/core/types/db";
 
 /**
  * The TenantSetting repository contract. Both the Supabase (online/web) class
@@ -8,5 +8,9 @@ import type { DbTenantSetting } from '@/src/core/types/db';
  */
 export interface ITenantSettingRepository {
   findAll(): Promise<DbTenantSetting[]>;
-  upsert(tenantId: string, key: string, value: string | null): Promise<DbTenantSetting>;
+  upsert(
+    tenantId: string,
+    key: string,
+    value: string | null,
+  ): Promise<DbTenantSetting>;
 }

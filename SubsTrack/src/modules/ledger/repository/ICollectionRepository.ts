@@ -1,12 +1,12 @@
-import type { BranchFilter } from '@/src/core/constants';
-import type { CashRow, WalletSource } from '@/src/core/types';
-import type { DbCollection, DbCollectionItem } from '@/src/core/types/db';
-import type { CreateChargePayload } from './IChargeRepository';
+import type { BranchFilter } from "@/src/core/constants";
+import type { CashRow, WalletSource } from "@/src/core/types";
+import type { DbCollection, DbCollectionItem } from "@/src/core/types/db";
+import type { CreateChargePayload } from "./IChargeRepository";
 
 /** One line of the split. `collection_id` is filled in by the repository. */
 export type CreateCollectionItemPayload = Omit<
   DbCollectionItem,
-  'id' | 'collection_id' | 'created_at' | 'updated_at' | 'charges'
+  "id" | "collection_id" | "created_at" | "updated_at" | "charges"
 >;
 
 /**
@@ -20,25 +20,25 @@ export type CreateCollectionItemPayload = Omit<
  */
 export type CreateCollectionPayload = Omit<
   DbCollection,
-  | 'id'
-  | 'created_at'
-  | 'updated_at'
-  | 'voided_at'
-  | 'voided_by'
-  | 'void_reason'
-  | 'held_by_user_id'
-  | 'remitted_at'
-  | 'remitted_by'
-  | 'collection_items'
-  | 'customers'
+  | "id"
+  | "created_at"
+  | "updated_at"
+  | "voided_at"
+  | "voided_by"
+  | "void_reason"
+  | "held_by_user_id"
+  | "remitted_at"
+  | "remitted_by"
+  | "collection_items"
+  | "customers"
 > & {
   items: CreateCollectionItemPayload[];
   charges: CreateChargePayload[];
 };
 
-export type SortDirection = 'desc' | 'asc';
+export type SortDirection = "desc" | "asc";
 
-export type CollectionSortField = 'received_at' | 'created_at' | 'updated_at';
+export type CollectionSortField = "received_at" | "created_at" | "updated_at";
 
 export interface FindCollectionsOptions {
   customerId?: string;
@@ -68,8 +68,16 @@ export interface ICollectionRepository {
   monthlyTotals(opts: FindCollectionsOptions): Promise<Record<string, number>>;
 
   create(payload: CreateCollectionPayload): Promise<DbCollection>;
-  void(id: string, voidedBy: string, reason: string | null): Promise<DbCollection>;
-  voidMany(ids: string[], voidedBy: string, reason: string | null): Promise<DbCollection[]>;
+  void(
+    id: string,
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<DbCollection>;
+  voidMany(
+    ids: string[],
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<DbCollection[]>;
 
   collectedInRange(
     startIso: string,

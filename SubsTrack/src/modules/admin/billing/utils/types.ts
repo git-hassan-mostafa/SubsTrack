@@ -1,11 +1,11 @@
 // The two things a tenant's subscription caps. The BILL is counted on 'plans'.
-export type QuotaKind = 'customers' | 'plans';
+export type QuotaKind = "customers" | "plans";
 
 // One number per quota — a limit pair, an active-count pair or an ask pair.
 export type QuotaPair = Record<QuotaKind, number>;
 
 // Customers first, so a breach of both reports the one the admin hits first.
-export const QUOTA_KINDS: QuotaKind[] = ['customers', 'plans'];
+export const QUOTA_KINDS: QuotaKind[] = ["customers", "plans"];
 
 // Serializable twin of QuotaExceededError, so the slice can hold it in state.
 export interface QuotaErrorPayload {
@@ -31,6 +31,6 @@ export const MIN_CUSTOMER_ALLOWANCE = 30;
 
 // Must match the RAISEs in lower_allowances() — see sql scripts/script.sql.
 export const ALLOWANCE_FLOOR_CODES: Record<QuotaKind, string> = {
-  customers: 'active_customers_exceed_limit:',
-  plans: 'active_plans_exceed_limit:',
+  customers: "active_customers_exceed_limit:",
+  plans: "active_plans_exceed_limit:",
 };

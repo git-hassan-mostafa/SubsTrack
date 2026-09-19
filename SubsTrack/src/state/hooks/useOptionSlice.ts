@@ -1,6 +1,6 @@
-import { useGlobalStore } from '@/src/state/hooks/useGlobalStore';
-import type { OptionSlice } from '@/src/state/slices/options/optionSlice';
-import { OPTION_KEYS } from '@/src/modules/options';
+import { useGlobalStore } from "@/src/state/hooks/useGlobalStore";
+import type { OptionSlice } from "@/src/state/slices/options/optionSlice";
+import { OPTION_KEYS } from "@/src/modules/options";
 
 export function useOptionSlice(): OptionSlice;
 export function useOptionSlice<T>(selector: (state: OptionSlice) => T): T;
@@ -13,15 +13,18 @@ export function useOptionSlice<T = OptionSlice>(
   });
 }
 
-
 function parseBool(value: string | null, fallback: boolean): boolean {
   if (value == null) return fallback;
-  return value.trim().toLowerCase() === 'true';
+  return value.trim().toLowerCase() === "true";
 }
 
 /** Raw string value of a global option, or `null` if the row is absent. */
 export const useOptionValue = (key: string): string | null =>
-  useOptionSlice((s) => s.items.find((o) => o.key.toLowerCase() === key.toLowerCase())?.value ?? null);
+  useOptionSlice(
+    (s) =>
+      s.items.find((o) => o.key.toLowerCase() === key.toLowerCase())?.value ??
+      null,
+  );
 
 /** A boolean global option. Missing/blank rows fall back to `fallback`. */
 export const useBooleanOption = (key: string, fallback = false): boolean =>

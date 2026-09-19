@@ -7,7 +7,10 @@ import { PageHeader } from "@/src/shared/components/PageHeader";
 import { useSwipeableTabs } from "@/src/shared/hooks/useSwipeableTabs";
 import { PeriodPicker } from "@/src/shared/components/PeriodPicker";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { SegmentedTabs, type Segment } from "@/src/shared/components/SegmentedTabs";
+import {
+  SegmentedTabs,
+  type Segment,
+} from "@/src/shared/components/SegmentedTabs";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { findCurrency } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -120,10 +123,18 @@ export function ReportsScreen() {
             empty={!data}
           >
             {section === "money" && money ? (
-              <MoneyReport data={money} currencies={currencies} displayCurrency={displayCurrency} />
+              <MoneyReport
+                data={money}
+                currencies={currencies}
+                displayCurrency={displayCurrency}
+              />
             ) : null}
             {section === "debts" && debts ? (
-              <DebtsReport data={debts} currencies={currencies} displayCurrency={displayCurrency} />
+              <DebtsReport
+                data={debts}
+                currencies={currencies}
+                displayCurrency={displayCurrency}
+              />
             ) : null}
           </ReportSection>
         </View>

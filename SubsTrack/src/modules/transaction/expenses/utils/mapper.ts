@@ -1,14 +1,19 @@
-import type { Expense, ExpenseCategory, ExpenseItem } from '@/src/core/types';
-import type { DbExpense } from '@/src/core/types/db';
-import i18n from '@/src/core/i18n';
-import { expenseCategoryLabelKey, isExpenseCategory } from './expenseCategories';
+import type { Expense, ExpenseCategory, ExpenseItem } from "@/src/core/types";
+import type { DbExpense } from "@/src/core/types/db";
+import i18n from "@/src/core/i18n";
+import {
+  expenseCategoryLabelKey,
+  isExpenseCategory,
+} from "./expenseCategories";
 
 export function mapDbExpenseToExpense(db: DbExpense): Expense {
   return {
     id: db.id,
     tenantId: db.tenant_id,
     branchId: db.branch_id,
-    category: (isExpenseCategory(db.category) ? db.category : 'other') as ExpenseCategory,
+    category: (isExpenseCategory(db.category)
+      ? db.category
+      : "other") as ExpenseCategory,
     description: db.description,
     amount: Number(db.amount),
     currencyId: db.currency_id,
@@ -32,7 +37,7 @@ export function mapDbExpenseToExpense(db: DbExpense): Expense {
 export function expenseToItem(e: Expense): ExpenseItem {
   return {
     id: `exp:${e.id}`,
-    source: 'manual',
+    source: "manual",
     category: e.category,
     label: e.description?.trim() || i18n.t(expenseCategoryLabelKey(e.category)),
     amount: e.amount,

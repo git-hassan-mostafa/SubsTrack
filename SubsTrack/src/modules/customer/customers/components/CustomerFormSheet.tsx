@@ -126,7 +126,11 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
         );
         if (ok) onDismiss();
       } else {
-        const created = await createCustomer(payload, user.tenantId, finalLines.length);
+        const created = await createCustomer(
+          payload,
+          user.tenantId,
+          finalLines.length,
+        );
         if (!created) return;
         const ok = await syncLines(
           created.id,

@@ -2,11 +2,7 @@ import { withDbLock } from "../dbLock";
 import { getDb } from "../db/sqlite";
 import { TABLE_BY_NAME } from "../db/tables";
 import { BACKUP_TABLE_ORDER } from "./tableOrder";
-import {
-  BACKUP_FORMAT,
-  BACKUP_VERSION,
-  type BackupSession,
-} from "./types";
+import { BACKUP_FORMAT, BACKUP_VERSION, type BackupSession } from "./types";
 
 export interface BackupSink {
   write: (chunk: string) => void;

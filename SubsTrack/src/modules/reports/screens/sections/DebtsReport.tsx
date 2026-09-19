@@ -4,7 +4,10 @@ import { useTranslation } from "react-i18next";
 import type { ChargeKind, Currency } from "@/src/core/types";
 import { formatMoney } from "@/src/core/utils/currency";
 import { delta, shareOfTotal } from "../../utils/aggregate";
-import type { DebtsReport as DebtsReportData, RecordRow } from "../../utils/types";
+import type {
+  DebtsReport as DebtsReportData,
+  RecordRow,
+} from "../../utils/types";
 import { ReportCard } from "../../components/ReportCard";
 import { KpiRow, type Kpi } from "../../components/KpiRow";
 import { BreakdownList } from "../../components/BreakdownList";
@@ -111,7 +114,10 @@ export function DebtsReport({ data, currencies, displayCurrency }: Props) {
       </ReportCard>
 
       <ReportCard title={t("reports.debt_by_category")}>
-        <BreakdownList rows={categoryRows} emptyLabel={t("reports.no_debtors")} />
+        <BreakdownList
+          rows={categoryRows}
+          emptyLabel={t("reports.no_debtors")}
+        />
       </ReportCard>
 
       <RecordsSheet

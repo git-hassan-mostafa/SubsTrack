@@ -1,4 +1,4 @@
 export type MultiMonthConflict = {
-    billingMonth: string;
-    label: string;
+  billingMonth: string;
+  label: string;
 };

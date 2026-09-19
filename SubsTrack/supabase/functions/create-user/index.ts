@@ -12,7 +12,11 @@ const corsHeaders = {
 };
 
 // One structured JSON line per event, greppable in the dashboard's logs.
-function log(reqId: string, event: string, detail: Record<string, unknown> = {}) {
+function log(
+  reqId: string,
+  event: string,
+  detail: Record<string, unknown> = {},
+) {
   console.log(JSON.stringify({ fn: "create-user", reqId, event, ...detail }));
 }
 
@@ -63,10 +67,13 @@ Deno.serve(async (req) => {
 
     // Parse body and verify JWT in parallel — body parsing has no security
     // implications since we validate the caller before acting on the body.
-    const [body, { data: { user: caller }, error: callerErr }] = await Promise.all([
-      req.json(),
-      callerClient.auth.getUser(),
-    ]);
+    const [
+      body,
+      {
+        data: { user: caller },
+        error: callerErr,
+      },
+    ] = await Promise.all([req.json(), callerClient.auth.getUser()]);
 
     if (callerErr || !caller) {
       // Decode the unverified payload only to report WHY — an expired token is a
@@ -76,7 +83,9 @@ Deno.serve(async (req) => {
       try {
         const raw = authHeader.replace(/^Bearer\s+/i, "");
         const claims = JSON.parse(atob(raw.split(".")[1]));
-        tokenExpiredAt = claims.exp ? new Date(claims.exp * 1000).toISOString() : null;
+        tokenExpiredAt = claims.exp
+          ? new Date(claims.exp * 1000).toISOString()
+          : null;
         tokenIsAnon = claims.role === "anon";
       } catch {
         // Not a JWT at all — the two flags stay at their defaults.
@@ -85,7 +94,8 @@ Deno.serve(async (req) => {
         reason: "jwt_rejected",
         authError: callerErr?.message ?? null,
         tokenExpiredAt,
-        tokenExpired: tokenExpiredAt !== null && tokenExpiredAt < new Date().toISOString(),
+        tokenExpired:
+          tokenExpiredAt !== null && tokenExpiredAt < new Date().toISOString(),
         tokenIsAnon,
       });
     }
@@ -113,7 +123,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { username, fullName, password, phone, role, tenantId, branchId } = body;
+    const { username, fullName, password, phone, role, tenantId, branchId } =
+      body;
 
     // The payload as received — never the password itself.
     log(reqId, "payload", {
@@ -150,15 +161,17 @@ Deno.serve(async (req) => {
     // Enforce branch isolation: branch-scoped admins can only create users in
     // their own branch. Tenant-wide admins (branch_id IS NULL) can assign any
     // branch (including NULL = tenant-wide) within the same tenant.
-    const resolvedBranchId: string | null = callerProfile.branch_id !== null
-      ? callerProfile.branch_id   // branch-scoped: force their own branch
-      : (branchId ?? null);
+    const resolvedBranchId: string | null =
+      callerProfile.branch_id !== null
+        ? callerProfile.branch_id // branch-scoped: force their own branch
+        : (branchId ?? null);
 
     // Fan out all independent lookups in parallel:
     //   - tenant_code is always needed
     //   - branch ownership check: only for tenant-wide admins supplying an explicit branchId
     //   - branch existence count: only for role='user' with no assigned branch
-    const needsBranchValidation = callerProfile.branch_id === null && resolvedBranchId !== null;
+    const needsBranchValidation =
+      callerProfile.branch_id === null && resolvedBranchId !== null;
     const needsBranchCount = role === "user" && resolvedBranchId === null;
 
     log(reqId, "branch_resolved", {
@@ -172,12 +185,23 @@ Deno.serve(async (req) => {
       { data: branchRow, error: branchErr },
       { count, error: countErr },
     ] = await Promise.all([
-      serviceClient.from("tenants").select("tenant_code").eq("id", tenantId).single(),
+      serviceClient
+        .from("tenants")
+        .select("tenant_code")
+        .eq("id", tenantId)
+        .single(),
       needsBranchValidation
-        ? serviceClient.from("branches").select("id, tenant_id").eq("id", resolvedBranchId).single()
+        ? serviceClient
+            .from("branches")
+            .select("id, tenant_id")
+            .eq("id", resolvedBranchId)
+            .single()
         : Promise.resolve({ data: null, error: null }),
       needsBranchCount
-        ? serviceClient.from("branches").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId)
+        ? serviceClient
+            .from("branches")
+            .select("id", { count: "exact", head: true })
+            .eq("tenant_id", tenantId)
         : Promise.resolve({ count: 0, error: null }),
     ]);
 
@@ -188,7 +212,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (needsBranchValidation && (branchErr || !branchRow || branchRow.tenant_id !== tenantId)) {
+    if (
+      needsBranchValidation &&
+      (branchErr || !branchRow || branchRow.tenant_id !== tenantId)
+    ) {
       return fail(reqId, 400, "Invalid branch for this tenant", {
         resolvedBranchId,
         tenantId,
@@ -252,7 +279,7 @@ Deno.serve(async (req) => {
         dbDetails: profileErr.details ?? null,
       });
       // Rollback the auth user to keep state consistent
-      await serviceClient.auth.admin.deleteUser(userId).catch(() => { });
+      await serviceClient.auth.admin.deleteUser(userId).catch(() => {});
       throw new Error(profileErr.message);
     }
 
@@ -267,13 +294,10 @@ Deno.serve(async (req) => {
       message,
       stack: err instanceof Error ? err.stack : null,
     });
-    return new Response(
-      JSON.stringify({ error: message }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    return new Response(JSON.stringify({ error: message }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
 

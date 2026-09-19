@@ -20,7 +20,11 @@ interface Props {
 /** label · inline share bar · amount. The shape of every "by X" breakdown. */
 export function BreakdownList({ rows, emptyLabel, onPressRow }: Props) {
   if (rows.length === 0) {
-    return <Text className="text-xs text-gray-400 py-4 text-center">{emptyLabel}</Text>;
+    return (
+      <Text className="text-xs text-gray-400 py-4 text-center">
+        {emptyLabel}
+      </Text>
+    );
   }
 
   return (

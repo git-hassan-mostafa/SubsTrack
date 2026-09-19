@@ -5,6 +5,7 @@ The automated safety net under every rule that touches money. It runs on a lapto
 **It is not a replacement for the manual files.** These tests exercise services and pure functions with mocked repositories — they never open a screen, never touch Supabase and never touch SQLite. [ledger-collections.md](ledger-collections.md), [monthly-grid.md](monthly-grid.md), [sales.md](sales.md) and [shared-handover-void.md](shared-handover-void.md) still own the on-device behaviour.
 
 **Reference code:**
+
 - Runner + config: [tests/](../tests/) — `jest.config.js`, `tsconfig.json`, `babel.config.js`, `stubs/`, `helpers/`
 - Suites: `tests/suites/*.test.ts` (one file per area, every case numbered `TC-XX-nn`)
 - Under test: `waterfall.ts`, `openItems.ts`, `BillingService.ts`, `PaymentService.ts`, `payOrder.ts`, `monthDueRules.ts`, `linePrice.ts`, `ChargeService.ts`, `CollectionService.ts`, `LedgerService.ts`, `SaleService.ts`, `saleLines.ts`, `saleListPatch.ts`, `sharedBills.ts`, `mergeCollection.ts`, `custody.ts`, `userPermissions.ts`, `currency.ts`, `date.ts`, `monthTotals.ts`
@@ -27,7 +28,7 @@ The automated safety net under every rule that touches money. It runs on a lapto
 
 1.4 `npm run typecheck` type-checks the suites against the app's **real** types (Jest swaps in stubs, tsc does not). It must be clean before a money change is called done — a green test run proves the rules, not the shapes.
 
-1.5 **AV note:** this machine's script control blocks spawning vendored tool binaries, so `npx`, `esbuild` and anything built on them fail with *Access is denied*. Jest + Babel is pure JavaScript and is unaffected. If `npm test` reports `Access is denied`, run `node node_modules/jest/bin/jest.js` directly.
+1.5 **AV note:** this machine's script control blocks spawning vendored tool binaries, so `npx`, `esbuild` and anything built on them fail with _Access is denied_. Jest + Babel is pure JavaScript and is unaffected. If `npm test` reports `Access is denied`, run `node node_modules/jest/bin/jest.js` directly.
 
 1.6 A new native module in the app usually needs a matching one-file stub under `tests/stubs/` plus a line in `jest.config.js` → `moduleNameMapper`. Nothing in a stub may implement a money rule — only the platform under one.
 
@@ -35,25 +36,25 @@ The automated safety net under every rule that touches money. It runs on a lapto
 
 ## 2. What each suite guards
 
-| Suite | Cases | The rule it protects |
-|---|---|---|
-| `waterfall.test.ts` | TC-WF-* | Oldest **due date** first, each bill filled completely, never proportionally; a total order so the preview and the save can never disagree; float dust never leaves a bill a millionth short |
-| `monthGrid.test.ts` | TC-MG-* | The status ladder (`before_start` → money → skip → future → not-due-yet → unpaid); a partial payment reads "paid"; an **empty** bill reads exactly like an untouched month; multi-month coverage across a year end; the `customer_start_day` rule and its 31st-of-the-month clamp |
-| `payOrder.test.ts` | TC-PO-* | Pay oldest-first / void newest-first, months inside one write never blocking each other, a previous year's backlog still blocking, prepaying out of order refused |
-| `customerStatus.test.ts` | TC-CS-* | The five badge rules — chiefly that "✓ Paid" and "Overdue" can never appear together, and that an absent status renders **no** pill |
-| `collect.test.ts` | TC-CL-* | Every refusal on the one write that takes money; a virtual month materialising its bill; two devices converging on one bill; revive + re-price before cash lands; the open-amount month |
-| `chargeEdits.test.ts` | TC-CH-* | Raising / voiding / writing off a bill, writing off a whole debtor in one call (TC-CH-35…39b, gotcha #143), and the two edit locks (below-collected, voided-or-written-off) |
-| `owed.test.ts` | TC-OW-* | "What does this customer owe?" — the stored-vs-virtual dedupe, and the Debts view's parts adding to its total exactly |
-| `sale.test.ts` | TC-SL-* | Sale validation, stock, the bill it raises, cash at the till, the **typed total** and itemless sales (TC-SL-50…58, gotcha #142), editing (including the currency lock and re-pricing to a typed total), voiding with its cash |
-| `invariants.test.ts` | TC-IV-* | End-to-end money conservation — see section 3 |
-| `mergeCollection.test.ts` | TC-MC-* | The month grid's patch-from-the-write, including a re-priced bill |
-| `salePatchAndShared.test.ts` | TC-SP-*, TC-SS-* | The sales-list patches, the product-vs-service line split, and naming the other bills a shared void un-pays |
-| `selectionAndCustody.test.ts` | TC-MS-*, TC-WA-* | Which cells select together on a multi-month plan; who may take whose cash |
-| `userPermissions.test.ts` | TC-UP-* | Who may edit or deactivate whom now that every branch can **read** the tenant-wide admins — writing a user stays branch-owned, exactly as `users_update` says |
-| `linePrice.test.ts` | TC-LP-* | A special price replaces the plan's for the **same span** — "100 per 3 months", never 100 a month |
-| `currencyAndDates.test.ts` | TC-CU-*, TC-DT-* | USD always via the row's **frozen** rate; a hand-over bucketed into its **local** month |
-| `customerAllowance.test.ts` | TC-CA-*, TC-CD-*, TC-CS-* | What the tenant is billed, whether they may add a customer, and the two floors under a lowered limit — see section 2b |
-| `translations.test.ts` | TC-TR-* | en/ar stay the same SHAPE — same keys, same `{{placeholders}}`, nothing blank. Not money, but a missing placeholder renders raw braces to the user |
+| Suite                         | Cases                     | The rule it protects                                                                                                                                                                                                                                                              |
+| ----------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `waterfall.test.ts`           | TC-WF-*                   | Oldest **due date** first, each bill filled completely, never proportionally; a total order so the preview and the save can never disagree; float dust never leaves a bill a millionth short                                                                                      |
+| `monthGrid.test.ts`           | TC-MG-*                   | The status ladder (`before_start` → money → skip → future → not-due-yet → unpaid); a partial payment reads "paid"; an **empty** bill reads exactly like an untouched month; multi-month coverage across a year end; the `customer_start_day` rule and its 31st-of-the-month clamp |
+| `payOrder.test.ts`            | TC-PO-*                   | Pay oldest-first / void newest-first, months inside one write never blocking each other, a previous year's backlog still blocking, prepaying out of order refused                                                                                                                 |
+| `customerStatus.test.ts`      | TC-CS-*                   | The five badge rules — chiefly that "✓ Paid" and "Overdue" can never appear together, and that an absent status renders **no** pill                                                                                                                                               |
+| `collect.test.ts`             | TC-CL-*                   | Every refusal on the one write that takes money; a virtual month materialising its bill; two devices converging on one bill; revive + re-price before cash lands; the open-amount month                                                                                           |
+| `chargeEdits.test.ts`         | TC-CH-*                   | Raising / voiding / writing off a bill, writing off a whole debtor in one call (TC-CH-35…39b, gotcha #143), and the two edit locks (below-collected, voided-or-written-off)                                                                                                       |
+| `owed.test.ts`                | TC-OW-*                   | "What does this customer owe?" — the stored-vs-virtual dedupe, and the Debts view's parts adding to its total exactly                                                                                                                                                             |
+| `sale.test.ts`                | TC-SL-*                   | Sale validation, stock, the bill it raises, cash at the till, the **typed total** and itemless sales (TC-SL-50…58, gotcha #142), editing (including the currency lock and re-pricing to a typed total), voiding with its cash                                                     |
+| `invariants.test.ts`          | TC-IV-*                   | End-to-end money conservation — see section 3                                                                                                                                                                                                                                     |
+| `mergeCollection.test.ts`     | TC-MC-*                   | The month grid's patch-from-the-write, including a re-priced bill                                                                                                                                                                                                                 |
+| `salePatchAndShared.test.ts`  | TC-SP-_, TC-SS-_          | The sales-list patches, the product-vs-service line split, and naming the other bills a shared void un-pays                                                                                                                                                                       |
+| `selectionAndCustody.test.ts` | TC-MS-_, TC-WA-_          | Which cells select together on a multi-month plan; who may take whose cash                                                                                                                                                                                                        |
+| `userPermissions.test.ts`     | TC-UP-*                   | Who may edit or deactivate whom now that every branch can **read** the tenant-wide admins — writing a user stays branch-owned, exactly as `users_update` says                                                                                                                     |
+| `linePrice.test.ts`           | TC-LP-*                   | A special price replaces the plan's for the **same span** — "100 per 3 months", never 100 a month                                                                                                                                                                                 |
+| `currencyAndDates.test.ts`    | TC-CU-_, TC-DT-_          | USD always via the row's **frozen** rate; a hand-over bucketed into its **local** month                                                                                                                                                                                           |
+| `customerAllowance.test.ts`   | TC-CA-_, TC-CD-_, TC-CS-* | What the tenant is billed, whether they may add a customer, and the two floors under a lowered limit — see section 2b                                                                                                                                                             |
+| `translations.test.ts`        | TC-TR-*                   | en/ar stay the same SHAPE — same keys, same `{{placeholders}}`, nothing blank. Not money, but a missing placeholder renders raw braces to the user                                                                                                                                |
 
 ---
 
@@ -61,19 +62,19 @@ The automated safety net under every rule that touches money. It runs on a lapto
 
 The tenant's own bill and the one quantity limit left in the product. There are **no tiers**: branches, users, plans, products and currencies are unlimited, and only the number of **active customers** is capped. The on-device behaviour — the settings card, the request flow, the block modal and the owner-side accept / decline — is [customer-allowance.md](customer-allowance.md).
 
-| Case | What it asserts |
-|---|---|
-| TC-CA-01 | `monthlyAmountUsd(100, 0.15)` = **15** — the amount is active customers × price per customer, **always in USD**, never the tenant's display currency |
-| TC-CA-02 | **Rounds to cents.** `7 × 0.15` must read **1.05**, not `1.0499999999999998`; `3 × 0.3333` reads `1` |
-| TC-CA-03 | A tenant with no customers owes **0** |
-| TC-CA-04 | A **zero price** owes 0 however many customers — a tenant the owner does not charge |
-| TC-CA-05 | A create **below** the allowance is allowed (30 allowed, 29 active) |
+| Case     | What it asserts                                                                                                                                                        |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TC-CA-01 | `monthlyAmountUsd(100, 0.15)` = **15** — the amount is active customers × price per customer, **always in USD**, never the tenant's display currency                   |
+| TC-CA-02 | **Rounds to cents.** `7 × 0.15` must read **1.05**, not `1.0499999999999998`; `3 × 0.3333` reads `1`                                                                   |
+| TC-CA-03 | A tenant with no customers owes **0**                                                                                                                                  |
+| TC-CA-04 | A **zero price** owes 0 however many customers — a tenant the owner does not charge                                                                                    |
+| TC-CA-05 | A create **below** the allowance is allowed (30 allowed, 29 active)                                                                                                    |
 | TC-CA-06 | **Blocks AT the allowance, not one past it** — 30 active against 30 allowed throws `CustomerLimitError`, and the error carries both numbers so the modal can name them |
-| TC-CA-07 | Still blocks when the tenant is already **over** cap, i.e. after the owner lowered the allowance under the live count |
-| TC-CA-08 | A **zero allowance** blocks everything, including the very first customer. Unreachable in the product since the floor became 30, but the cap must not depend on that |
-| TC-CA-09 | A request **below 10** is refused (9, 0 and a negative) |
-| TC-CA-10 | 10 and above are accepted — the minimum is inclusive |
-| TC-CA-11 | A **fraction** of a customer (10.5) is refused |
+| TC-CA-07 | Still blocks when the tenant is already **over** cap, i.e. after the owner lowered the allowance under the live count                                                  |
+| TC-CA-08 | A **zero allowance** blocks everything, including the very first customer. Unreachable in the product since the floor became 30, but the cap must not depend on that   |
+| TC-CA-09 | A request **below 10** is refused (9, 0 and a negative)                                                                                                                |
+| TC-CA-10 | 10 and above are accepted — the minimum is inclusive                                                                                                                   |
+| TC-CA-11 | A **fraction** of a customer (10.5) is refused                                                                                                                         |
 
 These are pure-function assertions on `BillingService`. The server-side half of the same rules — the partial unique index behind "one pending request", the missing UPDATE policy on `tenants`, the billing-column trigger, and the `REVOKE` on `accept_customer_request` — is **not** reachable from here and stays a manual check: [customer-allowance.md](customer-allowance.md) §9, a release blocker.
 
@@ -123,7 +124,7 @@ Each one failed before it was fixed. If one starts failing again, the bug is bac
 
 5.1 **The Supabase query layer.** PostgREST filter semantics, `charge_balances`, RLS and branch scoping are asserted only by the manual files — which is why two web-only bugs in this sweep (the money-in **search** returning everything, and walk-in cash missing from the **section-header totals**) survived until someone read the query. Their fix is verifiable only by hand: [ledger-collections.md](ledger-collections.md) §18.
 
-5.2 **The SQLite mirror.** The offline repositories' SQL is not executed here; the fake ledger reproduces their documented *contract*, not their SQL. Offline behaviour stays [sync-engine.md](sync-engine.md)'s job.
+5.2 **The SQLite mirror.** The offline repositories' SQL is not executed here; the fake ledger reproduces their documented _contract_, not their SQL. Offline behaviour stays [sync-engine.md](sync-engine.md)'s job.
 
 5.3 **Screens.** No component renders. The pay/void order gates are asserted at the service, but the panel re-asserts them for its popups and that copy is manual (`monthly-grid.md`).
 
@@ -135,16 +136,16 @@ Each one failed before it was fixed. If one starts failing again, the bug is bac
 
 `validateDecrease(newAllowance, current, activeCount)` guards the one door a tenant admin may push without the owner. Two floors apply and **the higher one binds**.
 
-| Case | What it asserts |
-| --- | --- |
-| TC-CD-01 | A cut down to **exactly** the active count is allowed |
-| TC-CD-02 | One **below** the active count throws `AllowanceFloorError`, carrying both numbers so the sheet can say how many to deactivate |
-| TC-CD-03 | A **raise** through the lowering door is refused, equal-to-current included — the request flow is the only way up |
-| TC-CD-04 | A fraction (40.5) or a negative is refused |
-| TC-CD-05 | **Never below 30**, even with 0 active customers — the product floor, not just the active count |
-| TC-CD-05b | A cut to **exactly** 30 is allowed |
-| TC-CD-05c | With 45 active, 30 is still refused — the **active count outranks** the product floor when it is higher |
-| TC-CD-06 | When both the raise check and the floor would fire, the **floor** is what throws |
-| TC-CD-07 | A tenant already over cap can still cut down to its own active count |
-| TC-CD-08 | The floor is read from `MIN_CUSTOMER_ALLOWANCE`, not a literal 30 sprinkled around |
-| TC-CS-01…03 | The signed change field: `+20` keeps its plus, `-20` its minus, and **no change renders empty**, never `+0` |
+| Case        | What it asserts                                                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| TC-CD-01    | A cut down to **exactly** the active count is allowed                                                                          |
+| TC-CD-02    | One **below** the active count throws `AllowanceFloorError`, carrying both numbers so the sheet can say how many to deactivate |
+| TC-CD-03    | A **raise** through the lowering door is refused, equal-to-current included — the request flow is the only way up              |
+| TC-CD-04    | A fraction (40.5) or a negative is refused                                                                                     |
+| TC-CD-05    | **Never below 30**, even with 0 active customers — the product floor, not just the active count                                |
+| TC-CD-05b   | A cut to **exactly** 30 is allowed                                                                                             |
+| TC-CD-05c   | With 45 active, 30 is still refused — the **active count outranks** the product floor when it is higher                        |
+| TC-CD-06    | When both the raise check and the floor would fire, the **floor** is what throws                                               |
+| TC-CD-07    | A tenant already over cap can still cut down to its own active count                                                           |
+| TC-CD-08    | The floor is read from `MIN_CUSTOMER_ALLOWANCE`, not a literal 30 sprinkled around                                             |
+| TC-CS-01…03 | The signed change field: `+20` keeps its plus, `-20` its minus, and **no change renders empty**, never `+0`                    |

@@ -1,8 +1,8 @@
-import { isOnline } from '@/src/core/offline/net/connectivity';
-import { RequiresConnectionError } from '@/src/core/offline/errors';
-import type { CreateTenantInput, CreateTenantResult } from '../utils/types';
-import type { ISignupRepository } from './ISignupRepository';
-import { SignupRepository } from './SignupRepository';
+import { isOnline } from "@/src/core/offline/net/connectivity";
+import { RequiresConnectionError } from "@/src/core/offline/errors";
+import type { CreateTenantInput, CreateTenantResult } from "../utils/types";
+import type { ISignupRepository } from "./ISignupRepository";
+import { SignupRepository } from "./SignupRepository";
 
 /**
  * Offline Signup repository. Signup has no local tables — both methods hit the

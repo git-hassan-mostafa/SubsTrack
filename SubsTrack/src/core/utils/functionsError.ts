@@ -9,7 +9,7 @@ function errorResponse(err: unknown): Response | null {
   if (!context) return null;
   const nested = (context as { response?: unknown }).response;
   const candidate = nested ?? context;
-  return typeof (candidate as Response)?.clone === 'function'
+  return typeof (candidate as Response)?.clone === "function"
     ? (candidate as Response)
     : null;
 }

@@ -1,4 +1,4 @@
-import type { UserRole } from '@/src/core/types';
+import type { UserRole } from "@/src/core/types";
 
 /** Role alone cannot tell a branch admin from a tenant-wide one — see custody.ts. */
 export interface UserActor {
@@ -16,6 +16,6 @@ export function canEditUser(viewer: UserActor, target: UserActor): boolean {
 export function canManageUser(viewer: UserActor, target: UserActor): boolean {
   if (target.id === viewer.id) return false;
   if (!canEditUser(viewer, target)) return false;
-  if (viewer.role === 'superadmin') return true;
-  return viewer.role === 'admin' && target.role === 'user';
+  if (viewer.role === "superadmin") return true;
+  return viewer.role === "admin" && target.role === "user";
 }

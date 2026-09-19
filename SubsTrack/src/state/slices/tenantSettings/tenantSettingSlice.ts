@@ -1,7 +1,7 @@
-import type { StateCreator } from 'zustand';
-import type { TenantSetting, UnpaidStartRule } from '@/src/core/types';
-import tenantSettingService from '@/src/modules/admin/tenant-settings/services/TenantSettingService';
-import type { GlobalState } from '@/src/state/globalStore';
+import type { StateCreator } from "zustand";
+import type { TenantSetting, UnpaidStartRule } from "@/src/core/types";
+import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
+import type { GlobalState } from "@/src/state/globalStore";
 
 export interface TenantSettingSlice {
   items: TenantSetting[];
@@ -19,7 +19,7 @@ export interface TenantSettingSlice {
 
 export const createTenantSettingSlice: StateCreator<
   GlobalState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   TenantSettingSlice
 > = (set, get) => {
@@ -37,7 +37,9 @@ export const createTenantSettingSlice: StateCreator<
     try {
       const saved = await call(tenantId);
       set((state) => {
-        const i = state.tenantSettings.items.findIndex((s) => s.key === saved.key);
+        const i = state.tenantSettings.items.findIndex(
+          (s) => s.key === saved.key,
+        );
         if (i >= 0) state.tenantSettings.items[i] = saved;
         else state.tenantSettings.items.push(saved);
         state.tenantSettings.saving = false;

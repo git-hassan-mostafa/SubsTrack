@@ -1,10 +1,18 @@
-import type { Plan } from '@/src/core/types';
-import type { BranchFilter } from '@/src/core/constants';
-import i18n from '@/src/core/i18n';
-import repository from '../repository/PlanRepository';
-import { mapDbPlanToPlan } from '../utils/mapper';
+import type { Plan } from "@/src/core/types";
+import type { BranchFilter } from "@/src/core/constants";
+import i18n from "@/src/core/i18n";
+import repository from "../repository/PlanRepository";
+import { mapDbPlanToPlan } from "../utils/mapper";
 
-type PlanInput = Pick<Plan, 'name' | 'isCustomPrice' | 'price' | 'durationMonths' | 'currencyId' | 'branchId'>
+type PlanInput = Pick<
+  Plan,
+  | "name"
+  | "isCustomPrice"
+  | "price"
+  | "durationMonths"
+  | "currencyId"
+  | "branchId"
+>;
 
 class PlanService {
   async getPlans(branchFilter: BranchFilter = null): Promise<Plan[]> {
@@ -56,27 +64,36 @@ class PlanService {
   }
 
   private validate(data: PlanInput): void {
-    if (!data.name.trim()) throw new Error(i18n.t('errors.plan_name_required'));
+    if (!data.name.trim()) throw new Error(i18n.t("errors.plan_name_required"));
     if (data.durationMonths < 1 || !Number.isInteger(data.durationMonths)) {
-      throw new Error(i18n.t('errors.plan_duration_invalid'));
+      throw new Error(i18n.t("errors.plan_duration_invalid"));
     }
     if (data.durationMonths > 1 && data.isCustomPrice) {
-      throw new Error(i18n.t('errors.multimonth_no_custom_price'));
+      throw new Error(i18n.t("errors.multimonth_no_custom_price"));
     }
     if (!data.isCustomPrice) {
-      if (data.price === null || data.price === undefined) throw new Error(i18n.t('errors.plan_fixed_needs_price'));
-      if (typeof data.price !== 'number' || Number.isNaN(data.price)) throw new Error(i18n.t('errors.plan_fixed_needs_price'));
-      if (data.price <= 0) throw new Error(i18n.t('errors.plan_price_positive'));
+      if (data.price === null || data.price === undefined)
+        throw new Error(i18n.t("errors.plan_fixed_needs_price"));
+      if (typeof data.price !== "number" || Number.isNaN(data.price))
+        throw new Error(i18n.t("errors.plan_fixed_needs_price"));
+      if (data.price <= 0)
+        throw new Error(i18n.t("errors.plan_price_positive"));
     }
   }
 
   private rethrow(err: unknown): never {
-    const msg = err instanceof Error ? err.message : '';
-    if (msg.includes('uq_plans_name_tenant') || msg.includes('uq_plans_name_tenant_branch') || msg.includes('duplicate')) {
-      throw new Error(i18n.t('errors.plan_name_exists'));
+    const msg = err instanceof Error ? err.message : "";
+    if (
+      msg.includes("uq_plans_name_tenant") ||
+      msg.includes("uq_plans_name_tenant_branch") ||
+      msg.includes("duplicate")
+    ) {
+      throw new Error(i18n.t("errors.plan_name_exists"));
     }
-    throw err instanceof Error ? err : new Error(i18n.t('errors.connection_error'));
+    throw err instanceof Error
+      ? err
+      : new Error(i18n.t("errors.connection_error"));
   }
 }
 
-export default new PlanService()
+export default new PlanService();

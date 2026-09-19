@@ -19,7 +19,7 @@ export interface DbCustomerRequest {
   granted_count: number | null;
   requested_plans: number | null;
   granted_plans: number | null;
-  status: 'pending' | 'accepted' | 'declined' | 'cancelled';
+  status: "pending" | "accepted" | "declined" | "cancelled";
   requested_by: string | null;
   decided_by: string | null;
   decided_at: string | null;

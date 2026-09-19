@@ -76,14 +76,25 @@ export interface LedgerSlice {
   ) => Promise<Collection | null>;
 
   addManualCharge: (input: CreateManualChargeInput) => Promise<Charge | null>;
-  updateManualCharge: (id: string, values: UpdateManualChargeInput) => Promise<Charge | null>;
-  voidCharge: (id: string, voidedBy: string, reason: string | null) => Promise<boolean>;
+  updateManualCharge: (
+    id: string,
+    values: UpdateManualChargeInput,
+  ) => Promise<Charge | null>;
+  voidCharge: (
+    id: string,
+    voidedBy: string,
+    reason: string | null,
+  ) => Promise<boolean>;
   voidChargeWithPayments: (
     id: string,
     voidedBy: string,
     reason: string | null,
   ) => Promise<boolean>;
-  writeOffCharge: (id: string, writtenOffBy: string, reason: string | null) => Promise<boolean>;
+  writeOffCharge: (
+    id: string,
+    writtenOffBy: string,
+    reason: string | null,
+  ) => Promise<boolean>;
   writeOffCharges: (
     ids: string[],
     writtenOffBy: string,
@@ -109,7 +120,7 @@ export const createLedgerSlice: StateCreator<
    * success also bumps `owedVersion` — one place, instead of remembering it at
    * seven call sites.
    */
-  const run = async <T,>(
+  const run = async <T>(
     flag: "loading" | "loadingCollect",
     fn: () => Promise<T>,
   ): Promise<T | null> => {
@@ -170,8 +181,7 @@ export const createLedgerSlice: StateCreator<
         set((state) => {
           state.ledger.netByCustomer = netMap(debts);
         });
-      } catch {
-      }
+      } catch {}
     },
 
     fetchOwed: async (customer, lines, currencies) => {
@@ -180,7 +190,9 @@ export const createLedgerSlice: StateCreator<
         state.ledger.error = null;
       });
       try {
-        const skips = await skippedMonthService.getSkipsForCustomer(customer.id);
+        const skips = await skippedMonthService.getSkipsForCustomer(
+          customer.id,
+        );
         const owed = await ledgerService.getOwed({
           customer,
           lines,
@@ -239,7 +251,8 @@ export const createLedgerSlice: StateCreator<
         state.ledger.loadingCollect = true;
         state.ledger.error = null;
       });
-      const { collections, failed } = await collectionService.collectMulti(inputs);
+      const { collections, failed } =
+        await collectionService.collectMulti(inputs);
       for (const collection of collections) {
         get().sales.applyCollection(collection);
         get().payments.applyCollection(collection);
@@ -268,13 +281,16 @@ export const createLedgerSlice: StateCreator<
       };
     },
 
-    addManualCharge: (input) => run("loading", () => chargeService.addManualCharge(input)),
+    addManualCharge: (input) =>
+      run("loading", () => chargeService.addManualCharge(input)),
 
     updateManualCharge: (id, values) =>
       run("loading", () => chargeService.updateManualCharge(id, values)),
 
     voidCharge: async (id, voidedBy, reason) => {
-      const result = await run("loading", () => chargeService.voidCharge(id, voidedBy, reason));
+      const result = await run("loading", () =>
+        chargeService.voidCharge(id, voidedBy, reason),
+      );
       return result !== null;
     },
 

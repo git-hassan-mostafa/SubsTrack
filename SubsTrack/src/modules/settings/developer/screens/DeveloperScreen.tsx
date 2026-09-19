@@ -199,7 +199,9 @@ export function DeveloperScreen() {
       }
       flashMessage(t("settings.developer_export_done", { rows: total }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("settings.developer_export_failed"));
+      setError(
+        e instanceof Error ? e.message : t("settings.developer_export_failed"),
+      );
     } finally {
       setBusy(null);
     }
@@ -349,7 +351,9 @@ export function DeveloperScreen() {
         setError(t("settings.developer_import_blocked_unsynced", { count: 1 }));
       } else {
         setError(
-          e instanceof Error ? e.message : t("settings.developer_import_failed"),
+          e instanceof Error
+            ? e.message
+            : t("settings.developer_import_failed"),
         );
       }
       return;

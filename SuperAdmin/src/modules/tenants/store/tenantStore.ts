@@ -1,7 +1,11 @@
-import { create } from 'zustand';
-import type { Tenant, TenantCounts } from '@/src/core/types';
-import { TenantService, type CreateTenantInput, type UpdateTenantInput } from '../services/TenantService';
-import type { GrantedCounts } from '../repository/TenantRepository';
+import { create } from "zustand";
+import type { Tenant, TenantCounts } from "@/src/core/types";
+import {
+  TenantService,
+  type CreateTenantInput,
+  type UpdateTenantInput,
+} from "../services/TenantService";
+import type { GrantedCounts } from "../repository/TenantRepository";
 
 interface TenantState {
   tenants: Tenant[];
@@ -134,7 +138,10 @@ export const useTenantStore = create<TenantState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       await tenantService.deleteTenant(id);
-      set((state) => ({ tenants: state.tenants.filter((t) => t.id !== id), loading: false }));
+      set((state) => ({
+        tenants: state.tenants.filter((t) => t.id !== id),
+        loading: false,
+      }));
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
     }

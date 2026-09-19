@@ -1,26 +1,42 @@
-import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
-import type { ExpenseCategory, ExpenseItem, ExpenseSummary } from '@/src/core/types';
+import { create } from "zustand";
+import { immer } from "zustand/middleware/immer";
+import type {
+  ExpenseCategory,
+  ExpenseItem,
+  ExpenseSummary,
+} from "@/src/core/types";
 import {
   expenseService,
   expenseToItem,
   type CreateExpenseInput,
-} from '@/src/modules/transaction/expenses';
-import { ownedRowMatchesFilter, resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import { currentMonthDays, rangeFromDays } from '@/src/core/utils/dateRange';
-import { getStore } from '@/src/state/globalStore';
+} from "@/src/modules/transaction/expenses";
+import {
+  ownedRowMatchesFilter,
+  resolveBranchFilter,
+} from "@/src/shared/lib/branchFilter";
+import { currentMonthDays, rangeFromDays } from "@/src/core/utils/dateRange";
+import { getStore } from "@/src/state/globalStore";
 
-
-const EMPTY_SUMMARY: ExpenseSummary = { totalUsd: 0, manualUsd: 0, stockUsd: 0 };
+const EMPTY_SUMMARY: ExpenseSummary = {
+  totalUsd: 0,
+  manualUsd: 0,
+  stockUsd: 0,
+};
 
 /** Is this row inside the fetched day window? Both bounds are inclusive days. */
-function inWindow(date: string, window: { fromDate: string; toDate: string }): boolean {
+function inWindow(
+  date: string,
+  window: { fromDate: string; toDate: string },
+): boolean {
   const day = date.slice(0, 10);
   return day >= window.fromDate && day <= window.toDate;
 }
 
 /** Newest first — the order `getExpensesView` returns, kept on an insert. */
-function insertByDateDesc(items: ExpenseItem[], item: ExpenseItem): ExpenseItem[] {
+function insertByDateDesc(
+  items: ExpenseItem[],
+  item: ExpenseItem,
+): ExpenseItem[] {
   const at = items.findIndex((i) => i.date.localeCompare(item.date) < 0);
   const next = [...items];
   next.splice(at === -1 ? items.length : at, 0, item);
@@ -28,10 +44,14 @@ function insertByDateDesc(items: ExpenseItem[], item: ExpenseItem): ExpenseItem[
 }
 
 /** One row in (`sign` 1) or out (-1) of the totals, in USD via its frozen rate. */
-function addToSummary(summary: ExpenseSummary, item: ExpenseItem, sign: 1 | -1): void {
+function addToSummary(
+  summary: ExpenseSummary,
+  item: ExpenseItem,
+  sign: 1 | -1,
+): void {
   const usd = (sign * item.amount) / item.ratePerUsdSnapshot;
   summary.totalUsd += usd;
-  if (item.source === 'stock') summary.stockUsd += usd;
+  if (item.source === "stock") summary.stockUsd += usd;
   else summary.manualUsd += usd;
 }
 
@@ -44,14 +64,18 @@ export interface ExpenseState {
   fromDate: string;
   toDate: string;
   search: string;
-  categoryFilter: ExpenseCategory | 'all';
+  categoryFilter: ExpenseCategory | "all";
   fetchExpenses: () => Promise<void>;
   setDateRange: (from: string, to: string) => Promise<void>;
   setSearch: (term: string) => void;
-  setCategoryFilter: (category: ExpenseCategory | 'all') => void;
+  setCategoryFilter: (category: ExpenseCategory | "all") => void;
   clearFilters: () => Promise<void>;
   addExpense: (input: CreateExpenseInput) => Promise<boolean>;
-  voidExpense: (id: string, voidedBy: string, reason: string | null) => Promise<void>;
+  voidExpense: (
+    id: string,
+    voidedBy: string,
+    reason: string | null,
+  ) => Promise<void>;
   clearError: () => void;
   reset: () => void;
 }
@@ -64,8 +88,8 @@ export const useExpenseStore = create<ExpenseState>()(
     error: null,
     searchToken: 0,
     ...currentMonthDays(),
-    search: '',
-    categoryFilter: 'all',
+    search: "",
+    categoryFilter: "all",
 
     fetchExpenses: async () => {
       const branchFilter = resolveBranchFilter(getStore().getState().auth.user);
@@ -117,8 +141,8 @@ export const useExpenseStore = create<ExpenseState>()(
     clearFilters: async () => {
       const { fromDate, toDate } = currentMonthDays();
       set((state) => {
-        state.search = '';
-        state.categoryFilter = 'all';
+        state.search = "";
+        state.categoryFilter = "all";
         state.fromDate = fromDate;
         state.toDate = toDate;
       });
@@ -133,7 +157,9 @@ export const useExpenseStore = create<ExpenseState>()(
       try {
         const expense = await expenseService.addExpense(input);
         const item = expenseToItem(expense);
-        const branchFilter = resolveBranchFilter(getStore().getState().auth.user);
+        const branchFilter = resolveBranchFilter(
+          getStore().getState().auth.user,
+        );
         set((state) => {
           state.loading = false;
           if (!inWindow(item.date, state)) return;
@@ -189,8 +215,8 @@ export const useExpenseStore = create<ExpenseState>()(
         state.searchToken += 1;
         state.fromDate = fromDate;
         state.toDate = toDate;
-        state.search = '';
-        state.categoryFilter = 'all';
+        state.search = "";
+        state.categoryFilter = "all";
       }),
   })),
 );

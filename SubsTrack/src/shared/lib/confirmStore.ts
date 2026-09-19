@@ -1,7 +1,6 @@
-import type { ReactNode } from 'react';
-import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
-
+import type { ReactNode } from "react";
+import { create } from "zustand";
+import { immer } from "zustand/middleware/immer";
 
 export interface ConfirmOptions {
   title: string;

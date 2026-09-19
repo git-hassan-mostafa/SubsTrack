@@ -50,7 +50,9 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
     const token = ++tokenRef.current;
     setLoading(true);
     try {
-      const open = await chargeService.getOpenCharges({ customerId: customer.id });
+      const open = await chargeService.getOpenCharges({
+        customerId: customer.id,
+      });
       if (tokenRef.current !== token) return;
       setItems(
         open
@@ -75,7 +77,10 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
   useOwedChanged(refresh);
 
   const target = findCurrency(currencies, displayCurrencyId);
-  const totalUsd = items.reduce((sum, i) => sum + i.balance / i.ratePerUsdSnapshot, 0);
+  const totalUsd = items.reduce(
+    (sum, i) => sum + i.balance / i.ratePerUsdSnapshot,
+    0,
+  );
 
   return (
     <View className="px-4 mt-4">

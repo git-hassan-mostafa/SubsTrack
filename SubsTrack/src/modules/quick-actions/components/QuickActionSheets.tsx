@@ -40,7 +40,10 @@ export function QuickActionSheets() {
     case "collectionsHistory":
       return (
         <>
-          <CollectionsHistorySheet onDismiss={close} onOpenSale={saleDetail.openSale} />
+          <CollectionsHistorySheet
+            onDismiss={close}
+            onOpenSale={saleDetail.openSale}
+          />
           {saleDetail.sheet}
         </>
       );

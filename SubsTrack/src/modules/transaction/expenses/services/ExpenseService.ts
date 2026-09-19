@@ -1,11 +1,11 @@
-import type { Expense, ExpenseItem, ExpensesView } from '@/src/core/types';
-import type { BranchFilter } from '@/src/core/constants';
-import i18n from '@/src/core/i18n';
-import { sumUsd } from '@/src/core/utils/currency';
-import productService from '@/src/modules/admin/products/services/ProductService';
-import repository from '../repository/ExpenseRepository';
-import { expenseToItem, mapDbExpenseToExpense } from '../utils/mapper';
-import type { CreateExpenseInput, ExpensesFilter } from '../utils/types';
+import type { Expense, ExpenseItem, ExpensesView } from "@/src/core/types";
+import type { BranchFilter } from "@/src/core/constants";
+import i18n from "@/src/core/i18n";
+import { sumUsd } from "@/src/core/utils/currency";
+import productService from "@/src/modules/admin/products/services/ProductService";
+import repository from "../repository/ExpenseRepository";
+import { expenseToItem, mapDbExpenseToExpense } from "../utils/mapper";
+import type { CreateExpenseInput, ExpensesFilter } from "../utils/types";
 
 /**
  * Money out. Composes the two sources into one uniform view — the same shape as
@@ -22,7 +22,11 @@ class ExpenseService {
   async getExpensesView(filter: ExpensesFilter): Promise<ExpensesView> {
     const branchFilter = filter.branchFilter ?? null;
     const [stored, stockCosts] = await Promise.all([
-      repository.findInRange(filter.startIso, filter.endExclusiveIso, branchFilter),
+      repository.findInRange(
+        filter.startIso,
+        filter.endExclusiveIso,
+        branchFilter,
+      ),
       productService.getStockCostsInRange(
         filter.startIso,
         filter.endExclusiveIso,
@@ -36,11 +40,11 @@ class ExpenseService {
 
     const stock: ExpenseItem[] = stockCosts.map((s) => ({
       id: `stock:${s.movementId}`,
-      source: 'stock',
-      category: 'stock',
+      source: "stock",
+      category: "stock",
       label:
         s.quantity < 0
-          ? i18n.t('expenses.stock_returned_label', {
+          ? i18n.t("expenses.stock_returned_label", {
               product: s.productName,
               count: -s.quantity,
             })
@@ -55,7 +59,9 @@ class ExpenseService {
       canVoid: false,
     }));
 
-    const items = [...manual, ...stock].sort((a, b) => b.date.localeCompare(a.date));
+    const items = [...manual, ...stock].sort((a, b) =>
+      b.date.localeCompare(a.date),
+    );
     const manualUsd = sumUsd(manual);
     const stockUsd = sumUsd(stock);
     return {
@@ -71,7 +77,11 @@ class ExpenseService {
   ): Promise<{ totalUsd: number; customUsd: number; stockUsd: number }> {
     const [stored, stockCosts] = await Promise.all([
       repository.totalsInRange(startIso, endExclusiveIso, branchFilter),
-      productService.getStockCostsInRange(startIso, endExclusiveIso, branchFilter),
+      productService.getStockCostsInRange(
+        startIso,
+        endExclusiveIso,
+        branchFilter,
+      ),
     ]);
     const customUsd = sumUsd(stored);
     const stockUsd = sumUsd(stockCosts);
@@ -81,7 +91,8 @@ class ExpenseService {
   async addExpense(input: CreateExpenseInput): Promise<Expense> {
     this.validateAmount(input.amount);
     const ratePerUsdSnapshot = input.currency?.ratePerUsd ?? 1;
-    if (!(ratePerUsdSnapshot > 0)) throw new Error(i18n.t('errors.rate_snapshot_positive'));
+    if (!(ratePerUsdSnapshot > 0))
+      throw new Error(i18n.t("errors.rate_snapshot_positive"));
     const row = await repository.create({
       tenant_id: input.tenantId,
       branch_id: input.branchId,
@@ -97,14 +108,18 @@ class ExpenseService {
     return mapDbExpenseToExpense(row);
   }
 
-  async voidExpense(id: string, voidedBy: string, reason: string | null): Promise<Expense> {
+  async voidExpense(
+    id: string,
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<Expense> {
     const row = await repository.void(id, voidedBy, reason?.trim() || null);
     return mapDbExpenseToExpense(row);
   }
 
   private validateAmount(amount: number): void {
-    if (typeof amount !== 'number' || Number.isNaN(amount) || amount <= 0) {
-      throw new Error(i18n.t('errors.expense_amount_positive'));
+    if (typeof amount !== "number" || Number.isNaN(amount) || amount <= 0) {
+      throw new Error(i18n.t("errors.expense_amount_positive"));
     }
   }
 }

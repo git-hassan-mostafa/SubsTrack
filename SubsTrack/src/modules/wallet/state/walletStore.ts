@@ -1,11 +1,10 @@
-import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
-import type { AuthUser, UserWallet, UserWalletDetail } from '@/src/core/types';
-import walletService from '@/src/modules/wallet/services/WalletService';
-import type { WalletActor } from '@/src/modules/wallet/utils/custody';
-import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import { getStore } from '@/src/state/globalStore';
-
+import { create } from "zustand";
+import { immer } from "zustand/middleware/immer";
+import type { AuthUser, UserWallet, UserWalletDetail } from "@/src/core/types";
+import walletService from "@/src/modules/wallet/services/WalletService";
+import type { WalletActor } from "@/src/modules/wallet/utils/custody";
+import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
+import { getStore } from "@/src/state/globalStore";
 
 // The signed-in user as the chain sees them. Role + branch decide every wallet
 // permission, so they travel together into the service (never re-derived there).
@@ -48,7 +47,10 @@ export const useWalletStore = create<WalletState>()(
     }
 
     // One try/catch for all four mutations — they differ only in the call.
-    async function mutate(run: () => Promise<void>, holderUserId: string): Promise<void> {
+    async function mutate(
+      run: () => Promise<void>,
+      holderUserId: string,
+    ): Promise<void> {
       try {
         await run();
         await refresh(holderUserId);
@@ -141,7 +143,11 @@ export const useWalletStore = create<WalletState>()(
         if (!user) return;
         await mutate(
           () =>
-            walletService.receiveAllFrom(holderUserId, actorOf(user), resolveBranchFilter(user)),
+            walletService.receiveAllFrom(
+              holderUserId,
+              actorOf(user),
+              resolveBranchFilter(user),
+            ),
           holderUserId,
         );
       },
@@ -156,7 +162,8 @@ export const useWalletStore = create<WalletState>()(
         const user = viewer();
         if (!user) return;
         await mutate(
-          () => walletService.closeOutAll(actorOf(user), resolveBranchFilter(user)),
+          () =>
+            walletService.closeOutAll(actorOf(user), resolveBranchFilter(user)),
           user.id,
         );
       },

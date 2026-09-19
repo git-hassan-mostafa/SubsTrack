@@ -55,7 +55,12 @@ export interface BackupWarning {
 }
 
 export type BackupCheck =
-  | { ok: true; backup: LocalBackup; totalRows: number; warnings: BackupWarning[] }
+  | {
+      ok: true;
+      backup: LocalBackup;
+      totalRows: number;
+      warnings: BackupWarning[];
+    }
   | { ok: false; problem: BackupProblem };
 
 export interface RestoreOptions {

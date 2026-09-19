@@ -19,7 +19,11 @@ interface Props {
 export function CurrencySplit({ rows, currencies, displayCurrency }: Props) {
   const { t } = useTranslation();
   if (rows.length === 0) {
-    return <Text className="text-xs text-gray-400 py-4 text-center">{t("reports.no_cash")}</Text>;
+    return (
+      <Text className="text-xs text-gray-400 py-4 text-center">
+        {t("reports.no_cash")}
+      </Text>
+    );
   }
 
   return (
@@ -27,7 +31,10 @@ export function CurrencySplit({ rows, currencies, displayCurrency }: Props) {
       {rows.map((row) => {
         const currency = findCurrency(currencies, row.currencyId);
         return (
-          <View key={row.currencyId ?? "USD"} className="flex-row items-center gap-2">
+          <View
+            key={row.currencyId ?? "USD"}
+            className="flex-row items-center gap-2"
+          >
             <Text className="flex-1 text-sm text-gray-700">
               {currency ? currency.code : "USD"}
             </Text>

@@ -1,7 +1,10 @@
-import type { StateCreator } from 'zustand';
-import type { Currency } from '@/src/core/types';
-import { currencyService, type CurrencyInput } from '@/src/modules/admin/currencies';
-import type { GlobalState } from '@/src/state/globalStore';
+import type { StateCreator } from "zustand";
+import type { Currency } from "@/src/core/types";
+import {
+  currencyService,
+  type CurrencyInput,
+} from "@/src/modules/admin/currencies";
+import type { GlobalState } from "@/src/state/globalStore";
 
 export interface CurrencySlice {
   items: Currency[];
@@ -12,7 +15,7 @@ export interface CurrencySlice {
   fetchCurrencies: () => Promise<void>;
   createCurrency: (data: CurrencyInput, tenantId: string) => Promise<void>;
   updateCurrency: (id: string, data: CurrencyInput) => Promise<void>;
-  deleteCurrency: (id: string) => Promise<'hard' | 'soft' | null>;
+  deleteCurrency: (id: string) => Promise<"hard" | "soft" | null>;
   bulkDeleteCurrencies: (ids: string[]) => Promise<boolean>;
   reactivateCurrency: (id: string) => Promise<void>;
   clearError: () => void;
@@ -21,7 +24,7 @@ export interface CurrencySlice {
 
 export const createCurrencySlice: StateCreator<
   GlobalState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   CurrencySlice
 > = (set, get) => ({
@@ -105,9 +108,11 @@ export const createCurrencySlice: StateCreator<
     });
     try {
       const mode = await currencyService.deleteCurrency(id);
-      if (mode === 'hard') {
+      if (mode === "hard") {
         set((state) => {
-          state.currencies.items = state.currencies.items.filter((c) => c.id !== id);
+          state.currencies.items = state.currencies.items.filter(
+            (c) => c.id !== id,
+          );
           state.currencies.loading = false;
         });
       } else {
@@ -140,10 +145,10 @@ export const createCurrencySlice: StateCreator<
         const removed = new Set(hard);
         const softened = new Set(soft);
         state.currencies.items = state.currencies.items.filter(
-        (c) => !removed.has(c.id),
+          (c) => !removed.has(c.id),
         );
         for (const c of state.currencies.items) {
-        if (softened.has(c.id)) c.active = false;
+          if (softened.has(c.id)) c.active = false;
         }
         state.currencies.loading = false;
       });

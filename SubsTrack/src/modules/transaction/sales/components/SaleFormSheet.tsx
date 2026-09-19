@@ -41,7 +41,6 @@ function initialPaymentMode(sale: Sale): "full" | "partial" | "debt" {
   return sale.amountPaid + 1e-9 >= sale.totalAmount ? "full" : "partial";
 }
 
-
 interface Props {
   initialCustomer?: Customer | null;
   sale?: Sale | null;
@@ -153,7 +152,9 @@ export function SaleFormSheet({
     if (lineCount === 0) {
       return confirm({
         title: t("sales.confirm_no_items_title"),
-        message: t("sales.confirm_no_items_message", { typed: money(saleTotal) }),
+        message: t("sales.confirm_no_items_message", {
+          typed: money(saleTotal),
+        }),
         confirmLabel: t("common.save"),
       });
     }
@@ -214,8 +215,7 @@ export function SaleFormSheet({
       notes: notes.trim() || null,
     };
     const saved = sale
-      ?
-        await updateSale(sale, {
+      ? await updateSale(sale, {
           ...common,
           actorUserId: user.id,
           collectedTotal: resolvedCollected,
@@ -311,7 +311,11 @@ export function SaleFormSheet({
                 className="mb-2 text-xs uppercase tracking-wide text-gray-500"
               >
                 {t("sales.collected_total_label", {
-                  amount: formatMoney(collectedOnSale, saleCurrency, saleCurrency),
+                  amount: formatMoney(
+                    collectedOnSale,
+                    saleCurrency,
+                    saleCurrency,
+                  ),
                 })}
               </Text>
             ) : null}
@@ -322,7 +326,9 @@ export function SaleFormSheet({
               onAmountPaidChange={setAmountPaid}
               currencyId={cart.currencyId}
               amountDue={saleTotal > 0 ? saleTotal : null}
-              formatAmount={(a: number) => formatMoney(a, cart.currency, cart.currency)}
+              formatAmount={(a: number) =>
+                formatMoney(a, cart.currency, cart.currency)
+              }
               onFocusClearError={clearError}
               partialDisabled={saleTotal <= 0}
               allowDebt

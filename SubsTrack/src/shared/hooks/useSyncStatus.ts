@@ -1,9 +1,9 @@
-import { useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from "react";
 import {
   getSyncStatus,
   subscribeSyncStatus,
   type SyncStatus,
-} from '@/src/core/offline';
+} from "@/src/core/offline";
 
 /**
  * Subscribe to the offline sync engine's status (syncing / lastSyncAt / lastError).
@@ -11,5 +11,9 @@ import {
  * the status simply stays idle.
  */
 export function useSyncStatus(): SyncStatus {
-  return useSyncExternalStore(subscribeSyncStatus, getSyncStatus, getSyncStatus);
+  return useSyncExternalStore(
+    subscribeSyncStatus,
+    getSyncStatus,
+    getSyncStatus,
+  );
 }

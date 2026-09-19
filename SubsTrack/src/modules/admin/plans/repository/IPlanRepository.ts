@@ -1,5 +1,5 @@
-import type { BranchFilter } from '@/src/core/constants';
-import type { DbPlan } from '@/src/core/types/db';
+import type { BranchFilter } from "@/src/core/constants";
+import type { DbPlan } from "@/src/core/types/db";
 
 /**
  * The Plan repository contract. Both the Supabase (online/web) class and the
@@ -7,11 +7,19 @@ import type { DbPlan } from '@/src/core/types/db';
  */
 export interface IPlanRepository {
   findAll(branchFilter?: BranchFilter): Promise<DbPlan[]>;
-  create(payload: Omit<DbPlan, 'id' | 'created_at'>): Promise<DbPlan>;
+  create(payload: Omit<DbPlan, "id" | "created_at">): Promise<DbPlan>;
   update(
     id: string,
     payload: Partial<
-      Pick<DbPlan, 'name' | 'price' | 'is_custom_price' | 'duration_months' | 'currency_id' | 'branch_id'>
+      Pick<
+        DbPlan,
+        | "name"
+        | "price"
+        | "is_custom_price"
+        | "duration_months"
+        | "currency_id"
+        | "branch_id"
+      >
     >,
   ): Promise<DbPlan>;
   delete(id: string): Promise<void>;

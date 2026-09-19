@@ -1,16 +1,16 @@
-import type { StateCreator } from 'zustand';
-import type { CustomerRequest } from '@/src/core/types';
-import billingService from '@/src/modules/admin/billing/services/BillingService';
-import { AllowanceFloorError } from '@/src/modules/admin/billing/utils/allowanceFloorError';
-import type { QuotaExceededError } from '@/src/modules/admin/billing/utils/quotaError';
+import type { StateCreator } from "zustand";
+import type { CustomerRequest } from "@/src/core/types";
+import billingService from "@/src/modules/admin/billing/services/BillingService";
+import { AllowanceFloorError } from "@/src/modules/admin/billing/utils/allowanceFloorError";
+import type { QuotaExceededError } from "@/src/modules/admin/billing/utils/quotaError";
 import type {
   AllowanceFloorPayload,
   QuotaErrorPayload,
   QuotaPair,
-} from '@/src/modules/admin/billing/utils/types';
-import customerService from '@/src/modules/customer/customers/services/CustomerService';
-import customerPlanService from '@/src/modules/customer/customer-plans/services/CustomerPlanService';
-import type { GlobalState } from '@/src/state/globalStore';
+} from "@/src/modules/admin/billing/utils/types";
+import customerService from "@/src/modules/customer/customers/services/CustomerService";
+import customerPlanService from "@/src/modules/customer/customer-plans/services/CustomerPlanService";
+import type { GlobalState } from "@/src/state/globalStore";
 
 const NO_QUOTA: QuotaPair = { customers: 0, plans: 0 };
 
@@ -29,7 +29,11 @@ export interface BillingSlice {
   refreshRequest: (tenantId: string) => Promise<void>;
   bumpActive: (delta: Partial<QuotaPair>) => void;
   lowerAllowances: (next: QuotaPair) => Promise<boolean>;
-  requestMore: (tenantId: string, extra: QuotaPair, userId: string | null) => Promise<boolean>;
+  requestMore: (
+    tenantId: string,
+    extra: QuotaPair,
+    userId: string | null,
+  ) => Promise<boolean>;
   editRequest: (extra: QuotaPair) => Promise<boolean>;
   cancelRequest: () => Promise<boolean>;
   setQuotaError: (e: QuotaExceededError) => void;
@@ -40,7 +44,7 @@ export interface BillingSlice {
 
 export const createBillingSlice: StateCreator<
   GlobalState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   BillingSlice
 > = (set, get) => ({
@@ -86,7 +90,7 @@ export const createBillingSlice: StateCreator<
         state.billing.active = { customers, plans };
       });
     } catch (e) {
-      console.warn('[billingSlice] refreshCounts failed', e);
+      console.warn("[billingSlice] refreshCounts failed", e);
     }
   },
 
@@ -99,7 +103,7 @@ export const createBillingSlice: StateCreator<
         state.billing.request = request;
       });
     } catch (e) {
-      console.warn('[billingSlice] refreshRequest failed', e);
+      console.warn("[billingSlice] refreshRequest failed", e);
     }
   },
 

@@ -1,6 +1,6 @@
-import type { AllocationLine, Currency, OpenItem } from '@/src/core/types';
-import { findCurrency, toUsd } from '@/src/core/utils/currency';
-import { allocate, keyOf, sortByDue, totalOwed } from './waterfall';
+import type { AllocationLine, Currency, OpenItem } from "@/src/core/types";
+import { findCurrency, toUsd } from "@/src/core/utils/currency";
+import { allocate, keyOf, sortByDue, totalOwed } from "./waterfall";
 
 export interface CurrencyGroup {
   currencyId: string | null;
@@ -30,7 +30,7 @@ export function groupOwedByCurrency(
 ): CurrencyGroup[] {
   const groups = new Map<string, OpenItem[]>();
   for (const item of items) {
-    const key = item.currencyId ?? '__usd__';
+    const key = item.currencyId ?? "__usd__";
     const bucket = groups.get(key);
     if (bucket) bucket.push(item);
     else groups.set(key, [item]);
@@ -75,13 +75,18 @@ export function planCollection(
 
 /** Map key for a group — `currencyId` is nullable, so USD needs a stand-in. */
 export function groupKey(group: { currencyId: string | null }): string {
-  return group.currencyId ?? '__usd__';
+  return group.currencyId ?? "__usd__";
 }
 
 /** Total being collected across every currency, in USD at today's rates. */
 export function totalCollectingUsd(plans: CurrencyPlan[]): number {
   return plans.reduce(
-    (sum, p) => sum + toUsd(p.lines.reduce((n, l) => n + l.amount, 0), p.currency),
+    (sum, p) =>
+      sum +
+      toUsd(
+        p.lines.reduce((n, l) => n + l.amount, 0),
+        p.currency,
+      ),
     0,
   );
 }

@@ -1,7 +1,11 @@
-import type { TFunction } from 'i18next';
-import type { AuditAction, AuditEntry, AuditTable } from '@/src/core/types';
-import { formatDateTime, isValidDateString } from '@/src/core/utils/date';
-import { displayFieldLabel, displayValue, type AuditFieldContext } from './valueDisplay';
+import type { TFunction } from "i18next";
+import type { AuditAction, AuditEntry, AuditTable } from "@/src/core/types";
+import { formatDateTime, isValidDateString } from "@/src/core/utils/date";
+import {
+  displayFieldLabel,
+  displayValue,
+  type AuditFieldContext,
+} from "./valueDisplay";
 
 /** Human label for a table name, falling back to the raw name for anything new. */
 export function tableLabel(t: TFunction, table: AuditTable | string): string {
@@ -22,11 +26,11 @@ export function actionLabel(t: TFunction, action: AuditAction): string {
 }
 
 const SUBJECT_LABEL: Partial<Record<AuditTable, string>> = {
-  stock_movements: 'audit.field.product_id',
+  stock_movements: "audit.field.product_id",
 };
 
 export function subjectLabel(t: TFunction, table: AuditTable | string): string {
-  return t(SUBJECT_LABEL[table as AuditTable] ?? 'audit.field.customer_id');
+  return t(SUBJECT_LABEL[table as AuditTable] ?? "audit.field.customer_id");
 }
 
 /**
@@ -34,7 +38,11 @@ export function subjectLabel(t: TFunction, table: AuditTable | string): string {
  * ids resolved to names — see valueDisplay.ts), the generic rendering otherwise.
  * A column with no registered display therefore still renders, unchanged.
  */
-export function formatField(field: string, value: unknown, ctx: AuditFieldContext): string {
+export function formatField(
+  field: string,
+  value: unknown,
+  ctx: AuditFieldContext,
+): string {
   return displayValue(field, value, ctx) ?? formatValue(ctx.t, value);
 }
 
@@ -42,7 +50,10 @@ export function formatField(field: string, value: unknown, ctx: AuditFieldContex
  * A column's name as shown: the registry first (a setting's own name instead of the
  * bare "Value"), the generic label otherwise.
  */
-export function formatFieldLabel(field: string, ctx: AuditFieldContext): string {
+export function formatFieldLabel(
+  field: string,
+  ctx: AuditFieldContext,
+): string {
   return displayFieldLabel(field, ctx) ?? fieldLabel(ctx.t, field);
 }
 
@@ -50,9 +61,12 @@ export function formatFieldLabel(field: string, ctx: AuditFieldContext): string 
  * The names of the columns this entry moved, comma separated. `null` for a
  * create/delete: nothing "changed" there, and the sheet lists the whole row below.
  */
-export function changedFieldsLabel(entry: AuditEntry, ctx: AuditFieldContext): string | null {
+export function changedFieldsLabel(
+  entry: AuditEntry,
+  ctx: AuditFieldContext,
+): string | null {
   if (entry.changes.length === 0) return null;
-  return entry.changes.map((c) => formatFieldLabel(c.field, ctx)).join(', ');
+  return entry.changes.map((c) => formatFieldLabel(c.field, ctx)).join(", ");
 }
 
 /**
@@ -62,11 +76,14 @@ export function changedFieldsLabel(entry: AuditEntry, ctx: AuditFieldContext): s
  * the display registry (valueDisplay.ts).
  */
 export function formatValue(t: TFunction, value: unknown): string {
-  if (value === null || value === undefined || value === '') return t('audit.empty_value');
-  if (typeof value === 'boolean') return value ? t('common.yes') : t('common.no');
-  if (typeof value === 'number') return String(value);
-  if (Array.isArray(value)) return t('audit.items_count', { count: value.length });
-  if (typeof value === 'object') return t('audit.structured_value');
+  if (value === null || value === undefined || value === "")
+    return t("audit.empty_value");
+  if (typeof value === "boolean")
+    return value ? t("common.yes") : t("common.no");
+  if (typeof value === "number") return String(value);
+  if (Array.isArray(value))
+    return t("audit.items_count", { count: value.length });
+  if (typeof value === "object") return t("audit.structured_value");
 
   const s = String(value);
   if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return formatDateTime(s);

@@ -1,8 +1,7 @@
-import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
-import { STORAGE_KEYS, uiPrefPersistStorage } from './storage';
-import type { BranchFilter } from '@/src/core/constants';
-
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
+import { STORAGE_KEYS, uiPrefPersistStorage } from "./storage";
+import type { BranchFilter } from "@/src/core/constants";
 
 interface UiPrefState {
   lastUsedCurrencyId: string | null;

@@ -11,14 +11,14 @@ interface AuthResult {
 }
 
 class AuthService {
-
   async login(
     username: string,
     tenantCode: string,
     password: string,
   ): Promise<AuthResult> {
     if (!username.trim()) throw new Error(i18n.t("errors.username_required"));
-    if (!tenantCode.trim()) throw new Error(i18n.t("errors.tenant_code_required"));
+    if (!tenantCode.trim())
+      throw new Error(i18n.t("errors.tenant_code_required"));
     if (!password) throw new Error(i18n.t("errors.password_required"));
 
     const email = `${username.trim().toLowerCase()}@${tenantCode.trim().toLowerCase()}.com`;
@@ -43,21 +43,21 @@ class AuthService {
       profile = await repository.getUserProfile(session.user.id);
     } catch (e) {
       if (e instanceof OrganizationSwitchBlockedError) {
-        await repository.signOut().catch(() => { });
+        await repository.signOut().catch(() => {});
       }
       throw e;
     }
     if (!profile) {
-      await repository.signOut().catch(() => { });
+      await repository.signOut().catch(() => {});
       throw new Error("account_not_configured");
     }
     if (!profile.active) {
-      await repository.signOut().catch(() => { });
+      await repository.signOut().catch(() => {});
       throw new Error(i18n.t("errors.account_deactivated"));
     }
     const tenant = await repository.getTenant(profile.tenant_id);
     if (!tenant) {
-      await repository.signOut().catch(() => { });
+      await repository.signOut().catch(() => {});
       throw new Error("account_not_configured");
     }
     return {
@@ -75,23 +75,23 @@ class AuthService {
       profile = await repository.getUserProfile(session.user.id);
     } catch (e) {
       if (e instanceof OrganizationSwitchBlockedError) {
-        await repository.signOut().catch(() => { });
+        await repository.signOut().catch(() => {});
         return null;
       }
       throw e;
     }
     if (!profile) {
-      await repository.signOut().catch(() => { });
+      await repository.signOut().catch(() => {});
       return null;
     }
     if (!profile.active) {
-      await repository.signOut().catch(() => { });
+      await repository.signOut().catch(() => {});
       return null;
     }
 
     const tenant = await repository.getTenant(profile.tenant_id);
     if (!tenant) {
-      await repository.signOut().catch(() => { });
+      await repository.signOut().catch(() => {});
       return null;
     }
     return {
@@ -105,4 +105,4 @@ class AuthService {
   }
 }
 
-export default new AuthService()
+export default new AuthService();

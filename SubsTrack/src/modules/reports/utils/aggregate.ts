@@ -1,4 +1,7 @@
-export function groupBy<T, K extends string>(rows: T[], key: (r: T) => K): Map<K, T[]> {
+export function groupBy<T, K extends string>(
+  rows: T[],
+  key: (r: T) => K,
+): Map<K, T[]> {
   const out = new Map<K, T[]>();
   for (const r of rows) {
     const k = key(r);
@@ -38,7 +41,11 @@ export function sumByKey<T>(
 
 // Keep the top N, fold the rest into one entry. `otherKey` is a sentinel the
 // caller maps to a translated label — never a real key.
-export function topN(entries: Entry[], n: number, otherKey = '__other__'): Entry[] {
+export function topN(
+  entries: Entry[],
+  n: number,
+  otherKey = "__other__",
+): Entry[] {
   if (entries.length <= n) return entries;
   const head = entries.slice(0, n);
   const rest = entries.slice(n);
@@ -54,7 +61,10 @@ export function topN(entries: Entry[], n: number, otherKey = '__other__'): Entry
 // mixed-sign list (never the case today) can't produce a negative bar width.
 export function shareOfTotal(entries: Entry[]): (Entry & { share: number })[] {
   const total = entries.reduce((t, e) => t + Math.abs(e.usd), 0);
-  return entries.map((e) => ({ ...e, share: total === 0 ? 0 : Math.abs(e.usd) / total }));
+  return entries.map((e) => ({
+    ...e,
+    share: total === 0 ? 0 : Math.abs(e.usd) / total,
+  }));
 }
 
 export interface Delta {

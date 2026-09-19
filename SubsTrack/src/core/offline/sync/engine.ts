@@ -75,8 +75,7 @@ export async function runSyncIfDue(): Promise<void> {
   if (last && Date.now() - Date.parse(last) < SYNC_INTERVAL_MS) {
     try {
       await flushPendingWrites();
-    } catch {
-    }
+    } catch {}
     return;
   }
   await runSync();

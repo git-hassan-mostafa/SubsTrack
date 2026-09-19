@@ -48,7 +48,11 @@ export function VoidCollectionDialog({
   const shared = sharedBillsOf(collection, onBillChargeId, t);
 
   async function handleConfirm() {
-    const voided = await voidCollection(collection, voidedBy, reason.trim() || null);
+    const voided = await voidCollection(
+      collection,
+      voidedBy,
+      reason.trim() || null,
+    );
     if (voided) {
       setReason("");
       onDone(voided);

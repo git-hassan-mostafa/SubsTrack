@@ -378,9 +378,7 @@ export function DatePickerInput({
           />
           <Text
             fontWeight="Medium"
-            className={`text-sm ${
-              isActive ? "text-primary" : "text-gray-500"
-            }`}
+            className={`text-sm ${isActive ? "text-primary" : "text-gray-500"}`}
             numberOfLines={1}
           >
             {isActive
@@ -396,10 +394,7 @@ export function DatePickerInput({
   return (
     <View className="mb-4">
       {label ? (
-        <Text
-          fontWeight="Medium"
-          className="text-sm text-gray-700 mb-1"
-        >
+        <Text fontWeight="Medium" className="text-sm text-gray-700 mb-1">
           {label}
         </Text>
       ) : null}

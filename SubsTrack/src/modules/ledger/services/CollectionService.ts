@@ -1,6 +1,6 @@
-import type { BranchFilter } from '@/src/core/constants';
-import type { DbCollection } from '@/src/core/types/db';
-import i18n from '@/src/core/i18n';
+import type { BranchFilter } from "@/src/core/constants";
+import type { DbCollection } from "@/src/core/types/db";
+import i18n from "@/src/core/i18n";
 import type {
   AllocationLine,
   AuditRecordTarget,
@@ -8,19 +8,19 @@ import type {
   Collection,
   CollectionListItem,
   OpenItem,
-} from '@/src/core/types';
-import { nowIso } from '@/src/core/offline/ids';
-import { chargeService } from './ChargeService';
-import repository from '../repository/CollectionRepository';
-import type { CreateChargePayload } from '../repository/IChargeRepository';
+} from "@/src/core/types";
+import { nowIso } from "@/src/core/offline/ids";
+import { chargeService } from "./ChargeService";
+import repository from "../repository/CollectionRepository";
+import type { CreateChargePayload } from "../repository/IChargeRepository";
 import type {
   CreateCollectionItemPayload,
   FindCollectionsOptions,
-} from '../repository/ICollectionRepository';
-import { mapDbCollectionToCollection } from '../utils/mapper';
-import { collectionKind } from '../utils/collectionKind';
-import { chargeLabel } from '../utils/openItems';
-import { allocate, keyOf } from '../utils/waterfall';
+} from "../repository/ICollectionRepository";
+import { mapDbCollectionToCollection } from "../utils/mapper";
+import { collectionKind } from "../utils/collectionKind";
+import { chargeLabel } from "../utils/openItems";
+import { allocate, keyOf } from "../utils/waterfall";
 
 export interface CollectInput {
   tenantId: string;
@@ -56,8 +56,11 @@ export interface UnpaidCash {
  * collecting the money is precisely what turns a month into a bill.
  */
 class CollectionService {
-
-  preview(amount: number, items: OpenItem[], excludedKeys: ReadonlySet<string> = new Set()) {
+  preview(
+    amount: number,
+    items: OpenItem[],
+    excludedKeys: ReadonlySet<string> = new Set(),
+  ) {
     return allocate(
       amount,
       items.filter((i) => !excludedKeys.has(keyOf(i))),
@@ -66,35 +69,45 @@ class CollectionService {
 
   async collect(input: CollectInput): Promise<Collection> {
     const { lines } = input;
-    if (lines.length === 0) throw new Error(i18n.t('errors.collect_no_lines'));
+    if (lines.length === 0) throw new Error(i18n.t("errors.collect_no_lines"));
     if (!Number.isFinite(input.amount) || input.amount <= 0) {
-      throw new Error(i18n.t('errors.collect_amount_positive'));
+      throw new Error(i18n.t("errors.collect_amount_positive"));
     }
-    if (!(input.ratePerUsdSnapshot > 0)) throw new Error(i18n.t('errors.rate_snapshot_positive'));
+    if (!(input.ratePerUsdSnapshot > 0))
+      throw new Error(i18n.t("errors.rate_snapshot_positive"));
 
     for (const line of lines) {
       if (!line.item.openAmount && line.item.currencyId !== input.currencyId) {
-        throw new Error(i18n.t('errors.collect_currency_mismatch'));
+        throw new Error(i18n.t("errors.collect_currency_mismatch"));
       }
-      if (line.amount <= 0) throw new Error(i18n.t('errors.collect_amount_positive'));
+      if (line.amount <= 0)
+        throw new Error(i18n.t("errors.collect_amount_positive"));
       if (line.amount > ceilingOf(line) + EPSILON) {
-        throw new Error(i18n.t('errors.collect_exceeds_balance'));
+        throw new Error(i18n.t("errors.collect_exceeds_balance"));
       }
     }
 
     const allocated = lines.reduce((sum, l) => sum + l.amount, 0);
     if (Math.abs(allocated - input.amount) > EPSILON) {
-      throw new Error(i18n.t('errors.collect_split_mismatch'));
+      throw new Error(i18n.t("errors.collect_split_mismatch"));
     }
-    if (input.amount > lines.reduce((sum, l) => sum + ceilingOf(l), 0) + EPSILON) {
-      throw new Error(i18n.t('errors.collect_exceeds_owed'));
+    if (
+      input.amount >
+      lines.reduce((sum, l) => sum + ceilingOf(l), 0) + EPSILON
+    ) {
+      throw new Error(i18n.t("errors.collect_exceeds_owed"));
     }
 
     const charges: CreateChargePayload[] = [];
     const items: CreateCollectionItemPayload[] = [];
     for (const line of lines) {
-      const chargeId = line.item.chargeId ?? (await this.materialize(input, line, charges));
-      items.push({ tenant_id: input.tenantId, charge_id: chargeId, amount: line.amount });
+      const chargeId =
+        line.item.chargeId ?? (await this.materialize(input, line, charges));
+      items.push({
+        tenant_id: input.tenantId,
+        charge_id: chargeId,
+        amount: line.amount,
+      });
     }
 
     const row = await repository.create({
@@ -122,13 +135,16 @@ class CollectionService {
    * gets what was written plus the first failure, and re-collects only the rest.
    */
   async collectMulti(inputs: CollectInput[]): Promise<MultiCollectResult> {
-    if (inputs.length === 0) throw new Error(i18n.t('errors.collect_no_lines'));
+    if (inputs.length === 0) throw new Error(i18n.t("errors.collect_no_lines"));
     const collections: Collection[] = [];
     for (const input of inputs) {
       try {
         collections.push(await this.collect(input));
       } catch (e) {
-        return { collections, failed: e instanceof Error ? e : new Error(String(e)) };
+        return {
+          collections,
+          failed: e instanceof Error ? e : new Error(String(e)),
+        };
       }
     }
     return { collections, failed: null };
@@ -141,15 +157,18 @@ class CollectionService {
   ): Promise<string> {
     const { item } = line;
     if (!item.customerPlanId || !item.billingMonth) {
-      throw new Error(i18n.t('errors.collect_unknown_item'));
+      throw new Error(i18n.t("errors.collect_unknown_item"));
     }
-    const id = await chargeService.monthChargeId(item.customerPlanId, item.billingMonth);
+    const id = await chargeService.monthChargeId(
+      item.customerPlanId,
+      item.billingMonth,
+    );
     into.push({
       id,
       tenant_id: input.tenantId,
       branch_id: input.branchId,
       customer_id: item.customerId,
-      kind: 'month',
+      kind: "month",
       customer_plan_id: item.customerPlanId,
       billing_month: item.billingMonth,
       duration_months: item.durationMonths,
@@ -169,14 +188,18 @@ class CollectionService {
     return id;
   }
 
-
   async getById(id: string): Promise<Collection | null> {
     const row = await repository.findById(id);
     return row ? mapDbCollectionToCollection(row) : null;
   }
 
-  async getHistory(opts: FindCollectionsOptions): Promise<CollectionListItem[]> {
-    const rows = await repository.find({ ...opts, includeVoided: opts.includeVoided ?? true });
+  async getHistory(
+    opts: FindCollectionsOptions,
+  ): Promise<CollectionListItem[]> {
+    const rows = await repository.find({
+      ...opts,
+      includeVoided: opts.includeVoided ?? true,
+    });
     return rows.map((row) => this.toListItem(row));
   }
 
@@ -202,14 +225,18 @@ class CollectionService {
         voidedBy: c.voidedBy,
         voidReason: c.voidReason,
         itemCount: items.length,
-        itemLabels: dbItems.map((it) => (it.charges ? chargeLabel(it.charges) : '')),
+        itemLabels: dbItems.map((it) =>
+          it.charges ? chargeLabel(it.charges) : "",
+        ),
         items,
         kind: row.kind ?? collectionKind(dbItems.map((it) => it.charges?.kind)),
       };
     }
   }
 
-  getMonthlyTotals(opts: FindCollectionsOptions): Promise<Record<string, number>> {
+  getMonthlyTotals(
+    opts: FindCollectionsOptions,
+  ): Promise<Record<string, number>> {
     return repository.monthlyTotals(opts);
   }
 
@@ -222,7 +249,8 @@ class CollectionService {
       .map(mapDbCollectionToCollection)
       .sort(
         (a, b) =>
-          b.receivedAt.localeCompare(a.receivedAt) || b.createdAt.localeCompare(a.createdAt),
+          b.receivedAt.localeCompare(a.receivedAt) ||
+          b.createdAt.localeCompare(a.createdAt),
       );
   }
 
@@ -230,16 +258,20 @@ class CollectionService {
   async getPaymentTargets(chargeId: string): Promise<AuditRecordTarget[]> {
     const items = await repository.findItemsForCharges([chargeId], true);
     return [...new Set(items.map((i) => i.collection_id))].map((recordId) => ({
-      table: 'collections' as const,
+      table: "collections" as const,
       recordId,
     }));
   }
 
-
-  async voidCollection(id: string, voidedBy: string, reason: string | null): Promise<Collection> {
+  async voidCollection(
+    id: string,
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<Collection> {
     const existing = await repository.findById(id);
-    if (!existing) throw new Error(i18n.t('errors.collection_not_found'));
-    if (existing.voided_at) throw new Error(i18n.t('errors.collection_already_voided'));
+    if (!existing) throw new Error(i18n.t("errors.collection_not_found"));
+    if (existing.voided_at)
+      throw new Error(i18n.t("errors.collection_already_voided"));
     const row = await repository.void(id, voidedBy, reason);
     return mapDbCollectionToCollection(row);
   }
@@ -294,7 +326,9 @@ class CollectionService {
         charges: [],
       });
     }
-    const oldest = payments.reduce((a, b) => (a.receivedAt <= b.receivedAt ? a : b));
+    const oldest = payments.reduce((a, b) =>
+      a.receivedAt <= b.receivedAt ? a : b,
+    );
     return {
       amount,
       receivedAt: oldest.receivedAt,
@@ -303,7 +337,6 @@ class CollectionService {
     };
   }
 
-
   collectedInRange(
     startIso: string,
     endExclusiveIso: string,
@@ -311,7 +344,6 @@ class CollectionService {
   ): Promise<CashRow[]> {
     return repository.collectedInRange(startIso, endExclusiveIso, branchFilter);
   }
-
 
   async getHeld(
     branchFilter: BranchFilter,
@@ -323,7 +355,12 @@ class CollectionService {
     return rows.map((row) => this.toListItem(row));
   }
 
-  transferCustody(ids: string[], fromUserId: string, toUserId: string | null, actorUserId: string) {
+  transferCustody(
+    ids: string[],
+    fromUserId: string,
+    toUserId: string | null,
+    actorUserId: string,
+  ) {
     return repository.transferCustody(ids, fromUserId, toUserId, actorUserId);
   }
 }
@@ -334,7 +371,9 @@ class CollectionService {
  * bill to cap it: whatever is handed over becomes the bill.
  */
 function ceilingOf(line: AllocationLine): number {
-  return line.item.openAmount && line.item.balance <= 0 ? line.amount : line.item.balance;
+  return line.item.openAmount && line.item.balance <= 0
+    ? line.amount
+    : line.item.balance;
 }
 
 function sumItems(items: { amount: number }[]): number {

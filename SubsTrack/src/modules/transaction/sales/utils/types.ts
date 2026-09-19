@@ -2,15 +2,15 @@ import { BranchFilter } from "@/src/core/constants";
 import { Currency, Product, Sale, Service } from "@/src/core/types";
 
 export interface FindSalesOptions {
-    page?: number;
-    searchQuery?: string;
-    customerId?: string | null;
-    productId?: string | null;
-    fromDate?: string | null;
-    toDate?: string | null;
-    branchFilter?: BranchFilter;
-    includeVoided?: boolean;
-    voidedOnly?: boolean;
+  page?: number;
+  searchQuery?: string;
+  customerId?: string | null;
+  productId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+  branchFilter?: BranchFilter;
+  includeVoided?: boolean;
+  voidedOnly?: boolean;
 }
 
 // One line in the form's cart. `unitAmount` is already expressed in the sale's
@@ -25,8 +25,13 @@ export interface FindSalesOptions {
 // service line has no unit count to multiply — it always stores 1. Ask
 // `lineQuantity()` for a line's count instead of reaching for the field.
 export type CreateSaleItemInput =
-    | { kind: 'product'; product: Product; quantity: number; unitAmount: number }
-    | { kind: 'service'; service: Service | null; name: string; unitAmount: number };
+  | { kind: "product"; product: Product; quantity: number; unitAmount: number }
+  | {
+      kind: "service";
+      service: Service | null;
+      name: string;
+      unitAmount: number;
+    };
 
 // Input shape from the form. A sale holds zero or more lines — products,
 // services, or both — all in a single `currency` (chosen non-USD Currency or null
@@ -38,34 +43,34 @@ export type CreateSaleItemInput =
 // alone, which is why `items` may be empty and `items_summary` then falls back to
 // a generic word. `null`/absent means "whatever the lines add up to".
 export interface CreateSaleInput {
-    items: CreateSaleItemInput[];
-    totalAmount?: number | null;
-    customerId: string | null;
-    branchId: string | null;
-    amountPaid: number;
-    currency: Currency | null;
-    recordedByUserId: string | null;
-    tenantId: string;
-    notes: string | null;
+  items: CreateSaleItemInput[];
+  totalAmount?: number | null;
+  customerId: string | null;
+  branchId: string | null;
+  amountPaid: number;
+  currency: Currency | null;
+  recordedByUserId: string | null;
+  tenantId: string;
+  notes: string | null;
 }
 
 // Input shape for correcting an existing sale — see gotcha #111.
 export interface UpdateSaleInput {
-    items: CreateSaleItemInput[];
-    totalAmount?: number | null;
-    customerId: string | null;
-    branchId: string | null;
-    currency: Currency | null;
-    notes: string | null;
-    actorUserId: string | null;
-    collectedTotal?: number;
+  items: CreateSaleItemInput[];
+  totalAmount?: number | null;
+  customerId: string | null;
+  branchId: string | null;
+  currency: Currency | null;
+  notes: string | null;
+  actorUserId: string | null;
+  collectedTotal?: number;
 }
 
 // What a void (one sale or a whole selection) leaves the caller with: the rows
 // that actually went, so every list can drop them and give their stock back
 // without re-reading, plus the counts the screen reports.
 export interface SaleVoidResult {
-    ok: number;
-    failed: number;
-    voided: Sale[];
+  ok: number;
+  failed: number;
+  voided: Sale[];
 }

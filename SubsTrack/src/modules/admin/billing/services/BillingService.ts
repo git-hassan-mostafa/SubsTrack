@@ -1,20 +1,20 @@
-import i18n from '@/src/core/i18n';
-import type { CustomerRequest, Tenant } from '@/src/core/types';
-import repository from '../repository/CustomerRequestRepository';
-import allowanceRepository from '../repository/AllowanceRepository';
+import i18n from "@/src/core/i18n";
+import type { CustomerRequest, Tenant } from "@/src/core/types";
+import repository from "../repository/CustomerRequestRepository";
+import allowanceRepository from "../repository/AllowanceRepository";
 import {
   mapDbCustomerRequestToCustomerRequest,
   mapDbTenantToTenant,
-} from '../utils/mapper';
-import { QuotaExceededError } from '../utils/quotaError';
-import { AllowanceFloorError } from '../utils/allowanceFloorError';
+} from "../utils/mapper";
+import { QuotaExceededError } from "../utils/quotaError";
+import { AllowanceFloorError } from "../utils/allowanceFloorError";
 import {
   ALLOWANCE_FLOOR_CODES,
   MIN_CUSTOMER_ALLOWANCE,
   MIN_CUSTOMER_REQUEST,
   QUOTA_KINDS,
   type QuotaPair,
-} from '../utils/types';
+} from "../utils/types";
 
 class BillingService {
   // Counted on the ALLOWED service lines, never the active ones, so this reads
@@ -43,29 +43,33 @@ class BillingService {
     );
     if (!whole || this.totalAsked(extra) < MIN_CUSTOMER_REQUEST) {
       throw new Error(
-        i18n.t('billing.request_min_error', { min: MIN_CUSTOMER_REQUEST }),
+        i18n.t("billing.request_min_error", { min: MIN_CUSTOMER_REQUEST }),
       );
     }
   }
 
-  validateDecrease(next: QuotaPair, current: QuotaPair, active: QuotaPair): void {
+  validateDecrease(
+    next: QuotaPair,
+    current: QuotaPair,
+    active: QuotaPair,
+  ): void {
     if (!QUOTA_KINDS.every((kind) => Number.isInteger(next[kind]))) {
       throw new Error(
-        i18n.t('billing.decrease_min_error', { min: MIN_CUSTOMER_ALLOWANCE }),
+        i18n.t("billing.decrease_min_error", { min: MIN_CUSTOMER_ALLOWANCE }),
       );
     }
     if (next.customers < MIN_CUSTOMER_ALLOWANCE) {
       throw new Error(
-        i18n.t('billing.decrease_min_error', { min: MIN_CUSTOMER_ALLOWANCE }),
+        i18n.t("billing.decrease_min_error", { min: MIN_CUSTOMER_ALLOWANCE }),
       );
     }
     if (next.plans < next.customers) {
-      throw new Error(i18n.t('billing.plans_below_customers_error'));
+      throw new Error(i18n.t("billing.plans_below_customers_error"));
     }
     const raises = QUOTA_KINDS.some((kind) => next[kind] > current[kind]);
     const moves = QUOTA_KINDS.some((kind) => next[kind] < current[kind]);
     if (raises || !moves) {
-      throw new Error(i18n.t('billing.decrease_not_lower_error'));
+      throw new Error(i18n.t("billing.decrease_not_lower_error"));
     }
     for (const kind of QUOTA_KINDS) {
       if (next[kind] < active[kind]) {
@@ -84,7 +88,9 @@ class BillingService {
   ): Promise<Tenant> {
     this.validateDecrease(next, current, active);
     try {
-      return mapDbTenantToTenant(await allowanceRepository.lowerAllowances(next));
+      return mapDbTenantToTenant(
+        await allowanceRepository.lowerAllowances(next),
+      );
     } catch (e) {
       throw this.asFloorError(e, next);
     }
@@ -93,13 +99,13 @@ class BillingService {
   // The server re-counts and wins; it reports each floor as a coded message
   // rather than prose so nothing here parses a sentence.
   private asFloorError(e: unknown, next: QuotaPair): unknown {
-    const message = e instanceof Error ? e.message : '';
+    const message = e instanceof Error ? e.message : "";
     for (const kind of QUOTA_KINDS) {
       const at = message.indexOf(ALLOWANCE_FLOOR_CODES[kind]);
       if (at < 0) continue;
       const [activeCount] = message
         .slice(at + ALLOWANCE_FLOOR_CODES[kind].length)
-        .split(':');
+        .split(":");
       return new AllowanceFloorError(kind, next[kind], Number(activeCount));
     }
     return e;

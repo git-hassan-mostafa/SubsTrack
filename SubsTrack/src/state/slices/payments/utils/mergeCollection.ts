@@ -29,8 +29,12 @@ export function mergeCollection(
   for (const item of collection.items ?? []) {
     const charge = item.charge;
     if (charge && (charge.voidedAt || charge.writtenOffAt)) continue;
-    paid.set(item.chargeId, (paid.get(item.chargeId) ?? 0) + sign * item.amount);
-    if (sign === 1 && charge?.kind === "month") raised.set(charge.id, { charge, collected: 0 });
+    paid.set(
+      item.chargeId,
+      (paid.get(item.chargeId) ?? 0) + sign * item.amount,
+    );
+    if (sign === 1 && charge?.kind === "month")
+      raised.set(charge.id, { charge, collected: 0 });
   }
   const merged = bills.map((b) => {
     const extra = paid.get(b.charge.id);

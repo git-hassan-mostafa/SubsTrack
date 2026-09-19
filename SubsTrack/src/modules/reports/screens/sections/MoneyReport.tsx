@@ -5,7 +5,10 @@ import { formatMoney } from "@/src/core/utils/currency";
 import { expenseCategoryLabelKey } from "@/src/modules/transaction/expenses/utils/expenseCategories";
 import { delta, shareOfTotal } from "../../utils/aggregate";
 import { REPORT_COLORS } from "../../utils/reportColors";
-import type { MoneyReport as MoneyReportData, RecordRow } from "../../utils/types";
+import type {
+  MoneyReport as MoneyReportData,
+  RecordRow,
+} from "../../utils/types";
 import { ReportCard } from "../../components/ReportCard";
 import { KpiRow, type Kpi } from "../../components/KpiRow";
 import { BreakdownList } from "../../components/BreakdownList";
@@ -81,7 +84,11 @@ export function MoneyReport({ data, currencies, displayCurrency }: Props) {
     color: REPORT_COLORS.expense,
   }));
 
-  const drilled = useMemo((): { title: string; rows: RecordRow[]; totalUsd: number } | null => {
+  const drilled = useMemo((): {
+    title: string;
+    rows: RecordRow[];
+    totalUsd: number;
+  } | null => {
     if (!drill) return null;
 
     if (drill.kind === "category") {
@@ -126,7 +133,9 @@ export function MoneyReport({ data, currencies, displayCurrency }: Props) {
         <BreakdownList
           rows={streamRows}
           emptyLabel={t("reports.no_cash")}
-          onPressRow={(key) => setDrill({ kind: "stream", stream: key as CashStream })}
+          onPressRow={(key) =>
+            setDrill({ kind: "stream", stream: key as CashStream })
+          }
         />
       </ReportCard>
 
@@ -138,7 +147,10 @@ export function MoneyReport({ data, currencies, displayCurrency }: Props) {
         />
       </ReportCard>
 
-      <ReportCard title={t("reports.by_currency")} subtitle={t("reports.by_currency_hint")}>
+      <ReportCard
+        title={t("reports.by_currency")}
+        subtitle={t("reports.by_currency_hint")}
+      >
         <CurrencySplit
           rows={data.byCurrency}
           currencies={currencies}

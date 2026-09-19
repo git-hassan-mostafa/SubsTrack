@@ -1,4 +1,4 @@
-import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
+import { OFFLINE_PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
 import type {
   DbCharge,
   DbCustomer,
@@ -7,15 +7,23 @@ import type {
   DbSaleItem,
   DbService,
   DbStockMovement,
-} from '@/src/core/types/db';
-import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
-import { newId, nowIso } from '@/src/core/offline/ids';
-import type { FindSalesOptions } from '../utils/types';
-import type { CreateSalePayload, ISaleRepository, UpdateSalePayload } from './ISaleRepository';
-import { dayStartIso, nextDayStartIso } from '@/src/core/utils/dateRange';
-import { isReceiptIdTerm, receiptIdTerm, RECEIPT_ID_LENGTH } from '@/src/core/utils/receiptId';
-import { sanitizeSearchTerm } from '@/src/core/utils/searchTerm';
+} from "@/src/core/types/db";
+import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
+import { insertDirty, updateDirty } from "@/src/core/offline/db/dml";
+import { newId, nowIso } from "@/src/core/offline/ids";
+import type { FindSalesOptions } from "../utils/types";
+import type {
+  CreateSalePayload,
+  ISaleRepository,
+  UpdateSalePayload,
+} from "./ISaleRepository";
+import { dayStartIso, nextDayStartIso } from "@/src/core/utils/dateRange";
+import {
+  isReceiptIdTerm,
+  receiptIdTerm,
+  RECEIPT_ID_LENGTH,
+} from "@/src/core/utils/receiptId";
+import { sanitizeSearchTerm } from "@/src/core/utils/searchTerm";
 
 // SQL can do here in one statement what PostgREST cannot express: the customer
 // name is reached over the caller's LEFT JOIN (so a WALK-IN sale, which has no
@@ -23,29 +31,38 @@ import { sanitizeSearchTerm } from '@/src/core/utils/searchTerm';
 // own tail because the mirror stores `id` as TEXT. The web sibling needs a
 // customer-id pre-query and the `receipt_id` computed field for the same result.
 // Shared by findAll and monthlyTotals so a page and its total agree.
-function saleSearchWhere(searchQuery?: string): { clause: string; params: unknown[] } {
+function saleSearchWhere(searchQuery?: string): {
+  clause: string;
+  params: unknown[];
+} {
   const term = sanitizeSearchTerm(searchQuery);
-  if (!term) return { clause: '', params: [] };
+  if (!term) return { clause: "", params: [] };
   const like = `%${term}%`;
-  const clauses = ['s.items_summary LIKE ? COLLATE NOCASE', 'c.name LIKE ? COLLATE NOCASE'];
+  const clauses = [
+    "s.items_summary LIKE ? COLLATE NOCASE",
+    "c.name LIKE ? COLLATE NOCASE",
+  ];
   const params: unknown[] = [like, like];
   if (isReceiptIdTerm(term)) {
     clauses.push(`SUBSTR(s.id, -${RECEIPT_ID_LENGTH}) LIKE ? COLLATE NOCASE`);
     params.push(`%${receiptIdTerm(term)}%`);
   }
-  return { clause: `(${clauses.join(' OR ')})`, params };
+  return { clause: `(${clauses.join(" OR ")})`, params };
 }
 
 /** SQLite-backed sales repository. Reproduces
  *  `'*, sale_items(*, products(*), services(*)), customers(*)'`. */
-export class OfflineSaleRepository extends OfflineBaseRepository implements ISaleRepository {
+export class OfflineSaleRepository
+  extends OfflineBaseRepository
+  implements ISaleRepository
+{
   private async hydrate(sales: DbSale[]): Promise<DbSale[]> {
     if (sales.length === 0) return sales;
     const itemsByParent = await this.childrenByParent<DbSaleItem>(
-      'sale_items',
-      'sale_id',
+      "sale_items",
+      "sale_id",
       sales.map((s) => s.id),
-      'created_at',
+      "created_at",
     );
     const productIds: string[] = [];
     const serviceIds: string[] = [];
@@ -56,10 +73,10 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       }
     }
     const [products, services, customers] = await Promise.all([
-      this.rowsById<DbProduct>('products', productIds),
-      this.rowsById<DbService>('services', serviceIds),
+      this.rowsById<DbProduct>("products", productIds),
+      this.rowsById<DbService>("services", serviceIds),
       this.rowsById<DbCustomer>(
-        'customers',
+        "customers",
         sales.map((s) => s.customer_id).filter((c): c is string => !!c),
       ),
     ]);
@@ -67,30 +84,46 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       ...s,
       sale_items: (itemsByParent.get(s.id) ?? []).map((it) => ({
         ...it,
-        products: it.product_id ? products.get(it.product_id) ?? null : null,
-        services: it.service_id ? services.get(it.service_id) ?? null : null,
+        products: it.product_id ? (products.get(it.product_id) ?? null) : null,
+        services: it.service_id ? (services.get(it.service_id) ?? null) : null,
       })),
-      customers: s.customer_id ? customers.get(s.customer_id) ?? null : null,
+      customers: s.customer_id ? (customers.get(s.customer_id) ?? null) : null,
     }));
   }
 
   async findAll(opts: FindSalesOptions = {}): Promise<DbSale[]> {
     const page = opts.page ?? 0;
     const parts: { clause: string; params: unknown[] }[] = [];
-    if (!opts.includeVoided) parts.push({ clause: 's.voided_at IS NULL', params: [] });
-    if (opts.voidedOnly) parts.push({ clause: 's.voided_at IS NOT NULL', params: [] });
+    if (!opts.includeVoided)
+      parts.push({ clause: "s.voided_at IS NULL", params: [] });
+    if (opts.voidedOnly)
+      parts.push({ clause: "s.voided_at IS NOT NULL", params: [] });
     if (opts.customerId !== undefined && opts.customerId !== null)
-      parts.push({ clause: 's.customer_id = ?', params: [opts.customerId] });
+      parts.push({ clause: "s.customer_id = ?", params: [opts.customerId] });
     if (opts.productId)
       parts.push({
         clause:
-          'EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.product_id = ? AND si.voided_at IS NULL)',
+          "EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.product_id = ? AND si.voided_at IS NULL)",
         params: [opts.productId],
       });
-    if (opts.fromDate) parts.push({ clause: 's.sold_at >= ?', params: [dayStartIso(opts.fromDate)] });
-    if (opts.toDate) parts.push({ clause: 's.sold_at < ?', params: [nextDayStartIso(opts.toDate)] });
+    if (opts.fromDate)
+      parts.push({
+        clause: "s.sold_at >= ?",
+        params: [dayStartIso(opts.fromDate)],
+      });
+    if (opts.toDate)
+      parts.push({
+        clause: "s.sold_at < ?",
+        params: [nextDayStartIso(opts.toDate)],
+      });
     parts.push(saleSearchWhere(opts.searchQuery));
-    parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.sales, 's'));
+    parts.push(
+      this.branchWhere(
+        opts.branchFilter ?? null,
+        this.BRANCH_SCOPES.sales,
+        "s",
+      ),
+    );
 
     const { sql, params } = this.combineWhere(parts);
     const rows = await this.all(
@@ -98,21 +131,23 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
        ${sql} ORDER BY s.sold_at DESC LIMIT ${OFFLINE_PAGE_SIZE} OFFSET ${page * OFFLINE_PAGE_SIZE}`,
       params,
     );
-    return this.hydrate(this.decodeAll<DbSale>('sales', rows));
+    return this.hydrate(this.decodeAll<DbSale>("sales", rows));
   }
 
   async findByCustomer(customerId: string, limit = 20): Promise<DbSale[]> {
     const rows = await this.all(
-      'SELECT * FROM sales WHERE customer_id = ? AND voided_at IS NULL ORDER BY sold_at DESC LIMIT ?',
+      "SELECT * FROM sales WHERE customer_id = ? AND voided_at IS NULL ORDER BY sold_at DESC LIMIT ?",
       [customerId, limit],
     );
-    return this.hydrate(this.decodeAll<DbSale>('sales', rows));
+    return this.hydrate(this.decodeAll<DbSale>("sales", rows));
   }
 
   async findById(id: string): Promise<DbSale | null> {
-    const row = await this.first('SELECT * FROM sales WHERE id = ?', [id]);
+    const row = await this.first("SELECT * FROM sales WHERE id = ?", [id]);
     if (!row) return null;
-    const [hydrated] = await this.hydrate([this.decodeOne<DbSale>('sales', row)!]);
+    const [hydrated] = await this.hydrate([
+      this.decodeOne<DbSale>("sales", row)!,
+    ]);
     return hydrated;
   }
 
@@ -160,14 +195,14 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     };
     const subject = await this.customerSubject(saleRow.customer_id);
     await this.write(async (db) => {
-      await insertDirty(db, 'sales', saleRow);
-      for (const it of itemRows) await insertDirty(db, 'sale_items', it);
-      for (const m of movementRows) await insertDirty(db, 'stock_movements', m);
-      await insertDirty(db, 'charges', chargeRow);
+      await insertDirty(db, "sales", saleRow);
+      for (const it of itemRows) await insertDirty(db, "sale_items", it);
+      for (const m of movementRows) await insertDirty(db, "stock_movements", m);
+      await insertDirty(db, "charges", chargeRow);
       await this.auditIn(db, {
-        table: 'sales',
+        table: "sales",
         recordId: saleId,
-        action: 'create',
+        action: "create",
         after: saleRow,
         branchId: saleRow.branch_id,
         subject,
@@ -181,26 +216,32 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     const { items, movements, actorUserId, charge, ...header } = payload;
     const now = nowIso();
     const before = this.decodeOne<DbSale>(
-      'sales',
-      await this.first('SELECT * FROM sales WHERE id = ? AND voided_at IS NULL', [id]),
+      "sales",
+      await this.first(
+        "SELECT * FROM sales WHERE id = ? AND voided_at IS NULL",
+        [id],
+      ),
     );
-    if (!before) this.handleError(new Error('Sale not found'));
+    if (!before) this.handleError(new Error("Sale not found"));
     const [subject, existing] = await Promise.all([
       this.customerSubject(header.customer_id),
       this.all<{ id: string }>(
-        'SELECT id FROM sale_items WHERE sale_id = ? AND voided_at IS NULL ORDER BY created_at',
+        "SELECT id FROM sale_items WHERE sale_id = ? AND voided_at IS NULL ORDER BY created_at",
         [id],
       ),
     ]);
 
     await this.write(async (db) => {
-      await updateDirty(db, 'sales', id, { ...header, updated_at: now });
+      await updateDirty(db, "sales", id, { ...header, updated_at: now });
 
       for (let i = 0; i < items.length; i++) {
         if (i < existing.length) {
-          await updateDirty(db, 'sale_items', existing[i].id, { ...items[i], updated_at: now });
+          await updateDirty(db, "sale_items", existing[i].id, {
+            ...items[i],
+            updated_at: now,
+          });
         } else {
-          await insertDirty(db, 'sale_items', {
+          await insertDirty(db, "sale_items", {
             ...items[i],
             id: newId(),
             sale_id: id,
@@ -211,7 +252,10 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
         }
       }
       for (const row of existing.slice(items.length)) {
-        await updateDirty(db, 'sale_items', row.id, { voided_at: now, updated_at: now });
+        await updateDirty(db, "sale_items", row.id, {
+          voided_at: now,
+          updated_at: now,
+        });
       }
 
       if (movements) {
@@ -221,7 +265,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
           [now, actorUserId, now, id] as never[],
         );
         for (const m of movements) {
-          await insertDirty(db, 'stock_movements', {
+          await insertDirty(db, "stock_movements", {
             ...m,
             id: newId(),
             sale_id: id,
@@ -234,20 +278,24 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       }
 
       const bill = await this.first<{ id: string }>(
-        'SELECT id FROM charges WHERE sale_id = ? AND voided_at IS NULL',
+        "SELECT id FROM charges WHERE sale_id = ? AND voided_at IS NULL",
         [id],
       );
-      if (bill) await updateDirty(db, 'charges', bill.id, { ...charge, updated_at: now });
+      if (bill)
+        await updateDirty(db, "charges", bill.id, {
+          ...charge,
+          updated_at: now,
+        });
 
       const after = this.decodeOne<DbSale>(
-        'sales',
-        await this.first('SELECT * FROM sales WHERE id = ?', [id]),
+        "sales",
+        await this.first("SELECT * FROM sales WHERE id = ?", [id]),
       );
       if (after) {
         await this.auditIn(db, {
-          table: 'sales',
+          table: "sales",
           recordId: id,
-          action: 'update',
+          action: "update",
           before,
           after,
           branchId: after.branch_id,
@@ -260,18 +308,24 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     return updated as DbSale;
   }
 
-  async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
+  async voidSale(
+    id: string,
+    voidedBy: string,
+    reason: string,
+  ): Promise<DbSale> {
     const now = nowIso();
     const subject = await this.customerSubject(
-      (await this.first<{ customer_id: string | null }>(
-        'SELECT customer_id FROM sales WHERE id = ?',
-        [id],
-      ))?.customer_id ?? null,
+      (
+        await this.first<{ customer_id: string | null }>(
+          "SELECT customer_id FROM sales WHERE id = ?",
+          [id],
+        )
+      )?.customer_id ?? null,
     );
     await this.write(async (db) => {
       const before = this.decodeOne<DbSale>(
-        'sales',
-        await this.first('SELECT * FROM sales WHERE id = ?', [id]),
+        "sales",
+        await this.first("SELECT * FROM sales WHERE id = ?", [id]),
       );
       await db.runAsync(
         `UPDATE sales SET voided_at = ?, voided_by = ?, void_reason = ?, updated_at = ?, _dirty = 1
@@ -289,14 +343,14 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
         [now, voidedBy, reason, now, id] as never[],
       );
       const after = this.decodeOne<DbSale>(
-        'sales',
-        await this.first('SELECT * FROM sales WHERE id = ?', [id]),
+        "sales",
+        await this.first("SELECT * FROM sales WHERE id = ?", [id]),
       );
       if (before && after) {
         await this.auditIn(db, {
-          table: 'sales',
+          table: "sales",
           recordId: id,
-          action: 'void',
+          action: "void",
           before,
           after,
           branchId: after.branch_id,
@@ -304,9 +358,11 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
         });
       }
     });
-    const row = await this.first('SELECT * FROM sales WHERE id = ?', [id]);
-    if (!row) this.handleError(new Error('Sale not found'));
-    const [hydrated] = await this.hydrate([this.decodeOne<DbSale>('sales', row)!]);
+    const row = await this.first("SELECT * FROM sales WHERE id = ?", [id]);
+    if (!row) this.handleError(new Error("Sale not found"));
+    const [hydrated] = await this.hydrate([
+      this.decodeOne<DbSale>("sales", row)!,
+    ]);
     return hydrated;
   }
 
@@ -316,9 +372,12 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     branchFilter: BranchFilter = null,
   ): Promise<number> {
     const { sql, params } = this.combineWhere([
-      { clause: 's.voided_at IS NULL', params: [] },
-      { clause: 's.sold_at >= ? AND s.sold_at < ?', params: [startIso, endExclusiveIso] },
-      this.branchWhere(branchFilter, this.BRANCH_SCOPES.sales, 's'),
+      { clause: "s.voided_at IS NULL", params: [] },
+      {
+        clause: "s.sold_at >= ? AND s.sold_at < ?",
+        params: [startIso, endExclusiveIso],
+      },
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.sales, "s"),
     ]);
     return this.count(`SELECT COUNT(*) AS n FROM sales s ${sql}`, params);
   }
@@ -328,22 +387,41 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
     if (opts.voidedOnly) return [];
     const parts: { clause: string; params: unknown[] }[] = [];
-    if (!opts.includeVoided) parts.push({ clause: 's.voided_at IS NULL', params: [] });
+    if (!opts.includeVoided)
+      parts.push({ clause: "s.voided_at IS NULL", params: [] });
     if (opts.customerId !== undefined && opts.customerId !== null)
-      parts.push({ clause: 's.customer_id = ?', params: [opts.customerId] });
+      parts.push({ clause: "s.customer_id = ?", params: [opts.customerId] });
     if (opts.productId)
       parts.push({
         clause:
-          'EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.product_id = ? AND si.voided_at IS NULL)',
+          "EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.product_id = ? AND si.voided_at IS NULL)",
         params: [opts.productId],
       });
-    if (opts.fromDate) parts.push({ clause: 's.sold_at >= ?', params: [dayStartIso(opts.fromDate)] });
-    if (opts.toDate) parts.push({ clause: 's.sold_at < ?', params: [nextDayStartIso(opts.toDate)] });
+    if (opts.fromDate)
+      parts.push({
+        clause: "s.sold_at >= ?",
+        params: [dayStartIso(opts.fromDate)],
+      });
+    if (opts.toDate)
+      parts.push({
+        clause: "s.sold_at < ?",
+        params: [nextDayStartIso(opts.toDate)],
+      });
     parts.push(saleSearchWhere(opts.searchQuery));
-    parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.sales, 's'));
+    parts.push(
+      this.branchWhere(
+        opts.branchFilter ?? null,
+        this.BRANCH_SCOPES.sales,
+        "s",
+      ),
+    );
 
     const { sql, params } = this.combineWhere(parts);
-    const rows = await this.all<{ sold_at: string; total_amount: string; rate_per_usd_snapshot: string }>(
+    const rows = await this.all<{
+      sold_at: string;
+      total_amount: string;
+      rate_per_usd_snapshot: string;
+    }>(
       `SELECT s.sold_at, s.total_amount, s.rate_per_usd_snapshot FROM sales s
        LEFT JOIN customers c ON s.customer_id = c.id
        ${sql}`,

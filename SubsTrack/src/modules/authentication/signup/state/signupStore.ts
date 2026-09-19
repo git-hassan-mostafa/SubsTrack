@@ -1,8 +1,7 @@
-import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
-import i18n from '@/src/core/i18n';
-import { signupService } from '@/src/modules/authentication/signup';
-
+import { create } from "zustand";
+import { immer } from "zustand/middleware/immer";
+import i18n from "@/src/core/i18n";
+import { signupService } from "@/src/modules/authentication/signup";
 
 export interface SignupCredentials {
   username: string;
@@ -22,7 +21,9 @@ export interface SignupState {
   checkingCode: boolean;
   error: string | null;
 
-  setOrganization: (patch: Partial<{ name: string; tenantCode: string }>) => void;
+  setOrganization: (
+    patch: Partial<{ name: string; tenantCode: string }>,
+  ) => void;
   setAccount: (
     patch: Partial<{
       adminUserName: string;
@@ -38,12 +39,12 @@ export interface SignupState {
 }
 
 const INITIAL = {
-  name: '',
-  tenantCode: '',
-  adminUserName: '',
-  adminFullName: '',
-  adminPassword: '',
-  confirmPassword: '',
+  name: "",
+  tenantCode: "",
+  adminUserName: "",
+  adminFullName: "",
+  adminPassword: "",
+  confirmPassword: "",
   loading: false,
   checkingCode: false,
   error: null,
@@ -74,10 +75,11 @@ export const useSignupStore = create<SignupState>()(
       try {
         const { name, tenantCode } = get();
         signupService.validateOrganization({ name, tenantCode });
-        const available = await signupService.checkTenantCodeAvailable(tenantCode);
+        const available =
+          await signupService.checkTenantCodeAvailable(tenantCode);
         if (!available) {
           set((state) => {
-            state.error = i18n.t('signup.errors.tenant_code_taken');
+            state.error = i18n.t("signup.errors.tenant_code_taken");
             state.checkingCode = false;
           });
           return false;
@@ -124,8 +126,8 @@ export const useSignupStore = create<SignupState>()(
       } catch (e) {
         const err = e as Error & { code?: string };
         const message =
-          err.code === 'tenant_code_taken'
-            ? i18n.t('signup.errors.tenant_code_taken')
+          err.code === "tenant_code_taken"
+            ? i18n.t("signup.errors.tenant_code_taken")
             : err.message;
         set((state) => {
           state.error = message;

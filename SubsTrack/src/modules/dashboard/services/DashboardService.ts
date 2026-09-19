@@ -1,4 +1,8 @@
-import type { ChargeKind, DashboardMetrics, UnpaidStartRule } from "@/src/core/types";
+import type {
+  ChargeKind,
+  DashboardMetrics,
+  UnpaidStartRule,
+} from "@/src/core/types";
 import type { BranchFilter } from "@/src/core/constants";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import { customerRepository as customerRepo } from "@/src/modules/customer/customers";
@@ -9,7 +13,6 @@ import saleService from "@/src/modules/transaction/sales/services/SaleService";
 import expenseService from "@/src/modules/transaction/expenses/services/ExpenseService";
 import walletService from "@/src/modules/wallet/services/WalletService";
 import type { WalletActor } from "@/src/modules/wallet/utils/custody";
-
 
 // One calendar month of collected cash, split by what it settled.
 interface MonthCollections {
@@ -40,9 +43,9 @@ class DashboardService {
     const sumOf = (kind: ChargeKind) =>
       rows.filter((r) => r.stream === kind).reduce((s, r) => s + usd(r), 0);
     return {
-      subscription: sumOf('month'),
-      sales: sumOf('sale'),
-      manual: sumOf('manual'),
+      subscription: sumOf("month"),
+      sales: sumOf("sale"),
+      manual: sumOf("manual"),
       total: rows.reduce((s, r) => s + usd(r), 0),
       paymentsCollectedCount: new Set(rows.map((r) => r.collectionId)).size,
       salesCount,
@@ -80,12 +83,26 @@ class DashboardService {
       userRepo.countAll(branchFilter),
       planRepo.countAll(branchFilter),
       ledgerService.getDebtsView(branchFilter),
-      customerRepo.countCreatedInRange(monthStart, monthEndExclusive, branchFilter),
-      customerRepo.countCancelledInRange(monthStart, monthEndExclusive, branchFilter),
+      customerRepo.countCreatedInRange(
+        monthStart,
+        monthEndExclusive,
+        branchFilter,
+      ),
+      customerRepo.countCancelledInRange(
+        monthStart,
+        monthEndExclusive,
+        branchFilter,
+      ),
       this.getMonthCollections(year, month - 1, branchFilter),
-      viewer ? walletService.getWalletsView(viewer, branchFilter) : Promise.resolve([]),
       viewer
-        ? expenseService.getTotalsInRange(monthStart, monthEndExclusive, branchFilter)
+        ? walletService.getWalletsView(viewer, branchFilter)
+        : Promise.resolve([]),
+      viewer
+        ? expenseService.getTotalsInRange(
+            monthStart,
+            monthEndExclusive,
+            branchFilter,
+          )
         : Promise.resolve({ totalUsd: 0, customUsd: 0, stockUsd: 0 }),
     ]);
 

@@ -28,8 +28,7 @@ export async function reloadApp(): Promise<void> {
     const Updates = await import("expo-updates");
     await Updates.reloadAsync();
     return;
-  } catch {
-  }
+  } catch {}
 
   if (Platform.OS !== "web") {
     try {
@@ -42,8 +41,7 @@ export async function reloadApp(): Promise<void> {
         DevMenu.reload();
         return;
       }
-    } catch {
-    }
+    } catch {}
   }
 
   if (typeof window !== "undefined" && typeof window.location !== "undefined") {
@@ -71,8 +69,7 @@ export async function initI18n(): Promise<void> {
         language = saved as SupportedLanguage;
       }
     }
-  } catch {
-  }
+  } catch {}
 
   const isRTL = (RTL_LANGUAGES as readonly string[]).includes(language);
 

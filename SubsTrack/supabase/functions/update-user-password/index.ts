@@ -32,10 +32,13 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const [body, { data: { user: caller }, error: callerErr }] = await Promise.all([
-      req.json(),
-      callerClient.auth.getUser(),
-    ]);
+    const [
+      body,
+      {
+        data: { user: caller },
+        error: callerErr,
+      },
+    ] = await Promise.all([req.json(), callerClient.auth.getUser()]);
 
     if (callerErr || !caller) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -70,17 +73,23 @@ Deno.serve(async (req) => {
     const { userId, newPassword } = body;
 
     if (!userId || !newPassword) {
-      return new Response(JSON.stringify({ error: "userId and newPassword are required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "userId and newPassword are required" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     if (newPassword.length < 8) {
-      return new Response(JSON.stringify({ error: "Password must be at least 8 characters" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Password must be at least 8 characters" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     // Verify the target user belongs to the same tenant as the caller
@@ -99,7 +108,9 @@ Deno.serve(async (req) => {
 
     if (targetProfile.tenant_id !== callerProfile.tenant_id) {
       return new Response(
-        JSON.stringify({ error: "Forbidden: cannot modify users from another tenant" }),
+        JSON.stringify({
+          error: "Forbidden: cannot modify users from another tenant",
+        }),
         {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -111,9 +122,15 @@ Deno.serve(async (req) => {
     // Otherwise, admins can only change passwords of staff users — not other
     // admins/superadmins. (superadmin callers are unrestricted.)
     const isSelf = userId === caller.id;
-    if (!isSelf && callerProfile.role === "admin" && targetProfile.role !== "user") {
+    if (
+      !isSelf &&
+      callerProfile.role === "admin" &&
+      targetProfile.role !== "user"
+    ) {
       return new Response(
-        JSON.stringify({ error: "Forbidden: admins can only change passwords of staff users" }),
+        JSON.stringify({
+          error: "Forbidden: admins can only change passwords of staff users",
+        }),
         {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -121,9 +138,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { error: updateErr } = await serviceClient.auth.admin.updateUserById(userId, {
-      password: newPassword,
-    });
+    const { error: updateErr } = await serviceClient.auth.admin.updateUserById(
+      userId,
+      {
+        password: newPassword,
+      },
+    );
 
     if (updateErr) {
       throw new Error(updateErr.message);

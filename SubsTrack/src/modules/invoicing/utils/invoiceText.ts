@@ -1,4 +1,10 @@
-import type { Charge, Collection, CollectionItem, Currency, Sale } from "@/src/core/types";
+import type {
+  Charge,
+  Collection,
+  CollectionItem,
+  Currency,
+  Sale,
+} from "@/src/core/types";
 import { formatDate } from "@/src/core/utils/date";
 import { receiptId } from "@/src/core/utils/receiptId";
 import {
@@ -25,10 +31,17 @@ const BULLET = "•";
  * so a month reads as its period and the other two fall back to their kind —
  * which is exactly what a customer needs to recognise the row.
  */
-function chargeLine(ctx: InvoiceContext, charge: Charge | null | undefined): string {
+function chargeLine(
+  ctx: InvoiceContext,
+  charge: Charge | null | undefined,
+): string {
   if (!charge) return ctx.t("ledger.payment");
   if (charge.kind === "month" && charge.billingMonth) {
-    return getBlockRangeLabel(charge.billingMonth, charge.durationMonths, ctx.t);
+    return getBlockRangeLabel(
+      charge.billingMonth,
+      charge.durationMonths,
+      ctx.t,
+    );
   }
   if (charge.kind === "sale") return ctx.t("debts.sale");
   return charge.description?.trim() || ctx.t("debts.custom");
@@ -62,7 +75,11 @@ export function buildCollectionInvoiceText(
   ];
 
   if (items.length === 1) {
-    header.splice(1, 0, row(ctx.t("payments.month_label"), chargeLine(ctx, items[0].charge)));
+    header.splice(
+      1,
+      0,
+      row(ctx.t("payments.month_label"), chargeLine(ctx, items[0].charge)),
+    );
   }
 
   const blocks = [header.join("\n")];
@@ -71,7 +88,8 @@ export function buildCollectionInvoiceText(
       [
         ctx.t("ledger.this_pays"),
         ...sortedItems(items).map(
-          (it) => `${BULLET} ${chargeLine(ctx, it.charge)}: ${money(it.amount, source)}`,
+          (it) =>
+            `${BULLET} ${chargeLine(ctx, it.charge)}: ${money(it.amount, source)}`,
         ),
       ].join("\n"),
     );
@@ -91,7 +109,11 @@ function sortedItems(items: CollectionItem[]): CollectionItem[] {
 
 // Joins the blocks with blank lines between them, dropping empties so an absent
 // section never leaves a double gap.
-function assemble(ctx: InvoiceContext, title: string, blocks: string[]): string {
+function assemble(
+  ctx: InvoiceContext,
+  title: string,
+  blocks: string[],
+): string {
   const body = blocks.filter((b) => b.trim().length > 0).join("\n\n");
   const header = ctx.orgName ? `*${ctx.orgName}*\n${title}` : title;
   return `${header}\n\n${body}\n\n${ctx.t("invoice.thank_you")}`;
@@ -244,7 +266,10 @@ export function buildBillInvoiceText(
 ): string {
   const source = snapshotCurrency(charge, ctx.currencies);
   const live = payments.filter((p) => p.voidedAt === null);
-  const collected = live.reduce((sum, p) => sum + paidToCharge(p, charge.id), 0);
+  const collected = live.reduce(
+    (sum, p) => sum + paidToCharge(p, charge.id),
+    0,
+  );
   const remaining = charge.amount - collected;
 
   const header = [
@@ -252,8 +277,7 @@ export function buildBillInvoiceText(
     row(ctx.t("payments.month_label"), chargeLine(ctx, charge)),
     row(
       ctx.t("ledger.bill_total"),
-      money(charge.amount, source) +
-        equivalent(ctx, charge.amount, source),
+      money(charge.amount, source) + equivalent(ctx, charge.amount, source),
     ),
     row(ctx.t("invoice.total_paid"), money(collected, source)),
   ];
@@ -277,7 +301,6 @@ export function buildBillInvoiceText(
 
   return assemble(ctx, ctx.t("invoice.bill_receipt_title"), blocks);
 }
-
 
 // Oldest hand-over first, so the list reads as the account's history.
 function sortedPayments(payments: Collection[]): Collection[] {

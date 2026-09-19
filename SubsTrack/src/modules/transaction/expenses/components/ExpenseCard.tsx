@@ -14,10 +14,7 @@ import {
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
 import type { ExpenseItem } from "@/src/core/types";
-import {
-  findCurrency,
-  snapshotCurrency,
-} from "@/src/core/utils/currency";
+import { findCurrency, snapshotCurrency } from "@/src/core/utils/currency";
 import { outflowLabel } from "../utils/outflow";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";

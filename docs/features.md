@@ -223,7 +223,7 @@ See gotcha #38.
 
 **Keys today:**
 
-- `UnpaidStartRule` (`'month_start'` default \| `'customer_start_day'`) — when a month turns unpaid, and when the customer starts reading "Overdue". Those are **two** facts under `'customer_start_day'`: the **current** month is grey until the line's billing day (`isNotDueYet`), and **last** month is red but not yet *late* until that same day (`isNotLateYet`) — see gotcha #83. See [CLAUDE.md](../CLAUDE.md) → Critical Business Logic: Month Grid for the full rule; both helpers live in `customer-payments/utils/monthDueRules.ts`, shared by the grid and the customer-list aggregator.
+- `UnpaidStartRule` (`'month_start'` default \| `'customer_start_day'`) — when a month turns unpaid, and when the customer starts reading "Overdue". Those are **two** facts under `'customer_start_day'`: the **current** month is grey until the line's billing day (`isNotDueYet`), and **last** month is red but not yet _late_ until that same day (`isNotLateYet`) — see gotcha #83. See [CLAUDE.md](../CLAUDE.md) → Critical Business Logic: Month Grid for the full rule; both helpers live in `customer-payments/utils/monthDueRules.ts`, shared by the grid and the customer-list aggregator.
 
 **Adding a new key:** add it to `TENANT_SETTING_KEYS`, give `TenantSettingService` a typed setter + parser, add a semantic hook, and render a section on the screen. No schema change is needed — it is a key/value table.
 
@@ -263,7 +263,7 @@ Only the **service role** writes them — SuperAdmin and the edge functions, bot
 **Enforcement is service-layer, through ONE gate:**
 
 ```ts
-billingService.assertQuotas(limits, before, after)
+billingService.assertQuotas(limits, before, after);
 ```
 
 It walks `QUOTA_KINDS` (customers first) and throws a typed `QuotaExceededError` (from [utils/quotaError.ts](../SubsTrack/src/modules/admin/billing/utils/quotaError.ts)) carrying `{kind, limit, activeCount}` for the first breach. **A kind is only checked when the write GROWS it** — `after[kind] > before[kind]`. Without that test a tenant the owner cut below its own usage could never shrink: every line removal would be refused by the very limit it was moving toward.
@@ -456,9 +456,9 @@ A **service** is labour the tenant charges for — an installation, a repair vis
 
 Layers: `src/modules/admin/service-catalog/` — repository (+ `.offline`, platform switch), `ServiceCatalogService`, `ServiceListScreen`, `ServiceCard`, `ServiceFormSheet`, and a `services` slice with the standard `loaded` guard. The business-logic class is named `ServiceCatalogService`, not `ServiceService`, because "service" is also this app's name for that whole layer — and the module folder is `service-catalog` so the file is not `admin/services/services/…`.
 
-**Picking one on a sale.** A line's kind is decided by **which button added it** — the cart footer holds two dashed buttons, **+ Add product** and **+ Add service** — and the card then only *labels* what it sells (icon + word, plus `#n` when there are several). There is **no per-row switch**: the first shape of this editor put a full-width `Product | Service` segmented control at the top of each card, which read as a page tab bar, so tapping "Service" looked like navigating to a services list and instead silently wiped the product the user had just picked (gotcha #101). A sale holding both is therefore **two lines, never one line toggled twice**, which is also what the data model always said. A new sale opens with **zero** rows — the two buttons are the empty state — and any row, including the last, can be removed, which is how a line's kind is changed. In a service row the dropdown offers the active catalog services (priced in the sale currency, same conversion as products) plus a final **"Other — type a name"** option, which reveals a name field: that is the **one-off** — `service_id IS NULL`, and `item_name_snapshot` is the entire record of what was sold, so no catalog row is created. Adding a service inline (the dropdown's "+") prices the row from the object the form just saved, not from a store lookup, which would miss it on that render.
+**Picking one on a sale.** A line's kind is decided by **which button added it** — the cart footer holds two dashed buttons, **+ Add product** and **+ Add service** — and the card then only _labels_ what it sells (icon + word, plus `#n` when there are several). There is **no per-row switch**: the first shape of this editor put a full-width `Product | Service` segmented control at the top of each card, which read as a page tab bar, so tapping "Service" looked like navigating to a services list and instead silently wiped the product the user had just picked (gotcha #101). A sale holding both is therefore **two lines, never one line toggled twice**, which is also what the data model always said. A new sale opens with **zero** rows — the two buttons are the empty state — and any row, including the last, can be removed, which is how a line's kind is changed. In a service row the dropdown offers the active catalog services (priced in the sale currency, same conversion as products) plus a final **"Other — type a name"** option, which reveals a name field: that is the **one-off** — `service_id IS NULL`, and `item_name_snapshot` is the entire record of what was sold, so no catalog row is created. Adding a service inline (the dropdown's "+") prices the row from the object the form just saved, not from a store lookup, which would miss it on that render.
 
-**A service line has NO quantity — only a price.** No stock cap, no "N left" caption, and **no stepper at all**: labour is one job at one price, so the row shows a single **Price** field which *is* the line total. Two jobs are two lines; a bigger job is a bigger number. This is enforced by the type, not by a runtime check — the `service` variant of `CreateSaleItemInput` simply has no `quantity` field, so the compiler stops any caller from multiplying one. `lineQuantity()` (`sales/utils/saleLines.ts`) is the one answer to "how many?", returning 1 for labour, and every total, summary and DB row goes through it: `sale_items.quantity` still exists and still stores **1** on a service line, so nothing downstream had to learn a special case. The receipt and the WhatsApp invoice both drop the `1 × …` prefix on a service line, because "1 × $25 = $25" is noise.
+**A service line has NO quantity — only a price.** No stock cap, no "N left" caption, and **no stepper at all**: labour is one job at one price, so the row shows a single **Price** field which _is_ the line total. Two jobs are two lines; a bigger job is a bigger number. This is enforced by the type, not by a runtime check — the `service` variant of `CreateSaleItemInput` simply has no `quantity` field, so the compiler stops any caller from multiplying one. `lineQuantity()` (`sales/utils/saleLines.ts`) is the one answer to "how many?", returning 1 for labour, and every total, summary and DB row goes through it: `sale_items.quantity` still exists and still stores **1** on a service line, so nothing downstream had to learn a special case. The receipt and the WhatsApp invoice both drop the `1 × …` prefix on a service line, because "1 × $25 = $25" is noise.
 
 **Validation** splits by kind in `SaleService.validate`: a product line needs a real catalog row (`errors.sale_product_required`) **and** a positive integer quantity, a service line needs a non-blank resolved name (`errors.sale_service_required`) — which is also what keeps the `NOT NULL` name column legal for a one-off — and no quantity rule at all. The positive `unit_amount` check is shared.
 
@@ -476,7 +476,7 @@ An edit re-prices the bill AND may re-state its cash. The payment section holds 
 
 **Receipt (`SaleDetailSheet`).** The lines get their **own card**, separate from the customer / sold-at / receipt-ID rows: an "Items" header (cart icon + line count when >1), then one row per line — numbered bubble, `item_name_snapshot` (a **service** line prefixed with a small `construct-outline` mark, so the bill shows at a glance which part was labour), a `qty × unit price` sub-line, and the line total on the right. A totals footer (Total, plus Paid / Remaining when the sale is partial) renders only when it adds information (multi-line or partial sale). The hero's caption swaps the frozen `items_summary` for a "{{count}} items" count once there is more than one line, since the summary gets long. Lean reads (empty `items`) simply skip the card.
 
-Below the lines the receipt shows **every payment that reached the sale** — the same `BillPaymentsList` the month bill sheet uses, fed the sale's own `chargeId` and currency snapshot. A sale and a month are one `charges` row to the ledger, so a sale paid in installments deserves the same running record: one row per hand-over with its amount *against this sale*, its date, its collector, an "also paid other bills" note when the cash was wider than this record, and a 3-dot menu offering **Send on WhatsApp** (customer + phone only) and **Void payment**. Voiding one there refreshes the screen behind, so the sale reads as owing again. A lean read carries no `chargeId`, so the block is not rendered and nothing is fetched.
+Below the lines the receipt shows **every payment that reached the sale** — the same `BillPaymentsList` the month bill sheet uses, fed the sale's own `chargeId` and currency snapshot. A sale and a month are one `charges` row to the ledger, so a sale paid in installments deserves the same running record: one row per hand-over with its amount _against this sale_, its date, its collector, an "also paid other bills" note when the cash was wider than this record, and a 3-dot menu offering **Send on WhatsApp** (customer + phone only) and **Void payment**. Voiding one there refreshes the screen behind, so the sale reads as owing again. A lean read carries no `chargeId`, so the block is not rendered and nothing is fetched.
 
 **Row actions (`useSaleActions`).** Every sale row carries a **3-dot menu** holding everything one sale can do, so no action is reachable only by opening the receipt first: **View receipt · Edit sale · Complete · Send invoice on WhatsApp · History · Void sale**. A **voided** sale keeps only the two that still make sense (view + history) — void is final, so it is never editable, re-sendable or voidable again. The WhatsApp row stays **visible and disabled with a caption** when there is nobody to send to (walk-in) or no phone on the customer, the same "explain, don't vanish" rule the invoice selection action follows.
 
@@ -526,51 +526,51 @@ Every product carries a stock quantity and can be **out of stock**. Stock on han
 
 **`stock_movements`** — `product_id`, signed `quantity_delta` (never 0), `reason`, `sale_id` (only for `'sale'`), `unit_cost` + `currency_id` + `rate_per_usd_snapshot` (what the stock cost to BUY — see below), `note`, `recorded_by_user_id`, `occurred_at`, plus soft-void fields. Reasons:
 
-| Reason | Written by | Sign |
-| --- | --- | --- |
-| `initial` | the "Starting stock" field on **product create** | + |
-| `restock` | the product's stock sheet, "Add" — or the **batch restock** sheet | + |
-| `adjustment` | the product's stock sheet, "Remove" (damage, miscount, wrong entry) | − |
-| `sale` | `SaleService.createSale`, one row per line | − |
+| Reason       | Written by                                                          | Sign |
+| ------------ | ------------------------------------------------------------------- | ---- |
+| `initial`    | the "Starting stock" field on **product create**                    | +    |
+| `restock`    | the product's stock sheet, "Add" — or the **batch restock** sheet   | +    |
+| `adjustment` | the product's stock sheet, "Remove" (damage, miscount, wrong entry) | −    |
+| `sale`       | `SaleService.createSale`, one row per line                          | −    |
 
 **Reading it.** Web reads the `product_stock` view — `SUM(quantity_delta) … WHERE voided_at IS NULL GROUP BY product_id, tenant_id`, declared `WITH (security_invoker = true)` so the caller's RLS on `stock_movements` still applies (**requires PG 15+**; without `security_invoker` the view runs as its owner and leaks every tenant's stock). Offline runs the same `GROUP BY` on the mirror — there is no local view. Both are `IProductRepository.stockOnHand(ids?)` returning `Record<productId, number>`; products with no movements are absent and default to 0. `ProductService.getProducts` folds the map into each `Product`.
 
-**Branch scoping is inherited from the PRODUCT, not the sale.** The `stock_movements_all` policy mirrors `products_select` (`current_branch_id() IS NULL OR p.branch_id IS NULL OR p.branch_id = current_branch_id()`) — **not** `sale_items_all`, which inherits `sales`' *owned* semantics. Copying `sale_items_all` would hide every SHARED product's movements from a branch-scoped user, so each shared product would read as permanently out of stock and be unsellable for them. A shared product has **one** stock pool across all branches. The `WITH CHECK` also allows shared products (unlike `products_modify`): a branch user who can *sell* a shared item must be able to write its movement.
+**Branch scoping is inherited from the PRODUCT, not the sale.** The `stock_movements_all` policy mirrors `products_select` (`current_branch_id() IS NULL OR p.branch_id IS NULL OR p.branch_id = current_branch_id()`) — **not** `sale_items_all`, which inherits `sales`' _owned_ semantics. Copying `sale_items_all` would hide every SHARED product's movements from a branch-scoped user, so each shared product would read as permanently out of stock and be unsellable for them. A shared product has **one** stock pool across all branches. The `WITH CHECK` also allows shared products (unlike `products_modify`): a branch user who can _sell_ a shared item must be able to write its movement.
 
 **Writing it.**
 
-- **Sale create** — `SaleService.createSale` builds one negative `'sale'` movement per line and passes them in `CreateSalePayload.movements`. The repository writes them alongside the header + lines (offline: the *same* transaction), so a sale can never exist without the stock it consumed.
+- **Sale create** — `SaleService.createSale` builds one negative `'sale'` movement per line and passes them in `CreateSalePayload.movements`. The repository writes them alongside the header + lines (offline: the _same_ transaction), so a sale can never exist without the stock it consumed.
 - **Sale void** — the sale's movements are **soft-voided** (`UPDATE … WHERE sale_id = ? AND voided_at IS NULL`), not reversed with opposite rows. One statement, independent of line count, and idempotent — a repeat void is a no-op instead of returning the stock twice. Bulk void inherits this for free (`saleSlice.voidSales` loops `saleService.voidSale`).
 - **Manual** — `ProductService.addStock` appends a single `restock` row. **A manual entry only ever ADDS** — there is no "remove from stock" form: a delivery that was mistyped, never arrived, or was logged twice is fixed on the entry that recorded it (see [Editing a stock entry](#editing-a-stock-entry) and [Reverting a stock entry](#reverting-a-stock-entry)). A row is never deleted, and a `'sale'` row is never touched by hand.
 - **Batch restock** — `ProductService.restockMany(entries, tenantId, note, userId)` appends one `restock` row **per product** in a single `addMovements` call (offline: one transaction), then returns the fresh on-hand map so `productSlice.batchRestock` updates the list without a refetch. One arriving delivery = one save, but the per-product history stays exactly as detailed as the one-at-a-time path — there is no "batch" reason and no grouping row. The shared note is copied onto every row.
 
-**Blocking.** `SaleService.createSale` calls `assertStockAvailable` after `validate()` — a **fresh** `stockOnHand` read (the store can be minutes stale), summing the requested quantity **per product across all cart lines** (the same product can sit on two rows). Throws `errors.sale_out_of_stock` / `errors.sale_insufficient_stock`. Because it lives in the service, every entry point is covered (sale form, quick actions, customer screens). `SaleItemsEditor` mirrors it as a soft guard: out-of-stock products stay listed but greyed via `DropdownOption.disabled`, the quantity stepper caps at *on-hand minus what other rows already took*, each row shows "N left", and an oversold cart reports `ready: false`. The check is **advisory** — two offline devices can still each sell the last unit, and the DB deliberately allows a negative total (gotcha #48).
+**Blocking.** `SaleService.createSale` calls `assertStockAvailable` after `validate()` — a **fresh** `stockOnHand` read (the store can be minutes stale), summing the requested quantity **per product across all cart lines** (the same product can sit on two rows). Throws `errors.sale_out_of_stock` / `errors.sale_insufficient_stock`. Because it lives in the service, every entry point is covered (sale form, quick actions, customer screens). `SaleItemsEditor` mirrors it as a soft guard: out-of-stock products stay listed but greyed via `DropdownOption.disabled`, the quantity stepper caps at _on-hand minus what other rows already took_, each row shows "N left", and an oversold cart reports `ready: false`. The check is **advisory** — two offline devices can still each sell the last unit, and the DB deliberately allows a negative total (gotcha #48).
 
 **UI.** `ProductCard` shows a green "N in stock" / red "Out of stock" / red "Short by N" chip. `ProductStockSheet` (product row menu → "Adjust Stock", or the link on the edit form) shows the current on-hand, a quantity + cost + note that only ever adds, and the last 20 movements as a bordered list: a reason icon tinted by direction (green adds / red removes), the reason, date **and** time (`formatDateTime`), who recorded it (resolved from the users slice via `recordedByUserId`), the note, a **3-dot menu** on every correctable row (Edit entry · History), and a "Reversed" chip with struck-through amount on voided rows. An amber line warns when the save would push stock **below zero** — it never blocks, because the DB accepts a negative total on purpose (gotcha #48). `ProductFormSheet` takes "Starting stock" on **create only**; on edit it renders the number read-only next to an "Adjust Stock" link, so the total is never free-typed.
 
 `ProductBatchRestockSheet` is the many-products counterpart: a search box, then every **active** product as one compact row — name, current on-hand, and a `[−] qty [+]` stepper. A row with a quantity turns indigo and previews the result (`3 → 8`), so what's included is visible without reordering the list while the user types. One shared note applies to every row, and a summary line ("N products selected · +40") sits above the save button. Quantities are held per product id, so filtering the list never loses what was already typed. Two entry points, one component: the **Restock** button beside the search box on the products screen, and **Batch Restock** in the PageHeader quick-actions menu (admin-only there, since products live in the admin tab that non-admins never see).
 
-**Cost — the money side of the ledger.** A movement can carry what one unit cost to buy: `unit_cost` + `currency_id` + `rate_per_usd_snapshot`, written together by `ProductService.movement()` or all three null. That is the **only** money on `stock_movements`, and it is what makes buying stock an expense (see [Expenses](#expenses)). `products` also gained `cost_price` + `cost_currency_id` — a *default* that pre-fills the restock forms, live like `price` and never frozen; each delivery freezes its own cost on its own movement. Everything is optional: a restock with no cost still records the stock and simply adds no expense, which is also what every legacy row does. A `'sale'` movement never carries a cost (stock leaving is not money leaving) — `movement()` enforces that one.
+**Cost — the money side of the ledger.** A movement can carry what one unit cost to buy: `unit_cost` + `currency_id` + `rate_per_usd_snapshot`, written together by `ProductService.movement()` or all three null. That is the **only** money on `stock_movements`, and it is what makes buying stock an expense (see [Expenses](#expenses)). `products` also gained `cost_price` + `cost_currency_id` — a _default_ that pre-fills the restock forms, live like `price` and never frozen; each delivery freezes its own cost on its own movement. Everything is optional: a restock with no cost still records the stock and simply adds no expense, which is also what every legacy row does. A `'sale'` movement never carries a cost (stock leaving is not money leaving) — `movement()` enforces that one.
 
 **Cost is typed in three places:** the product form's **Cost price** field (the default, plus the opening stock's cost on create), the stock sheet's **Cost per unit** / **Total cost** pair (see below), and the **batch restock** sheet, where one **delivery currency** is picked for the whole save and each picked row opens a cost line seeded from its product's cost price, converted at the live rate (the `SaleItemsEditor` rule — changing the delivery currency re-prices every row). The stock history shows a costed row's money ("Cost: $X", or green "Money back: $X" on a negative row), so which rows moved Expenses is visible.
 
-**A stock expense comes back down through the ENTRY, never through a second row.** `amount = quantity_delta × unit_cost`, so a *negative* costed row is a negative expense — a credit — but **no new one can be written**: the stock sheet has no Remove mode, so the two doors are **Edit entry** (the row says 12, the delivery was 10) and **Revert entry** (the row should never have existed). Both take the money off the **entry's own month**, which is what a mistyped delivery needs — correcting a July delivery in August drops July's expense and leaves August alone. The credit shape stays supported for the negative rows older data already holds, and for editing one of them; it is simply not something staff can create any more.
+**A stock expense comes back down through the ENTRY, never through a second row.** `amount = quantity_delta × unit_cost`, so a _negative_ costed row is a negative expense — a credit — but **no new one can be written**: the stock sheet has no Remove mode, so the two doors are **Edit entry** (the row says 12, the delivery was 10) and **Revert entry** (the row should never have existed). Both take the money off the **entry's own month**, which is what a mistyped delivery needs — correcting a July delivery in August drops July's expense and leaves August alone. The credit shape stays supported for the negative rows older data already holds, and for editing one of them; it is simply not something staff can create any more.
 
-**What has no door any more:** stock that really left later — damaged, lost, stolen, or returned to the supplier. Those were the empty-cost and the costed *removal*, and both went with the Remove mode. The count now comes down only by selling, or by editing the entry that put the units there — which rewrites that entry's own month instead of recording a later event.
+**What has no door any more:** stock that really left later — damaged, lost, stolen, or returned to the supplier. Those were the empty-cost and the costed _removal_, and both went with the Remove mode. The count now comes down only by selling, or by editing the entry that put the units there — which rewrites that entry's own month instead of recording a later event.
 
-**Per unit or per delivery — both are typeable, and each fills the other.** A supplier invoice states one or the other ("4.50 each", "45 for the lot"), so the stock sheet puts **Cost per unit** and **Total cost** side by side: typing either one recomputes the other from the quantity (`total = unit × qty`, `unit = total ÷ qty`). Only **`unit_cost`** is ever saved — the total is a way of entering it, not a column — so the derived unit keeps **8 decimals** (what `stock_movements.unit_cost` stores): rounding 100 ÷ 3 to 33.33 would make the recorded expense 99.99 and disagree with the invoice that was typed. **The last field staff typed is the anchor**, so changing the quantity afterwards recomputes the *other* one and never overwrites what they entered — typed a 45 total, then fixed 10 units to 12, and the unit becomes 3.75 while the total stays 45. Everything else keeps the per-unit field as the source of truth: an abandoned edit and picking Edit on a row both reset the anchor to "unit". One currency for both — the picker sits on the per-unit input and the total is locked to it, since a movement stores one currency.
+**Per unit or per delivery — both are typeable, and each fills the other.** A supplier invoice states one or the other ("4.50 each", "45 for the lot"), so the stock sheet puts **Cost per unit** and **Total cost** side by side: typing either one recomputes the other from the quantity (`total = unit × qty`, `unit = total ÷ qty`). Only **`unit_cost`** is ever saved — the total is a way of entering it, not a column — so the derived unit keeps **8 decimals** (what `stock_movements.unit_cost` stores): rounding 100 ÷ 3 to 33.33 would make the recorded expense 99.99 and disagree with the invoice that was typed. **The last field staff typed is the anchor**, so changing the quantity afterwards recomputes the _other_ one and never overwrites what they entered — typed a 45 total, then fixed 10 units to 12, and the unit becomes 3.75 while the total stays 45. Everything else keeps the per-unit field as the source of truth: an abandoned edit and picking Edit on a row both reset the anchor to "unit". One currency for both — the picker sits on the per-unit input and the total is locked to it, since a movement stores one currency.
 
 #### Editing a stock entry
 
 A **manual** movement can be corrected in place — `ProductService.updateMovement` → `IProductRepository.updateMovement`, reached from the history row's 3-dot menu → **Edit entry**. It is one of the **two** doors into "the stock number is wrong"; the other is [Reverting a stock entry](#reverting-a-stock-entry):
 
-| | **Edit the row** | **Revert the row** |
-| --- | --- | --- |
-| What happened | the entry was **written** wrong (12 typed for a 10-unit delivery, a cost of 0.50 the invoice says was 0.45) | the entry should **not exist** at all (logged against the wrong product, saved twice) |
-| The history says | 10 arrived | the row stays, struck through and chipped "Reversed" |
-| The month that moves | the entry's **own** month — July becomes $5.00 | the entry's **own** month — July's $6.00 goes away |
+|                      | **Edit the row**                                                                                            | **Revert the row**                                                                    |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| What happened        | the entry was **written** wrong (12 typed for a 10-unit delivery, a cost of 0.50 the invoice says was 0.45) | the entry should **not exist** at all (logged against the wrong product, saved twice) |
+| The history says     | 10 arrived                                                                                                  | the row stays, struck through and chipped "Reversed"                                  |
+| The month that moves | the entry's **own** month — July becomes $5.00                                                              | the entry's **own** month — July's $6.00 goes away                                    |
 
-Both look backwards, and that is now the whole story: a manual entry cannot *remove* stock, so "12 arrived, then 2 went back" is a shape the ledger no longer writes (it did until this change — gotchas #94 / #96 keep the reasoning, and older data can still hold such a row).
+Both look backwards, and that is now the whole story: a manual entry cannot _remove_ stock, so "12 arrived, then 2 went back" is a shape the ledger no longer writes (it did until this change — gotchas #94 / #96 keep the reasoning, and older data can still hold such a row).
 
 **What may change, and what may not.** Only **quantity**, **cost + currency** and **note**. `occurred_at` is locked (it is what decides which month the money counts in — moving it is what the two-doors rule exists to avoid), and so are `reason`, `product_id` and the row's own identity. `UpdateStockMovementPayload` is the type that says so.
 
@@ -593,7 +593,7 @@ The edit door's sibling, for when the entry should never have existed at all —
 
 **It is a soft-void, not a row deletion.** `voided_at` + `voided_by` are set, and both derived numbers fix themselves: the row leaves the stock sum (`product_stock` / the mirror's `GROUP BY` count only live rows) and, if it carried a cost, it leaves Expenses. The row stays in the history, greyed out with the "Reversed" chip that a sale-voided movement already wears — hard-deleting it would take away the only answer to "where did the other 12 bottles go", and the ledger is deliberately a record of what staff did, not just of the current total (rule 7, no hard deletes).
 
-**The month is the entry's own, exactly like an edit.** Reverting says the entry was never real, so the money comes off the month the entry belongs to: a July delivery reverted in August leaves August untouched and drops July's expense. There used to be an opposite door — a costed *removal*, which credited the month it was recorded in — but the stock sheet's Remove mode is gone, so only older data holds such a row (see [Stock](#stock) → cost, gotchas #94 / #96).
+**The month is the entry's own, exactly like an edit.** Reverting says the entry was never real, so the money comes off the month the entry belongs to: a July delivery reverted in August leaves August untouched and drops July's expense. There used to be an opposite door — a costed _removal_, which credited the month it was recorded in — but the stock sheet's Remove mode is gone, so only older data holds such a row (see [Stock](#stock) → cost, gotchas #94 / #96).
 
 **Refused for the same rows an edit is refused for, in the SERVICE.** `ProductService.revertMovement` and `updateMovement` share one guard — `liveManualMovement(id)` — so a `'sale'` row (its movements belong to the sale, which swaps them itself) and an already-reverted row are turned away wherever they are called from, not merely hidden in the menu. `stock_movements.voidMovement` is the one write, audited as a **`void`** with the parent product's branch and name, so "who reverted this and when" is answerable — and the reverted row's menu keeps its **History** action for exactly that (Edit and Revert are gone; a `'sale'` row still opens no menu at all).
 
@@ -613,24 +613,24 @@ The Home dashboard answers one question — "how is **this month** going?" — w
 
 `PageHeader` (with the branch chip and a CSV export button) → `PeriodPicker` → a `SegmentedTabs` section switcher → the section's cards. Phase 1 ships **Money** and **Debts**; Customers and Staff/Products are phase 2 and drop into the same shells.
 
-**Period** (`src/core/utils/dateRange.ts`) is one primitive: `ReportPeriod { preset, fromDate, toDate }` with presets *This month · Last month · Last 3 / 6 / 12 months · This year · Custom*. Every preset is **whole calendar months** — it always ends on the last day of its final month — so its buckets and its comparison window are the same shape. `previousPeriod()` shifts a month-aligned period by whole months and anything custom by its own day count. The file also holds the app's `dayStartIso` / `nextDayStartIso` / `rangeFromDays` helpers, which four repositories and the expense slice used to carry privately.
+**Period** (`src/core/utils/dateRange.ts`) is one primitive: `ReportPeriod { preset, fromDate, toDate }` with presets _This month · Last month · Last 3 / 6 / 12 months · This year · Custom_. Every preset is **whole calendar months** — it always ends on the last day of its final month — so its buckets and its comparison window are the same shape. `previousPeriod()` shifts a month-aligned period by whole months and anything custom by its own day count. The file also holds the app's `dayStartIso` / `nextDayStartIso` / `rangeFromDays` helpers, which four repositories and the expense slice used to carry privately.
 
 ### Money
 
-| Block | What it shows |
-| --- | --- |
-| KPIs | Collected · Spent · Net · Margin, each with a ▲/▼ pill vs the previous period of the same length |
-| Money in | Breakdown by stream, with an inline share bar |
-| Money out | Breakdown by expense category (including the derived `stock` half) |
+| Block                 | What it shows                                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| KPIs                  | Collected · Spent · Net · Margin, each with a ▲/▼ pill vs the previous period of the same length                                 |
+| Money in              | Breakdown by stream, with an inline share bar                                                                                    |
+| Money out             | Breakdown by expense category (including the derived `stock` half)                                                               |
 | Collected by currency | What was **physically** collected in each currency, each printed in its own currency with a `≈` display-currency value beside it |
 
 ### Debts
 
-| Block | What it shows |
-| --- | --- |
-| KPIs | Still owed (**all time**) · Collected on debts (**this period**) · Customers owing · Behind on payments (**counted to today**, so this one does not move with the period) |
-| Who owes the most | Top 10 debtors, each with how many months they are behind, tappable through to the customer |
-| What is owed for | Gross by debt category (months / sales / custom) |
+| Block             | What it shows                                                                                                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| KPIs              | Still owed (**all time**) · Collected on debts (**this period**) · Customers owing · Behind on payments (**counted to today**, so this one does not move with the period) |
+| Who owes the most | Top 10 debtors, each with how many months they are behind, tappable through to the customer                                                                               |
+| What is owed for  | Gross by debt category (months / sales / custom)                                                                                                                          |
 
 Only one figure here is period-scoped. See gotcha #91 — outstanding debt is all-time by design, and the two are labelled apart on purpose.
 
@@ -642,10 +642,10 @@ Two arrays feed almost everything, and both come from code that already existed.
 
 **Money in** is three new reads, one per stream, all returning the same `CollectedRow` shape:
 
-| Repository | Method |
-| --- | --- |
+| Repository              | Method                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------ |
 | `ICollectionRepository` | `collectedInRange(startIso, endExclusiveIso, branchFilter)` — ONE read, one row per bill settled |
-| `ISaleRepository` | `collectedInRange(…)` |
+| `ISaleRepository`       | `collectedInRange(…)`                                                                            |
 
 Each lives on the repository that owns its table (never a cross-table `ReportsRepository`, which would have to re-derive the branch scoping `BRANCH_SCOPES` already encodes), and each has a Supabase impl and an offline SQLite twin. `ReportsService` tags them with their `stream` and merges them into one `CashRow[]`.
 
@@ -681,10 +681,10 @@ The app counted only money **in** — every hand-over summed into `monthlyRevenu
 
 **Two sources, one view.** `ExpenseService.getExpensesView({ startIso, endExclusiveIso, branchFilter })` composes them into a uniform `ExpenseItem[]` + a USD `ExpenseSummary` — the same shape `LedgerService` uses (stored rows + a derived stream from another service):
 
-| Source | Where it comes from |
-| --- | --- |
-| `manual` | Hand-typed rows in the `expenses` table (rent, salaries, fuel, …) |
-| `stock` | **Derived** at read time from `stock_movements` — costed, non-voided, non-`'sale'` rows; `amount = quantity_delta × unit_cost`, so a costed **negative** row is a negative amount (money back) — older data only, since a manual entry can no longer remove stock |
+| Source   | Where it comes from                                                                                                                                                                                                                                               |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `manual` | Hand-typed rows in the `expenses` table (rent, salaries, fuel, …)                                                                                                                                                                                                 |
+| `stock`  | **Derived** at read time from `stock_movements` — costed, non-voided, non-`'sale'` rows; `amount = quantity_delta × unit_cost`, so a costed **negative** row is a negative amount (money back) — older data only, since a manual entry can no longer remove stock |
 
 **A restock never writes an expense row.** Deriving it means correcting the stock corrects the expense, with no second insert inside the offline restock transaction, no drift on a void, and no orphan when a hard-deleted product takes its ledger with it. The cost of that choice is that a derived row **cannot be voided** (`ExpenseItem.canVoid` is false; its 3-dot offers "Open product") — a wrong cost is fixed on the entry that carries it — **Edit entry** for a mistyped one, **Revert entry** for one that should never have existed — and both take the money off the month that entry belongs to (see [Stock](#stock) → cost, and gotchas #94 / #96). Row ids are prefixed (`exp:` / `stock:`) so the two sources can never collide.
 
@@ -694,7 +694,7 @@ The app counted only money **in** — every hand-over summed into `monthlyRevenu
 
 **`expenses` table** — `branch_id` (its **own**, `NULL` = a company-wide expense), `category` (free text at the DB level; the app owns the code list, so a new category needs no migration), `description`, `amount` + `currency_id` + `rate_per_usd_snapshot` (the standard frozen-rate trio), `recorded_by_user_id`, `incurred_at`, soft-void fields. **Void-only, no edit** — a typo is voided and re-entered, so the row is its own history and the table is deliberately **not audited** (the same call as the debt tables). No tier gating.
 
-**Branch semantics: one rule, and it is `owned` on both halves.** `expenses.branch_id` is `owned`, and NULL means **the company bought it, no branch did** — so a company-wide expense shows in the **All branches** view only (the "Unassigned" chip reaches it on its own). The *derived* half follows the same rule via the parent **product**: `stock_movements: { kind: 'inherited', joinedTable: 'products' }`, deliberately narrower than the stock RLS policy. Both exist for the same reason — **branch views must sum to the tenant total**. Making either one `shared` puts head-office rent, or a shared product's delivery, into every branch's expenses at once, and two branch admins each read the same money as theirs. The RLS policy is wider than the app filter on purpose: visibility and aggregation are different questions. Gotcha #88.
+**Branch semantics: one rule, and it is `owned` on both halves.** `expenses.branch_id` is `owned`, and NULL means **the company bought it, no branch did** — so a company-wide expense shows in the **All branches** view only (the "Unassigned" chip reaches it on its own). The _derived_ half follows the same rule via the parent **product**: `stock_movements: { kind: 'inherited', joinedTable: 'products' }`, deliberately narrower than the stock RLS policy. Both exist for the same reason — **branch views must sum to the tenant total**. Making either one `shared` puts head-office rent, or a shared product's delivery, into every branch's expenses at once, and two branch admins each read the same money as theirs. The RLS policy is wider than the app filter on purpose: visibility and aggregation are different questions. Gotcha #88.
 
 **UI.** An **Expenses** segment in the Transactions hub (admin-only) plus an "Add expense" quick action. `ExpensesPanel` reads a **date window** (the current calendar month by default) rather than paginating, so section totals are always the local sum: a total-spent headline with a stock/other split, search + category + From/To chips, then a month-grouped `SectionList` via the shared `groupByMonth` / `MonthSectionHeader`. Every amount carries a leading `−`. `ExpenseFormSheet` is the `CustomDebtFormSheet` shape (category `Dropdown`, `CurrencyInput`, `DatePickerInput` capped at today, branch picker, description).
 
@@ -717,18 +717,18 @@ Staff can send the customer a **plain-text receipt over WhatsApp** — at the mo
 
 **Entry points.**
 
-| Where | Action |
-| --- | --- |
-| `CollectSheet` | (via each surface's own send flag) the hand-over it writes is sent as one receipt |
-| `SaleFormSheet` | a second, stacked button — **Save & send on WhatsApp**, using the `Sale` `createSale` already returns |
-| Quick pay — month-cell menu (`CustomerPaymentPanel`) + customer-card menu (`CustomerListScreen`) | a **Pay & send on WhatsApp** row beside "Quick pay" |
-| **Month-grid multi-select** (`InlineSelectionToolbar`) | a green WhatsApp action beside "Collect" — one receipt for the hand-over it writes |
-| `BillSheet` / the money-in history row menu | **Send on WhatsApp**, to re-send a saved hand-over any time |
-| `SaleDetailSheet` + the three sales lists | **Send invoice on WhatsApp** — one sale, or one receipt covering a selection |
+| Where                                                                                            | Action                                                                                                |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `CollectSheet`                                                                                   | (via each surface's own send flag) the hand-over it writes is sent as one receipt                     |
+| `SaleFormSheet`                                                                                  | a second, stacked button — **Save & send on WhatsApp**, using the `Sale` `createSale` already returns |
+| Quick pay — month-cell menu (`CustomerPaymentPanel`) + customer-card menu (`CustomerListScreen`) | a **Pay & send on WhatsApp** row beside "Quick pay"                                                   |
+| **Month-grid multi-select** (`InlineSelectionToolbar`)                                           | a green WhatsApp action beside "Collect" — one receipt for the hand-over it writes                    |
+| `BillSheet` / the money-in history row menu                                                      | **Send on WhatsApp**, to re-send a saved hand-over any time                                           |
+| `SaleDetailSheet` + the three sales lists                                                        | **Send invoice on WhatsApp** — one sale, or one receipt covering a selection                          |
 
 Stacked, not side-by-side: `Button` takes no `className`, and the long label (and its Arabic form) truncates at half a phone width.
 
-**Both busy states are one marker, not two flags.** Each form tracks `busyOn: "save" | "send" | null`, set **before** the write and cleared in a `finally`, so the spinner stays on the button the user actually pressed across both phases (the store write, then the awaited deep link). Consequently `canSubmit` / `submitDisabled` are **validity-only** — folding the slice's loading flag into them greys out *both* buttons, and a disabled `SendOnWhatsAppButton` shows no spinner at all.
+**Both busy states are one marker, not two flags.** Each form tracks `busyOn: "save" | "send" | null`, set **before** the write and cleared in a `finally`, so the spinner stays on the button the user actually pressed across both phases (the store write, then the awaited deep link). Consequently `canSubmit` / `submitDisabled` are **validity-only** — folding the slice's loading flag into them greys out _both_ buttons, and a disabled `SendOnWhatsAppButton` shows no spinner at all.
 
 **No phone → visible but disabled, with a caption.** `canSend` digit-strips exactly like `openWhatsApp`, so `"-"` or `"n/a"` disables rather than producing a broken link. The button caption is `invoice.no_phone`, or `invoice.no_customer` for a walk-in sale; the menu rows use `ActionMenuItem.caption` for the same hint. **A voided hand-over or sale never shows the button** — a cancelled receipt is not a receipt.
 
@@ -778,8 +778,9 @@ The bottom **Transactions** tab (`app/(app)/(tabs)/transactions`) is a hub hosti
 > it keys off collected money, and a voided collection contributes none.
 
 **Month-grouped lists.** Sales, Payments, and Debts all render as a `SectionList` grouped by calendar month, newest first — one section header per month ("This Month" for the current month, else "June 2026"). The two newest buckets break out ahead of the months: **Today** (`common.today`) and **This Week** (`common.this_week`, Monday-based week start, excluding today) — a row lands in exactly one bucket (today → this week → its month). The grouping is a pure view transform (`groupByMonth` in [monthSections.ts](../SubsTrack/src/shared/lib/monthSections.ts)) over the **already date-desc-sorted** slice data, so the slice/service stays the single source of sort order — it only buckets, it never re-sorts. Day/week bucket totals are always summed locally (their newest rows are guaranteed loaded); a month whose newest rows were peeled into Today/This-Week has that peeled USD subtracted from its authoritative `totalsByMonth` total so the header still reads the correct remainder. Each panel supplies the row's date: Sales → `soldAt`, money received → `receivedAt`. (Debts is a flat debtors list — it has no month sections.) Headers render via the shared `MonthSectionHeader`; sticky headers are disabled. Selection / select-all still resolve against the flat slice array (the sections are built from it), so multi-select is unaffected. Full month names come from the `months_long` i18n block; "This Month" from `common.current_month`.
-  - **Month totals.** Each panel also passes `groupByMonth` a `getAmountUsd` row-to-USD function, so every section carries a `totalUsd`; `MonthSectionHeader` renders it (formatted into the display currency) at the trailing edge of the header, next to the row count. Sales sum the **value sold** (`totalAmount`, matching `soldAt`); the money-in history sums the **cash received** (`amount / ratePerUsdSnapshot`, matching `receivedAt`). (Debts no longer uses month sections — it's a flat debtors list; the debtor detail modal groups a customer's debts/payments via the shared `DebtList`.)
-    - **Sales/Payments are paginated (`PAGE_SIZE` = 30) — summing only the loaded rows would under-count any month with more rows than one page.** Both panels instead pass `groupByMonth` a 5th arg, `totalsByMonth: Record<"YYYY-MM", number>`, which — for any month key present — overrides the local per-row sum. That map comes from `saleSlice`/`collections`'s `monthlyTotals` state, refetched (in parallel with the paginated page) every time filters change via `SaleService.getMonthlyTotals` / `CollectionService.getMonthlyTotals`, and **patched in place after a write** by `addMonthTotal(totals, iso, deltaUsd)` — recording, correcting or voiding a row moves its month by that row's value instead of re-running the aggregate (a month the map does not hold is left alone: it was never fetched, so `groupByMonth` is already summing it locally), which bucket `SaleRepository.monthlyTotals` / `CollectionRepository.monthlyTotals` — the **same filters as `findAll`, but unpaginated and projected to just the 2–3 numeric columns needed to sum** (no joins beyond what a search/branch filter needs), so it stays cheap even over a whole table. `fetchMoreSales`/`fetchMoreCollections` (loading further pages of an unchanged filter set) do **not** refetch it — the total doesn't change, only which rows are visible. Debts isn't paginated (it loads its full filtered set up front), so it never passes this arg and keeps summing locally.
+
+- **Month totals.** Each panel also passes `groupByMonth` a `getAmountUsd` row-to-USD function, so every section carries a `totalUsd`; `MonthSectionHeader` renders it (formatted into the display currency) at the trailing edge of the header, next to the row count. Sales sum the **value sold** (`totalAmount`, matching `soldAt`); the money-in history sums the **cash received** (`amount / ratePerUsdSnapshot`, matching `receivedAt`). (Debts no longer uses month sections — it's a flat debtors list; the debtor detail modal groups a customer's debts/payments via the shared `DebtList`.)
+  - **Sales/Payments are paginated (`PAGE_SIZE` = 30) — summing only the loaded rows would under-count any month with more rows than one page.** Both panels instead pass `groupByMonth` a 5th arg, `totalsByMonth: Record<"YYYY-MM", number>`, which — for any month key present — overrides the local per-row sum. That map comes from `saleSlice`/`collections`'s `monthlyTotals` state, refetched (in parallel with the paginated page) every time filters change via `SaleService.getMonthlyTotals` / `CollectionService.getMonthlyTotals`, and **patched in place after a write** by `addMonthTotal(totals, iso, deltaUsd)` — recording, correcting or voiding a row moves its month by that row's value instead of re-running the aggregate (a month the map does not hold is left alone: it was never fetched, so `groupByMonth` is already summing it locally), which bucket `SaleRepository.monthlyTotals` / `CollectionRepository.monthlyTotals` — the **same filters as `findAll`, but unpaginated and projected to just the 2–3 numeric columns needed to sum** (no joins beyond what a search/branch filter needs), so it stays cheap even over a whole table. `fetchMoreSales`/`fetchMoreCollections` (loading further pages of an unchanged filter set) do **not** refetch it — the total doesn't change, only which rows are visible. Debts isn't paginated (it loads its full filtered set up front), so it never passes this arg and keeps summing locally.
 
 **Money received (tenant-wide):** `CollectionsPanel` lists every hand-over of
 cash across all customers, newest first, defaulting to **this month**. Backed by
@@ -835,7 +836,7 @@ this, when, and why — with no surface to answer it. So the sheet keeps the
 what the cash paid for), names the void's time, **its author** (`voidedBy`,
 carried on `CollectionListItem` and patched into the store by `applyVoided`, so
 it is right the instant you void) and its reason, heads the bills **"This had
-paid"** with the caption *these bills are owed again*, and drops the custody row
+paid"** with the caption _these bills are owed again_, and drops the custody row
 entirely — a voided hand-over holds no cash, so "now with Sami" would be a lie. That sheet is the
 hand-over's whole record: the total (+ `≈`), a status pill, then an `InfoRows`
 block (customer · received to the minute · who took it · where the cash is now,
@@ -863,17 +864,17 @@ family, and the reason is one sentence:
 Raise `amount_paid` and the 8 counts as revenue on the original date; leave it
 and the row says he still owes it forever. Every debt problem the app had grew
 from that: `debt_payments` was a workaround that could only point at a
-*customer*, never at which month or sale it paid; debt was a customer-level
+_customer_, never at which month or sale it paid; debt was a customer-level
 `Σ categories − Σ payments`, so no individual line's balance was trustworthy;
 "Complete" existed only because `amount_paid` had no date of its own.
 
 ### The model
 
-| Table | Role | One row = |
-| --- | --- | --- |
-| `charges` | what is owed — **the bill** | a month, a sale, or a hand-typed fee |
-| `collections` | money physically handed over | one hand-over: "$55, 5 Mar, taken by Sami" |
-| `collection_items` | which bill that money paid | one bill touched by that hand-over |
+| Table              | Role                         | One row =                                  |
+| ------------------ | ---------------------------- | ------------------------------------------ |
+| `charges`          | what is owed — **the bill**  | a month, a sale, or a hand-typed fee       |
+| `collections`      | money physically handed over | one hand-over: "$55, 5 Mar, taken by Sami" |
+| `collection_items` | which bill that money paid   | one bill touched by that hand-over         |
 
 A bill can take many payments and a payment can cover many bills — a genuine
 many-to-many, which is exactly why the middle table exists. Partial payments,
@@ -890,7 +891,7 @@ wallet(user)     = Σ collections where held_by_user_id = user, per currency
 ```
 
 **Nothing asks "does a charge row exist?" — everything asks "how much money came
-in?"** A month bill left at 0 collected (after a void) reads *identically* to no
+in?"** A month bill left at 0 collected (after a void) reads _identically_ to no
 row at all. Miss this and a voided payment leaves a ghost debt behind.
 
 ### Balance is never a column
@@ -900,7 +901,7 @@ offline the same `GROUP BY` runs over the mirror, so one mapper serves both. Two
 devices can therefore both collect offline without clobbering a counter.
 
 > **The view's `CASE` is load-bearing.** `p.voided_at IS NULL` sits in a LEFT
-> JOIN's `ON` clause, which does not *drop* an item whose collection was voided —
+> JOIN's `ON` clause, which does not _drop_ an item whose collection was voided —
 > it only leaves the joined row all-NULL. A bare `SUM(i.amount)` keeps counting
 > voided cash, and voiding a payment never gives the balance back.
 
@@ -973,15 +974,15 @@ debt, and the Debts screen and the waterfall both see it. See gotcha #112.
 
 ### Owed vs debt
 
-| | includes | consumed by |
-| --- | --- | --- |
-| **OWED** | everything with a balance, plain unpaid months included | the waterfall, and only the waterfall |
-| **DEBT** | partly-paid months, open/partly-paid sales, hand-typed fees | the Debts screen |
+|          | includes                                                    | consumed by                           |
+| -------- | ----------------------------------------------------------- | ------------------------------------- |
+| **OWED** | everything with a balance, plain unpaid months included     | the waterfall, and only the waterfall |
+| **DEBT** | partly-paid months, open/partly-paid sales, hand-typed fees | the Debts screen                      |
 
 `isDebtItem(kind, paid) = kind !== 'month' || paid > 0` — one function, in
 `ledger/utils/openItems.ts`. **A fully unpaid month is NOT a debt**: it is
 `unpaid`/`overdue` in the month grid, which is its own screen and its own
-workflow. It becomes a debt the moment it is *partly* paid, which is exactly
+workflow. It becomes a debt the moment it is _partly_ paid, which is exactly
 when it stops being routine.
 
 **The Debts screen never lists a plain unpaid month at all**, and that is
@@ -1000,10 +1001,10 @@ so an emptied bill reads exactly like a month never touched (gotchas #106,
 Two different statements about one bill, and `chk_charges_void_xor_write_off`
 keeps them mutually exclusive:
 
-| | means | effect |
-| --- | --- | --- |
-| **void** (`voided_at`) | it was a MISTAKE — it never existed | gone from every figure. `voidCharge` is refused once money sits on it; `voidChargeWithPayments` is the deliberate "take the cash with it" door (see below) |
-| **write off** (`written_off_at`) | it is REAL but will never be paid | leaves "still owed", reported as a **loss** in Reports → Debts |
+|                                  | means                               | effect                                                                                                                                                     |
+| -------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **void** (`voided_at`)           | it was a MISTAKE — it never existed | gone from every figure. `voidCharge` is refused once money sits on it; `voidChargeWithPayments` is the deliberate "take the cash with it" door (see below) |
+| **write off** (`written_off_at`) | it is REAL but will never be paid   | leaves "still owed", reported as a **loss** in Reports → Debts                                                                                             |
 
 Voiding a **collection** is the third, and different again: the cash was real
 but should not have been recorded. Every bill it touched gets its balance back
@@ -1041,10 +1042,10 @@ the **charge's** (what he was billed).
 
 ### Screens
 
-| Where | What |
-| --- | --- |
+| Where          | What                                                                                                                                                                                                               |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `CollectSheet` | the ONE collect form. Two modes: a whole customer (type an amount, watch the waterfall split it, untick a row to steer the cash on) or a single bill. Same write either way, so one code path and one audit shape. |
-| `BillSheet` | one bill: a running `15 / 20 # Feature Deep-Dives
+| `BillSheet`    | one bill: a running `15 / 20 # Feature Deep-Dives                                                                                                                                                                  |
 
 > Detailed behavior for each feature area. Read the relevant section BEFORE editing that area's code. Referenced from `CLAUDE.md`.
 > The Month Grid algorithm itself stays in `CLAUDE.md` (it is the single most critical rule). This file covers everything built around it.
@@ -1269,7 +1270,7 @@ See gotcha #38.
 
 **Keys today:**
 
-- `UnpaidStartRule` (`'month_start'` default \| `'customer_start_day'`) — when a month turns unpaid, and when the customer starts reading "Overdue". Those are **two** facts under `'customer_start_day'`: the **current** month is grey until the line's billing day (`isNotDueYet`), and **last** month is red but not yet *late* until that same day (`isNotLateYet`) — see gotcha #83. See [CLAUDE.md](../CLAUDE.md) → Critical Business Logic: Month Grid for the full rule; both helpers live in `customer-payments/utils/monthDueRules.ts`, shared by the grid and the customer-list aggregator.
+- `UnpaidStartRule` (`'month_start'` default \| `'customer_start_day'`) — when a month turns unpaid, and when the customer starts reading "Overdue". Those are **two** facts under `'customer_start_day'`: the **current** month is grey until the line's billing day (`isNotDueYet`), and **last** month is red but not yet _late_ until that same day (`isNotLateYet`) — see gotcha #83. See [CLAUDE.md](../CLAUDE.md) → Critical Business Logic: Month Grid for the full rule; both helpers live in `customer-payments/utils/monthDueRules.ts`, shared by the grid and the customer-list aggregator.
 
 **Adding a new key:** add it to `TENANT_SETTING_KEYS`, give `TenantSettingService` a typed setter + parser, add a semantic hook, and render a section on the screen. No schema change is needed — it is a key/value table.
 
@@ -1309,7 +1310,7 @@ Only the **service role** writes them — SuperAdmin and the edge functions, bot
 **Enforcement is service-layer, through ONE gate:**
 
 ```ts
-billingService.assertQuotas(limits, before, after)
+billingService.assertQuotas(limits, before, after);
 ```
 
 It walks `QUOTA_KINDS` (customers first) and throws a typed `QuotaExceededError` (from [utils/quotaError.ts](../SubsTrack/src/modules/admin/billing/utils/quotaError.ts)) carrying `{kind, limit, activeCount}` for the first breach. **A kind is only checked when the write GROWS it** — `after[kind] > before[kind]`. Without that test a tenant the owner cut below its own usage could never shrink: every line removal would be refused by the very limit it was moving toward.
@@ -1502,9 +1503,9 @@ A **service** is labour the tenant charges for — an installation, a repair vis
 
 Layers: `src/modules/admin/service-catalog/` — repository (+ `.offline`, platform switch), `ServiceCatalogService`, `ServiceListScreen`, `ServiceCard`, `ServiceFormSheet`, and a `services` slice with the standard `loaded` guard. The business-logic class is named `ServiceCatalogService`, not `ServiceService`, because "service" is also this app's name for that whole layer — and the module folder is `service-catalog` so the file is not `admin/services/services/…`.
 
-**Picking one on a sale.** A line's kind is decided by **which button added it** — the cart footer holds two dashed buttons, **+ Add product** and **+ Add service** — and the card then only *labels* what it sells (icon + word, plus `#n` when there are several). There is **no per-row switch**: the first shape of this editor put a full-width `Product | Service` segmented control at the top of each card, which read as a page tab bar, so tapping "Service" looked like navigating to a services list and instead silently wiped the product the user had just picked (gotcha #101). A sale holding both is therefore **two lines, never one line toggled twice**, which is also what the data model always said. A new sale opens with **zero** rows — the two buttons are the empty state — and any row, including the last, can be removed, which is how a line's kind is changed. In a service row the dropdown offers the active catalog services (priced in the sale currency, same conversion as products) plus a final **"Other — type a name"** option, which reveals a name field: that is the **one-off** — `service_id IS NULL`, and `item_name_snapshot` is the entire record of what was sold, so no catalog row is created. Adding a service inline (the dropdown's "+") prices the row from the object the form just saved, not from a store lookup, which would miss it on that render.
+**Picking one on a sale.** A line's kind is decided by **which button added it** — the cart footer holds two dashed buttons, **+ Add product** and **+ Add service** — and the card then only _labels_ what it sells (icon + word, plus `#n` when there are several). There is **no per-row switch**: the first shape of this editor put a full-width `Product | Service` segmented control at the top of each card, which read as a page tab bar, so tapping "Service" looked like navigating to a services list and instead silently wiped the product the user had just picked (gotcha #101). A sale holding both is therefore **two lines, never one line toggled twice**, which is also what the data model always said. A new sale opens with **zero** rows — the two buttons are the empty state — and any row, including the last, can be removed, which is how a line's kind is changed. In a service row the dropdown offers the active catalog services (priced in the sale currency, same conversion as products) plus a final **"Other — type a name"** option, which reveals a name field: that is the **one-off** — `service_id IS NULL`, and `item_name_snapshot` is the entire record of what was sold, so no catalog row is created. Adding a service inline (the dropdown's "+") prices the row from the object the form just saved, not from a store lookup, which would miss it on that render.
 
-**A service line has NO quantity — only a price.** No stock cap, no "N left" caption, and **no stepper at all**: labour is one job at one price, so the row shows a single **Price** field which *is* the line total. Two jobs are two lines; a bigger job is a bigger number. This is enforced by the type, not by a runtime check — the `service` variant of `CreateSaleItemInput` simply has no `quantity` field, so the compiler stops any caller from multiplying one. `lineQuantity()` (`sales/utils/saleLines.ts`) is the one answer to "how many?", returning 1 for labour, and every total, summary and DB row goes through it: `sale_items.quantity` still exists and still stores **1** on a service line, so nothing downstream had to learn a special case. The receipt and the WhatsApp invoice both drop the `1 × …` prefix on a service line, because "1 × $25 = $25" is noise.
+**A service line has NO quantity — only a price.** No stock cap, no "N left" caption, and **no stepper at all**: labour is one job at one price, so the row shows a single **Price** field which _is_ the line total. Two jobs are two lines; a bigger job is a bigger number. This is enforced by the type, not by a runtime check — the `service` variant of `CreateSaleItemInput` simply has no `quantity` field, so the compiler stops any caller from multiplying one. `lineQuantity()` (`sales/utils/saleLines.ts`) is the one answer to "how many?", returning 1 for labour, and every total, summary and DB row goes through it: `sale_items.quantity` still exists and still stores **1** on a service line, so nothing downstream had to learn a special case. The receipt and the WhatsApp invoice both drop the `1 × …` prefix on a service line, because "1 × $25 = $25" is noise.
 
 **Validation** splits by kind in `SaleService.validate`: a product line needs a real catalog row (`errors.sale_product_required`) **and** a positive integer quantity, a service line needs a non-blank resolved name (`errors.sale_service_required`) — which is also what keeps the `NOT NULL` name column legal for a one-off — and no quantity rule at all. The positive `unit_amount` check is shared.
 
@@ -1570,51 +1571,51 @@ Every product carries a stock quantity and can be **out of stock**. Stock on han
 
 **`stock_movements`** — `product_id`, signed `quantity_delta` (never 0), `reason`, `sale_id` (only for `'sale'`), `unit_cost` + `currency_id` + `rate_per_usd_snapshot` (what the stock cost to BUY — see below), `note`, `recorded_by_user_id`, `occurred_at`, plus soft-void fields. Reasons:
 
-| Reason | Written by | Sign |
-| --- | --- | --- |
-| `initial` | the "Starting stock" field on **product create** | + |
-| `restock` | the product's stock sheet, "Add" — or the **batch restock** sheet | + |
-| `adjustment` | the product's stock sheet, "Remove" (damage, miscount, wrong entry) | − |
-| `sale` | `SaleService.createSale`, one row per line | − |
+| Reason       | Written by                                                          | Sign |
+| ------------ | ------------------------------------------------------------------- | ---- |
+| `initial`    | the "Starting stock" field on **product create**                    | +    |
+| `restock`    | the product's stock sheet, "Add" — or the **batch restock** sheet   | +    |
+| `adjustment` | the product's stock sheet, "Remove" (damage, miscount, wrong entry) | −    |
+| `sale`       | `SaleService.createSale`, one row per line                          | −    |
 
 **Reading it.** Web reads the `product_stock` view — `SUM(quantity_delta) … WHERE voided_at IS NULL GROUP BY product_id, tenant_id`, declared `WITH (security_invoker = true)` so the caller's RLS on `stock_movements` still applies (**requires PG 15+**; without `security_invoker` the view runs as its owner and leaks every tenant's stock). Offline runs the same `GROUP BY` on the mirror — there is no local view. Both are `IProductRepository.stockOnHand(ids?)` returning `Record<productId, number>`; products with no movements are absent and default to 0. `ProductService.getProducts` folds the map into each `Product`.
 
-**Branch scoping is inherited from the PRODUCT, not the sale.** The `stock_movements_all` policy mirrors `products_select` (`current_branch_id() IS NULL OR p.branch_id IS NULL OR p.branch_id = current_branch_id()`) — **not** `sale_items_all`, which inherits `sales`' *owned* semantics. Copying `sale_items_all` would hide every SHARED product's movements from a branch-scoped user, so each shared product would read as permanently out of stock and be unsellable for them. A shared product has **one** stock pool across all branches. The `WITH CHECK` also allows shared products (unlike `products_modify`): a branch user who can *sell* a shared item must be able to write its movement.
+**Branch scoping is inherited from the PRODUCT, not the sale.** The `stock_movements_all` policy mirrors `products_select` (`current_branch_id() IS NULL OR p.branch_id IS NULL OR p.branch_id = current_branch_id()`) — **not** `sale_items_all`, which inherits `sales`' _owned_ semantics. Copying `sale_items_all` would hide every SHARED product's movements from a branch-scoped user, so each shared product would read as permanently out of stock and be unsellable for them. A shared product has **one** stock pool across all branches. The `WITH CHECK` also allows shared products (unlike `products_modify`): a branch user who can _sell_ a shared item must be able to write its movement.
 
 **Writing it.**
 
-- **Sale create** — `SaleService.createSale` builds one negative `'sale'` movement per line and passes them in `CreateSalePayload.movements`. The repository writes them alongside the header + lines (offline: the *same* transaction), so a sale can never exist without the stock it consumed.
+- **Sale create** — `SaleService.createSale` builds one negative `'sale'` movement per line and passes them in `CreateSalePayload.movements`. The repository writes them alongside the header + lines (offline: the _same_ transaction), so a sale can never exist without the stock it consumed.
 - **Sale void** — the sale's movements are **soft-voided** (`UPDATE … WHERE sale_id = ? AND voided_at IS NULL`), not reversed with opposite rows. One statement, independent of line count, and idempotent — a repeat void is a no-op instead of returning the stock twice. Bulk void inherits this for free (`saleSlice.voidSales` loops `saleService.voidSale`).
 - **Manual** — `ProductService.addStock` appends a single `restock` row. **A manual entry only ever ADDS** — there is no "remove from stock" form: a delivery that was mistyped, never arrived, or was logged twice is fixed on the entry that recorded it (see [Editing a stock entry](#editing-a-stock-entry) and [Reverting a stock entry](#reverting-a-stock-entry)). A row is never deleted, and a `'sale'` row is never touched by hand.
 - **Batch restock** — `ProductService.restockMany(entries, tenantId, note, userId)` appends one `restock` row **per product** in a single `addMovements` call (offline: one transaction), then returns the fresh on-hand map so `productSlice.batchRestock` updates the list without a refetch. One arriving delivery = one save, but the per-product history stays exactly as detailed as the one-at-a-time path — there is no "batch" reason and no grouping row. The shared note is copied onto every row.
 
-**Blocking.** `SaleService.createSale` calls `assertStockAvailable` after `validate()` — a **fresh** `stockOnHand` read (the store can be minutes stale), summing the requested quantity **per product across all cart lines** (the same product can sit on two rows). Throws `errors.sale_out_of_stock` / `errors.sale_insufficient_stock`. Because it lives in the service, every entry point is covered (sale form, quick actions, customer screens). `SaleItemsEditor` mirrors it as a soft guard: out-of-stock products stay listed but greyed via `DropdownOption.disabled`, the quantity stepper caps at *on-hand minus what other rows already took*, each row shows "N left", and an oversold cart reports `ready: false`. The check is **advisory** — two offline devices can still each sell the last unit, and the DB deliberately allows a negative total (gotcha #48).
+**Blocking.** `SaleService.createSale` calls `assertStockAvailable` after `validate()` — a **fresh** `stockOnHand` read (the store can be minutes stale), summing the requested quantity **per product across all cart lines** (the same product can sit on two rows). Throws `errors.sale_out_of_stock` / `errors.sale_insufficient_stock`. Because it lives in the service, every entry point is covered (sale form, quick actions, customer screens). `SaleItemsEditor` mirrors it as a soft guard: out-of-stock products stay listed but greyed via `DropdownOption.disabled`, the quantity stepper caps at _on-hand minus what other rows already took_, each row shows "N left", and an oversold cart reports `ready: false`. The check is **advisory** — two offline devices can still each sell the last unit, and the DB deliberately allows a negative total (gotcha #48).
 
 **UI.** `ProductCard` shows a green "N in stock" / red "Out of stock" / red "Short by N" chip. `ProductStockSheet` (product row menu → "Adjust Stock", or the link on the edit form) shows the current on-hand, a quantity + cost + note that only ever adds, and the last 20 movements as a bordered list: a reason icon tinted by direction (green adds / red removes), the reason, date **and** time (`formatDateTime`), who recorded it (resolved from the users slice via `recordedByUserId`), the note, a **3-dot menu** on every correctable row (Edit entry · History), and a "Reversed" chip with struck-through amount on voided rows. An amber line warns when the save would push stock **below zero** — it never blocks, because the DB accepts a negative total on purpose (gotcha #48). `ProductFormSheet` takes "Starting stock" on **create only**; on edit it renders the number read-only next to an "Adjust Stock" link, so the total is never free-typed.
 
 `ProductBatchRestockSheet` is the many-products counterpart: a search box, then every **active** product as one compact row — name, current on-hand, and a `[−] qty [+]` stepper. A row with a quantity turns indigo and previews the result (`3 → 8`), so what's included is visible without reordering the list while the user types. One shared note applies to every row, and a summary line ("N products selected · +40") sits above the save button. Quantities are held per product id, so filtering the list never loses what was already typed. Two entry points, one component: the **Restock** button beside the search box on the products screen, and **Batch Restock** in the PageHeader quick-actions menu (admin-only there, since products live in the admin tab that non-admins never see).
 
-**Cost — the money side of the ledger.** A movement can carry what one unit cost to buy: `unit_cost` + `currency_id` + `rate_per_usd_snapshot`, written together by `ProductService.movement()` or all three null. That is the **only** money on `stock_movements`, and it is what makes buying stock an expense (see [Expenses](#expenses)). `products` also gained `cost_price` + `cost_currency_id` — a *default* that pre-fills the restock forms, live like `price` and never frozen; each delivery freezes its own cost on its own movement. Everything is optional: a restock with no cost still records the stock and simply adds no expense, which is also what every legacy row does. A `'sale'` movement never carries a cost (stock leaving is not money leaving) — `movement()` enforces that one.
+**Cost — the money side of the ledger.** A movement can carry what one unit cost to buy: `unit_cost` + `currency_id` + `rate_per_usd_snapshot`, written together by `ProductService.movement()` or all three null. That is the **only** money on `stock_movements`, and it is what makes buying stock an expense (see [Expenses](#expenses)). `products` also gained `cost_price` + `cost_currency_id` — a _default_ that pre-fills the restock forms, live like `price` and never frozen; each delivery freezes its own cost on its own movement. Everything is optional: a restock with no cost still records the stock and simply adds no expense, which is also what every legacy row does. A `'sale'` movement never carries a cost (stock leaving is not money leaving) — `movement()` enforces that one.
 
 **Cost is typed in three places:** the product form's **Cost price** field (the default, plus the opening stock's cost on create), the stock sheet's **Cost per unit** / **Total cost** pair (see below), and the **batch restock** sheet, where one **delivery currency** is picked for the whole save and each picked row opens a cost line seeded from its product's cost price, converted at the live rate (the `SaleItemsEditor` rule — changing the delivery currency re-prices every row). The stock history shows a costed row's money ("Cost: $X", or green "Money back: $X" on a negative row), so which rows moved Expenses is visible.
 
-**A stock expense comes back down through the ENTRY, never through a second row.** `amount = quantity_delta × unit_cost`, so a *negative* costed row is a negative expense — a credit — but **no new one can be written**: the stock sheet has no Remove mode, so the two doors are **Edit entry** (the row says 12, the delivery was 10) and **Revert entry** (the row should never have existed). Both take the money off the **entry's own month**, which is what a mistyped delivery needs — correcting a July delivery in August drops July's expense and leaves August alone. The credit shape stays supported for the negative rows older data already holds, and for editing one of them; it is simply not something staff can create any more.
+**A stock expense comes back down through the ENTRY, never through a second row.** `amount = quantity_delta × unit_cost`, so a _negative_ costed row is a negative expense — a credit — but **no new one can be written**: the stock sheet has no Remove mode, so the two doors are **Edit entry** (the row says 12, the delivery was 10) and **Revert entry** (the row should never have existed). Both take the money off the **entry's own month**, which is what a mistyped delivery needs — correcting a July delivery in August drops July's expense and leaves August alone. The credit shape stays supported for the negative rows older data already holds, and for editing one of them; it is simply not something staff can create any more.
 
-**What has no door any more:** stock that really left later — damaged, lost, stolen, or returned to the supplier. Those were the empty-cost and the costed *removal*, and both went with the Remove mode. The count now comes down only by selling, or by editing the entry that put the units there — which rewrites that entry's own month instead of recording a later event.
+**What has no door any more:** stock that really left later — damaged, lost, stolen, or returned to the supplier. Those were the empty-cost and the costed _removal_, and both went with the Remove mode. The count now comes down only by selling, or by editing the entry that put the units there — which rewrites that entry's own month instead of recording a later event.
 
-**Per unit or per delivery — both are typeable, and each fills the other.** A supplier invoice states one or the other ("4.50 each", "45 for the lot"), so the stock sheet puts **Cost per unit** and **Total cost** side by side: typing either one recomputes the other from the quantity (`total = unit × qty`, `unit = total ÷ qty`). Only **`unit_cost`** is ever saved — the total is a way of entering it, not a column — so the derived unit keeps **8 decimals** (what `stock_movements.unit_cost` stores): rounding 100 ÷ 3 to 33.33 would make the recorded expense 99.99 and disagree with the invoice that was typed. **The last field staff typed is the anchor**, so changing the quantity afterwards recomputes the *other* one and never overwrites what they entered — typed a 45 total, then fixed 10 units to 12, and the unit becomes 3.75 while the total stays 45. Everything else keeps the per-unit field as the source of truth: an abandoned edit and picking Edit on a row both reset the anchor to "unit". One currency for both — the picker sits on the per-unit input and the total is locked to it, since a movement stores one currency.
+**Per unit or per delivery — both are typeable, and each fills the other.** A supplier invoice states one or the other ("4.50 each", "45 for the lot"), so the stock sheet puts **Cost per unit** and **Total cost** side by side: typing either one recomputes the other from the quantity (`total = unit × qty`, `unit = total ÷ qty`). Only **`unit_cost`** is ever saved — the total is a way of entering it, not a column — so the derived unit keeps **8 decimals** (what `stock_movements.unit_cost` stores): rounding 100 ÷ 3 to 33.33 would make the recorded expense 99.99 and disagree with the invoice that was typed. **The last field staff typed is the anchor**, so changing the quantity afterwards recomputes the _other_ one and never overwrites what they entered — typed a 45 total, then fixed 10 units to 12, and the unit becomes 3.75 while the total stays 45. Everything else keeps the per-unit field as the source of truth: an abandoned edit and picking Edit on a row both reset the anchor to "unit". One currency for both — the picker sits on the per-unit input and the total is locked to it, since a movement stores one currency.
 
 #### Editing a stock entry
 
 A **manual** movement can be corrected in place — `ProductService.updateMovement` → `IProductRepository.updateMovement`, reached from the history row's 3-dot menu → **Edit entry**. It is one of the **two** doors into "the stock number is wrong"; the other is [Reverting a stock entry](#reverting-a-stock-entry):
 
-| | **Edit the row** | **Revert the row** |
-| --- | --- | --- |
-| What happened | the entry was **written** wrong (12 typed for a 10-unit delivery, a cost of 0.50 the invoice says was 0.45) | the entry should **not exist** at all (logged against the wrong product, saved twice) |
-| The history says | 10 arrived | the row stays, struck through and chipped "Reversed" |
-| The month that moves | the entry's **own** month — July becomes $5.00 | the entry's **own** month — July's $6.00 goes away |
+|                      | **Edit the row**                                                                                            | **Revert the row**                                                                    |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| What happened        | the entry was **written** wrong (12 typed for a 10-unit delivery, a cost of 0.50 the invoice says was 0.45) | the entry should **not exist** at all (logged against the wrong product, saved twice) |
+| The history says     | 10 arrived                                                                                                  | the row stays, struck through and chipped "Reversed"                                  |
+| The month that moves | the entry's **own** month — July becomes $5.00                                                              | the entry's **own** month — July's $6.00 goes away                                    |
 
-Both look backwards, and that is now the whole story: a manual entry cannot *remove* stock, so "12 arrived, then 2 went back" is a shape the ledger no longer writes (it did until this change — gotchas #94 / #96 keep the reasoning, and older data can still hold such a row).
+Both look backwards, and that is now the whole story: a manual entry cannot _remove_ stock, so "12 arrived, then 2 went back" is a shape the ledger no longer writes (it did until this change — gotchas #94 / #96 keep the reasoning, and older data can still hold such a row).
 
 **What may change, and what may not.** Only **quantity**, **cost + currency** and **note**. `occurred_at` is locked (it is what decides which month the money counts in — moving it is what the two-doors rule exists to avoid), and so are `reason`, `product_id` and the row's own identity. `UpdateStockMovementPayload` is the type that says so.
 
@@ -1637,7 +1638,7 @@ The edit door's sibling, for when the entry should never have existed at all —
 
 **It is a soft-void, not a row deletion.** `voided_at` + `voided_by` are set, and both derived numbers fix themselves: the row leaves the stock sum (`product_stock` / the mirror's `GROUP BY` count only live rows) and, if it carried a cost, it leaves Expenses. The row stays in the history, greyed out with the "Reversed" chip that a sale-voided movement already wears — hard-deleting it would take away the only answer to "where did the other 12 bottles go", and the ledger is deliberately a record of what staff did, not just of the current total (rule 7, no hard deletes).
 
-**The month is the entry's own, exactly like an edit.** Reverting says the entry was never real, so the money comes off the month the entry belongs to: a July delivery reverted in August leaves August untouched and drops July's expense. There used to be an opposite door — a costed *removal*, which credited the month it was recorded in — but the stock sheet's Remove mode is gone, so only older data holds such a row (see [Stock](#stock) → cost, gotchas #94 / #96).
+**The month is the entry's own, exactly like an edit.** Reverting says the entry was never real, so the money comes off the month the entry belongs to: a July delivery reverted in August leaves August untouched and drops July's expense. There used to be an opposite door — a costed _removal_, which credited the month it was recorded in — but the stock sheet's Remove mode is gone, so only older data holds such a row (see [Stock](#stock) → cost, gotchas #94 / #96).
 
 **Refused for the same rows an edit is refused for, in the SERVICE.** `ProductService.revertMovement` and `updateMovement` share one guard — `liveManualMovement(id)` — so a `'sale'` row (its movements belong to the sale, which swaps them itself) and an already-reverted row are turned away wherever they are called from, not merely hidden in the menu. `stock_movements.voidMovement` is the one write, audited as a **`void`** with the parent product's branch and name, so "who reverted this and when" is answerable — and the reverted row's menu keeps its **History** action for exactly that (Edit and Revert are gone; a `'sale'` row still opens no menu at all).
 
@@ -1657,24 +1658,24 @@ The Home dashboard answers one question — "how is **this month** going?" — w
 
 `PageHeader` (with the branch chip and a CSV export button) → `PeriodPicker` → a `SegmentedTabs` section switcher → the section's cards. Phase 1 ships **Money** and **Debts**; Customers and Staff/Products are phase 2 and drop into the same shells.
 
-**Period** (`src/core/utils/dateRange.ts`) is one primitive: `ReportPeriod { preset, fromDate, toDate }` with presets *This month · Last month · Last 3 / 6 / 12 months · This year · Custom*. Every preset is **whole calendar months** — it always ends on the last day of its final month — so its buckets and its comparison window are the same shape. `previousPeriod()` shifts a month-aligned period by whole months and anything custom by its own day count. The file also holds the app's `dayStartIso` / `nextDayStartIso` / `rangeFromDays` helpers, which four repositories and the expense slice used to carry privately.
+**Period** (`src/core/utils/dateRange.ts`) is one primitive: `ReportPeriod { preset, fromDate, toDate }` with presets _This month · Last month · Last 3 / 6 / 12 months · This year · Custom_. Every preset is **whole calendar months** — it always ends on the last day of its final month — so its buckets and its comparison window are the same shape. `previousPeriod()` shifts a month-aligned period by whole months and anything custom by its own day count. The file also holds the app's `dayStartIso` / `nextDayStartIso` / `rangeFromDays` helpers, which four repositories and the expense slice used to carry privately.
 
 ### Money
 
-| Block | What it shows |
-| --- | --- |
-| KPIs | Collected · Spent · Net · Margin, each with a ▲/▼ pill vs the previous period of the same length |
-| Money in | Breakdown by stream, with an inline share bar |
-| Money out | Breakdown by expense category (including the derived `stock` half) |
+| Block                 | What it shows                                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| KPIs                  | Collected · Spent · Net · Margin, each with a ▲/▼ pill vs the previous period of the same length                                 |
+| Money in              | Breakdown by stream, with an inline share bar                                                                                    |
+| Money out             | Breakdown by expense category (including the derived `stock` half)                                                               |
 | Collected by currency | What was **physically** collected in each currency, each printed in its own currency with a `≈` display-currency value beside it |
 
 ### Debts
 
-| Block | What it shows |
-| --- | --- |
-| KPIs | Still owed (**all time**) · Collected on debts (**this period**) · Customers owing · Behind on payments (**counted to today**, so this one does not move with the period) |
-| Who owes the most | Top 10 debtors, each with how many months they are behind, tappable through to the customer |
-| What is owed for | Gross by debt category (months / sales / custom) |
+| Block             | What it shows                                                                                                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| KPIs              | Still owed (**all time**) · Collected on debts (**this period**) · Customers owing · Behind on payments (**counted to today**, so this one does not move with the period) |
+| Who owes the most | Top 10 debtors, each with how many months they are behind, tappable through to the customer                                                                               |
+| What is owed for  | Gross by debt category (months / sales / custom)                                                                                                                          |
 
 Only one figure here is period-scoped. See gotcha #91 — outstanding debt is all-time by design, and the two are labelled apart on purpose.
 
@@ -1686,10 +1687,10 @@ Two arrays feed almost everything, and both come from code that already existed.
 
 **Money in** is three new reads, one per stream, all returning the same `CollectedRow` shape:
 
-| Repository | Method |
-| --- | --- |
+| Repository              | Method                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------ |
 | `ICollectionRepository` | `collectedInRange(startIso, endExclusiveIso, branchFilter)` — ONE read, one row per bill settled |
-| `ISaleRepository` | `collectedInRange(…)` |
+| `ISaleRepository`       | `collectedInRange(…)`                                                                            |
 
 Each lives on the repository that owns its table (never a cross-table `ReportsRepository`, which would have to re-derive the branch scoping `BRANCH_SCOPES` already encodes), and each has a Supabase impl and an offline SQLite twin. `ReportsService` tags them with their `stream` and merges them into one `CashRow[]`.
 
@@ -1725,10 +1726,10 @@ The app counted only money **in** — every hand-over summed into `monthlyRevenu
 
 **Two sources, one view.** `ExpenseService.getExpensesView({ startIso, endExclusiveIso, branchFilter })` composes them into a uniform `ExpenseItem[]` + a USD `ExpenseSummary` — the same shape `LedgerService` uses (stored rows + a derived stream from another service):
 
-| Source | Where it comes from |
-| --- | --- |
-| `manual` | Hand-typed rows in the `expenses` table (rent, salaries, fuel, …) |
-| `stock` | **Derived** at read time from `stock_movements` — costed, non-voided, non-`'sale'` rows; `amount = quantity_delta × unit_cost`, so a costed **negative** row is a negative amount (money back) — older data only, since a manual entry can no longer remove stock |
+| Source   | Where it comes from                                                                                                                                                                                                                                               |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `manual` | Hand-typed rows in the `expenses` table (rent, salaries, fuel, …)                                                                                                                                                                                                 |
+| `stock`  | **Derived** at read time from `stock_movements` — costed, non-voided, non-`'sale'` rows; `amount = quantity_delta × unit_cost`, so a costed **negative** row is a negative amount (money back) — older data only, since a manual entry can no longer remove stock |
 
 **A restock never writes an expense row.** Deriving it means correcting the stock corrects the expense, with no second insert inside the offline restock transaction, no drift on a void, and no orphan when a hard-deleted product takes its ledger with it. The cost of that choice is that a derived row **cannot be voided** (`ExpenseItem.canVoid` is false; its 3-dot offers "Open product") — a wrong cost is fixed on the entry that carries it — **Edit entry** for a mistyped one, **Revert entry** for one that should never have existed — and both take the money off the month that entry belongs to (see [Stock](#stock) → cost, and gotchas #94 / #96). Row ids are prefixed (`exp:` / `stock:`) so the two sources can never collide.
 
@@ -1738,7 +1739,7 @@ The app counted only money **in** — every hand-over summed into `monthlyRevenu
 
 **`expenses` table** — `branch_id` (its **own**, `NULL` = a company-wide expense), `category` (free text at the DB level; the app owns the code list, so a new category needs no migration), `description`, `amount` + `currency_id` + `rate_per_usd_snapshot` (the standard frozen-rate trio), `recorded_by_user_id`, `incurred_at`, soft-void fields. **Void-only, no edit** — a typo is voided and re-entered, so the row is its own history and the table is deliberately **not audited** (the same call as the debt tables). No tier gating.
 
-**Branch semantics: one rule, and it is `owned` on both halves.** `expenses.branch_id` is `owned`, and NULL means **the company bought it, no branch did** — so a company-wide expense shows in the **All branches** view only (the "Unassigned" chip reaches it on its own). The *derived* half follows the same rule via the parent **product**: `stock_movements: { kind: 'inherited', joinedTable: 'products' }`, deliberately narrower than the stock RLS policy. Both exist for the same reason — **branch views must sum to the tenant total**. Making either one `shared` puts head-office rent, or a shared product's delivery, into every branch's expenses at once, and two branch admins each read the same money as theirs. The RLS policy is wider than the app filter on purpose: visibility and aggregation are different questions. Gotcha #88.
+**Branch semantics: one rule, and it is `owned` on both halves.** `expenses.branch_id` is `owned`, and NULL means **the company bought it, no branch did** — so a company-wide expense shows in the **All branches** view only (the "Unassigned" chip reaches it on its own). The _derived_ half follows the same rule via the parent **product**: `stock_movements: { kind: 'inherited', joinedTable: 'products' }`, deliberately narrower than the stock RLS policy. Both exist for the same reason — **branch views must sum to the tenant total**. Making either one `shared` puts head-office rent, or a shared product's delivery, into every branch's expenses at once, and two branch admins each read the same money as theirs. The RLS policy is wider than the app filter on purpose: visibility and aggregation are different questions. Gotcha #88.
 
 **UI.** An **Expenses** segment in the Transactions hub (admin-only) plus an "Add expense" quick action. `ExpensesPanel` reads a **date window** (the current calendar month by default) rather than paginating, so section totals are always the local sum: a total-spent headline with a stock/other split, search + category + From/To chips, then a month-grouped `SectionList` via the shared `groupByMonth` / `MonthSectionHeader`. Every amount carries a leading `−`. `ExpenseFormSheet` is the `CustomDebtFormSheet` shape (category `Dropdown`, `CurrencyInput`, `DatePickerInput` capped at today, branch picker, description).
 
@@ -1761,18 +1762,18 @@ Staff can send the customer a **plain-text receipt over WhatsApp** — at the mo
 
 **Entry points.**
 
-| Where | Action |
-| --- | --- |
-| `CollectSheet` | (via each surface's own send flag) the hand-over it writes is sent as one receipt |
-| `SaleFormSheet` | a second, stacked button — **Save & send on WhatsApp**, using the `Sale` `createSale` already returns |
-| Quick pay — month-cell menu (`CustomerPaymentPanel`) + customer-card menu (`CustomerListScreen`) | a **Pay & send on WhatsApp** row beside "Quick pay" |
-| **Month-grid multi-select** (`InlineSelectionToolbar`) | a green WhatsApp action beside "Collect" — one receipt for the hand-over it writes |
-| `BillSheet` / the money-in history row menu | **Send on WhatsApp**, to re-send a saved hand-over any time |
-| `SaleDetailSheet` + the three sales lists | **Send invoice on WhatsApp** — one sale, or one receipt covering a selection |
+| Where                                                                                            | Action                                                                                                |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `CollectSheet`                                                                                   | (via each surface's own send flag) the hand-over it writes is sent as one receipt                     |
+| `SaleFormSheet`                                                                                  | a second, stacked button — **Save & send on WhatsApp**, using the `Sale` `createSale` already returns |
+| Quick pay — month-cell menu (`CustomerPaymentPanel`) + customer-card menu (`CustomerListScreen`) | a **Pay & send on WhatsApp** row beside "Quick pay"                                                   |
+| **Month-grid multi-select** (`InlineSelectionToolbar`)                                           | a green WhatsApp action beside "Collect" — one receipt for the hand-over it writes                    |
+| `BillSheet` / the money-in history row menu                                                      | **Send on WhatsApp**, to re-send a saved hand-over any time                                           |
+| `SaleDetailSheet` + the three sales lists                                                        | **Send invoice on WhatsApp** — one sale, or one receipt covering a selection                          |
 
 Stacked, not side-by-side: `Button` takes no `className`, and the long label (and its Arabic form) truncates at half a phone width.
 
-**Both busy states are one marker, not two flags.** Each form tracks `busyOn: "save" | "send" | null`, set **before** the write and cleared in a `finally`, so the spinner stays on the button the user actually pressed across both phases (the store write, then the awaited deep link). Consequently `canSubmit` / `submitDisabled` are **validity-only** — folding the slice's loading flag into them greys out *both* buttons, and a disabled `SendOnWhatsAppButton` shows no spinner at all.
+**Both busy states are one marker, not two flags.** Each form tracks `busyOn: "save" | "send" | null`, set **before** the write and cleared in a `finally`, so the spinner stays on the button the user actually pressed across both phases (the store write, then the awaited deep link). Consequently `canSubmit` / `submitDisabled` are **validity-only** — folding the slice's loading flag into them greys out _both_ buttons, and a disabled `SendOnWhatsAppButton` shows no spinner at all.
 
 **No phone → visible but disabled, with a caption.** `canSend` digit-strips exactly like `openWhatsApp`, so `"-"` or `"n/a"` disables rather than producing a broken link. The button caption is `invoice.no_phone`, or `invoice.no_customer` for a walk-in sale; the menu rows use `ActionMenuItem.caption` for the same hint. **A voided hand-over or sale never shows the button** — a cancelled receipt is not a receipt.
 
@@ -1822,8 +1823,9 @@ The bottom **Transactions** tab (`app/(app)/(tabs)/transactions`) is a hub hosti
 > it keys off collected money, and a voided collection contributes none.
 
 **Month-grouped lists.** Sales, Payments, and Debts all render as a `SectionList` grouped by calendar month, newest first — one section header per month ("This Month" for the current month, else "June 2026"). The two newest buckets break out ahead of the months: **Today** (`common.today`) and **This Week** (`common.this_week`, Monday-based week start, excluding today) — a row lands in exactly one bucket (today → this week → its month). The grouping is a pure view transform (`groupByMonth` in [monthSections.ts](../SubsTrack/src/shared/lib/monthSections.ts)) over the **already date-desc-sorted** slice data, so the slice/service stays the single source of sort order — it only buckets, it never re-sorts. Day/week bucket totals are always summed locally (their newest rows are guaranteed loaded); a month whose newest rows were peeled into Today/This-Week has that peeled USD subtracted from its authoritative `totalsByMonth` total so the header still reads the correct remainder. Each panel supplies the row's date: Sales → `soldAt`, money received → `receivedAt`. (Debts is a flat debtors list — it has no month sections.) Headers render via the shared `MonthSectionHeader`; sticky headers are disabled. Selection / select-all still resolve against the flat slice array (the sections are built from it), so multi-select is unaffected. Full month names come from the `months_long` i18n block; "This Month" from `common.current_month`.
-  - **Month totals.** Each panel also passes `groupByMonth` a `getAmountUsd` row-to-USD function, so every section carries a `totalUsd`; `MonthSectionHeader` renders it (formatted into the display currency) at the trailing edge of the header, next to the row count. Sales sum the **value sold** (`totalAmount`, matching `soldAt`); the money-in history sums the **cash received** (`amount / ratePerUsdSnapshot`, matching `receivedAt`). (Debts no longer uses month sections — it's a flat debtors list; the debtor detail modal groups a customer's debts/payments via the shared `DebtList`.)
-    - **Sales/Payments are paginated (`PAGE_SIZE` = 30) — summing only the loaded rows would under-count any month with more rows than one page.** Both panels instead pass `groupByMonth` a 5th arg, `totalsByMonth: Record<"YYYY-MM", number>`, which — for any month key present — overrides the local per-row sum. That map comes from `saleSlice`/`collections`'s `monthlyTotals` state, refetched (in parallel with the paginated page) every time filters change via `SaleService.getMonthlyTotals` / `CollectionService.getMonthlyTotals`, and **patched in place after a write** by `addMonthTotal(totals, iso, deltaUsd)` — recording, correcting or voiding a row moves its month by that row's value instead of re-running the aggregate (a month the map does not hold is left alone: it was never fetched, so `groupByMonth` is already summing it locally), which bucket `SaleRepository.monthlyTotals` / `CollectionRepository.monthlyTotals` — the **same filters as `findAll`, but unpaginated and projected to just the 2–3 numeric columns needed to sum** (no joins beyond what a search/branch filter needs), so it stays cheap even over a whole table. `fetchMoreSales`/`fetchMoreCollections` (loading further pages of an unchanged filter set) do **not** refetch it — the total doesn't change, only which rows are visible. Debts isn't paginated (it loads its full filtered set up front), so it never passes this arg and keeps summing locally.
+
+- **Month totals.** Each panel also passes `groupByMonth` a `getAmountUsd` row-to-USD function, so every section carries a `totalUsd`; `MonthSectionHeader` renders it (formatted into the display currency) at the trailing edge of the header, next to the row count. Sales sum the **value sold** (`totalAmount`, matching `soldAt`); the money-in history sums the **cash received** (`amount / ratePerUsdSnapshot`, matching `receivedAt`). (Debts no longer uses month sections — it's a flat debtors list; the debtor detail modal groups a customer's debts/payments via the shared `DebtList`.)
+  - **Sales/Payments are paginated (`PAGE_SIZE` = 30) — summing only the loaded rows would under-count any month with more rows than one page.** Both panels instead pass `groupByMonth` a 5th arg, `totalsByMonth: Record<"YYYY-MM", number>`, which — for any month key present — overrides the local per-row sum. That map comes from `saleSlice`/`collections`'s `monthlyTotals` state, refetched (in parallel with the paginated page) every time filters change via `SaleService.getMonthlyTotals` / `CollectionService.getMonthlyTotals`, and **patched in place after a write** by `addMonthTotal(totals, iso, deltaUsd)` — recording, correcting or voiding a row moves its month by that row's value instead of re-running the aggregate (a month the map does not hold is left alone: it was never fetched, so `groupByMonth` is already summing it locally), which bucket `SaleRepository.monthlyTotals` / `CollectionRepository.monthlyTotals` — the **same filters as `findAll`, but unpaginated and projected to just the 2–3 numeric columns needed to sum** (no joins beyond what a search/branch filter needs), so it stays cheap even over a whole table. `fetchMoreSales`/`fetchMoreCollections` (loading further pages of an unchanged filter set) do **not** refetch it — the total doesn't change, only which rows are visible. Debts isn't paginated (it loads its full filtered set up front), so it never passes this arg and keeps summing locally.
 
 **Money received (tenant-wide):** `CollectionsPanel` lists every hand-over of
 cash across all customers, newest first, defaulting to **this month**. Backed by
@@ -1879,7 +1881,7 @@ this, when, and why — with no surface to answer it. So the sheet keeps the
 what the cash paid for), names the void's time, **its author** (`voidedBy`,
 carried on `CollectionListItem` and patched into the store by `applyVoided`, so
 it is right the instant you void) and its reason, heads the bills **"This had
-paid"** with the caption *these bills are owed again*, and drops the custody row
+paid"** with the caption _these bills are owed again_, and drops the custody row
 entirely — a voided hand-over holds no cash, so "now with Sami" would be a lie. That sheet is the
 hand-over's whole record: the total (+ `≈`), a status pill, then an `InfoRows`
 block (customer · received to the minute · who took it · where the cash is now,
@@ -1907,17 +1909,17 @@ family, and the reason is one sentence:
 Raise `amount_paid` and the 8 counts as revenue on the original date; leave it
 and the row says he still owes it forever. Every debt problem the app had grew
 from that: `debt_payments` was a workaround that could only point at a
-*customer*, never at which month or sale it paid; debt was a customer-level
+_customer_, never at which month or sale it paid; debt was a customer-level
 `Σ categories − Σ payments`, so no individual line's balance was trustworthy;
 "Complete" existed only because `amount_paid` had no date of its own.
 
 ### The model
 
-| Table | Role | One row = |
-| --- | --- | --- |
-| `charges` | what is owed — **the bill** | a month, a sale, or a hand-typed fee |
-| `collections` | money physically handed over | one hand-over: "$55, 5 Mar, taken by Sami" |
-| `collection_items` | which bill that money paid | one bill touched by that hand-over |
+| Table              | Role                         | One row =                                  |
+| ------------------ | ---------------------------- | ------------------------------------------ |
+| `charges`          | what is owed — **the bill**  | a month, a sale, or a hand-typed fee       |
+| `collections`      | money physically handed over | one hand-over: "$55, 5 Mar, taken by Sami" |
+| `collection_items` | which bill that money paid   | one bill touched by that hand-over         |
 
 A bill can take many payments and a payment can cover many bills — a genuine
 many-to-many, which is exactly why the middle table exists. Partial payments,
@@ -1934,7 +1936,7 @@ wallet(user)     = Σ collections where held_by_user_id = user, per currency
 ```
 
 **Nothing asks "does a charge row exist?" — everything asks "how much money came
-in?"** A month bill left at 0 collected (after a void) reads *identically* to no
+in?"** A month bill left at 0 collected (after a void) reads _identically_ to no
 row at all. Miss this and a voided payment leaves a ghost debt behind.
 
 ### Balance is never a column
@@ -1944,7 +1946,7 @@ offline the same `GROUP BY` runs over the mirror, so one mapper serves both. Two
 devices can therefore both collect offline without clobbering a counter.
 
 > **The view's `CASE` is load-bearing.** `p.voided_at IS NULL` sits in a LEFT
-> JOIN's `ON` clause, which does not *drop* an item whose collection was voided —
+> JOIN's `ON` clause, which does not _drop_ an item whose collection was voided —
 > it only leaves the joined row all-NULL. A bare `SUM(i.amount)` keeps counting
 > voided cash, and voiding a payment never gives the balance back.
 
@@ -2042,15 +2044,15 @@ debt, and the Debts screen and the waterfall both see it. See gotcha #112.
 
 ### Owed vs debt
 
-| | includes | consumed by |
-| --- | --- | --- |
-| **OWED** | everything with a balance, plain unpaid months included | the waterfall, and only the waterfall |
-| **DEBT** | partly-paid months, open/partly-paid sales, hand-typed fees | the Debts screen |
+|          | includes                                                    | consumed by                           |
+| -------- | ----------------------------------------------------------- | ------------------------------------- |
+| **OWED** | everything with a balance, plain unpaid months included     | the waterfall, and only the waterfall |
+| **DEBT** | partly-paid months, open/partly-paid sales, hand-typed fees | the Debts screen                      |
 
 `isDebtItem(kind, paid) = kind !== 'month' || paid > 0` — one function, in
 `ledger/utils/openItems.ts`. **A fully unpaid month is NOT a debt**: it is
 `unpaid`/`overdue` in the month grid, which is its own screen and its own
-workflow. It becomes a debt the moment it is *partly* paid, which is exactly
+workflow. It becomes a debt the moment it is _partly_ paid, which is exactly
 when it stops being routine.
 
 **The Debts screen never lists a plain unpaid month at all**, and that is
@@ -2069,10 +2071,10 @@ so an emptied bill reads exactly like a month never touched (gotchas #106,
 Two different statements about one bill, and `chk_charges_void_xor_write_off`
 keeps them mutually exclusive:
 
-| | means | effect |
-| --- | --- | --- |
-| **void** (`voided_at`) | it was a MISTAKE — it never existed | gone from every figure. `voidCharge` is refused once money sits on it; `voidChargeWithPayments` is the deliberate "take the cash with it" door (see below) |
-| **write off** (`written_off_at`) | it is REAL but will never be paid | leaves "still owed", reported as a **loss** in Reports → Debts |
+|                                  | means                               | effect                                                                                                                                                     |
+| -------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **void** (`voided_at`)           | it was a MISTAKE — it never existed | gone from every figure. `voidCharge` is refused once money sits on it; `voidChargeWithPayments` is the deliberate "take the cash with it" door (see below) |
+| **write off** (`written_off_at`) | it is REAL but will never be paid   | leaves "still owed", reported as a **loss** in Reports → Debts                                                                                             |
 
 Voiding a **collection** is the third, and different again: the cash was real
 but should not have been recorded. Every bill it touched gets its balance back
@@ -2110,19 +2112,19 @@ the **charge's** (what he was billed).
 
 ### Screens
 
-| Where | What |
-| --- | --- |
-| `CollectSheet` | the ONE collect form. Two modes: a whole customer (type an amount, watch the waterfall split it, untick a row to steer the cash on) or a single bill. Same write either way, so one code path and one audit shape. |
- hero, then **every payment that reached it**, each with its own date and collector. |
-| `BillPaymentsList` | the payments half of `BillSheet`, on its own — the list of hand-overs against ONE bill, with the per-row menu (send receipt / void this payment). Shared with the **sale receipt**, because a month and a sale are the same `charges` row to the ledger. |
-| `CollectionCard` | one hand-over. A single-bill payment names it inline; several wear a `3 items` marker. **Tapping the card opens what it settled** — the bill itself, or `CollectionSplitSheet` when it closed several. A voided row is inert. |
-| `CollectionSplitSheet` / `CollectionItemCard` | the bills ONE hand-over settled, each a card that opens its own bill — the split shown rather than explained. Needs no read: the list already hydrates every item's charge. |
-| `useOpenBill` | "show me the bill behind this row", read-only. A month and a manual fee open the shared `BillSheet`; a **sale** opens its receipt through an injected `onOpenSale`, because the sale sheet lives in the sales module and sales depends on the ledger — never the reverse. `open(charge)` takes the bill; `openOwed(item)` takes an `OpenItem`. **Neither reads**: an `OpenItem` built from a stored bill carries that `Charge` (`openItemFromCharge`), exactly as a `CollectionItem` carries its own, and a sale needs only the `saleId` already on the row. A **virtual** month opens nothing: there is no record behind it yet. |
-| `CollectionsPanel` / `CollectionsHistorySheet` | the money-in history. ONE list where there were two (payments and debt payments). Reached from the quick-actions menu. |
-| `CollectQuickActionSheet` | "Collect money" from anywhere: pick a customer, the waterfall does the rest. |
-| `DebtsPanel` | one row per customer who owes, **sorted by how far behind they are**. |
-| `DebtorDetailSheet` | two sections — **Debts** and a muted **Unpaid months** (partly-paid months only; see the DEBT-vs-OWED note above) — plus one `Collect · N` button that pours money over both, oldest first. |
-| `DebtItemCard` | one bill that still owes, built as `CollectionCard`'s twin: label + balance on the first line, the **due** and **billed** dates under it, then a chip row. The **icon is red on every row** (that is what the list means), so the **kind chip** carries the tint instead — teal for both month and sale (the WORD parts them, as on `CollectionCard`), violet custom, and never emerald, which app-wide means money that arrived. The status chips are the point: a red **N days late**, an amber **`10/20 # Feature Deep-Dives
+| Where                                                                               | What                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CollectSheet`                                                                      | the ONE collect form. Two modes: a whole customer (type an amount, watch the waterfall split it, untick a row to steer the cash on) or a single bill. Same write either way, so one code path and one audit shape.                                                                                                                                                                                                                                                                                                                                                                                                                |
+| hero, then **every payment that reached it**, each with its own date and collector. |
+| `BillPaymentsList`                                                                  | the payments half of `BillSheet`, on its own — the list of hand-overs against ONE bill, with the per-row menu (send receipt / void this payment). Shared with the **sale receipt**, because a month and a sale are the same `charges` row to the ledger.                                                                                                                                                                                                                                                                                                                                                                          |
+| `CollectionCard`                                                                    | one hand-over. A single-bill payment names it inline; several wear a `3 items` marker. **Tapping the card opens what it settled** — the bill itself, or `CollectionSplitSheet` when it closed several. A voided row is inert.                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `CollectionSplitSheet` / `CollectionItemCard`                                       | the bills ONE hand-over settled, each a card that opens its own bill — the split shown rather than explained. Needs no read: the list already hydrates every item's charge.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `useOpenBill`                                                                       | "show me the bill behind this row", read-only. A month and a manual fee open the shared `BillSheet`; a **sale** opens its receipt through an injected `onOpenSale`, because the sale sheet lives in the sales module and sales depends on the ledger — never the reverse. `open(charge)` takes the bill; `openOwed(item)` takes an `OpenItem`. **Neither reads**: an `OpenItem` built from a stored bill carries that `Charge` (`openItemFromCharge`), exactly as a `CollectionItem` carries its own, and a sale needs only the `saleId` already on the row. A **virtual** month opens nothing: there is no record behind it yet. |
+| `CollectionsPanel` / `CollectionsHistorySheet`                                      | the money-in history. ONE list where there were two (payments and debt payments). Reached from the quick-actions menu.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `CollectQuickActionSheet`                                                           | "Collect money" from anywhere: pick a customer, the waterfall does the rest.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `DebtsPanel`                                                                        | one row per customer who owes, **sorted by how far behind they are**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `DebtorDetailSheet`                                                                 | two sections — **Debts** and a muted **Unpaid months** (partly-paid months only; see the DEBT-vs-OWED note above) — plus one `Collect · N` button that pours money over both, oldest first.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `DebtItemCard`                                                                      | one bill that still owes, built as `CollectionCard`'s twin: label + balance on the first line, the **due** and **billed** dates under it, then a chip row. The **icon is red on every row** (that is what the list means), so the **kind chip** carries the tint instead — teal for both month and sale (the WORD parts them, as on `CollectionCard`), violet custom, and never emerald, which app-wide means money that arrived. The status chips are the point: a red **N days late**, an amber **`10/20 # Feature Deep-Dives                                                                                                   |
 
 > Detailed behavior for each feature area. Read the relevant section BEFORE editing that area's code. Referenced from `CLAUDE.md`.
 > The Month Grid algorithm itself stays in `CLAUDE.md` (it is the single most critical rule). This file covers everything built around it.
@@ -2347,7 +2349,7 @@ See gotcha #38.
 
 **Keys today:**
 
-- `UnpaidStartRule` (`'month_start'` default \| `'customer_start_day'`) — when a month turns unpaid, and when the customer starts reading "Overdue". Those are **two** facts under `'customer_start_day'`: the **current** month is grey until the line's billing day (`isNotDueYet`), and **last** month is red but not yet *late* until that same day (`isNotLateYet`) — see gotcha #83. See [CLAUDE.md](../CLAUDE.md) → Critical Business Logic: Month Grid for the full rule; both helpers live in `customer-payments/utils/monthDueRules.ts`, shared by the grid and the customer-list aggregator.
+- `UnpaidStartRule` (`'month_start'` default \| `'customer_start_day'`) — when a month turns unpaid, and when the customer starts reading "Overdue". Those are **two** facts under `'customer_start_day'`: the **current** month is grey until the line's billing day (`isNotDueYet`), and **last** month is red but not yet _late_ until that same day (`isNotLateYet`) — see gotcha #83. See [CLAUDE.md](../CLAUDE.md) → Critical Business Logic: Month Grid for the full rule; both helpers live in `customer-payments/utils/monthDueRules.ts`, shared by the grid and the customer-list aggregator.
 
 **Adding a new key:** add it to `TENANT_SETTING_KEYS`, give `TenantSettingService` a typed setter + parser, add a semantic hook, and render a section on the screen. No schema change is needed — it is a key/value table.
 
@@ -2387,7 +2389,7 @@ Only the **service role** writes them — SuperAdmin and the edge functions, bot
 **Enforcement is service-layer, through ONE gate:**
 
 ```ts
-billingService.assertQuotas(limits, before, after)
+billingService.assertQuotas(limits, before, after);
 ```
 
 It walks `QUOTA_KINDS` (customers first) and throws a typed `QuotaExceededError` (from [utils/quotaError.ts](../SubsTrack/src/modules/admin/billing/utils/quotaError.ts)) carrying `{kind, limit, activeCount}` for the first breach. **A kind is only checked when the write GROWS it** — `after[kind] > before[kind]`. Without that test a tenant the owner cut below its own usage could never shrink: every line removal would be refused by the very limit it was moving toward.
@@ -2580,9 +2582,9 @@ A **service** is labour the tenant charges for — an installation, a repair vis
 
 Layers: `src/modules/admin/service-catalog/` — repository (+ `.offline`, platform switch), `ServiceCatalogService`, `ServiceListScreen`, `ServiceCard`, `ServiceFormSheet`, and a `services` slice with the standard `loaded` guard. The business-logic class is named `ServiceCatalogService`, not `ServiceService`, because "service" is also this app's name for that whole layer — and the module folder is `service-catalog` so the file is not `admin/services/services/…`.
 
-**Picking one on a sale.** A line's kind is decided by **which button added it** — the cart footer holds two dashed buttons, **+ Add product** and **+ Add service** — and the card then only *labels* what it sells (icon + word, plus `#n` when there are several). There is **no per-row switch**: the first shape of this editor put a full-width `Product | Service` segmented control at the top of each card, which read as a page tab bar, so tapping "Service" looked like navigating to a services list and instead silently wiped the product the user had just picked (gotcha #101). A sale holding both is therefore **two lines, never one line toggled twice**, which is also what the data model always said. A new sale opens with **zero** rows — the two buttons are the empty state — and any row, including the last, can be removed, which is how a line's kind is changed. In a service row the dropdown offers the active catalog services (priced in the sale currency, same conversion as products) plus a final **"Other — type a name"** option, which reveals a name field: that is the **one-off** — `service_id IS NULL`, and `item_name_snapshot` is the entire record of what was sold, so no catalog row is created. Adding a service inline (the dropdown's "+") prices the row from the object the form just saved, not from a store lookup, which would miss it on that render.
+**Picking one on a sale.** A line's kind is decided by **which button added it** — the cart footer holds two dashed buttons, **+ Add product** and **+ Add service** — and the card then only _labels_ what it sells (icon + word, plus `#n` when there are several). There is **no per-row switch**: the first shape of this editor put a full-width `Product | Service` segmented control at the top of each card, which read as a page tab bar, so tapping "Service" looked like navigating to a services list and instead silently wiped the product the user had just picked (gotcha #101). A sale holding both is therefore **two lines, never one line toggled twice**, which is also what the data model always said. A new sale opens with **zero** rows — the two buttons are the empty state — and any row, including the last, can be removed, which is how a line's kind is changed. In a service row the dropdown offers the active catalog services (priced in the sale currency, same conversion as products) plus a final **"Other — type a name"** option, which reveals a name field: that is the **one-off** — `service_id IS NULL`, and `item_name_snapshot` is the entire record of what was sold, so no catalog row is created. Adding a service inline (the dropdown's "+") prices the row from the object the form just saved, not from a store lookup, which would miss it on that render.
 
-**A service line has NO quantity — only a price.** No stock cap, no "N left" caption, and **no stepper at all**: labour is one job at one price, so the row shows a single **Price** field which *is* the line total. Two jobs are two lines; a bigger job is a bigger number. This is enforced by the type, not by a runtime check — the `service` variant of `CreateSaleItemInput` simply has no `quantity` field, so the compiler stops any caller from multiplying one. `lineQuantity()` (`sales/utils/saleLines.ts`) is the one answer to "how many?", returning 1 for labour, and every total, summary and DB row goes through it: `sale_items.quantity` still exists and still stores **1** on a service line, so nothing downstream had to learn a special case. The receipt and the WhatsApp invoice both drop the `1 × …` prefix on a service line, because "1 × $25 = $25" is noise.
+**A service line has NO quantity — only a price.** No stock cap, no "N left" caption, and **no stepper at all**: labour is one job at one price, so the row shows a single **Price** field which _is_ the line total. Two jobs are two lines; a bigger job is a bigger number. This is enforced by the type, not by a runtime check — the `service` variant of `CreateSaleItemInput` simply has no `quantity` field, so the compiler stops any caller from multiplying one. `lineQuantity()` (`sales/utils/saleLines.ts`) is the one answer to "how many?", returning 1 for labour, and every total, summary and DB row goes through it: `sale_items.quantity` still exists and still stores **1** on a service line, so nothing downstream had to learn a special case. The receipt and the WhatsApp invoice both drop the `1 × …` prefix on a service line, because "1 × $25 = $25" is noise.
 
 **Validation** splits by kind in `SaleService.validate`: a product line needs a real catalog row (`errors.sale_product_required`) **and** a positive integer quantity, a service line needs a non-blank resolved name (`errors.sale_service_required`) — which is also what keeps the `NOT NULL` name column legal for a one-off — and no quantity rule at all. The positive `unit_amount` check is shared.
 
@@ -2600,7 +2602,7 @@ An edit re-prices the bill AND may re-state its cash. The payment section holds 
 
 **Receipt (`SaleDetailSheet`).** The lines get their **own card**, separate from the customer / sold-at / receipt-ID rows: an "Items" header (cart icon + line count when >1), then one row per line — numbered bubble, `item_name_snapshot` (a **service** line prefixed with a small `construct-outline` mark, so the bill shows at a glance which part was labour), a `qty × unit price` sub-line, and the line total on the right. A totals footer (Total, plus Paid / Remaining when the sale is partial) renders only when it adds information (multi-line or partial sale). The hero's caption swaps the frozen `items_summary` for a "{{count}} items" count once there is more than one line, since the summary gets long. Lean reads (empty `items`) simply skip the card.
 
-Below the lines the receipt shows **every payment that reached the sale** — the same `BillPaymentsList` the month bill sheet uses, fed the sale's own `chargeId` and currency snapshot. A sale and a month are one `charges` row to the ledger, so a sale paid in installments deserves the same running record: one row per hand-over with its amount *against this sale*, its date, its collector, an "also paid other bills" note when the cash was wider than this record, and a 3-dot menu offering **Send on WhatsApp** (customer + phone only) and **Void payment**. Voiding one there refreshes the screen behind, so the sale reads as owing again. A lean read carries no `chargeId`, so the block is not rendered and nothing is fetched.
+Below the lines the receipt shows **every payment that reached the sale** — the same `BillPaymentsList` the month bill sheet uses, fed the sale's own `chargeId` and currency snapshot. A sale and a month are one `charges` row to the ledger, so a sale paid in installments deserves the same running record: one row per hand-over with its amount _against this sale_, its date, its collector, an "also paid other bills" note when the cash was wider than this record, and a 3-dot menu offering **Send on WhatsApp** (customer + phone only) and **Void payment**. Voiding one there refreshes the screen behind, so the sale reads as owing again. A lean read carries no `chargeId`, so the block is not rendered and nothing is fetched.
 
 **Row actions (`useSaleActions`).** Every sale row carries a **3-dot menu** holding everything one sale can do, so no action is reachable only by opening the receipt first: **View receipt · Edit sale · Complete · Send invoice on WhatsApp · History · Void sale**. A **voided** sale keeps only the two that still make sense (view + history) — void is final, so it is never editable, re-sendable or voidable again. The WhatsApp row stays **visible and disabled with a caption** when there is nobody to send to (walk-in) or no phone on the customer, the same "explain, don't vanish" rule the invoice selection action follows.
 
@@ -2650,51 +2652,51 @@ Every product carries a stock quantity and can be **out of stock**. Stock on han
 
 **`stock_movements`** — `product_id`, signed `quantity_delta` (never 0), `reason`, `sale_id` (only for `'sale'`), `unit_cost` + `currency_id` + `rate_per_usd_snapshot` (what the stock cost to BUY — see below), `note`, `recorded_by_user_id`, `occurred_at`, plus soft-void fields. Reasons:
 
-| Reason | Written by | Sign |
-| --- | --- | --- |
-| `initial` | the "Starting stock" field on **product create** | + |
-| `restock` | the product's stock sheet, "Add" — or the **batch restock** sheet | + |
-| `adjustment` | the product's stock sheet, "Remove" (damage, miscount, wrong entry) | − |
-| `sale` | `SaleService.createSale`, one row per line | − |
+| Reason       | Written by                                                          | Sign |
+| ------------ | ------------------------------------------------------------------- | ---- |
+| `initial`    | the "Starting stock" field on **product create**                    | +    |
+| `restock`    | the product's stock sheet, "Add" — or the **batch restock** sheet   | +    |
+| `adjustment` | the product's stock sheet, "Remove" (damage, miscount, wrong entry) | −    |
+| `sale`       | `SaleService.createSale`, one row per line                          | −    |
 
 **Reading it.** Web reads the `product_stock` view — `SUM(quantity_delta) … WHERE voided_at IS NULL GROUP BY product_id, tenant_id`, declared `WITH (security_invoker = true)` so the caller's RLS on `stock_movements` still applies (**requires PG 15+**; without `security_invoker` the view runs as its owner and leaks every tenant's stock). Offline runs the same `GROUP BY` on the mirror — there is no local view. Both are `IProductRepository.stockOnHand(ids?)` returning `Record<productId, number>`; products with no movements are absent and default to 0. `ProductService.getProducts` folds the map into each `Product`.
 
-**Branch scoping is inherited from the PRODUCT, not the sale.** The `stock_movements_all` policy mirrors `products_select` (`current_branch_id() IS NULL OR p.branch_id IS NULL OR p.branch_id = current_branch_id()`) — **not** `sale_items_all`, which inherits `sales`' *owned* semantics. Copying `sale_items_all` would hide every SHARED product's movements from a branch-scoped user, so each shared product would read as permanently out of stock and be unsellable for them. A shared product has **one** stock pool across all branches. The `WITH CHECK` also allows shared products (unlike `products_modify`): a branch user who can *sell* a shared item must be able to write its movement.
+**Branch scoping is inherited from the PRODUCT, not the sale.** The `stock_movements_all` policy mirrors `products_select` (`current_branch_id() IS NULL OR p.branch_id IS NULL OR p.branch_id = current_branch_id()`) — **not** `sale_items_all`, which inherits `sales`' _owned_ semantics. Copying `sale_items_all` would hide every SHARED product's movements from a branch-scoped user, so each shared product would read as permanently out of stock and be unsellable for them. A shared product has **one** stock pool across all branches. The `WITH CHECK` also allows shared products (unlike `products_modify`): a branch user who can _sell_ a shared item must be able to write its movement.
 
 **Writing it.**
 
-- **Sale create** — `SaleService.createSale` builds one negative `'sale'` movement per line and passes them in `CreateSalePayload.movements`. The repository writes them alongside the header + lines (offline: the *same* transaction), so a sale can never exist without the stock it consumed.
+- **Sale create** — `SaleService.createSale` builds one negative `'sale'` movement per line and passes them in `CreateSalePayload.movements`. The repository writes them alongside the header + lines (offline: the _same_ transaction), so a sale can never exist without the stock it consumed.
 - **Sale void** — the sale's movements are **soft-voided** (`UPDATE … WHERE sale_id = ? AND voided_at IS NULL`), not reversed with opposite rows. One statement, independent of line count, and idempotent — a repeat void is a no-op instead of returning the stock twice. Bulk void inherits this for free (`saleSlice.voidSales` loops `saleService.voidSale`).
 - **Manual** — `ProductService.addStock` appends a single `restock` row. **A manual entry only ever ADDS** — there is no "remove from stock" form: a delivery that was mistyped, never arrived, or was logged twice is fixed on the entry that recorded it (see [Editing a stock entry](#editing-a-stock-entry) and [Reverting a stock entry](#reverting-a-stock-entry)). A row is never deleted, and a `'sale'` row is never touched by hand.
 - **Batch restock** — `ProductService.restockMany(entries, tenantId, note, userId)` appends one `restock` row **per product** in a single `addMovements` call (offline: one transaction), then returns the fresh on-hand map so `productSlice.batchRestock` updates the list without a refetch. One arriving delivery = one save, but the per-product history stays exactly as detailed as the one-at-a-time path — there is no "batch" reason and no grouping row. The shared note is copied onto every row.
 
-**Blocking.** `SaleService.createSale` calls `assertStockAvailable` after `validate()` — a **fresh** `stockOnHand` read (the store can be minutes stale), summing the requested quantity **per product across all cart lines** (the same product can sit on two rows). Throws `errors.sale_out_of_stock` / `errors.sale_insufficient_stock`. Because it lives in the service, every entry point is covered (sale form, quick actions, customer screens). `SaleItemsEditor` mirrors it as a soft guard: out-of-stock products stay listed but greyed via `DropdownOption.disabled`, the quantity stepper caps at *on-hand minus what other rows already took*, each row shows "N left", and an oversold cart reports `ready: false`. The check is **advisory** — two offline devices can still each sell the last unit, and the DB deliberately allows a negative total (gotcha #48).
+**Blocking.** `SaleService.createSale` calls `assertStockAvailable` after `validate()` — a **fresh** `stockOnHand` read (the store can be minutes stale), summing the requested quantity **per product across all cart lines** (the same product can sit on two rows). Throws `errors.sale_out_of_stock` / `errors.sale_insufficient_stock`. Because it lives in the service, every entry point is covered (sale form, quick actions, customer screens). `SaleItemsEditor` mirrors it as a soft guard: out-of-stock products stay listed but greyed via `DropdownOption.disabled`, the quantity stepper caps at _on-hand minus what other rows already took_, each row shows "N left", and an oversold cart reports `ready: false`. The check is **advisory** — two offline devices can still each sell the last unit, and the DB deliberately allows a negative total (gotcha #48).
 
 **UI.** `ProductCard` shows a green "N in stock" / red "Out of stock" / red "Short by N" chip. `ProductStockSheet` (product row menu → "Adjust Stock", or the link on the edit form) shows the current on-hand, a quantity + cost + note that only ever adds, and the last 20 movements as a bordered list: a reason icon tinted by direction (green adds / red removes), the reason, date **and** time (`formatDateTime`), who recorded it (resolved from the users slice via `recordedByUserId`), the note, a **3-dot menu** on every correctable row (Edit entry · History), and a "Reversed" chip with struck-through amount on voided rows. An amber line warns when the save would push stock **below zero** — it never blocks, because the DB accepts a negative total on purpose (gotcha #48). `ProductFormSheet` takes "Starting stock" on **create only**; on edit it renders the number read-only next to an "Adjust Stock" link, so the total is never free-typed.
 
 `ProductBatchRestockSheet` is the many-products counterpart: a search box, then every **active** product as one compact row — name, current on-hand, and a `[−] qty [+]` stepper. A row with a quantity turns indigo and previews the result (`3 → 8`), so what's included is visible without reordering the list while the user types. One shared note applies to every row, and a summary line ("N products selected · +40") sits above the save button. Quantities are held per product id, so filtering the list never loses what was already typed. Two entry points, one component: the **Restock** button beside the search box on the products screen, and **Batch Restock** in the PageHeader quick-actions menu (admin-only there, since products live in the admin tab that non-admins never see).
 
-**Cost — the money side of the ledger.** A movement can carry what one unit cost to buy: `unit_cost` + `currency_id` + `rate_per_usd_snapshot`, written together by `ProductService.movement()` or all three null. That is the **only** money on `stock_movements`, and it is what makes buying stock an expense (see [Expenses](#expenses)). `products` also gained `cost_price` + `cost_currency_id` — a *default* that pre-fills the restock forms, live like `price` and never frozen; each delivery freezes its own cost on its own movement. Everything is optional: a restock with no cost still records the stock and simply adds no expense, which is also what every legacy row does. A `'sale'` movement never carries a cost (stock leaving is not money leaving) — `movement()` enforces that one.
+**Cost — the money side of the ledger.** A movement can carry what one unit cost to buy: `unit_cost` + `currency_id` + `rate_per_usd_snapshot`, written together by `ProductService.movement()` or all three null. That is the **only** money on `stock_movements`, and it is what makes buying stock an expense (see [Expenses](#expenses)). `products` also gained `cost_price` + `cost_currency_id` — a _default_ that pre-fills the restock forms, live like `price` and never frozen; each delivery freezes its own cost on its own movement. Everything is optional: a restock with no cost still records the stock and simply adds no expense, which is also what every legacy row does. A `'sale'` movement never carries a cost (stock leaving is not money leaving) — `movement()` enforces that one.
 
 **Cost is typed in three places:** the product form's **Cost price** field (the default, plus the opening stock's cost on create), the stock sheet's **Cost per unit** / **Total cost** pair (see below), and the **batch restock** sheet, where one **delivery currency** is picked for the whole save and each picked row opens a cost line seeded from its product's cost price, converted at the live rate (the `SaleItemsEditor` rule — changing the delivery currency re-prices every row). The stock history shows a costed row's money ("Cost: $X", or green "Money back: $X" on a negative row), so which rows moved Expenses is visible.
 
-**A stock expense comes back down through the ENTRY, never through a second row.** `amount = quantity_delta × unit_cost`, so a *negative* costed row is a negative expense — a credit — but **no new one can be written**: the stock sheet has no Remove mode, so the two doors are **Edit entry** (the row says 12, the delivery was 10) and **Revert entry** (the row should never have existed). Both take the money off the **entry's own month**, which is what a mistyped delivery needs — correcting a July delivery in August drops July's expense and leaves August alone. The credit shape stays supported for the negative rows older data already holds, and for editing one of them; it is simply not something staff can create any more.
+**A stock expense comes back down through the ENTRY, never through a second row.** `amount = quantity_delta × unit_cost`, so a _negative_ costed row is a negative expense — a credit — but **no new one can be written**: the stock sheet has no Remove mode, so the two doors are **Edit entry** (the row says 12, the delivery was 10) and **Revert entry** (the row should never have existed). Both take the money off the **entry's own month**, which is what a mistyped delivery needs — correcting a July delivery in August drops July's expense and leaves August alone. The credit shape stays supported for the negative rows older data already holds, and for editing one of them; it is simply not something staff can create any more.
 
-**What has no door any more:** stock that really left later — damaged, lost, stolen, or returned to the supplier. Those were the empty-cost and the costed *removal*, and both went with the Remove mode. The count now comes down only by selling, or by editing the entry that put the units there — which rewrites that entry's own month instead of recording a later event.
+**What has no door any more:** stock that really left later — damaged, lost, stolen, or returned to the supplier. Those were the empty-cost and the costed _removal_, and both went with the Remove mode. The count now comes down only by selling, or by editing the entry that put the units there — which rewrites that entry's own month instead of recording a later event.
 
-**Per unit or per delivery — both are typeable, and each fills the other.** A supplier invoice states one or the other ("4.50 each", "45 for the lot"), so the stock sheet puts **Cost per unit** and **Total cost** side by side: typing either one recomputes the other from the quantity (`total = unit × qty`, `unit = total ÷ qty`). Only **`unit_cost`** is ever saved — the total is a way of entering it, not a column — so the derived unit keeps **8 decimals** (what `stock_movements.unit_cost` stores): rounding 100 ÷ 3 to 33.33 would make the recorded expense 99.99 and disagree with the invoice that was typed. **The last field staff typed is the anchor**, so changing the quantity afterwards recomputes the *other* one and never overwrites what they entered — typed a 45 total, then fixed 10 units to 12, and the unit becomes 3.75 while the total stays 45. Everything else keeps the per-unit field as the source of truth: an abandoned edit and picking Edit on a row both reset the anchor to "unit". One currency for both — the picker sits on the per-unit input and the total is locked to it, since a movement stores one currency.
+**Per unit or per delivery — both are typeable, and each fills the other.** A supplier invoice states one or the other ("4.50 each", "45 for the lot"), so the stock sheet puts **Cost per unit** and **Total cost** side by side: typing either one recomputes the other from the quantity (`total = unit × qty`, `unit = total ÷ qty`). Only **`unit_cost`** is ever saved — the total is a way of entering it, not a column — so the derived unit keeps **8 decimals** (what `stock_movements.unit_cost` stores): rounding 100 ÷ 3 to 33.33 would make the recorded expense 99.99 and disagree with the invoice that was typed. **The last field staff typed is the anchor**, so changing the quantity afterwards recomputes the _other_ one and never overwrites what they entered — typed a 45 total, then fixed 10 units to 12, and the unit becomes 3.75 while the total stays 45. Everything else keeps the per-unit field as the source of truth: an abandoned edit and picking Edit on a row both reset the anchor to "unit". One currency for both — the picker sits on the per-unit input and the total is locked to it, since a movement stores one currency.
 
 #### Editing a stock entry
 
 A **manual** movement can be corrected in place — `ProductService.updateMovement` → `IProductRepository.updateMovement`, reached from the history row's 3-dot menu → **Edit entry**. It is one of the **two** doors into "the stock number is wrong"; the other is [Reverting a stock entry](#reverting-a-stock-entry):
 
-| | **Edit the row** | **Revert the row** |
-| --- | --- | --- |
-| What happened | the entry was **written** wrong (12 typed for a 10-unit delivery, a cost of 0.50 the invoice says was 0.45) | the entry should **not exist** at all (logged against the wrong product, saved twice) |
-| The history says | 10 arrived | the row stays, struck through and chipped "Reversed" |
-| The month that moves | the entry's **own** month — July becomes $5.00 | the entry's **own** month — July's $6.00 goes away |
+|                      | **Edit the row**                                                                                            | **Revert the row**                                                                    |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| What happened        | the entry was **written** wrong (12 typed for a 10-unit delivery, a cost of 0.50 the invoice says was 0.45) | the entry should **not exist** at all (logged against the wrong product, saved twice) |
+| The history says     | 10 arrived                                                                                                  | the row stays, struck through and chipped "Reversed"                                  |
+| The month that moves | the entry's **own** month — July becomes $5.00                                                              | the entry's **own** month — July's $6.00 goes away                                    |
 
-Both look backwards, and that is now the whole story: a manual entry cannot *remove* stock, so "12 arrived, then 2 went back" is a shape the ledger no longer writes (it did until this change — gotchas #94 / #96 keep the reasoning, and older data can still hold such a row).
+Both look backwards, and that is now the whole story: a manual entry cannot _remove_ stock, so "12 arrived, then 2 went back" is a shape the ledger no longer writes (it did until this change — gotchas #94 / #96 keep the reasoning, and older data can still hold such a row).
 
 **What may change, and what may not.** Only **quantity**, **cost + currency** and **note**. `occurred_at` is locked (it is what decides which month the money counts in — moving it is what the two-doors rule exists to avoid), and so are `reason`, `product_id` and the row's own identity. `UpdateStockMovementPayload` is the type that says so.
 
@@ -2717,7 +2719,7 @@ The edit door's sibling, for when the entry should never have existed at all —
 
 **It is a soft-void, not a row deletion.** `voided_at` + `voided_by` are set, and both derived numbers fix themselves: the row leaves the stock sum (`product_stock` / the mirror's `GROUP BY` count only live rows) and, if it carried a cost, it leaves Expenses. The row stays in the history, greyed out with the "Reversed" chip that a sale-voided movement already wears — hard-deleting it would take away the only answer to "where did the other 12 bottles go", and the ledger is deliberately a record of what staff did, not just of the current total (rule 7, no hard deletes).
 
-**The month is the entry's own, exactly like an edit.** Reverting says the entry was never real, so the money comes off the month the entry belongs to: a July delivery reverted in August leaves August untouched and drops July's expense. There used to be an opposite door — a costed *removal*, which credited the month it was recorded in — but the stock sheet's Remove mode is gone, so only older data holds such a row (see [Stock](#stock) → cost, gotchas #94 / #96).
+**The month is the entry's own, exactly like an edit.** Reverting says the entry was never real, so the money comes off the month the entry belongs to: a July delivery reverted in August leaves August untouched and drops July's expense. There used to be an opposite door — a costed _removal_, which credited the month it was recorded in — but the stock sheet's Remove mode is gone, so only older data holds such a row (see [Stock](#stock) → cost, gotchas #94 / #96).
 
 **Refused for the same rows an edit is refused for, in the SERVICE.** `ProductService.revertMovement` and `updateMovement` share one guard — `liveManualMovement(id)` — so a `'sale'` row (its movements belong to the sale, which swaps them itself) and an already-reverted row are turned away wherever they are called from, not merely hidden in the menu. `stock_movements.voidMovement` is the one write, audited as a **`void`** with the parent product's branch and name, so "who reverted this and when" is answerable — and the reverted row's menu keeps its **History** action for exactly that (Edit and Revert are gone; a `'sale'` row still opens no menu at all).
 
@@ -2737,24 +2739,24 @@ The Home dashboard answers one question — "how is **this month** going?" — w
 
 `PageHeader` (with the branch chip and a CSV export button) → `PeriodPicker` → a `SegmentedTabs` section switcher → the section's cards. Phase 1 ships **Money** and **Debts**; Customers and Staff/Products are phase 2 and drop into the same shells.
 
-**Period** (`src/core/utils/dateRange.ts`) is one primitive: `ReportPeriod { preset, fromDate, toDate }` with presets *This month · Last month · Last 3 / 6 / 12 months · This year · Custom*. Every preset is **whole calendar months** — it always ends on the last day of its final month — so its buckets and its comparison window are the same shape. `previousPeriod()` shifts a month-aligned period by whole months and anything custom by its own day count. The file also holds the app's `dayStartIso` / `nextDayStartIso` / `rangeFromDays` helpers, which four repositories and the expense slice used to carry privately.
+**Period** (`src/core/utils/dateRange.ts`) is one primitive: `ReportPeriod { preset, fromDate, toDate }` with presets _This month · Last month · Last 3 / 6 / 12 months · This year · Custom_. Every preset is **whole calendar months** — it always ends on the last day of its final month — so its buckets and its comparison window are the same shape. `previousPeriod()` shifts a month-aligned period by whole months and anything custom by its own day count. The file also holds the app's `dayStartIso` / `nextDayStartIso` / `rangeFromDays` helpers, which four repositories and the expense slice used to carry privately.
 
 ### Money
 
-| Block | What it shows |
-| --- | --- |
-| KPIs | Collected · Spent · Net · Margin, each with a ▲/▼ pill vs the previous period of the same length |
-| Money in | Breakdown by stream, with an inline share bar |
-| Money out | Breakdown by expense category (including the derived `stock` half) |
+| Block                 | What it shows                                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| KPIs                  | Collected · Spent · Net · Margin, each with a ▲/▼ pill vs the previous period of the same length                                 |
+| Money in              | Breakdown by stream, with an inline share bar                                                                                    |
+| Money out             | Breakdown by expense category (including the derived `stock` half)                                                               |
 | Collected by currency | What was **physically** collected in each currency, each printed in its own currency with a `≈` display-currency value beside it |
 
 ### Debts
 
-| Block | What it shows |
-| --- | --- |
-| KPIs | Still owed (**all time**) · Collected on debts (**this period**) · Customers owing · Behind on payments (**counted to today**, so this one does not move with the period) |
-| Who owes the most | Top 10 debtors, each with how many months they are behind, tappable through to the customer |
-| What is owed for | Gross by debt category (months / sales / custom) |
+| Block             | What it shows                                                                                                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| KPIs              | Still owed (**all time**) · Collected on debts (**this period**) · Customers owing · Behind on payments (**counted to today**, so this one does not move with the period) |
+| Who owes the most | Top 10 debtors, each with how many months they are behind, tappable through to the customer                                                                               |
+| What is owed for  | Gross by debt category (months / sales / custom)                                                                                                                          |
 
 Only one figure here is period-scoped. See gotcha #91 — outstanding debt is all-time by design, and the two are labelled apart on purpose.
 
@@ -2766,10 +2768,10 @@ Two arrays feed almost everything, and both come from code that already existed.
 
 **Money in** is three new reads, one per stream, all returning the same `CollectedRow` shape:
 
-| Repository | Method |
-| --- | --- |
+| Repository              | Method                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------ |
 | `ICollectionRepository` | `collectedInRange(startIso, endExclusiveIso, branchFilter)` — ONE read, one row per bill settled |
-| `ISaleRepository` | `collectedInRange(…)` |
+| `ISaleRepository`       | `collectedInRange(…)`                                                                            |
 
 Each lives on the repository that owns its table (never a cross-table `ReportsRepository`, which would have to re-derive the branch scoping `BRANCH_SCOPES` already encodes), and each has a Supabase impl and an offline SQLite twin. `ReportsService` tags them with their `stream` and merges them into one `CashRow[]`.
 
@@ -2805,10 +2807,10 @@ The app counted only money **in** — every hand-over summed into `monthlyRevenu
 
 **Two sources, one view.** `ExpenseService.getExpensesView({ startIso, endExclusiveIso, branchFilter })` composes them into a uniform `ExpenseItem[]` + a USD `ExpenseSummary` — the same shape `LedgerService` uses (stored rows + a derived stream from another service):
 
-| Source | Where it comes from |
-| --- | --- |
-| `manual` | Hand-typed rows in the `expenses` table (rent, salaries, fuel, …) |
-| `stock` | **Derived** at read time from `stock_movements` — costed, non-voided, non-`'sale'` rows; `amount = quantity_delta × unit_cost`, so a costed **negative** row is a negative amount (money back) — older data only, since a manual entry can no longer remove stock |
+| Source   | Where it comes from                                                                                                                                                                                                                                               |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `manual` | Hand-typed rows in the `expenses` table (rent, salaries, fuel, …)                                                                                                                                                                                                 |
+| `stock`  | **Derived** at read time from `stock_movements` — costed, non-voided, non-`'sale'` rows; `amount = quantity_delta × unit_cost`, so a costed **negative** row is a negative amount (money back) — older data only, since a manual entry can no longer remove stock |
 
 **A restock never writes an expense row.** Deriving it means correcting the stock corrects the expense, with no second insert inside the offline restock transaction, no drift on a void, and no orphan when a hard-deleted product takes its ledger with it. The cost of that choice is that a derived row **cannot be voided** (`ExpenseItem.canVoid` is false; its 3-dot offers "Open product") — a wrong cost is fixed on the entry that carries it — **Edit entry** for a mistyped one, **Revert entry** for one that should never have existed — and both take the money off the month that entry belongs to (see [Stock](#stock) → cost, and gotchas #94 / #96). Row ids are prefixed (`exp:` / `stock:`) so the two sources can never collide.
 
@@ -2818,7 +2820,7 @@ The app counted only money **in** — every hand-over summed into `monthlyRevenu
 
 **`expenses` table** — `branch_id` (its **own**, `NULL` = a company-wide expense), `category` (free text at the DB level; the app owns the code list, so a new category needs no migration), `description`, `amount` + `currency_id` + `rate_per_usd_snapshot` (the standard frozen-rate trio), `recorded_by_user_id`, `incurred_at`, soft-void fields. **Void-only, no edit** — a typo is voided and re-entered, so the row is its own history and the table is deliberately **not audited** (the same call as the debt tables). No tier gating.
 
-**Branch semantics: one rule, and it is `owned` on both halves.** `expenses.branch_id` is `owned`, and NULL means **the company bought it, no branch did** — so a company-wide expense shows in the **All branches** view only (the "Unassigned" chip reaches it on its own). The *derived* half follows the same rule via the parent **product**: `stock_movements: { kind: 'inherited', joinedTable: 'products' }`, deliberately narrower than the stock RLS policy. Both exist for the same reason — **branch views must sum to the tenant total**. Making either one `shared` puts head-office rent, or a shared product's delivery, into every branch's expenses at once, and two branch admins each read the same money as theirs. The RLS policy is wider than the app filter on purpose: visibility and aggregation are different questions. Gotcha #88.
+**Branch semantics: one rule, and it is `owned` on both halves.** `expenses.branch_id` is `owned`, and NULL means **the company bought it, no branch did** — so a company-wide expense shows in the **All branches** view only (the "Unassigned" chip reaches it on its own). The _derived_ half follows the same rule via the parent **product**: `stock_movements: { kind: 'inherited', joinedTable: 'products' }`, deliberately narrower than the stock RLS policy. Both exist for the same reason — **branch views must sum to the tenant total**. Making either one `shared` puts head-office rent, or a shared product's delivery, into every branch's expenses at once, and two branch admins each read the same money as theirs. The RLS policy is wider than the app filter on purpose: visibility and aggregation are different questions. Gotcha #88.
 
 **UI.** An **Expenses** segment in the Transactions hub (admin-only) plus an "Add expense" quick action. `ExpensesPanel` reads a **date window** (the current calendar month by default) rather than paginating, so section totals are always the local sum: a total-spent headline with a stock/other split, search + category + From/To chips, then a month-grouped `SectionList` via the shared `groupByMonth` / `MonthSectionHeader`. Every amount carries a leading `−`. `ExpenseFormSheet` is the `CustomDebtFormSheet` shape (category `Dropdown`, `CurrencyInput`, `DatePickerInput` capped at today, branch picker, description).
 
@@ -2841,18 +2843,18 @@ Staff can send the customer a **plain-text receipt over WhatsApp** — at the mo
 
 **Entry points.**
 
-| Where | Action |
-| --- | --- |
-| `CollectSheet` | (via each surface's own send flag) the hand-over it writes is sent as one receipt |
-| `SaleFormSheet` | a second, stacked button — **Save & send on WhatsApp**, using the `Sale` `createSale` already returns |
-| Quick pay — month-cell menu (`CustomerPaymentPanel`) + customer-card menu (`CustomerListScreen`) | a **Pay & send on WhatsApp** row beside "Quick pay" |
-| **Month-grid multi-select** (`InlineSelectionToolbar`) | a green WhatsApp action beside "Collect" — one receipt for the hand-over it writes |
-| `BillSheet` / the money-in history row menu | **Send on WhatsApp**, to re-send a saved hand-over any time |
-| `SaleDetailSheet` + the three sales lists | **Send invoice on WhatsApp** — one sale, or one receipt covering a selection |
+| Where                                                                                            | Action                                                                                                |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `CollectSheet`                                                                                   | (via each surface's own send flag) the hand-over it writes is sent as one receipt                     |
+| `SaleFormSheet`                                                                                  | a second, stacked button — **Save & send on WhatsApp**, using the `Sale` `createSale` already returns |
+| Quick pay — month-cell menu (`CustomerPaymentPanel`) + customer-card menu (`CustomerListScreen`) | a **Pay & send on WhatsApp** row beside "Quick pay"                                                   |
+| **Month-grid multi-select** (`InlineSelectionToolbar`)                                           | a green WhatsApp action beside "Collect" — one receipt for the hand-over it writes                    |
+| `BillSheet` / the money-in history row menu                                                      | **Send on WhatsApp**, to re-send a saved hand-over any time                                           |
+| `SaleDetailSheet` + the three sales lists                                                        | **Send invoice on WhatsApp** — one sale, or one receipt covering a selection                          |
 
 Stacked, not side-by-side: `Button` takes no `className`, and the long label (and its Arabic form) truncates at half a phone width.
 
-**Both busy states are one marker, not two flags.** Each form tracks `busyOn: "save" | "send" | null`, set **before** the write and cleared in a `finally`, so the spinner stays on the button the user actually pressed across both phases (the store write, then the awaited deep link). Consequently `canSubmit` / `submitDisabled` are **validity-only** — folding the slice's loading flag into them greys out *both* buttons, and a disabled `SendOnWhatsAppButton` shows no spinner at all.
+**Both busy states are one marker, not two flags.** Each form tracks `busyOn: "save" | "send" | null`, set **before** the write and cleared in a `finally`, so the spinner stays on the button the user actually pressed across both phases (the store write, then the awaited deep link). Consequently `canSubmit` / `submitDisabled` are **validity-only** — folding the slice's loading flag into them greys out _both_ buttons, and a disabled `SendOnWhatsAppButton` shows no spinner at all.
 
 **No phone → visible but disabled, with a caption.** `canSend` digit-strips exactly like `openWhatsApp`, so `"-"` or `"n/a"` disables rather than producing a broken link. The button caption is `invoice.no_phone`, or `invoice.no_customer` for a walk-in sale; the menu rows use `ActionMenuItem.caption` for the same hint. **A voided hand-over or sale never shows the button** — a cancelled receipt is not a receipt.
 
@@ -2902,8 +2904,9 @@ The bottom **Transactions** tab (`app/(app)/(tabs)/transactions`) is a hub hosti
 > it keys off collected money, and a voided collection contributes none.
 
 **Month-grouped lists.** Sales, Payments, and Debts all render as a `SectionList` grouped by calendar month, newest first — one section header per month ("This Month" for the current month, else "June 2026"). The two newest buckets break out ahead of the months: **Today** (`common.today`) and **This Week** (`common.this_week`, Monday-based week start, excluding today) — a row lands in exactly one bucket (today → this week → its month). The grouping is a pure view transform (`groupByMonth` in [monthSections.ts](../SubsTrack/src/shared/lib/monthSections.ts)) over the **already date-desc-sorted** slice data, so the slice/service stays the single source of sort order — it only buckets, it never re-sorts. Day/week bucket totals are always summed locally (their newest rows are guaranteed loaded); a month whose newest rows were peeled into Today/This-Week has that peeled USD subtracted from its authoritative `totalsByMonth` total so the header still reads the correct remainder. Each panel supplies the row's date: Sales → `soldAt`, money received → `receivedAt`. (Debts is a flat debtors list — it has no month sections.) Headers render via the shared `MonthSectionHeader`; sticky headers are disabled. Selection / select-all still resolve against the flat slice array (the sections are built from it), so multi-select is unaffected. Full month names come from the `months_long` i18n block; "This Month" from `common.current_month`.
-  - **Month totals.** Each panel also passes `groupByMonth` a `getAmountUsd` row-to-USD function, so every section carries a `totalUsd`; `MonthSectionHeader` renders it (formatted into the display currency) at the trailing edge of the header, next to the row count. Sales sum the **value sold** (`totalAmount`, matching `soldAt`); the money-in history sums the **cash received** (`amount / ratePerUsdSnapshot`, matching `receivedAt`). (Debts no longer uses month sections — it's a flat debtors list; the debtor detail modal groups a customer's debts/payments via the shared `DebtList`.)
-    - **Sales/Payments are paginated (`PAGE_SIZE` = 30) — summing only the loaded rows would under-count any month with more rows than one page.** Both panels instead pass `groupByMonth` a 5th arg, `totalsByMonth: Record<"YYYY-MM", number>`, which — for any month key present — overrides the local per-row sum. That map comes from `saleSlice`/`collections`'s `monthlyTotals` state, refetched (in parallel with the paginated page) every time filters change via `SaleService.getMonthlyTotals` / `CollectionService.getMonthlyTotals`, and **patched in place after a write** by `addMonthTotal(totals, iso, deltaUsd)` — recording, correcting or voiding a row moves its month by that row's value instead of re-running the aggregate (a month the map does not hold is left alone: it was never fetched, so `groupByMonth` is already summing it locally), which bucket `SaleRepository.monthlyTotals` / `CollectionRepository.monthlyTotals` — the **same filters as `findAll`, but unpaginated and projected to just the 2–3 numeric columns needed to sum** (no joins beyond what a search/branch filter needs), so it stays cheap even over a whole table. `fetchMoreSales`/`fetchMoreCollections` (loading further pages of an unchanged filter set) do **not** refetch it — the total doesn't change, only which rows are visible. Debts isn't paginated (it loads its full filtered set up front), so it never passes this arg and keeps summing locally.
+
+- **Month totals.** Each panel also passes `groupByMonth` a `getAmountUsd` row-to-USD function, so every section carries a `totalUsd`; `MonthSectionHeader` renders it (formatted into the display currency) at the trailing edge of the header, next to the row count. Sales sum the **value sold** (`totalAmount`, matching `soldAt`); the money-in history sums the **cash received** (`amount / ratePerUsdSnapshot`, matching `receivedAt`). (Debts no longer uses month sections — it's a flat debtors list; the debtor detail modal groups a customer's debts/payments via the shared `DebtList`.)
+  - **Sales/Payments are paginated (`PAGE_SIZE` = 30) — summing only the loaded rows would under-count any month with more rows than one page.** Both panels instead pass `groupByMonth` a 5th arg, `totalsByMonth: Record<"YYYY-MM", number>`, which — for any month key present — overrides the local per-row sum. That map comes from `saleSlice`/`collections`'s `monthlyTotals` state, refetched (in parallel with the paginated page) every time filters change via `SaleService.getMonthlyTotals` / `CollectionService.getMonthlyTotals`, and **patched in place after a write** by `addMonthTotal(totals, iso, deltaUsd)` — recording, correcting or voiding a row moves its month by that row's value instead of re-running the aggregate (a month the map does not hold is left alone: it was never fetched, so `groupByMonth` is already summing it locally), which bucket `SaleRepository.monthlyTotals` / `CollectionRepository.monthlyTotals` — the **same filters as `findAll`, but unpaginated and projected to just the 2–3 numeric columns needed to sum** (no joins beyond what a search/branch filter needs), so it stays cheap even over a whole table. `fetchMoreSales`/`fetchMoreCollections` (loading further pages of an unchanged filter set) do **not** refetch it — the total doesn't change, only which rows are visible. Debts isn't paginated (it loads its full filtered set up front), so it never passes this arg and keeps summing locally.
 
 **Money received (tenant-wide):** `CollectionsPanel` lists every hand-over of
 cash across all customers, newest first, defaulting to **this month**. Backed by
@@ -2959,7 +2962,7 @@ this, when, and why — with no surface to answer it. So the sheet keeps the
 what the cash paid for), names the void's time, **its author** (`voidedBy`,
 carried on `CollectionListItem` and patched into the store by `applyVoided`, so
 it is right the instant you void) and its reason, heads the bills **"This had
-paid"** with the caption *these bills are owed again*, and drops the custody row
+paid"** with the caption _these bills are owed again_, and drops the custody row
 entirely — a voided hand-over holds no cash, so "now with Sami" would be a lie. That sheet is the
 hand-over's whole record: the total (+ `≈`), a status pill, then an `InfoRows`
 block (customer · received to the minute · who took it · where the cash is now,
@@ -2987,17 +2990,17 @@ family, and the reason is one sentence:
 Raise `amount_paid` and the 8 counts as revenue on the original date; leave it
 and the row says he still owes it forever. Every debt problem the app had grew
 from that: `debt_payments` was a workaround that could only point at a
-*customer*, never at which month or sale it paid; debt was a customer-level
+_customer_, never at which month or sale it paid; debt was a customer-level
 `Σ categories − Σ payments`, so no individual line's balance was trustworthy;
 "Complete" existed only because `amount_paid` had no date of its own.
 
 ### The model
 
-| Table | Role | One row = |
-| --- | --- | --- |
-| `charges` | what is owed — **the bill** | a month, a sale, or a hand-typed fee |
-| `collections` | money physically handed over | one hand-over: "$55, 5 Mar, taken by Sami" |
-| `collection_items` | which bill that money paid | one bill touched by that hand-over |
+| Table              | Role                         | One row =                                  |
+| ------------------ | ---------------------------- | ------------------------------------------ |
+| `charges`          | what is owed — **the bill**  | a month, a sale, or a hand-typed fee       |
+| `collections`      | money physically handed over | one hand-over: "$55, 5 Mar, taken by Sami" |
+| `collection_items` | which bill that money paid   | one bill touched by that hand-over         |
 
 A bill can take many payments and a payment can cover many bills — a genuine
 many-to-many, which is exactly why the middle table exists. Partial payments,
@@ -3014,7 +3017,7 @@ wallet(user)     = Σ collections where held_by_user_id = user, per currency
 ```
 
 **Nothing asks "does a charge row exist?" — everything asks "how much money came
-in?"** A month bill left at 0 collected (after a void) reads *identically* to no
+in?"** A month bill left at 0 collected (after a void) reads _identically_ to no
 row at all. Miss this and a voided payment leaves a ghost debt behind.
 
 ### Balance is never a column
@@ -3024,7 +3027,7 @@ offline the same `GROUP BY` runs over the mirror, so one mapper serves both. Two
 devices can therefore both collect offline without clobbering a counter.
 
 > **The view's `CASE` is load-bearing.** `p.voided_at IS NULL` sits in a LEFT
-> JOIN's `ON` clause, which does not *drop* an item whose collection was voided —
+> JOIN's `ON` clause, which does not _drop_ an item whose collection was voided —
 > it only leaves the joined row all-NULL. A bare `SUM(i.amount)` keeps counting
 > voided cash, and voiding a payment never gives the balance back.
 
@@ -3097,15 +3100,15 @@ debt, and the Debts screen and the waterfall both see it. See gotcha #112.
 
 ### Owed vs debt
 
-| | includes | consumed by |
-| --- | --- | --- |
-| **OWED** | everything with a balance, plain unpaid months included | the waterfall, and only the waterfall |
-| **DEBT** | partly-paid months, open/partly-paid sales, hand-typed fees | the Debts screen |
+|          | includes                                                    | consumed by                           |
+| -------- | ----------------------------------------------------------- | ------------------------------------- |
+| **OWED** | everything with a balance, plain unpaid months included     | the waterfall, and only the waterfall |
+| **DEBT** | partly-paid months, open/partly-paid sales, hand-typed fees | the Debts screen                      |
 
 `isDebtItem(kind, paid) = kind !== 'month' || paid > 0` — one function, in
 `ledger/utils/openItems.ts`. **A fully unpaid month is NOT a debt**: it is
 `unpaid`/`overdue` in the month grid, which is its own screen and its own
-workflow. It becomes a debt the moment it is *partly* paid, which is exactly
+workflow. It becomes a debt the moment it is _partly_ paid, which is exactly
 when it stops being routine.
 
 **The Debts screen never lists a plain unpaid month at all**, and that is
@@ -3124,10 +3127,10 @@ so an emptied bill reads exactly like a month never touched (gotchas #106,
 Two different statements about one bill, and `chk_charges_void_xor_write_off`
 keeps them mutually exclusive:
 
-| | means | effect |
-| --- | --- | --- |
-| **void** (`voided_at`) | it was a MISTAKE — it never existed | gone from every figure. `voidCharge` is refused once money sits on it; `voidChargeWithPayments` is the deliberate "take the cash with it" door (see below) |
-| **write off** (`written_off_at`) | it is REAL but will never be paid | leaves "still owed", reported as a **loss** in Reports → Debts |
+|                                  | means                               | effect                                                                                                                                                     |
+| -------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **void** (`voided_at`)           | it was a MISTAKE — it never existed | gone from every figure. `voidCharge` is refused once money sits on it; `voidChargeWithPayments` is the deliberate "take the cash with it" door (see below) |
+| **write off** (`written_off_at`) | it is REAL but will never be paid   | leaves "still owed", reported as a **loss** in Reports → Debts                                                                                             |
 
 Voiding a **collection** is the third, and different again: the cash was real
 but should not have been recorded. Every bill it touched gets its balance back
@@ -3165,10 +3168,10 @@ the **charge's** (what he was billed).
 
 ### Screens
 
-| Where | What |
-| --- | --- |
+| Where          | What                                                                                                                                                                                                               |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `CollectSheet` | the ONE collect form. Two modes: a whole customer (type an amount, watch the waterfall split it, untick a row to steer the cash on) or a single bill. Same write either way, so one code path and one audit shape. |
-| `BillSheet` | one bill: a running `15 / 20 # Feature Deep-Dives
+| `BillSheet`    | one bill: a running `15 / 20 # Feature Deep-Dives                                                                                                                                                                  |
 
 > Detailed behavior for each feature area. Read the relevant section BEFORE editing that area's code. Referenced from `CLAUDE.md`.
 > The Month Grid algorithm itself stays in `CLAUDE.md` (it is the single most critical rule). This file covers everything built around it.
@@ -3393,7 +3396,7 @@ See gotcha #38.
 
 **Keys today:**
 
-- `UnpaidStartRule` (`'month_start'` default \| `'customer_start_day'`) — when a month turns unpaid, and when the customer starts reading "Overdue". Those are **two** facts under `'customer_start_day'`: the **current** month is grey until the line's billing day (`isNotDueYet`), and **last** month is red but not yet *late* until that same day (`isNotLateYet`) — see gotcha #83. See [CLAUDE.md](../CLAUDE.md) → Critical Business Logic: Month Grid for the full rule; both helpers live in `customer-payments/utils/monthDueRules.ts`, shared by the grid and the customer-list aggregator.
+- `UnpaidStartRule` (`'month_start'` default \| `'customer_start_day'`) — when a month turns unpaid, and when the customer starts reading "Overdue". Those are **two** facts under `'customer_start_day'`: the **current** month is grey until the line's billing day (`isNotDueYet`), and **last** month is red but not yet _late_ until that same day (`isNotLateYet`) — see gotcha #83. See [CLAUDE.md](../CLAUDE.md) → Critical Business Logic: Month Grid for the full rule; both helpers live in `customer-payments/utils/monthDueRules.ts`, shared by the grid and the customer-list aggregator.
 
 **Adding a new key:** add it to `TENANT_SETTING_KEYS`, give `TenantSettingService` a typed setter + parser, add a semantic hook, and render a section on the screen. No schema change is needed — it is a key/value table.
 
@@ -3433,7 +3436,7 @@ Only the **service role** writes them — SuperAdmin and the edge functions, bot
 **Enforcement is service-layer, through ONE gate:**
 
 ```ts
-billingService.assertQuotas(limits, before, after)
+billingService.assertQuotas(limits, before, after);
 ```
 
 It walks `QUOTA_KINDS` (customers first) and throws a typed `QuotaExceededError` (from [utils/quotaError.ts](../SubsTrack/src/modules/admin/billing/utils/quotaError.ts)) carrying `{kind, limit, activeCount}` for the first breach. **A kind is only checked when the write GROWS it** — `after[kind] > before[kind]`. Without that test a tenant the owner cut below its own usage could never shrink: every line removal would be refused by the very limit it was moving toward.
@@ -3626,9 +3629,9 @@ A **service** is labour the tenant charges for — an installation, a repair vis
 
 Layers: `src/modules/admin/service-catalog/` — repository (+ `.offline`, platform switch), `ServiceCatalogService`, `ServiceListScreen`, `ServiceCard`, `ServiceFormSheet`, and a `services` slice with the standard `loaded` guard. The business-logic class is named `ServiceCatalogService`, not `ServiceService`, because "service" is also this app's name for that whole layer — and the module folder is `service-catalog` so the file is not `admin/services/services/…`.
 
-**Picking one on a sale.** A line's kind is decided by **which button added it** — the cart footer holds two dashed buttons, **+ Add product** and **+ Add service** — and the card then only *labels* what it sells (icon + word, plus `#n` when there are several). There is **no per-row switch**: the first shape of this editor put a full-width `Product | Service` segmented control at the top of each card, which read as a page tab bar, so tapping "Service" looked like navigating to a services list and instead silently wiped the product the user had just picked (gotcha #101). A sale holding both is therefore **two lines, never one line toggled twice**, which is also what the data model always said. A new sale opens with **zero** rows — the two buttons are the empty state — and any row, including the last, can be removed, which is how a line's kind is changed. In a service row the dropdown offers the active catalog services (priced in the sale currency, same conversion as products) plus a final **"Other — type a name"** option, which reveals a name field: that is the **one-off** — `service_id IS NULL`, and `item_name_snapshot` is the entire record of what was sold, so no catalog row is created. Adding a service inline (the dropdown's "+") prices the row from the object the form just saved, not from a store lookup, which would miss it on that render.
+**Picking one on a sale.** A line's kind is decided by **which button added it** — the cart footer holds two dashed buttons, **+ Add product** and **+ Add service** — and the card then only _labels_ what it sells (icon + word, plus `#n` when there are several). There is **no per-row switch**: the first shape of this editor put a full-width `Product | Service` segmented control at the top of each card, which read as a page tab bar, so tapping "Service" looked like navigating to a services list and instead silently wiped the product the user had just picked (gotcha #101). A sale holding both is therefore **two lines, never one line toggled twice**, which is also what the data model always said. A new sale opens with **zero** rows — the two buttons are the empty state — and any row, including the last, can be removed, which is how a line's kind is changed. In a service row the dropdown offers the active catalog services (priced in the sale currency, same conversion as products) plus a final **"Other — type a name"** option, which reveals a name field: that is the **one-off** — `service_id IS NULL`, and `item_name_snapshot` is the entire record of what was sold, so no catalog row is created. Adding a service inline (the dropdown's "+") prices the row from the object the form just saved, not from a store lookup, which would miss it on that render.
 
-**A service line has NO quantity — only a price.** No stock cap, no "N left" caption, and **no stepper at all**: labour is one job at one price, so the row shows a single **Price** field which *is* the line total. Two jobs are two lines; a bigger job is a bigger number. This is enforced by the type, not by a runtime check — the `service` variant of `CreateSaleItemInput` simply has no `quantity` field, so the compiler stops any caller from multiplying one. `lineQuantity()` (`sales/utils/saleLines.ts`) is the one answer to "how many?", returning 1 for labour, and every total, summary and DB row goes through it: `sale_items.quantity` still exists and still stores **1** on a service line, so nothing downstream had to learn a special case. The receipt and the WhatsApp invoice both drop the `1 × …` prefix on a service line, because "1 × $25 = $25" is noise.
+**A service line has NO quantity — only a price.** No stock cap, no "N left" caption, and **no stepper at all**: labour is one job at one price, so the row shows a single **Price** field which _is_ the line total. Two jobs are two lines; a bigger job is a bigger number. This is enforced by the type, not by a runtime check — the `service` variant of `CreateSaleItemInput` simply has no `quantity` field, so the compiler stops any caller from multiplying one. `lineQuantity()` (`sales/utils/saleLines.ts`) is the one answer to "how many?", returning 1 for labour, and every total, summary and DB row goes through it: `sale_items.quantity` still exists and still stores **1** on a service line, so nothing downstream had to learn a special case. The receipt and the WhatsApp invoice both drop the `1 × …` prefix on a service line, because "1 × $25 = $25" is noise.
 
 **Validation** splits by kind in `SaleService.validate`: a product line needs a real catalog row (`errors.sale_product_required`) **and** a positive integer quantity, a service line needs a non-blank resolved name (`errors.sale_service_required`) — which is also what keeps the `NOT NULL` name column legal for a one-off — and no quantity rule at all. The positive `unit_amount` check is shared.
 
@@ -3694,51 +3697,51 @@ Every product carries a stock quantity and can be **out of stock**. Stock on han
 
 **`stock_movements`** — `product_id`, signed `quantity_delta` (never 0), `reason`, `sale_id` (only for `'sale'`), `unit_cost` + `currency_id` + `rate_per_usd_snapshot` (what the stock cost to BUY — see below), `note`, `recorded_by_user_id`, `occurred_at`, plus soft-void fields. Reasons:
 
-| Reason | Written by | Sign |
-| --- | --- | --- |
-| `initial` | the "Starting stock" field on **product create** | + |
-| `restock` | the product's stock sheet, "Add" — or the **batch restock** sheet | + |
-| `adjustment` | the product's stock sheet, "Remove" (damage, miscount, wrong entry) | − |
-| `sale` | `SaleService.createSale`, one row per line | − |
+| Reason       | Written by                                                          | Sign |
+| ------------ | ------------------------------------------------------------------- | ---- |
+| `initial`    | the "Starting stock" field on **product create**                    | +    |
+| `restock`    | the product's stock sheet, "Add" — or the **batch restock** sheet   | +    |
+| `adjustment` | the product's stock sheet, "Remove" (damage, miscount, wrong entry) | −    |
+| `sale`       | `SaleService.createSale`, one row per line                          | −    |
 
 **Reading it.** Web reads the `product_stock` view — `SUM(quantity_delta) … WHERE voided_at IS NULL GROUP BY product_id, tenant_id`, declared `WITH (security_invoker = true)` so the caller's RLS on `stock_movements` still applies (**requires PG 15+**; without `security_invoker` the view runs as its owner and leaks every tenant's stock). Offline runs the same `GROUP BY` on the mirror — there is no local view. Both are `IProductRepository.stockOnHand(ids?)` returning `Record<productId, number>`; products with no movements are absent and default to 0. `ProductService.getProducts` folds the map into each `Product`.
 
-**Branch scoping is inherited from the PRODUCT, not the sale.** The `stock_movements_all` policy mirrors `products_select` (`current_branch_id() IS NULL OR p.branch_id IS NULL OR p.branch_id = current_branch_id()`) — **not** `sale_items_all`, which inherits `sales`' *owned* semantics. Copying `sale_items_all` would hide every SHARED product's movements from a branch-scoped user, so each shared product would read as permanently out of stock and be unsellable for them. A shared product has **one** stock pool across all branches. The `WITH CHECK` also allows shared products (unlike `products_modify`): a branch user who can *sell* a shared item must be able to write its movement.
+**Branch scoping is inherited from the PRODUCT, not the sale.** The `stock_movements_all` policy mirrors `products_select` (`current_branch_id() IS NULL OR p.branch_id IS NULL OR p.branch_id = current_branch_id()`) — **not** `sale_items_all`, which inherits `sales`' _owned_ semantics. Copying `sale_items_all` would hide every SHARED product's movements from a branch-scoped user, so each shared product would read as permanently out of stock and be unsellable for them. A shared product has **one** stock pool across all branches. The `WITH CHECK` also allows shared products (unlike `products_modify`): a branch user who can _sell_ a shared item must be able to write its movement.
 
 **Writing it.**
 
-- **Sale create** — `SaleService.createSale` builds one negative `'sale'` movement per line and passes them in `CreateSalePayload.movements`. The repository writes them alongside the header + lines (offline: the *same* transaction), so a sale can never exist without the stock it consumed.
+- **Sale create** — `SaleService.createSale` builds one negative `'sale'` movement per line and passes them in `CreateSalePayload.movements`. The repository writes them alongside the header + lines (offline: the _same_ transaction), so a sale can never exist without the stock it consumed.
 - **Sale void** — the sale's movements are **soft-voided** (`UPDATE … WHERE sale_id = ? AND voided_at IS NULL`), not reversed with opposite rows. One statement, independent of line count, and idempotent — a repeat void is a no-op instead of returning the stock twice. Bulk void inherits this for free (`saleSlice.voidSales` loops `saleService.voidSale`).
 - **Manual** — `ProductService.addStock` appends a single `restock` row. **A manual entry only ever ADDS** — there is no "remove from stock" form: a delivery that was mistyped, never arrived, or was logged twice is fixed on the entry that recorded it (see [Editing a stock entry](#editing-a-stock-entry) and [Reverting a stock entry](#reverting-a-stock-entry)). A row is never deleted, and a `'sale'` row is never touched by hand.
 - **Batch restock** — `ProductService.restockMany(entries, tenantId, note, userId)` appends one `restock` row **per product** in a single `addMovements` call (offline: one transaction), then returns the fresh on-hand map so `productSlice.batchRestock` updates the list without a refetch. One arriving delivery = one save, but the per-product history stays exactly as detailed as the one-at-a-time path — there is no "batch" reason and no grouping row. The shared note is copied onto every row.
 
-**Blocking.** `SaleService.createSale` calls `assertStockAvailable` after `validate()` — a **fresh** `stockOnHand` read (the store can be minutes stale), summing the requested quantity **per product across all cart lines** (the same product can sit on two rows). Throws `errors.sale_out_of_stock` / `errors.sale_insufficient_stock`. Because it lives in the service, every entry point is covered (sale form, quick actions, customer screens). `SaleItemsEditor` mirrors it as a soft guard: out-of-stock products stay listed but greyed via `DropdownOption.disabled`, the quantity stepper caps at *on-hand minus what other rows already took*, each row shows "N left", and an oversold cart reports `ready: false`. The check is **advisory** — two offline devices can still each sell the last unit, and the DB deliberately allows a negative total (gotcha #48).
+**Blocking.** `SaleService.createSale` calls `assertStockAvailable` after `validate()` — a **fresh** `stockOnHand` read (the store can be minutes stale), summing the requested quantity **per product across all cart lines** (the same product can sit on two rows). Throws `errors.sale_out_of_stock` / `errors.sale_insufficient_stock`. Because it lives in the service, every entry point is covered (sale form, quick actions, customer screens). `SaleItemsEditor` mirrors it as a soft guard: out-of-stock products stay listed but greyed via `DropdownOption.disabled`, the quantity stepper caps at _on-hand minus what other rows already took_, each row shows "N left", and an oversold cart reports `ready: false`. The check is **advisory** — two offline devices can still each sell the last unit, and the DB deliberately allows a negative total (gotcha #48).
 
 **UI.** `ProductCard` shows a green "N in stock" / red "Out of stock" / red "Short by N" chip. `ProductStockSheet` (product row menu → "Adjust Stock", or the link on the edit form) shows the current on-hand, a quantity + cost + note that only ever adds, and the last 20 movements as a bordered list: a reason icon tinted by direction (green adds / red removes), the reason, date **and** time (`formatDateTime`), who recorded it (resolved from the users slice via `recordedByUserId`), the note, a **3-dot menu** on every correctable row (Edit entry · History), and a "Reversed" chip with struck-through amount on voided rows. An amber line warns when the save would push stock **below zero** — it never blocks, because the DB accepts a negative total on purpose (gotcha #48). `ProductFormSheet` takes "Starting stock" on **create only**; on edit it renders the number read-only next to an "Adjust Stock" link, so the total is never free-typed.
 
 `ProductBatchRestockSheet` is the many-products counterpart: a search box, then every **active** product as one compact row — name, current on-hand, and a `[−] qty [+]` stepper. A row with a quantity turns indigo and previews the result (`3 → 8`), so what's included is visible without reordering the list while the user types. One shared note applies to every row, and a summary line ("N products selected · +40") sits above the save button. Quantities are held per product id, so filtering the list never loses what was already typed. Two entry points, one component: the **Restock** button beside the search box on the products screen, and **Batch Restock** in the PageHeader quick-actions menu (admin-only there, since products live in the admin tab that non-admins never see).
 
-**Cost — the money side of the ledger.** A movement can carry what one unit cost to buy: `unit_cost` + `currency_id` + `rate_per_usd_snapshot`, written together by `ProductService.movement()` or all three null. That is the **only** money on `stock_movements`, and it is what makes buying stock an expense (see [Expenses](#expenses)). `products` also gained `cost_price` + `cost_currency_id` — a *default* that pre-fills the restock forms, live like `price` and never frozen; each delivery freezes its own cost on its own movement. Everything is optional: a restock with no cost still records the stock and simply adds no expense, which is also what every legacy row does. A `'sale'` movement never carries a cost (stock leaving is not money leaving) — `movement()` enforces that one.
+**Cost — the money side of the ledger.** A movement can carry what one unit cost to buy: `unit_cost` + `currency_id` + `rate_per_usd_snapshot`, written together by `ProductService.movement()` or all three null. That is the **only** money on `stock_movements`, and it is what makes buying stock an expense (see [Expenses](#expenses)). `products` also gained `cost_price` + `cost_currency_id` — a _default_ that pre-fills the restock forms, live like `price` and never frozen; each delivery freezes its own cost on its own movement. Everything is optional: a restock with no cost still records the stock and simply adds no expense, which is also what every legacy row does. A `'sale'` movement never carries a cost (stock leaving is not money leaving) — `movement()` enforces that one.
 
 **Cost is typed in three places:** the product form's **Cost price** field (the default, plus the opening stock's cost on create), the stock sheet's **Cost per unit** / **Total cost** pair (see below), and the **batch restock** sheet, where one **delivery currency** is picked for the whole save and each picked row opens a cost line seeded from its product's cost price, converted at the live rate (the `SaleItemsEditor` rule — changing the delivery currency re-prices every row). The stock history shows a costed row's money ("Cost: $X", or green "Money back: $X" on a negative row), so which rows moved Expenses is visible.
 
-**A stock expense comes back down through the ENTRY, never through a second row.** `amount = quantity_delta × unit_cost`, so a *negative* costed row is a negative expense — a credit — but **no new one can be written**: the stock sheet has no Remove mode, so the two doors are **Edit entry** (the row says 12, the delivery was 10) and **Revert entry** (the row should never have existed). Both take the money off the **entry's own month**, which is what a mistyped delivery needs — correcting a July delivery in August drops July's expense and leaves August alone. The credit shape stays supported for the negative rows older data already holds, and for editing one of them; it is simply not something staff can create any more.
+**A stock expense comes back down through the ENTRY, never through a second row.** `amount = quantity_delta × unit_cost`, so a _negative_ costed row is a negative expense — a credit — but **no new one can be written**: the stock sheet has no Remove mode, so the two doors are **Edit entry** (the row says 12, the delivery was 10) and **Revert entry** (the row should never have existed). Both take the money off the **entry's own month**, which is what a mistyped delivery needs — correcting a July delivery in August drops July's expense and leaves August alone. The credit shape stays supported for the negative rows older data already holds, and for editing one of them; it is simply not something staff can create any more.
 
-**What has no door any more:** stock that really left later — damaged, lost, stolen, or returned to the supplier. Those were the empty-cost and the costed *removal*, and both went with the Remove mode. The count now comes down only by selling, or by editing the entry that put the units there — which rewrites that entry's own month instead of recording a later event.
+**What has no door any more:** stock that really left later — damaged, lost, stolen, or returned to the supplier. Those were the empty-cost and the costed _removal_, and both went with the Remove mode. The count now comes down only by selling, or by editing the entry that put the units there — which rewrites that entry's own month instead of recording a later event.
 
-**Per unit or per delivery — both are typeable, and each fills the other.** A supplier invoice states one or the other ("4.50 each", "45 for the lot"), so the stock sheet puts **Cost per unit** and **Total cost** side by side: typing either one recomputes the other from the quantity (`total = unit × qty`, `unit = total ÷ qty`). Only **`unit_cost`** is ever saved — the total is a way of entering it, not a column — so the derived unit keeps **8 decimals** (what `stock_movements.unit_cost` stores): rounding 100 ÷ 3 to 33.33 would make the recorded expense 99.99 and disagree with the invoice that was typed. **The last field staff typed is the anchor**, so changing the quantity afterwards recomputes the *other* one and never overwrites what they entered — typed a 45 total, then fixed 10 units to 12, and the unit becomes 3.75 while the total stays 45. Everything else keeps the per-unit field as the source of truth: an abandoned edit and picking Edit on a row both reset the anchor to "unit". One currency for both — the picker sits on the per-unit input and the total is locked to it, since a movement stores one currency.
+**Per unit or per delivery — both are typeable, and each fills the other.** A supplier invoice states one or the other ("4.50 each", "45 for the lot"), so the stock sheet puts **Cost per unit** and **Total cost** side by side: typing either one recomputes the other from the quantity (`total = unit × qty`, `unit = total ÷ qty`). Only **`unit_cost`** is ever saved — the total is a way of entering it, not a column — so the derived unit keeps **8 decimals** (what `stock_movements.unit_cost` stores): rounding 100 ÷ 3 to 33.33 would make the recorded expense 99.99 and disagree with the invoice that was typed. **The last field staff typed is the anchor**, so changing the quantity afterwards recomputes the _other_ one and never overwrites what they entered — typed a 45 total, then fixed 10 units to 12, and the unit becomes 3.75 while the total stays 45. Everything else keeps the per-unit field as the source of truth: an abandoned edit and picking Edit on a row both reset the anchor to "unit". One currency for both — the picker sits on the per-unit input and the total is locked to it, since a movement stores one currency.
 
 #### Editing a stock entry
 
 A **manual** movement can be corrected in place — `ProductService.updateMovement` → `IProductRepository.updateMovement`, reached from the history row's 3-dot menu → **Edit entry**. It is one of the **two** doors into "the stock number is wrong"; the other is [Reverting a stock entry](#reverting-a-stock-entry):
 
-| | **Edit the row** | **Revert the row** |
-| --- | --- | --- |
-| What happened | the entry was **written** wrong (12 typed for a 10-unit delivery, a cost of 0.50 the invoice says was 0.45) | the entry should **not exist** at all (logged against the wrong product, saved twice) |
-| The history says | 10 arrived | the row stays, struck through and chipped "Reversed" |
-| The month that moves | the entry's **own** month — July becomes $5.00 | the entry's **own** month — July's $6.00 goes away |
+|                      | **Edit the row**                                                                                            | **Revert the row**                                                                    |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| What happened        | the entry was **written** wrong (12 typed for a 10-unit delivery, a cost of 0.50 the invoice says was 0.45) | the entry should **not exist** at all (logged against the wrong product, saved twice) |
+| The history says     | 10 arrived                                                                                                  | the row stays, struck through and chipped "Reversed"                                  |
+| The month that moves | the entry's **own** month — July becomes $5.00                                                              | the entry's **own** month — July's $6.00 goes away                                    |
 
-Both look backwards, and that is now the whole story: a manual entry cannot *remove* stock, so "12 arrived, then 2 went back" is a shape the ledger no longer writes (it did until this change — gotchas #94 / #96 keep the reasoning, and older data can still hold such a row).
+Both look backwards, and that is now the whole story: a manual entry cannot _remove_ stock, so "12 arrived, then 2 went back" is a shape the ledger no longer writes (it did until this change — gotchas #94 / #96 keep the reasoning, and older data can still hold such a row).
 
 **What may change, and what may not.** Only **quantity**, **cost + currency** and **note**. `occurred_at` is locked (it is what decides which month the money counts in — moving it is what the two-doors rule exists to avoid), and so are `reason`, `product_id` and the row's own identity. `UpdateStockMovementPayload` is the type that says so.
 
@@ -3761,7 +3764,7 @@ The edit door's sibling, for when the entry should never have existed at all —
 
 **It is a soft-void, not a row deletion.** `voided_at` + `voided_by` are set, and both derived numbers fix themselves: the row leaves the stock sum (`product_stock` / the mirror's `GROUP BY` count only live rows) and, if it carried a cost, it leaves Expenses. The row stays in the history, greyed out with the "Reversed" chip that a sale-voided movement already wears — hard-deleting it would take away the only answer to "where did the other 12 bottles go", and the ledger is deliberately a record of what staff did, not just of the current total (rule 7, no hard deletes).
 
-**The month is the entry's own, exactly like an edit.** Reverting says the entry was never real, so the money comes off the month the entry belongs to: a July delivery reverted in August leaves August untouched and drops July's expense. There used to be an opposite door — a costed *removal*, which credited the month it was recorded in — but the stock sheet's Remove mode is gone, so only older data holds such a row (see [Stock](#stock) → cost, gotchas #94 / #96).
+**The month is the entry's own, exactly like an edit.** Reverting says the entry was never real, so the money comes off the month the entry belongs to: a July delivery reverted in August leaves August untouched and drops July's expense. There used to be an opposite door — a costed _removal_, which credited the month it was recorded in — but the stock sheet's Remove mode is gone, so only older data holds such a row (see [Stock](#stock) → cost, gotchas #94 / #96).
 
 **Refused for the same rows an edit is refused for, in the SERVICE.** `ProductService.revertMovement` and `updateMovement` share one guard — `liveManualMovement(id)` — so a `'sale'` row (its movements belong to the sale, which swaps them itself) and an already-reverted row are turned away wherever they are called from, not merely hidden in the menu. `stock_movements.voidMovement` is the one write, audited as a **`void`** with the parent product's branch and name, so "who reverted this and when" is answerable — and the reverted row's menu keeps its **History** action for exactly that (Edit and Revert are gone; a `'sale'` row still opens no menu at all).
 
@@ -3781,24 +3784,24 @@ The Home dashboard answers one question — "how is **this month** going?" — w
 
 `PageHeader` (with the branch chip and a CSV export button) → `PeriodPicker` → a `SegmentedTabs` section switcher → the section's cards. Phase 1 ships **Money** and **Debts**; Customers and Staff/Products are phase 2 and drop into the same shells.
 
-**Period** (`src/core/utils/dateRange.ts`) is one primitive: `ReportPeriod { preset, fromDate, toDate }` with presets *This month · Last month · Last 3 / 6 / 12 months · This year · Custom*. Every preset is **whole calendar months** — it always ends on the last day of its final month — so its buckets and its comparison window are the same shape. `previousPeriod()` shifts a month-aligned period by whole months and anything custom by its own day count. The file also holds the app's `dayStartIso` / `nextDayStartIso` / `rangeFromDays` helpers, which four repositories and the expense slice used to carry privately.
+**Period** (`src/core/utils/dateRange.ts`) is one primitive: `ReportPeriod { preset, fromDate, toDate }` with presets _This month · Last month · Last 3 / 6 / 12 months · This year · Custom_. Every preset is **whole calendar months** — it always ends on the last day of its final month — so its buckets and its comparison window are the same shape. `previousPeriod()` shifts a month-aligned period by whole months and anything custom by its own day count. The file also holds the app's `dayStartIso` / `nextDayStartIso` / `rangeFromDays` helpers, which four repositories and the expense slice used to carry privately.
 
 ### Money
 
-| Block | What it shows |
-| --- | --- |
-| KPIs | Collected · Spent · Net · Margin, each with a ▲/▼ pill vs the previous period of the same length |
-| Money in | Breakdown by stream, with an inline share bar |
-| Money out | Breakdown by expense category (including the derived `stock` half) |
+| Block                 | What it shows                                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| KPIs                  | Collected · Spent · Net · Margin, each with a ▲/▼ pill vs the previous period of the same length                                 |
+| Money in              | Breakdown by stream, with an inline share bar                                                                                    |
+| Money out             | Breakdown by expense category (including the derived `stock` half)                                                               |
 | Collected by currency | What was **physically** collected in each currency, each printed in its own currency with a `≈` display-currency value beside it |
 
 ### Debts
 
-| Block | What it shows |
-| --- | --- |
-| KPIs | Still owed (**all time**) · Collected on debts (**this period**) · Customers owing · Behind on payments (**counted to today**, so this one does not move with the period) |
-| Who owes the most | Top 10 debtors, each with how many months they are behind, tappable through to the customer |
-| What is owed for | Gross by debt category (months / sales / custom) |
+| Block             | What it shows                                                                                                                                                             |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| KPIs              | Still owed (**all time**) · Collected on debts (**this period**) · Customers owing · Behind on payments (**counted to today**, so this one does not move with the period) |
+| Who owes the most | Top 10 debtors, each with how many months they are behind, tappable through to the customer                                                                               |
+| What is owed for  | Gross by debt category (months / sales / custom)                                                                                                                          |
 
 Only one figure here is period-scoped. See gotcha #91 — outstanding debt is all-time by design, and the two are labelled apart on purpose.
 
@@ -3810,10 +3813,10 @@ Two arrays feed almost everything, and both come from code that already existed.
 
 **Money in** is three new reads, one per stream, all returning the same `CollectedRow` shape:
 
-| Repository | Method |
-| --- | --- |
+| Repository              | Method                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------ |
 | `ICollectionRepository` | `collectedInRange(startIso, endExclusiveIso, branchFilter)` — ONE read, one row per bill settled |
-| `ISaleRepository` | `collectedInRange(…)` |
+| `ISaleRepository`       | `collectedInRange(…)`                                                                            |
 
 Each lives on the repository that owns its table (never a cross-table `ReportsRepository`, which would have to re-derive the branch scoping `BRANCH_SCOPES` already encodes), and each has a Supabase impl and an offline SQLite twin. `ReportsService` tags them with their `stream` and merges them into one `CashRow[]`.
 
@@ -3849,10 +3852,10 @@ The app counted only money **in** — every hand-over summed into `monthlyRevenu
 
 **Two sources, one view.** `ExpenseService.getExpensesView({ startIso, endExclusiveIso, branchFilter })` composes them into a uniform `ExpenseItem[]` + a USD `ExpenseSummary` — the same shape `LedgerService` uses (stored rows + a derived stream from another service):
 
-| Source | Where it comes from |
-| --- | --- |
-| `manual` | Hand-typed rows in the `expenses` table (rent, salaries, fuel, …) |
-| `stock` | **Derived** at read time from `stock_movements` — costed, non-voided, non-`'sale'` rows; `amount = quantity_delta × unit_cost`, so a costed **negative** row is a negative amount (money back) — older data only, since a manual entry can no longer remove stock |
+| Source   | Where it comes from                                                                                                                                                                                                                                               |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `manual` | Hand-typed rows in the `expenses` table (rent, salaries, fuel, …)                                                                                                                                                                                                 |
+| `stock`  | **Derived** at read time from `stock_movements` — costed, non-voided, non-`'sale'` rows; `amount = quantity_delta × unit_cost`, so a costed **negative** row is a negative amount (money back) — older data only, since a manual entry can no longer remove stock |
 
 **A restock never writes an expense row.** Deriving it means correcting the stock corrects the expense, with no second insert inside the offline restock transaction, no drift on a void, and no orphan when a hard-deleted product takes its ledger with it. The cost of that choice is that a derived row **cannot be voided** (`ExpenseItem.canVoid` is false; its 3-dot offers "Open product") — a wrong cost is fixed on the entry that carries it — **Edit entry** for a mistyped one, **Revert entry** for one that should never have existed — and both take the money off the month that entry belongs to (see [Stock](#stock) → cost, and gotchas #94 / #96). Row ids are prefixed (`exp:` / `stock:`) so the two sources can never collide.
 
@@ -3862,7 +3865,7 @@ The app counted only money **in** — every hand-over summed into `monthlyRevenu
 
 **`expenses` table** — `branch_id` (its **own**, `NULL` = a company-wide expense), `category` (free text at the DB level; the app owns the code list, so a new category needs no migration), `description`, `amount` + `currency_id` + `rate_per_usd_snapshot` (the standard frozen-rate trio), `recorded_by_user_id`, `incurred_at`, soft-void fields. **Void-only, no edit** — a typo is voided and re-entered, so the row is its own history and the table is deliberately **not audited** (the same call as the debt tables). No tier gating.
 
-**Branch semantics: one rule, and it is `owned` on both halves.** `expenses.branch_id` is `owned`, and NULL means **the company bought it, no branch did** — so a company-wide expense shows in the **All branches** view only (the "Unassigned" chip reaches it on its own). The *derived* half follows the same rule via the parent **product**: `stock_movements: { kind: 'inherited', joinedTable: 'products' }`, deliberately narrower than the stock RLS policy. Both exist for the same reason — **branch views must sum to the tenant total**. Making either one `shared` puts head-office rent, or a shared product's delivery, into every branch's expenses at once, and two branch admins each read the same money as theirs. The RLS policy is wider than the app filter on purpose: visibility and aggregation are different questions. Gotcha #88.
+**Branch semantics: one rule, and it is `owned` on both halves.** `expenses.branch_id` is `owned`, and NULL means **the company bought it, no branch did** — so a company-wide expense shows in the **All branches** view only (the "Unassigned" chip reaches it on its own). The _derived_ half follows the same rule via the parent **product**: `stock_movements: { kind: 'inherited', joinedTable: 'products' }`, deliberately narrower than the stock RLS policy. Both exist for the same reason — **branch views must sum to the tenant total**. Making either one `shared` puts head-office rent, or a shared product's delivery, into every branch's expenses at once, and two branch admins each read the same money as theirs. The RLS policy is wider than the app filter on purpose: visibility and aggregation are different questions. Gotcha #88.
 
 **UI.** An **Expenses** segment in the Transactions hub (admin-only) plus an "Add expense" quick action. `ExpensesPanel` reads a **date window** (the current calendar month by default) rather than paginating, so section totals are always the local sum: a total-spent headline with a stock/other split, search + category + From/To chips, then a month-grouped `SectionList` via the shared `groupByMonth` / `MonthSectionHeader`. Every amount carries a leading `−`. `ExpenseFormSheet` is the `CustomDebtFormSheet` shape (category `Dropdown`, `CurrencyInput`, `DatePickerInput` capped at today, branch picker, description).
 
@@ -3885,18 +3888,18 @@ Staff can send the customer a **plain-text receipt over WhatsApp** — at the mo
 
 **Entry points.**
 
-| Where | Action |
-| --- | --- |
-| `CollectSheet` | (via each surface's own send flag) the hand-over it writes is sent as one receipt |
-| `SaleFormSheet` | a second, stacked button — **Save & send on WhatsApp**, using the `Sale` `createSale` already returns |
-| Quick pay — month-cell menu (`CustomerPaymentPanel`) + customer-card menu (`CustomerListScreen`) | a **Pay & send on WhatsApp** row beside "Quick pay" |
-| **Month-grid multi-select** (`InlineSelectionToolbar`) | a green WhatsApp action beside "Collect" — one receipt for the hand-over it writes |
-| `BillSheet` / the money-in history row menu | **Send on WhatsApp**, to re-send a saved hand-over any time |
-| `SaleDetailSheet` + the three sales lists | **Send invoice on WhatsApp** — one sale, or one receipt covering a selection |
+| Where                                                                                            | Action                                                                                                |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `CollectSheet`                                                                                   | (via each surface's own send flag) the hand-over it writes is sent as one receipt                     |
+| `SaleFormSheet`                                                                                  | a second, stacked button — **Save & send on WhatsApp**, using the `Sale` `createSale` already returns |
+| Quick pay — month-cell menu (`CustomerPaymentPanel`) + customer-card menu (`CustomerListScreen`) | a **Pay & send on WhatsApp** row beside "Quick pay"                                                   |
+| **Month-grid multi-select** (`InlineSelectionToolbar`)                                           | a green WhatsApp action beside "Collect" — one receipt for the hand-over it writes                    |
+| `BillSheet` / the money-in history row menu                                                      | **Send on WhatsApp**, to re-send a saved hand-over any time                                           |
+| `SaleDetailSheet` + the three sales lists                                                        | **Send invoice on WhatsApp** — one sale, or one receipt covering a selection                          |
 
 Stacked, not side-by-side: `Button` takes no `className`, and the long label (and its Arabic form) truncates at half a phone width.
 
-**Both busy states are one marker, not two flags.** Each form tracks `busyOn: "save" | "send" | null`, set **before** the write and cleared in a `finally`, so the spinner stays on the button the user actually pressed across both phases (the store write, then the awaited deep link). Consequently `canSubmit` / `submitDisabled` are **validity-only** — folding the slice's loading flag into them greys out *both* buttons, and a disabled `SendOnWhatsAppButton` shows no spinner at all.
+**Both busy states are one marker, not two flags.** Each form tracks `busyOn: "save" | "send" | null`, set **before** the write and cleared in a `finally`, so the spinner stays on the button the user actually pressed across both phases (the store write, then the awaited deep link). Consequently `canSubmit` / `submitDisabled` are **validity-only** — folding the slice's loading flag into them greys out _both_ buttons, and a disabled `SendOnWhatsAppButton` shows no spinner at all.
 
 **No phone → visible but disabled, with a caption.** `canSend` digit-strips exactly like `openWhatsApp`, so `"-"` or `"n/a"` disables rather than producing a broken link. The button caption is `invoice.no_phone`, or `invoice.no_customer` for a walk-in sale; the menu rows use `ActionMenuItem.caption` for the same hint. **A voided hand-over or sale never shows the button** — a cancelled receipt is not a receipt.
 
@@ -3946,8 +3949,9 @@ The bottom **Transactions** tab (`app/(app)/(tabs)/transactions`) is a hub hosti
 > it keys off collected money, and a voided collection contributes none.
 
 **Month-grouped lists.** Sales, Payments, and Debts all render as a `SectionList` grouped by calendar month, newest first — one section header per month ("This Month" for the current month, else "June 2026"). The two newest buckets break out ahead of the months: **Today** (`common.today`) and **This Week** (`common.this_week`, Monday-based week start, excluding today) — a row lands in exactly one bucket (today → this week → its month). The grouping is a pure view transform (`groupByMonth` in [monthSections.ts](../SubsTrack/src/shared/lib/monthSections.ts)) over the **already date-desc-sorted** slice data, so the slice/service stays the single source of sort order — it only buckets, it never re-sorts. Day/week bucket totals are always summed locally (their newest rows are guaranteed loaded); a month whose newest rows were peeled into Today/This-Week has that peeled USD subtracted from its authoritative `totalsByMonth` total so the header still reads the correct remainder. Each panel supplies the row's date: Sales → `soldAt`, money received → `receivedAt`. (Debts is a flat debtors list — it has no month sections.) Headers render via the shared `MonthSectionHeader`; sticky headers are disabled. Selection / select-all still resolve against the flat slice array (the sections are built from it), so multi-select is unaffected. Full month names come from the `months_long` i18n block; "This Month" from `common.current_month`.
-  - **Month totals.** Each panel also passes `groupByMonth` a `getAmountUsd` row-to-USD function, so every section carries a `totalUsd`; `MonthSectionHeader` renders it (formatted into the display currency) at the trailing edge of the header, next to the row count. Sales sum the **value sold** (`totalAmount`, matching `soldAt`); the money-in history sums the **cash received** (`amount / ratePerUsdSnapshot`, matching `receivedAt`). (Debts no longer uses month sections — it's a flat debtors list; the debtor detail modal groups a customer's debts/payments via the shared `DebtList`.)
-    - **Sales/Payments are paginated (`PAGE_SIZE` = 30) — summing only the loaded rows would under-count any month with more rows than one page.** Both panels instead pass `groupByMonth` a 5th arg, `totalsByMonth: Record<"YYYY-MM", number>`, which — for any month key present — overrides the local per-row sum. That map comes from `saleSlice`/`collections`'s `monthlyTotals` state, refetched (in parallel with the paginated page) every time filters change via `SaleService.getMonthlyTotals` / `CollectionService.getMonthlyTotals`, and **patched in place after a write** by `addMonthTotal(totals, iso, deltaUsd)` — recording, correcting or voiding a row moves its month by that row's value instead of re-running the aggregate (a month the map does not hold is left alone: it was never fetched, so `groupByMonth` is already summing it locally), which bucket `SaleRepository.monthlyTotals` / `CollectionRepository.monthlyTotals` — the **same filters as `findAll`, but unpaginated and projected to just the 2–3 numeric columns needed to sum** (no joins beyond what a search/branch filter needs), so it stays cheap even over a whole table. `fetchMoreSales`/`fetchMoreCollections` (loading further pages of an unchanged filter set) do **not** refetch it — the total doesn't change, only which rows are visible. Debts isn't paginated (it loads its full filtered set up front), so it never passes this arg and keeps summing locally.
+
+- **Month totals.** Each panel also passes `groupByMonth` a `getAmountUsd` row-to-USD function, so every section carries a `totalUsd`; `MonthSectionHeader` renders it (formatted into the display currency) at the trailing edge of the header, next to the row count. Sales sum the **value sold** (`totalAmount`, matching `soldAt`); the money-in history sums the **cash received** (`amount / ratePerUsdSnapshot`, matching `receivedAt`). (Debts no longer uses month sections — it's a flat debtors list; the debtor detail modal groups a customer's debts/payments via the shared `DebtList`.)
+  - **Sales/Payments are paginated (`PAGE_SIZE` = 30) — summing only the loaded rows would under-count any month with more rows than one page.** Both panels instead pass `groupByMonth` a 5th arg, `totalsByMonth: Record<"YYYY-MM", number>`, which — for any month key present — overrides the local per-row sum. That map comes from `saleSlice`/`collections`'s `monthlyTotals` state, refetched (in parallel with the paginated page) every time filters change via `SaleService.getMonthlyTotals` / `CollectionService.getMonthlyTotals`, and **patched in place after a write** by `addMonthTotal(totals, iso, deltaUsd)` — recording, correcting or voiding a row moves its month by that row's value instead of re-running the aggregate (a month the map does not hold is left alone: it was never fetched, so `groupByMonth` is already summing it locally), which bucket `SaleRepository.monthlyTotals` / `CollectionRepository.monthlyTotals` — the **same filters as `findAll`, but unpaginated and projected to just the 2–3 numeric columns needed to sum** (no joins beyond what a search/branch filter needs), so it stays cheap even over a whole table. `fetchMoreSales`/`fetchMoreCollections` (loading further pages of an unchanged filter set) do **not** refetch it — the total doesn't change, only which rows are visible. Debts isn't paginated (it loads its full filtered set up front), so it never passes this arg and keeps summing locally.
 
 **Money received (tenant-wide):** `CollectionsPanel` lists every hand-over of
 cash across all customers, newest first, defaulting to **this month**. Backed by
@@ -4003,7 +4007,7 @@ this, when, and why — with no surface to answer it. So the sheet keeps the
 what the cash paid for), names the void's time, **its author** (`voidedBy`,
 carried on `CollectionListItem` and patched into the store by `applyVoided`, so
 it is right the instant you void) and its reason, heads the bills **"This had
-paid"** with the caption *these bills are owed again*, and drops the custody row
+paid"** with the caption _these bills are owed again_, and drops the custody row
 entirely — a voided hand-over holds no cash, so "now with Sami" would be a lie. That sheet is the
 hand-over's whole record: the total (+ `≈`), a status pill, then an `InfoRows`
 block (customer · received to the minute · who took it · where the cash is now,
@@ -4031,17 +4035,17 @@ family, and the reason is one sentence:
 Raise `amount_paid` and the 8 counts as revenue on the original date; leave it
 and the row says he still owes it forever. Every debt problem the app had grew
 from that: `debt_payments` was a workaround that could only point at a
-*customer*, never at which month or sale it paid; debt was a customer-level
+_customer_, never at which month or sale it paid; debt was a customer-level
 `Σ categories − Σ payments`, so no individual line's balance was trustworthy;
 "Complete" existed only because `amount_paid` had no date of its own.
 
 ### The model
 
-| Table | Role | One row = |
-| --- | --- | --- |
-| `charges` | what is owed — **the bill** | a month, a sale, or a hand-typed fee |
-| `collections` | money physically handed over | one hand-over: "$55, 5 Mar, taken by Sami" |
-| `collection_items` | which bill that money paid | one bill touched by that hand-over |
+| Table              | Role                         | One row =                                  |
+| ------------------ | ---------------------------- | ------------------------------------------ |
+| `charges`          | what is owed — **the bill**  | a month, a sale, or a hand-typed fee       |
+| `collections`      | money physically handed over | one hand-over: "$55, 5 Mar, taken by Sami" |
+| `collection_items` | which bill that money paid   | one bill touched by that hand-over         |
 
 A bill can take many payments and a payment can cover many bills — a genuine
 many-to-many, which is exactly why the middle table exists. Partial payments,
@@ -4058,7 +4062,7 @@ wallet(user)     = Σ collections where held_by_user_id = user, per currency
 ```
 
 **Nothing asks "does a charge row exist?" — everything asks "how much money came
-in?"** A month bill left at 0 collected (after a void) reads *identically* to no
+in?"** A month bill left at 0 collected (after a void) reads _identically_ to no
 row at all. Miss this and a voided payment leaves a ghost debt behind.
 
 ### Balance is never a column
@@ -4068,7 +4072,7 @@ offline the same `GROUP BY` runs over the mirror, so one mapper serves both. Two
 devices can therefore both collect offline without clobbering a counter.
 
 > **The view's `CASE` is load-bearing.** `p.voided_at IS NULL` sits in a LEFT
-> JOIN's `ON` clause, which does not *drop* an item whose collection was voided —
+> JOIN's `ON` clause, which does not _drop_ an item whose collection was voided —
 > it only leaves the joined row all-NULL. A bare `SUM(i.amount)` keeps counting
 > voided cash, and voiding a payment never gives the balance back.
 
@@ -4166,15 +4170,15 @@ debt, and the Debts screen and the waterfall both see it. See gotcha #112.
 
 ### Owed vs debt
 
-| | includes | consumed by |
-| --- | --- | --- |
-| **OWED** | everything with a balance, plain unpaid months included | the waterfall, and only the waterfall |
-| **DEBT** | partly-paid months, open/partly-paid sales, hand-typed fees | the Debts screen |
+|          | includes                                                    | consumed by                           |
+| -------- | ----------------------------------------------------------- | ------------------------------------- |
+| **OWED** | everything with a balance, plain unpaid months included     | the waterfall, and only the waterfall |
+| **DEBT** | partly-paid months, open/partly-paid sales, hand-typed fees | the Debts screen                      |
 
 `isDebtItem(kind, paid) = kind !== 'month' || paid > 0` — one function, in
 `ledger/utils/openItems.ts`. **A fully unpaid month is NOT a debt**: it is
 `unpaid`/`overdue` in the month grid, which is its own screen and its own
-workflow. It becomes a debt the moment it is *partly* paid, which is exactly
+workflow. It becomes a debt the moment it is _partly_ paid, which is exactly
 when it stops being routine.
 
 **The Debts screen never lists a plain unpaid month at all**, and that is
@@ -4193,10 +4197,10 @@ so an emptied bill reads exactly like a month never touched (gotchas #106,
 Two different statements about one bill, and `chk_charges_void_xor_write_off`
 keeps them mutually exclusive:
 
-| | means | effect |
-| --- | --- | --- |
-| **void** (`voided_at`) | it was a MISTAKE — it never existed | gone from every figure. `voidCharge` is refused once money sits on it; `voidChargeWithPayments` is the deliberate "take the cash with it" door (see below) |
-| **write off** (`written_off_at`) | it is REAL but will never be paid | leaves "still owed", reported as a **loss** in Reports → Debts |
+|                                  | means                               | effect                                                                                                                                                     |
+| -------------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **void** (`voided_at`)           | it was a MISTAKE — it never existed | gone from every figure. `voidCharge` is refused once money sits on it; `voidChargeWithPayments` is the deliberate "take the cash with it" door (see below) |
+| **write off** (`written_off_at`) | it is REAL but will never be paid   | leaves "still owed", reported as a **loss** in Reports → Debts                                                                                             |
 
 Voiding a **collection** is the third, and different again: the cash was real
 but should not have been recorded. Every bill it touched gets its balance back
@@ -4234,19 +4238,19 @@ the **charge's** (what he was billed).
 
 ### Screens
 
-| Where | What |
-| --- | --- |
-| `CollectSheet` | the ONE collect form. Two modes: a whole customer (type an amount, watch the waterfall split it, untick a row to steer the cash on) or a single bill. Same write either way, so one code path and one audit shape. |
- hero, then **every payment that reached it**, each with its own date and collector. |
-| `BillPaymentsList` | the payments half of `BillSheet`, on its own — the list of hand-overs against ONE bill, with the per-row menu (send receipt / void this payment). Shared with the **sale receipt**, because a month and a sale are the same `charges` row to the ledger. |
-| `CollectionCard` | one hand-over. A single-bill payment names it inline; several wear a `3 items` marker. **Tapping the card opens what it settled** — the bill itself, or `CollectionSplitSheet` when it closed several. A voided row is inert. |
-| `CollectionSplitSheet` / `CollectionItemCard` | the bills ONE hand-over settled, each a card that opens its own bill — the split shown rather than explained. Needs no read: the list already hydrates every item's charge. |
-| `useOpenBill` | "show me the bill behind this row", read-only. A month and a manual fee open the shared `BillSheet`; a **sale** opens its receipt through an injected `onOpenSale`, because the sale sheet lives in the sales module and sales depends on the ledger — never the reverse. `open(charge)` takes the bill; `openOwed(item)` takes an `OpenItem`. **Neither reads**: an `OpenItem` built from a stored bill carries that `Charge` (`openItemFromCharge`), exactly as a `CollectionItem` carries its own, and a sale needs only the `saleId` already on the row. A **virtual** month opens nothing: there is no record behind it yet. |
-| `CollectionsPanel` / `CollectionsHistorySheet` | the money-in history. ONE list where there were two (payments and debt payments). Reached from the quick-actions menu. |
-| `CollectQuickActionSheet` | "Collect money" from anywhere: pick a customer, the waterfall does the rest. |
-| `DebtsPanel` | one row per customer who owes, **sorted by how far behind they are**. |
-** part-paid fraction, an orange **Written off**. They were a single grey micro-line before, where the one fact a debts list is opened for was the easiest thing to miss. The balance prints in the **bill's own currency** with a `≈` display line only when they differ (#128). `Chip` is shared (`shared/components/Chip.tsx`). |
-| Opening a debt row | **Tapping any row in the debtor sheet opens the record behind it** — `useOpenBill.openOwed`, the same door the money-in history uses, so a month and a fee land in `BillSheet` and a sale lands in its receipt. `DebtsPanel` takes `onOpenSale` from `TransactionsScreen` (via `useSaleDetailSheet`), keeping debts free of any dependency on sales. Read-only: no collect and no void-bill footer, since the row's own 3-dot already owns those. Voiding a payment from inside bumps `owedVersion`, so the sheet and the list behind it follow with no patch of their own. |
+| Where                                                                                                                                                                                                                                                                                                                              | What                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CollectSheet`                                                                                                                                                                                                                                                                                                                     | the ONE collect form. Two modes: a whole customer (type an amount, watch the waterfall split it, untick a row to steer the cash on) or a single bill. Same write either way, so one code path and one audit shape.                                                                                                                                                                                                                                                                                                                                                                                                                |
+| hero, then **every payment that reached it**, each with its own date and collector.                                                                                                                                                                                                                                                |
+| `BillPaymentsList`                                                                                                                                                                                                                                                                                                                 | the payments half of `BillSheet`, on its own — the list of hand-overs against ONE bill, with the per-row menu (send receipt / void this payment). Shared with the **sale receipt**, because a month and a sale are the same `charges` row to the ledger.                                                                                                                                                                                                                                                                                                                                                                          |
+| `CollectionCard`                                                                                                                                                                                                                                                                                                                   | one hand-over. A single-bill payment names it inline; several wear a `3 items` marker. **Tapping the card opens what it settled** — the bill itself, or `CollectionSplitSheet` when it closed several. A voided row is inert.                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `CollectionSplitSheet` / `CollectionItemCard`                                                                                                                                                                                                                                                                                      | the bills ONE hand-over settled, each a card that opens its own bill — the split shown rather than explained. Needs no read: the list already hydrates every item's charge.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `useOpenBill`                                                                                                                                                                                                                                                                                                                      | "show me the bill behind this row", read-only. A month and a manual fee open the shared `BillSheet`; a **sale** opens its receipt through an injected `onOpenSale`, because the sale sheet lives in the sales module and sales depends on the ledger — never the reverse. `open(charge)` takes the bill; `openOwed(item)` takes an `OpenItem`. **Neither reads**: an `OpenItem` built from a stored bill carries that `Charge` (`openItemFromCharge`), exactly as a `CollectionItem` carries its own, and a sale needs only the `saleId` already on the row. A **virtual** month opens nothing: there is no record behind it yet. |
+| `CollectionsPanel` / `CollectionsHistorySheet`                                                                                                                                                                                                                                                                                     | the money-in history. ONE list where there were two (payments and debt payments). Reached from the quick-actions menu.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `CollectQuickActionSheet`                                                                                                                                                                                                                                                                                                          | "Collect money" from anywhere: pick a customer, the waterfall does the rest.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `DebtsPanel`                                                                                                                                                                                                                                                                                                                       | one row per customer who owes, **sorted by how far behind they are**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ** part-paid fraction, an orange **Written off**. They were a single grey micro-line before, where the one fact a debts list is opened for was the easiest thing to miss. The balance prints in the **bill's own currency** with a `≈` display line only when they differ (#128). `Chip` is shared (`shared/components/Chip.tsx`). |
+| Opening a debt row                                                                                                                                                                                                                                                                                                                 | **Tapping any row in the debtor sheet opens the record behind it** — `useOpenBill.openOwed`, the same door the money-in history uses, so a month and a fee land in `BillSheet` and a sale lands in its receipt. `DebtsPanel` takes `onOpenSale` from `TransactionsScreen` (via `useSaleDetailSheet`), keeping debts free of any dependency on sales. Read-only: no collect and no void-bill footer, since the row's own 3-dot already owns those. Voiding a payment from inside bumps `owedVersion`, so the sheet and the list behind it follow with no patch of their own.                                                       |
 
 **The split preview is the heart of the collect sheet.** Staff sees exactly what
 the money will do BEFORE saving, which is what makes an automatic allocation
@@ -4255,30 +4259,30 @@ trustworthy instead of magic.
 ### Where voiding lives — two doors, two statements
 
 Under the old model "void this month's payment" was meaningful. It is not any
-more: one hand-over can settle three months and a sale, so *which* payment is a
+more: one hand-over can settle three months and a sale, so _which_ payment is a
 real question. So there are two doors, and they say different things.
 
-**Void one payment — the narrow door.** *That hand-over was wrong; the bill is
-still owed.* It lives in `BillPaymentsList`, per payment row — so on the
+**Void one payment — the narrow door.** _That hand-over was wrong; the bill is
+still owed._ It lives in `BillPaymentsList`, per payment row — so on the
 month bill sheet and on the sale receipt, and nowhere else — with
-the row saying *"also paid other bills"* when the decision is wider than it
+the row saying _"also paid other bills"_ when the decision is wider than it
 looks. This is the everyday correction: cash mis-recorded, wrong customer,
 wrong amount.
 
-**Void the bill — the wide door.** *This should never have been billed at all*,
+**Void the bill — the wide door.** _This should never have been billed at all_,
 so the cash sitting on it goes too. One primitive,
 `ChargeService.voidChargeWithPayments`, behind three entry points:
 
-| Where | Label |
-| --- | --- |
-| month cell 3-dot | **Void this month** (whenever the month has a bill — including an unpaid one still holding the bill a voided payment left behind) |
-| `BillSheet` footer | **Void this month** (red, last — the per-payment void above it is the usual correction) |
-| a sale's 3-dot / receipt | **Void sale** (`SaleService.voidSale`) |
+| Where                    | Label                                                                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| month cell 3-dot         | **Void this month** (whenever the month has a bill — including an unpaid one still holding the bill a voided payment left behind) |
+| `BillSheet` footer       | **Void this month** (red, last — the per-payment void above it is the usual correction)                                           |
+| a sale's 3-dot / receipt | **Void sale** (`SaleService.voidSale`)                                                                                            |
 
 Three rules hold it together:
 
 - **Payments first, bill second.** If the bill's own void then fails, what is
-  left is an *unpaid bill* the customer still owes — recoverable. The other
+  left is an _unpaid bill_ the customer still owes — recoverable. The other
   order strands live cash on a bill that no longer exists.
 - **Always say the money goes — with no number.** The confirm states it
   unconditionally, so nothing reads the ledger on the way into the dialog: a
@@ -4287,7 +4291,7 @@ Three rules hold it together:
 - **`voidCharge` still refuses a paid bill.** That is what keeps the narrow
   paths (a debt row's void) from quietly destroying cash.
 
-**A MONTH bill is voided NEWEST-FIRST.** Voiding July lowers *July* while a paid
+**A MONTH bill is voided NEWEST-FIRST.** Voiding July lowers _July_ while a paid
 August sits above it — the very "✓ Paid on top of Overdue" shape the pay rule
 forbids (#79/#81) — so both month entry points go through
 `payments.voidMonthBill`, which asks `PaymentService.billVoidOrderBlocker` first
@@ -4303,7 +4307,7 @@ charge inside its transaction, so one record keeps one owner.
 **One write, not a loop — this is a performance rule with teeth.**
 `CollectionRepository.voidMany` voids every hand-over in a single UPDATE (and,
 offline, a single transaction). A loop over `void()` costs a read + a write + an
-audit insert *per row* online, and offline opens a transaction per row — each
+audit insert _per row_ online, and offline opens a transaction per row — each
 queuing behind `withDbLock`, since expo-sqlite gives the app one connection.
 That queue is what made the first cut of this feature slow, and the same rule
 retired the old loop inside `CollectionService.voidCollections`. `voidMany`
@@ -4386,35 +4390,35 @@ A **skipped month** is a month one service line is **not expected to pay** — a
 
 **Grid rule (the only status change).** `buildMonthGrid(line, payments, skips, year)` inserts one step: `before_start` → `paid` → **`skipped`** → `future` → `unpaid`. So **money always wins** — a skip left on a month that later gets paid is inert (the cell reads paid), which is why the service does not need to guard against skipping an already-paid month. The cell renders slate with a "Skipped" sub-label for regular and non-regular customers alike, and `MonthEntry.skip` carries the note for the sheet.
 
-**Not payable — the user must unskip first.** There is no "pay anyway" (except for a *locked* skip, below):
+**Not payable — the user must unskip first.** There is no "pay anyway" (except for a _locked_ skip, below):
 
-- Tapping a skipped cell opens the **unskip** confirmation (checked *before* the inactive/cancelled gate, since unskipping is not a payment).
+- Tapping a skipped cell opens the **unskip** confirmation (checked _before_ the inactive/cancelled gate, since unskipping is not a payment).
 - The `?quickPay=1` deep link from the customer list shows `payments.skip.pay_blocked` instead of the form.
 - Every other pay path filters on `isPayableStatus` (`'unpaid' || 'future'`, plus a locked skip), so the new status excludes itself: `canQuickPay`, `payableEntries`, and `isPayable` in `monthSelection.ts`.
 - A **multi-month block** covering a skipped month is refused whole (`assertNoSkippedMonths` → `errors.months_skipped`) — the block covers consecutive months and cannot leave a hole.
 
 **Unskip follows the VOID rule, and a locked skip becomes payable instead.** An unskip turns "nothing expected" back into an **unpaid** month, so it may not run while a **later** month of the same line is paid — that is the "paid month sitting on an unpaid one" shape the pay/void order rules exist to prevent (gotcha #84, the fifth door of #79).
 
-| | Behavior |
-| --- | --- |
-| Rule | `PaymentService.assertUnskippableInOrder(months, linePayments)` — the same `blockingPaidMonths` helper the void gate uses, so a bulk unskip is judged as one write. Called from the payment slice's `setMonthsSkipped` when `skipped === false` (the slice holds the customer's full payment history; `SkippedMonthService` stays payment-ignorant on purpose). Message: `errors.later_month_paid_unskip`. |
-| Grid | **Unskip disappears** (cell menu + multi-select toolbar) and the month becomes **payable** — the cell tap opens the payment form, and Pay now / Pay & send appear for a fixed-price plan. Nothing errors: the month can still be settled, just by collecting it. |
-| Why paying works | Money outranks a skip in `buildMonthGrid`, so the payment settles the month and the skip row goes inert. The payment form shows an amber `payments.skip.locked_pay_notice` explaining it. |
-| Multi-month | A block covering a **locked** skip is allowed — `assertNoSkippedMonths` exempts any skip earlier than the line's latest covered month, since "unskip it first" is an instruction the app itself refuses. |
-| Customer list | Untouched: a skipped current month is still "nothing due", so quick pay keeps leaving those lines alone (`notDueLineIds`). Only the grid, where the user picks one month, offers the pay. |
+|                  | Behavior                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rule             | `PaymentService.assertUnskippableInOrder(months, linePayments)` — the same `blockingPaidMonths` helper the void gate uses, so a bulk unskip is judged as one write. Called from the payment slice's `setMonthsSkipped` when `skipped === false` (the slice holds the customer's full payment history; `SkippedMonthService` stays payment-ignorant on purpose). Message: `errors.later_month_paid_unskip`. |
+| Grid             | **Unskip disappears** (cell menu + multi-select toolbar) and the month becomes **payable** — the cell tap opens the payment form, and Pay now / Pay & send appear for a fixed-price plan. Nothing errors: the month can still be settled, just by collecting it.                                                                                                                                           |
+| Why paying works | Money outranks a skip in `buildMonthGrid`, so the payment settles the month and the skip row goes inert. The payment form shows an amber `payments.skip.locked_pay_notice` explaining it.                                                                                                                                                                                                                  |
+| Multi-month      | A block covering a **locked** skip is allowed — `assertNoSkippedMonths` exempts any skip earlier than the line's latest covered month, since "unskip it first" is an instruction the app itself refuses.                                                                                                                                                                                                   |
+| Customer list    | Untouched: a skipped current month is still "nothing due", so quick pay keeps leaving those lines alone (`notDueLineIds`). Only the grid, where the user picks one month, offers the pay.                                                                                                                                                                                                                  |
 
 **Nothing is owed, so nothing counts it.** Two paths had to learn the rule:
 
-| Path | Behavior |
-| --- | --- |
-| `PaymentService.buildCustomerStatus` | Everything the customer list shows comes from here, off `buildMonthGrid` — so a skipped month simply never resolves to `unpaid` and cannot make a customer overdue. A skipped month is **not a required month**, so it never counts in the "N/M plans paid" tally and never blocks "paid": a line paid through February with March skipped is settled. `status` is `"skipped"` when the customer owes nothing **and** no line owes this month because of a skip. |
-| `CustomerRepository.countUnpaidForMonth` (web + offline) | The dashboard's `unpaidThisMonth` skips those lines — and so does its `dueThisMonth` sibling, so a skipped customer is in neither half of the collection-progress bar. |
+| Path                                                     | Behavior                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PaymentService.buildCustomerStatus`                     | Everything the customer list shows comes from here, off `buildMonthGrid` — so a skipped month simply never resolves to `unpaid` and cannot make a customer overdue. A skipped month is **not a required month**, so it never counts in the "N/M plans paid" tally and never blocks "paid": a line paid through February with March skipped is settled. `status` is `"skipped"` when the customer owes nothing **and** no line owes this month because of a skip. |
+| `CustomerRepository.countUnpaidForMonth` (web + offline) | The dashboard's `unpaidThisMonth` skips those lines — and so does its `dueThisMonth` sibling, so a skipped customer is in neither half of the collection-progress bar.                                                                                                                                                                                                                                                                                           |
 
-**Customer-list badge.** `status === "skipped"` means the customer owes nothing at all **and** the reason no line owes this month is a skip on **every** started active line. The card shows a slate **"Skipped"** pill and the list's **Unpaid** tab leaves them out. A customer with one skipped and one unpaid line is still `"unpaid"` — only *all* lines skipped counts. An older unpaid month outranks the slate pill entirely: the customer owes money, so the card reads **"Overdue"** instead — a skip excuses its own month, never a backlog.
+**Customer-list badge.** `status === "skipped"` means the customer owes nothing at all **and** the reason no line owes this month is a skip on **every** started active line. The card shows a slate **"Skipped"** pill and the list's **Unpaid** tab leaves them out. A customer with one skipped and one unpaid line is still `"unpaid"` — only _all_ lines skipped counts. An older unpaid month outranks the slate pill entirely: the customer owes money, so the card reads **"Overdue"** instead — a skip excuses its own month, never a backlog.
 
 **`coveredLineIds` was renamed `notDueLineIds`** (now `CustomerStatus.notDueLineIds`) because it means "must not be quick-paid this month" — already covered by a payment **or** skipped. `CustomerListScreen`'s `eligibleFixedLines` / `hasUnpaidStartedLine` read it per customer, so "Collect all due" leaves skipped lines alone.
 
-**UI.** `SkipMonthSheet` (a `ConfirmDialog`, like `VoidSheet`) handles both directions: skipping takes the optional note, unskipping echoes back the note it was skipped with. Entry points: the month cell's 3-dot menu (**Skip month** on unpaid/future, **Unskip month** on skipped **unless a later month is paid**), a tap on a skipped cell, and the grid's **multi-select** toolbar — a selection can hold both kinds, so *Skip* and *Unskip* appear together and each acts on its own subset. A skipped cell's selection unit is always just itself (never part of a payable block). The year card shows a **"N skipped"** chip next to paid/unpaid when the year has any.
+**UI.** `SkipMonthSheet` (a `ConfirmDialog`, like `VoidSheet`) handles both directions: skipping takes the optional note, unskipping echoes back the note it was skipped with. Entry points: the month cell's 3-dot menu (**Skip month** on unpaid/future, **Unskip month** on skipped **unless a later month is paid**), a tap on a skipped cell, and the grid's **multi-select** toolbar — a selection can hold both kinds, so _Skip_ and _Unskip_ appear together and each acts on its own subset. A skipped cell's selection unit is always just itself (never part of a payable block). The year card shows a **"N skipped"** chip next to paid/unpaid when the year has any.
 
 **Offline.** `skipped_months` is a synced tenant table (`db/tables.ts` + `PUSH_WAVES`, right after `payments`) with a local `UNIQUE (customer_plan_id, billing_month)`. Writes go through `upsertNaturalKeyDirty` — the generalization of the old `upsertPaymentDirty` — and the id is `deterministicId('skip', customer_plan_id, billing_month)`, prefixed so it can't collide with the payment id built from the same pair. Push uses the natural key as the conflict target (`conflictTarget` in `sync/push.ts`), so two devices skipping the same month converge.
 
@@ -4448,19 +4452,19 @@ A customer can subscribe to **several plans at once** (e.g. an ISP customer with
 
 **Layers.** New `customer-plans` module (repository / service / mapper) mirrors `plans`. The thin `customerPlans` slice exposes `syncLines(customerId, lines, removed, reactivated, tenantId)` (which applies the customer form's inline Plans editor) plus `hasPayments(lineId)` (does a line have any recorded payments — drives the remove-plan prompt). `removed` is a `RemovedLine[]` (`{ id, hardDelete }`); `reactivated` is a plain `string[]` of cancelled line ids brought back to active (they also appear as active drafts in `lines`, so they ride the upsert path — a reactivated id makes its update also flip `active`/`cancelled_at`). `CustomerPlanService.syncLines` runs removals + create/updates **concurrently**, **skips kept lines whose plan + start date are unchanged** (no round-trip — but never skips a reactivation), and **returns the resulting lines** (`{ active, cancelled }` — `active` includes reactivated lines). The slice rebuilds the owning customer's `customerPlans` **locally** via `customers.setCustomerLines` (active result + soft-cancelled removals + previously-cancelled lines kept for history, minus anything reactivated or hard-deleted) — **no `fetchCustomer` re-fetch** — so the grids built from them re-render. The edit path is therefore one round-trip when nothing about the plans changed (the customer update already returns fresh lines), instead of update → per-line write → re-fetch.
 
-**Managing plans — in the customer form.** Add / change / remove / reactivate plans happens **inline in `CustomerFormSheet`** (create AND edit): a "Plans" section lists one row per line — each row is the **plan dropdown + an inline start-date picker + a delete button on one line** — plus an "Add plan" button (minimum one *active* row — a plan-less row records custom amounts). The start date is editable per line and is the **only** start date in the system — `customers` has no `start_date` column, and a customer starts when its first line does. The first row of a brand-new customer defaults to today; an added row inherits the previous row's date. On save, the form creates/updates the customer then calls `syncLines`. **Remove** = hard-delete a line with no payments, else the prompt below. **Cancelled lines stay visible** in the editor (dimmed, read-only, with a "Cancelled" badge and a **Reactivate** button). Every customer ends up with ≥1 active line.
+**Managing plans — in the customer form.** Add / change / remove / reactivate plans happens **inline in `CustomerFormSheet`** (create AND edit): a "Plans" section lists one row per line — each row is the **plan dropdown + an inline start-date picker + a delete button on one line** — plus an "Add plan" button (minimum one _active_ row — a plan-less row records custom amounts). The start date is editable per line and is the **only** start date in the system — `customers` has no `start_date` column, and a customer starts when its first line does. The first row of a brand-new customer defaults to today; an added row inherits the previous row's date. On save, the form creates/updates the customer then calls `syncLines`. **Remove** = hard-delete a line with no payments, else the prompt below. **Cancelled lines stay visible** in the editor (dimmed, read-only, with a "Cancelled" badge and a **Reactivate** button). Every customer ends up with ≥1 active line.
 
-**Removing a plan that has payments — keep vs delete-permanently prompt.** When the trash icon is tapped on an existing active line, the editor first asks the slice `hasPayments(lineId)`. If the line has recorded payments, a **confirm dialog with a checkbox** appears (`RemovePlanChoice`): *"Delete permanently"*. Unchecked (default) → the line is only **soft-cancelled** (`active = false`), its payments untouched, and its row stays in the editor as a cancelled row you can reactivate. Checked → `CustomerPlanService.deleteLine(id, hardDelete=true)` calls `repository.delete(id)`, which **hard-deletes the line and cascade-deletes all its payments** (FK `ON DELETE CASCADE`) — the row disappears. This hard delete is an **intentional exception to rule #7** (no hard deletes); the dialog copy warns it can't be undone. Backing out of the dialog keeps the plan active. A line with no payments still removes silently (hard-delete). The checkbox rides inside the shared `confirm()` dialog via its `content?: () => ReactNode` option — a render callback kept **outside** immer state (like `pendingResolve`) and read back through `confirm.getContent()`; the checkbox owns its own state and reports the value through a closure ref the editor reads after the promise settles.
+**Removing a plan that has payments — keep vs delete-permanently prompt.** When the trash icon is tapped on an existing active line, the editor first asks the slice `hasPayments(lineId)`. If the line has recorded payments, a **confirm dialog with a checkbox** appears (`RemovePlanChoice`): _"Delete permanently"_. Unchecked (default) → the line is only **soft-cancelled** (`active = false`), its payments untouched, and its row stays in the editor as a cancelled row you can reactivate. Checked → `CustomerPlanService.deleteLine(id, hardDelete=true)` calls `repository.delete(id)`, which **hard-deletes the line and cascade-deletes all its payments** (FK `ON DELETE CASCADE`) — the row disappears. This hard delete is an **intentional exception to rule #7** (no hard deletes); the dialog copy warns it can't be undone. Backing out of the dialog keeps the plan active. A line with no payments still removes silently (hard-delete). The checkbox rides inside the shared `confirm()` dialog via its `content?: () => ReactNode` option — a render callback kept **outside** immer state (like `pendingResolve`) and read back through `confirm.getContent()`; the checkbox owns its own state and reports the value through a closure ref the editor reads after the promise settles.
 
-**Reactivating a cancelled plan.** Pressing **Reactivate** on a cancelled row flips it back to active (and its fields editable). If the line was soft-cancelled *in the same editing session* (still pending in `removed`), the two cancel out — the removal is simply dropped, no DB call. Otherwise the id goes into `reactivated`. On save the row is a normal active draft (`getLines` includes it), so it flows through `syncLines`' **single upsert path** as an update that **also re-activates** it (`CustomerPlanService.updateLine(id, draft, reactivate=true)` → `repository.update` with `active = true, cancelled_at = null` alongside plan/date — one write, so any edits made after reactivating are saved too). It deliberately does **not** run a separate reactivation write: doing both once double-listed the line in the locally-rebuilt `customerPlans` (a transient duplicate until the next fetch). Payments were never touched by a soft-cancel, so nothing else is restored.
+**Reactivating a cancelled plan.** Pressing **Reactivate** on a cancelled row flips it back to active (and its fields editable). If the line was soft-cancelled _in the same editing session_ (still pending in `removed`), the two cancel out — the removal is simply dropped, no DB call. Otherwise the id goes into `reactivated`. On save the row is a normal active draft (`getLines` includes it), so it flows through `syncLines`' **single upsert path** as an update that **also re-activates** it (`CustomerPlanService.updateLine(id, draft, reactivate=true)` → `repository.update` with `active = true, cancelled_at = null` alongside plan/date — one write, so any edits made after reactivating are saved too). It deliberately does **not** run a separate reactivation write: doing both once double-listed the line in the locally-rebuilt `customerPlans` (a transient duplicate until the next fetch). Payments were never touched by a soft-cancel, so nothing else is restored.
 
 **Per-line special price.** A line may carry its own privately negotiated price — `custom_price` + `custom_currency_id` (NULL currency = USD) — which **replaces** the plan's price for that line only. It exists for customers whose fee isn't the catalog price: billed by quantity, or on a private agreement. Without it the only options were a `is_custom_price` plan (staff retype the amount every month, quick pay disabled) or a private one-off plan per customer in the shared catalog (which also consumes the tier's `maxPlans` limit).
 
-*Where it's set.* Inline in the customer form's Plans editor, as the last control on each row, by **any** staff member (no admin gate). It is **collapsed to one line** by default — the effective price plus a "Special price" link ("Price: 10.00 USD per month", or "Amount typed each month" with no plan price) — because "just charge the plan price" is the overwhelming case and the editor shows one row per line. Tapping the link opens a `CurrencyInput` inline; a row that already carries a special price opens **expanded**, so the figure is never hidden. The link back is "Use plan price" (or "Clear" with no plan price). There is deliberately **no separate mode/radio state**: the amount itself is the state, so "special selected but nothing typed" cannot exist and the control can never hide its own input. `getLines` normalizes before saving (no currency without an amount). Filling an amount turns a type-it-every-month line into a one-tap-payable one.
+_Where it's set._ Inline in the customer form's Plans editor, as the last control on each row, by **any** staff member (no admin gate). It is **collapsed to one line** by default — the effective price plus a "Special price" link ("Price: 10.00 USD per month", or "Amount typed each month" with no plan price) — because "just charge the plan price" is the overwhelming case and the editor shows one row per line. Tapping the link opens a `CurrencyInput` inline; a row that already carries a special price opens **expanded**, so the figure is never hidden. The link back is "Use plan price" (or "Clear" with no plan price). There is deliberately **no separate mode/radio state**: the amount itself is the state, so "special selected but nothing typed" cannot exist and the control can never hide its own input. `getLines` normalizes before saving (no currency without an amount). Filling an amount turns a type-it-every-month line into a one-tap-payable one.
 
-*How it's read.* Never directly — one pure resolver, **`resolveLinePrice(line)`** in [customer-plans/utils/linePrice.ts](../SubsTrack/src/modules/customer/customer-plans/utils/linePrice.ts), returns `{ amount, currencyId, durationMonths, isFixed, kind }` (`kind`: `special` | `plan` | `typed`) and is the single answer for the payment form, all three quick-pay paths, the grid's price header and the customer-list "Collect all due" filter. `isFixed` — *an amount is remembered* — is what now makes a line quick-payable, replacing "has a fixed-price plan". The amount and its `currencyId` always travel together because the currency is what freezes `payments.rate_per_usd_snapshot` (gotcha #85).
+_How it's read._ Never directly — one pure resolver, **`resolveLinePrice(line)`** in [customer-plans/utils/linePrice.ts](../SubsTrack/src/modules/customer/customer-plans/utils/linePrice.ts), returns `{ amount, currencyId, durationMonths, isFixed, kind }` (`kind`: `special` | `plan` | `typed`) and is the single answer for the payment form, all three quick-pay paths, the grid's price header and the customer-list "Collect all due" filter. `isFixed` — _an amount is remembered_ — is what now makes a line quick-payable, replacing "has a fixed-price plan". The amount and its `currencyId` always travel together because the currency is what freezes `payments.rate_per_usd_snapshot` (gotcha #85).
 
-*Rules.* **Any plan length**, single- or multi-month. A special price replaces the plan's price for the plan's **own billing span**, so on a 3-month plan it means "100 **per 3 months**" — one payment of 100 covering three months, never 100 × 3. `resolveLinePrice` therefore returns the **plan's** `durationMonths` alongside a special amount, and every label names that span (`subscriptions.per_month` / `per_n_months`, carried into `price_is_per` and the expanded field's own label `price_special_per`) — the period must be unmissable where the figure is typed, or a bundle price reads as monthly and under-charges by the plan's length. The only remaining check is `CustomerPlanService.assertCustomPricesAllowed`, now a pure amount test (`errors.custom_price_positive`) with no DB round-trip. **Not frozen once the line has payments**, unlike `start_date`: the start-date lock exists to protect the month grid, and `buildMonthGrid` never reads a price, so a change only affects the **next** collection — every recorded payment keeps its own `amount_due` snapshot, and the audit trail (already wired for `customer_plans` on both platforms) records who changed it. Because `custom_currency_id` is `ON DELETE RESTRICT` like the other currency FKs, `CurrencyService`'s reference count includes it, so deleting a currency used only by a special price still soft-deletes.
+_Rules._ **Any plan length**, single- or multi-month. A special price replaces the plan's price for the plan's **own billing span**, so on a 3-month plan it means "100 **per 3 months**" — one payment of 100 covering three months, never 100 × 3. `resolveLinePrice` therefore returns the **plan's** `durationMonths` alongside a special amount, and every label names that span (`subscriptions.per_month` / `per_n_months`, carried into `price_is_per` and the expanded field's own label `price_special_per`) — the period must be unmissable where the figure is typed, or a bundle price reads as monthly and under-charges by the plan's length. The only remaining check is `CustomerPlanService.assertCustomPricesAllowed`, now a pure amount test (`errors.custom_price_positive`) with no DB round-trip. **Not frozen once the line has payments**, unlike `start_date`: the start-date lock exists to protect the month grid, and `buildMonthGrid` never reads a price, so a change only affects the **next** collection — every recorded payment keeps its own `amount_due` snapshot, and the audit trail (already wired for `customer_plans` on both platforms) records who changed it. Because `custom_currency_id` is `ON DELETE RESTRICT` like the other currency FKs, `CurrencyService`'s reference count includes it, so deleting a currency used only by a special price still soft-deletes.
 
 **Month grid.** `PaymentService.buildMonthGrid(customerPlan, payments, skips, year)` builds **one grid per line** (payments pre-scoped to the line, boundary = `line.startDate`). The payment slice keeps `monthGridsByLine` keyed by line id; the algorithm is otherwise unchanged (rule #1).
 
@@ -4468,13 +4472,13 @@ A customer can subscribe to **several plans at once** (e.g. an ISP customer with
 
 **Payments on a cancelled plan (or inactive customer).** A cancelled line stays **payable up to the month it was CANCELLED in** — that month and every earlier one record through the form, quick-pay and bulk-pay; anything after it is blocked (a "Not available" dialog: `payments.cancelled_plan_month_blocked`, or `payments.inactive_month_blocked` when the whole customer is inactive — customer-inactive takes priority, and both name the last billable month). This is one shared gate in `CustomerPaymentPanel` — `isPayBlocked(entry) = isAfterMonth(entry, payLimit)` where `payLimit = lastBillableMonth(customer, selectedLine)` ([`customer-payments/utils/payWindow.ts`](../SubsTrack/src/modules/customer/customer-payments/utils/payWindow.ts)) — used by `handleCellPress`, `canQuickPay`, and the `payableEntries` bulk filter, so all three paths agree. The limit is the **earliest** stop among the customer’s and the line’s `cancelledAt`, and falls back to the **current month** whenever nothing is stopped or an inactive row carries no stamp — so a live line keeps the old rule (only calendar-future months blocked) and a missing stamp never blocks more than before. The cancel **month itself** stays payable, because the line served part of it. Months after the stop still paint **unpaid** in the grid; only the money door is shut. The collect sheet is only ever opened through that gate.
 
-**Aggregation across lines.** Customer-list status is aggregated over a customer's **active** lines by `PaymentService.buildCustomerStatus` (the single implementation — see CLAUDE.md → Customer-List Status): `"paid"` (green) only when **every** line owes nothing across **all** the months it was required to pay, from its start date to today (a **partial** payment counts as covered — its remainder is a debt, not an unsettled month), and a separate `overdue` flag (its own red pill) when any active line has an *earlier* unpaid month — **except** last month while the `customer_start_day` billing day hasn't arrived, which is owed (red cell, red "Unpaid" pill) but not *late* yet, so no "Overdue" (gotcha #83). Because "paid" means "owes nothing", **it can never appear beside "Overdue"** (gotcha #56b). A **skipped** month, a month before the line's start, and under the `customer_start_day` rule the current month before its billing day, are **not required at all**: they are treated as if they did not exist, and a customer whose lines owe nothing *and* have no month due this month reads "Skipped" / "Not due yet" rather than unpaid. Under the default `month_start` rule there is **no grace period**: the current month counts as unpaid from day 1 on both the card and the grid, so the two always agree (gotcha #34).
+**Aggregation across lines.** Customer-list status is aggregated over a customer's **active** lines by `PaymentService.buildCustomerStatus` (the single implementation — see CLAUDE.md → Customer-List Status): `"paid"` (green) only when **every** line owes nothing across **all** the months it was required to pay, from its start date to today (a **partial** payment counts as covered — its remainder is a debt, not an unsettled month), and a separate `overdue` flag (its own red pill) when any active line has an _earlier_ unpaid month — **except** last month while the `customer_start_day` billing day hasn't arrived, which is owed (red cell, red "Unpaid" pill) but not _late_ yet, so no "Overdue" (gotcha #83). Because "paid" means "owes nothing", **it can never appear beside "Overdue"** (gotcha #56b). A **skipped** month, a month before the line's start, and under the `customer_start_day` rule the current month before its billing day, are **not required at all**: they are treated as if they did not exist, and a customer whose lines owe nothing _and_ have no month due this month reads "Skipped" / "Not due yet" rather than unpaid. Under the default `month_start` rule there is **no grace period**: the current month counts as unpaid from day 1 on both the card and the grid, so the two always agree (gotcha #34).
 
 **Customer-list filter tabs = the card's pills.** The list carries **Active · Unpaid · Overdue · Partly paid · Paid · Not due yet · All · Inactive** (one line, scrolling sideways on a phone — `PillTabs` is a horizontal `ScrollView`). The five payment tabs are the five flags `customerFlags(status)` puts on a card (`customers/utils/customerFlags.ts`) — the card maps over that list to render, the filter asks `.includes(activeTab)` — so a tab holds exactly the customers whose card shows that pill and nothing else, and a customer wearing two pills is listed under both. Consequences worth knowing: **Unpaid** means "collectable right now" (every due plan unpaid this month **and** no earlier unpaid month), because an **overdue** customer's current month cannot be paid until the backlog clears (oldest-first, gotcha #77) — so they sit in **Overdue** only, and their card likewise shows one "Overdue" pill instead of "Unpaid + Overdue". **Partly paid** is the `mixed` (N/M plans) case and is the **only** pill that can share a card with "Overdue"; **Paid** requires every plan settled across all its required months (a partial payment counts), so it never holds an overdue customer; **Not due yet** collects the customers who owe nothing at all and have no month due this month for a non-skip reason (no plan, plan not started, or the `customer_start_day` billing day not reached). Under that rule the **Unpaid** tab can hold a customer whose current month is not quick-payable — an unpaid last month is owed but not late yet (#83), so the pill is "Unpaid" while oldest-first still requires that month to be collected first from the grid. All five are active + regular only — inactive / non-regular cards carry their own pill instead. `skipped` has no tab. A customer whose status hasn't been computed yet is in no payment tab (absence is never read as debt).
 
 **"N/M plans paid" badge (multi-plan).** A customer with **2+ in-play plans where some owe nothing and some still owe** is `status === "mixed"` and gets its own amber badge — e.g. **"1/2 plans paid"** — instead of the plain red "Unpaid", so a partly-paid account is never confused with a fully-unpaid one. The tally is `CustomerStatus.planCount { paid, total }` where `total` = lines that have ever had a **required** month and `paid` = lines with **no unpaid required month at all** (not merely this month — a plan behind on January never counts as paid, which is why "3/3 plans paid" can't sit next to "Overdue"). A month is required only when the grid resolves it to `paid` or `unpaid`, so `before_start`, **skipped** and not-due-yet months are excluded on both sides of the fraction. **One** code path computes it — `PaymentService.buildCustomerStatus` — for both the bulk load (`getCustomerStatuses`) and the post-pay/void patch (`syncCustomerStatus` in the slice), so there is nothing to keep in lockstep. A partially-paid line counts toward `paid` (a partial payment reports as `paid`), so a single-plan customer who paid partially reads as fully **paid** (green) — the remaining amount shows only on the Debts tab.
 
-**Not-due-line tracking (quick-pay eligibility).** Alongside the tally, `CustomerStatus` carries **`notDueLineIds`** — the service-line ids that must not be quick-paid this month: they already have a covering (non-voided) payment, full or partial, **or** the month is skipped on that line. A line that is merely *not due yet* under the `customer_start_day` rule is deliberately **absent**, so paying early stays possible. Its companion **`uncoveredLineIds`** carries the other reason quick pay must skip a line — an **earlier** month nothing was collected for, whether or not the customer reads as overdue yet — because months are settled oldest-first, so this month can't be collected first (#83). Both are per customer (no global `Set`), refreshed with the rest of the map by `fetchCustomerStatuses` and patched by `syncCustomerStatus` after a local pay/void. Quick pay skips any line in it, so a **mixed** multi-plan customer pays only its still-due plans and never re-pays a line (the payments `createMany` upsert would otherwise overwrite the existing row and reset its remittance). The list's void-this-month path refreshes the whole map afterwards so freed lines become quick-payable again.
+**Not-due-line tracking (quick-pay eligibility).** Alongside the tally, `CustomerStatus` carries **`notDueLineIds`** — the service-line ids that must not be quick-paid this month: they already have a covering (non-voided) payment, full or partial, **or** the month is skipped on that line. A line that is merely _not due yet_ under the `customer_start_day` rule is deliberately **absent**, so paying early stays possible. Its companion **`uncoveredLineIds`** carries the other reason quick pay must skip a line — an **earlier** month nothing was collected for, whether or not the customer reads as overdue yet — because months are settled oldest-first, so this month can't be collected first (#83). Both are per customer (no global `Set`), refreshed with the rest of the map by `fetchCustomerStatuses` and patched by `syncCustomerStatus` after a local pay/void. Quick pay skips any line in it, so a **mixed** multi-plan customer pays only its still-due plans and never re-pays a line (the payments `createMany` upsert would otherwise overwrite the existing row and reset its remittance). The list's void-this-month path refreshes the whole map afterwards so freed lines become quick-payable again.
 
 **Collect all due.** Customer-list Quick Pay (single or bulk) collects **every eligible fixed-price line still unpaid this month**, as ONE hand-over per customer **per currency** — a collection cannot mix currencies, so a customer billed in both USD and LBP is two rows, which is what physically happened. Already-covered and backlogged lines are filtered out by `CustomerStatus.notDueLineIds` / `uncoveredLineIds`; custom-price / plan-less customers fall back to the detail screen.
 
@@ -4491,7 +4495,7 @@ A month is **not payable while an earlier month of the same service line is stil
 - **What counts as "still unpaid"** — a month whose grid status is `"unpaid"`. A **skipped** month is not expected to pay, and a **partially paid** month reads as `paid` (its remainder is a debt), so neither blocks. Future months never resolve to `unpaid`, so a fully settled line can still be prepaid.
 - **The whole write is judged at once.** Selecting January + February + March on the grid and paying them together is allowed; paying only March is refused. A multi-month block is judged over every month it covers, so the block that starts at the first unpaid month always goes through.
 - **All years are checked**, not the viewed one — a backlog from a previous year blocks a payment this year even though the grid on screen cannot show it.
-- **Where it stops you** — tapping the month cell, the cell's "Pay now" / "Pay & send" menu rows (hidden), the grid multi-select Collect action, the customer-list quick pay (the line is dropped from "collect all due") and the `?quickPay=1` deep link. Each names the oldest month to collect: *"January 2026 is still unpaid on this plan. Older months must be paid first."*
+- **Where it stops you** — tapping the month cell, the cell's "Pay now" / "Pay & send" menu rows (hidden), the grid multi-select Collect action, the customer-list quick pay (the line is dropped from "collect all due") and the `?quickPay=1` deep link. Each names the oldest month to collect: _"January 2026 is still unpaid on this plan. Older months must be paid first."_
 - **Skipping, editing an amount and viewing a receipt are unaffected** — the rule is about recording new money only. **Voiding has its own mirror rule** (below).
 
 One implementation, two layers: `blockingUnpaidMonths()` in [`utils/payOrder.ts`](../SubsTrack/src/modules/customer/customer-payments/utils/payOrder.ts) decides, and the UI reads the same helper through the slice's `uncoveredMonthsByLine` (per line, all years) and `CustomerStatus.uncoveredLineIds` (customer list) before it ever opens the collect sheet. See gotcha #77.
@@ -4503,12 +4507,12 @@ The mirror rule, and the reason the pay rule actually holds: **a month cannot be
 - **What blocks** — any month the line currently has money on, later than the earliest month being voided. A **partially paid** later month blocks too (it is real money); a bill with nothing collected never does; **all years** are checked, so Dec 2026 is blocked by Jan 2027.
 - **The whole void is judged at once** — selecting a paid tail (January + February) and voiding it together is allowed; cherry-picking January out of it is refused. A **multi-month block** is judged over every month its payment covers, and is always voided whole.
 - **Per service line**, never per customer: line B's January voids freely while line A holds a paid February.
-- **Where it stops you** — the receipt sheet's Void button, the cell menu's "Void payment" row (kept **visible** and explaining on press, so the action never silently vanishes), the grid multi-select Void action, the customer-list "void current month" card menu, and the Transactions → Payments list (there the service refuses and the ErrorBanner carries it). Each names the newest month to void first: *"February 2026 is paid on this plan. Newer months must be voided first."*
+- **Where it stops you** — the receipt sheet's Void button, the cell menu's "Void payment" row (kept **visible** and explaining on press, so the action never silently vanishes), the grid multi-select Void action, the customer-list "void current month" card menu, and the Transactions → Payments list (there the service refuses and the ErrorBanner carries it). Each names the newest month to void first: _"February 2026 is paid on this plan. Newer months must be voided first."_
 - `blockingPaidMonths()` decides (same file), `PaymentService.assertVoidableInOrder` enforces it inside `voidPayment` / `voidPayments` / `voidCurrentMonth` — resolving the rows from their ids itself, so every caller is covered — and the UI reads the slice's new `paidMonthsByLine`.
 
 ### Start Date Frozen Once Paid
 
-The third door into the same bad state: a service line's **start date can no longer be changed once the line holds a non-voided payment with money on it**. Moving it earlier invents unpaid months behind the paid ones; moving it later hides months whose payment rows still exist. The form's date input is disabled and **explains itself on tap** — a "Not available" popup reads *"Start date is locked — this plan already has payments."* — via `DatePickerInput`'s `disabledReason` prop (a greyed field with no reason reads as a bug, but a permanent caption under every locked row costs height in a list of one card per service line; a **cancelled** row passes no reason, since the whole row is read-only, not just the date). `CustomerPlanService.syncLines` refuses the write regardless (checked only for lines whose date actually changed). A line whose payments were **all voided** is editable again. The probe is `findPaidLineIds(customerId)` — one query per form open; deliberately **not** the delete prompt's `countPayments`, which counts voided rows on purpose.
+The third door into the same bad state: a service line's **start date can no longer be changed once the line holds a non-voided payment with money on it**. Moving it earlier invents unpaid months behind the paid ones; moving it later hides months whose payment rows still exist. The form's date input is disabled and **explains itself on tap** — a "Not available" popup reads _"Start date is locked — this plan already has payments."_ — via `DatePickerInput`'s `disabledReason` prop (a greyed field with no reason reads as a bug, but a permanent caption under every locked row costs height in a list of one card per service line; a **cancelled** row passes no reason, since the whole row is read-only, not just the date). `CustomerPlanService.syncLines` refuses the write regardless (checked only for lines whose date actually changed). A line whose payments were **all voided** is editable again. The probe is `findPaidLineIds(customerId)` — one query per form open; deliberately **not** the delete prompt's `countPayments`, which counts voided rows on purpose.
 
 **Still possible:** unskipping an old month can leave an unpaid month behind a paid one. That door is left open by choice — the card reports it as **"Overdue"** (never "✓ Paid", which means the customer owes nothing at all), so the contradiction can't reach the screen even from legacy data.
 
@@ -4520,18 +4524,18 @@ Every month is collected through **one** sheet now — `CollectSheet`. What diff
 between scenarios is only what the sheet is handed, and that comes from
 `resolveLinePrice(line)` (the plan's price, or the line's own **special price**;
 see Multiple Plans per Customer → Per-line special price). "Fixed" below means
-*an amount is remembered*, which is what the scenario actually turns on:
+_an amount is remembered_, which is what the scenario actually turns on:
 
-| Scenario | Condition | What happens |
-| --- | --- | --- |
-| A — Fixed | `resolveLinePrice(line).isFixed`, `durationMonths = 1` | The cell's item carries the remembered amount. **Quick pay** collects it in one tap; the sheet is only needed for less than the full amount. |
-| B — Part of it | Same as A | The sheet's amount is editable — type 12 of the 20 and the preview says *"leaves 8 owing"*. |
-| C — Custom | `!isFixed` — a custom-price plan or no plan, and no special price | There is nothing to collect automatically, so **quick pay opens the sheet** instead of charging (the row is captioned *"No set price — type the amount"*, and **Collect part** is dropped — the typed amount IS the bill). **Pay & send on WhatsApp** takes the same door and sends once the sheet saves. |
-| D — Multi-month | `durationMonths > 1` | The cells of one block collapse to **ONE** item billed from the block's first month — otherwise a 3-month plan would be billed three times for the same period. Quick pay confirms the range first. |
+| Scenario        | Condition                                                         | What happens                                                                                                                                                                                                                                                                                              |
+| --------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A — Fixed       | `resolveLinePrice(line).isFixed`, `durationMonths = 1`            | The cell's item carries the remembered amount. **Quick pay** collects it in one tap; the sheet is only needed for less than the full amount.                                                                                                                                                              |
+| B — Part of it  | Same as A                                                         | The sheet's amount is editable — type 12 of the 20 and the preview says _"leaves 8 owing"_.                                                                                                                                                                                                               |
+| C — Custom      | `!isFixed` — a custom-price plan or no plan, and no special price | There is nothing to collect automatically, so **quick pay opens the sheet** instead of charging (the row is captioned _"No set price — type the amount"_, and **Collect part** is dropped — the typed amount IS the bill). **Pay & send on WhatsApp** takes the same door and sends once the sheet saves. |
+| D — Multi-month | `durationMonths > 1`                                              | The cells of one block collapse to **ONE** item billed from the block's first month — otherwise a 3-month plan would be billed three times for the same period. Quick pay confirms the range first.                                                                                                       |
 
 **Full vs partial is just the amount typed.** There is no mode switch on a month
 any more: the collect sheet takes a number, the waterfall shows what it settles,
-and whatever is left stays owed. A month that gets *nothing* is not recorded at
+and whatever is left stays owed. A month that gets _nothing_ is not recorded at
 all — it is `unpaid` in the grid, which is already the right answer, and writing
 an empty bill for it would be a row that says nothing.
 
@@ -4541,11 +4545,11 @@ month status, and no guard, filter or aggregation changes (see
 [gotchas.md](gotchas.md) → Ledger and CLAUDE.md → Month Grid). Only the
 **presentation** tells them apart, off `entry.balance > 0`:
 
-| Surface | Full payment | Partial payment |
-| --- | --- | --- |
-| `MonthCell` | paid fill, sublabel `Paid` | the same fill **+ an amber ring**, sublabel `PARTIAL` |
-| `BillSheet` hero | the collected amount | `20/50 $` — collected out of owed (`formatPaidFraction`) |
-| `DebtItemCard` | — | the same `20/50 $` fraction, on its date line |
+| Surface          | Full payment               | Partial payment                                          |
+| ---------------- | -------------------------- | -------------------------------------------------------- |
+| `MonthCell`      | paid fill, sublabel `Paid` | the same fill **+ an amber ring**, sublabel `PARTIAL`    |
+| `BillSheet` hero | the collected amount       | `20/50 $` — collected out of owed (`formatPaidFraction`) |
+| `DebtItemCard`   | —                          | the same `20/50 $` fraction, on its date line            |
 
 Two rules the cell must keep: it is a **ring, not a fill**, because a non-regular
 customer's paid cell is already yellow and an amber fill would be invisible
@@ -4554,7 +4558,7 @@ against it; and on a multi-month block only the **first** cell is ringed
 meant to read as one joined pill.
 
 **Correcting money is a void, never an edit.** A bill's price can be corrected
-(a sale's, by editing the sale; a hand-typed fee's, by editing it); the *money*
+(a sale's, by editing the sale; a hand-typed fee's, by editing it); the _money_
 cannot, because a hand-over is a physical event with its own date, collector and
 custody. Voiding it and collecting again is the only path, and it is the honest
 one — the trail then says what really happened instead of quietly rewriting it.
@@ -4648,7 +4652,7 @@ Rows written before these two were dropped stay in `audit_logs` and still render
 - `BaseRepository.audit(input)` (web/online) — **fire-and-forget and never throws**. Returns `void` and inserts in the background, so the trail never sits between the user's save and the spinner stopping. Call it without `await`.
 - For a child row pass `customerId` instead of a pre-resolved `subject`/`branchId`: `audit()` looks it up **inside** the detached write, so that query is off the user's critical path too, and it only fills the fields the caller omitted (sales pass their own `branchId`, so only the name is inherited).
 - `OfflineBaseRepository.auditIn(db, input)` (native) — called **inside the caller's `write()` transaction**, so the change and its trail commit or roll back together. A failure here **does** propagate; rolling back is the correct outcome.
-- `auditedUpdate()` / `auditedDelete()` on both base classes wrap the repeated read-patch-diff dance. `branchColumn: null` marks a table with no branch dimension; `branchColumn: 'id'` is for `branches`, which *are* a branch.
+- `auditedUpdate()` / `auditedDelete()` on both base classes wrap the repeated read-patch-diff dance. `branchColumn: null` marks a table with no branch dimension; `branchColumn: 'id'` is for `branches`, which _are_ a branch.
 - Builders live in `src/core/audit/`: `buildAuditRow.ts` (diff + actor/tenant/timestamps, `null` when nothing changed) and `describe.ts` (the `label`). The actor is read through a **lazy `require`** of the global store — same require-cycle reason and shape as `src/core/errorLog/errorLogger.ts`; a top-level store import from a file `BaseRepository` imports would crash.
 
 **Reading it** (`src/modules/admin/audit/`) — `IAuditRepository` is **read-only**; writes come from each repository, never through it.
@@ -4658,16 +4662,16 @@ Rows written before these two were dropped stay in `audit_logs` and still render
 - Ordered by `occurred_at DESC`, never `updated_at`.
 - `IAuditRepository` therefore returns `{ rows, source }` (and `hasMore` for the paged read) rather than a bare array. **`hasMore` is the repository's answer, not the caller's**: the merged `rows` length no longer reveals whether the server page was full, and the two paths page differently anyway — the local window at `OFFLINE_PAGE_SIZE` (100), every Supabase query at `PAGE_SIZE` (30).
 
-**UI** — **Admin → Audit Log** (`app/(app)/(tabs)/admin/audit.tsx`): filter chips (record type / action / staff / date range), a day-ordered list, tap for a field-by-field *before → new* diff sheet, and above the list a one-line note saying which trail is on screen
+**UI** — **Admin → Audit Log** (`app/(app)/(tabs)/admin/audit.tsx`): filter chips (record type / action / staff / date range), a day-ordered list, tap for a field-by-field _before → new_ diff sheet, and above the list a one-line note saying which trail is on screen
 
-**Every entry reads as a SENTENCE, built at read time** — "Super Admin voided the **March 2026** bill for **John Doe**", "Super Admin changed Price on the plan **Gold** from 10.00 $ to **12.00 $**", "Super Admin updated Price, Name and 3 other fields on the plan **Gold**". The card is that sentence over a muted timestamp, with the action kept only as the small coloured icon; the sheet repeats the sentence at the top and keeps the meta / diff / snapshot cards below it. `buildAuditSummary` (`audit/utils/summary.ts`, pure) picks a **special** template whenever the generic one would state the change wrongly — an `active` flag reads "deactivated", `written_off_at` reads "wrote off", a `skipped_months` create reads "skipped March 2026", an edit OF the record's own name reads "renamed X to Y" — and otherwise falls back to one generic template per action, with the single-field case carrying its own *from → to*. The record's name comes from `recordDetail()` per table (a month label, a `#RECEIPT`, a plan name, money), which is why each table's identity columns now ride along with its diffs: **gotcha #132**, which also covers why bold inside a translated string is a marker pair rather than `<Trans>`. A bill or a hand-over also names the **service line** it belongs to in brackets — "added a new **March 2026** bill (plan **Internet**)", "recorded a **subscription payment** of **20.00 $** (plan **Internet**)" — because a customer's two lines bill the same months; a hand-over that settled two lines (or a line and a sale) names none, exactly as its `kind` reads 'mixed': **gotcha #141**. Money everywhere in the trail is formatted through the display registry in the **currency it was stored in**, never re-converted. ("the full history from the server" / "No connection — the last 30 days saved on this device"). The note is **informational only** — the server read is already the default, so there is nothing to press. Plus a per-record **History** action wherever a record can be opened, all of it the same `RecordHistorySheet`:
+**Every entry reads as a SENTENCE, built at read time** — "Super Admin voided the **March 2026** bill for **John Doe**", "Super Admin changed Price on the plan **Gold** from 10.00 $ to **12.00 $**", "Super Admin updated Price, Name and 3 other fields on the plan **Gold**". The card is that sentence over a muted timestamp, with the action kept only as the small coloured icon; the sheet repeats the sentence at the top and keeps the meta / diff / snapshot cards below it. `buildAuditSummary` (`audit/utils/summary.ts`, pure) picks a **special** template whenever the generic one would state the change wrongly — an `active` flag reads "deactivated", `written_off_at` reads "wrote off", a `skipped_months` create reads "skipped March 2026", an edit OF the record's own name reads "renamed X to Y" — and otherwise falls back to one generic template per action, with the single-field case carrying its own _from → to_. The record's name comes from `recordDetail()` per table (a month label, a `#RECEIPT`, a plan name, money), which is why each table's identity columns now ride along with its diffs: **gotcha #132**, which also covers why bold inside a translated string is a marker pair rather than `<Trans>`. A bill or a hand-over also names the **service line** it belongs to in brackets — "added a new **March 2026** bill (plan **Internet**)", "recorded a **subscription payment** of **20.00 $** (plan **Internet**)" — because a customer's two lines bill the same months; a hand-over that settled two lines (or a line and a sale) names none, exactly as its `kind` reads 'mixed': **gotcha #141**. Money everywhere in the trail is formatted through the display registry in the **currency it was stored in**, never re-converted. ("the full history from the server" / "No connection — the last 30 days saved on this device"). The note is **informational only** — the server read is already the default, so there is nothing to press. Plus a per-record **History** action wherever a record can be opened, all of it the same `RecordHistorySheet`:
 
-| Where | How it is offered |
-| --- | --- |
-| Products / Plans / Staff / Branches / Currencies | the card's 3-dot menu, directly under **Edit** |
-| A bill (`BillSheet`) | reachable through the record-history action — **admin-only**, mirroring the read policy |
-| A sale receipt (`SaleDetailSheet`) | the same button, above Void |
-| A customer | its own sheet — see below |
+| Where                                            | How it is offered                                                                       |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| Products / Plans / Staff / Branches / Currencies | the card's 3-dot menu, directly under **Edit**                                          |
+| A bill (`BillSheet`)                             | reachable through the record-history action — **admin-only**, mirroring the read policy |
+| A sale receipt (`SaleDetailSheet`)               | the same button, above Void                                                             |
+| A customer                                       | its own sheet — see below                                                               |
 
 **Adding it to another list is two lines**, and that is deliberate: `useRecordHistoryAction(table)` (`audit/hooks/`) returns `{ action, sheet }` — `history.action(recordId, name)` is the `ActionMenuItem` to push into the menu, `{history.sheet}` is rendered once next to the screen's `<ActionMenu>`. The hook owns the "which record is open" state, so no screen keeps its own. The menu row is offered to **every** role (like the customer card's): a non-admin's read returns no rows and the sheet says "Admins only" — an empty list would instead read as the false claim "this was never changed". The two receipt sheets gate their button on `isAdmin` because a receipt is staff-facing and a dead-end button there is worse than an absent one.
 
@@ -4683,9 +4687,9 @@ Deliberately **not** in the customer sheet: **sales** — a one-off purchase wit
 
 Unlike the Audit Log tab, the customer sheet is offered to **every role**, since staff use these two screens constantly. A non-admin's `audit_logs_select` returns no rows, so the sheet shows an explicit "Admins only" state — never an empty list, which would read as the false claim "this customer was never changed".
 
-**The entry card is two lines, and that is a constraint, not a coincidence.** `AuditEntryCard` shows **record type + `subject` + the action pill**, then **staff · when**. It used to also list the changed field names as chips, which pushed every row to three or four lines — a long trail became a wall — while still saying less than one tap does; naming *what* moved is the detail sheet's job. The action is carried by **colour + icon + pill**, never prose, so the list scans by shape before it is read.
+**The entry card is two lines, and that is a constraint, not a coincidence.** `AuditEntryCard` shows **record type + `subject` + the action pill**, then **staff · when**. It used to also list the changed field names as chips, which pushed every row to three or four lines — a long trail became a wall — while still saying less than one tap does; naming _what_ moved is the detail sheet's job. The action is carried by **colour + icon + pill**, never prose, so the list scans by shape before it is read.
 
-**The detail sheet's top card is Customer · Staff · When · Fields changed.** The last row lists the human **names** of the columns that moved, comma separated (`changedFieldsLabel`), and is **hidden on a create/delete** — nothing "changed" there, and the whole-row snapshot below already lists every field. It replaced a "Record" row that printed the frozen `label`, i.e. two raw values glued with ` · ` ("2026-10-01 · 600"): unformatted by design (a frozen string can't go through the display registry) and, on a create, a repeat of the snapshot underneath. **`label` is still written** and stays the record's frozen one-liner in the DB — it just has no reader in the UI right now. The trade-off worth knowing: an **edit** now names the customer but not which record of theirs (a payment's month only shows if `billing_month` itself changed) — adding `billing_month` to `CONTEXT_FIELDS` and a read-time label row would bring it back.
+**The detail sheet's top card is Customer · Staff · When · Fields changed.** The last row lists the human **names** of the columns that moved, comma separated (`changedFieldsLabel`), and is **hidden on a create/delete** — nothing "changed" there, and the whole-row snapshot below already lists every field. It replaced a "Record" row that printed the frozen `label`, i.e. two raw values glued with `·` ("2026-10-01 · 600"): unformatted by design (a frozen string can't go through the display registry) and, on a create, a repeat of the snapshot underneath. **`label` is still written** and stays the record's frozen one-liner in the DB — it just has no reader in the UI right now. The trade-off worth knowing: an **edit** now names the customer but not which record of theirs (a payment's month only shows if `billing_month` itself changed) — adding `billing_month` to `CONTEXT_FIELDS` and a read-time label row would bring it back.
 
 Both admin views render the same **`<HistoryList>`** (`components/HistoryList.tsx`) — a purely presentational list (entries + loading/error/scope in, `onLoadMore` / `onLoadFull` / `onRefresh` out) that owns no query state, so it can be pointed at any filter. `inSheet` picks Gorhom's `BottomSheetFlatList` over RN's (a plain `FlatList` cannot scroll inside a sheet). Reuse it for any new "history of X" view rather than rebuilding the list, scope note and detail-sheet plumbing.
 
@@ -4695,14 +4699,14 @@ Both admin views render the same **`<HistoryList>`** (`components/HistoryList.ts
 
 ```ts
 const DISPLAY: Record<string, AuditValueFormatter> = {
-  '*.currency_id': currency,                                          // any table
-  'users.role': enumLabel({ admin: 'users.admin', user: 'users.user' }), // one table
+  "*.currency_id": currency, // any table
+  "users.role": enumLabel({ admin: "users.admin", user: "users.user" }), // one table
 };
 ```
 
 - A formatter returns `null` for anything it doesn't recognize, so an unregistered column — or a value added later — still renders through `formatValue` exactly as before. **Never blank, never a crash.**
 - One flat table keyed `<table>.<column>`, with `*.<column>` for a column that reads the same everywhere (the five person ids, `currency_id`, `branch_id`). First answer wins: the table's own key → the wildcard → the generic `formatValue`.
-- Helpers: `enumLabel({ raw: 'i18n.key' })` for coded values, `idRef(kind, { blank, missing })` for an id column — `blank` names what NULL means *there* (a null currency is USD, a null branch is "Shared" on a plan but "Unassigned" on a customer), `missing` covers a deleted reference ("Deleted user" / "(deleted)"), so a UUID is never shown.
+- Helpers: `enumLabel({ raw: 'i18n.key' })` for coded values, `idRef(kind, { blank, missing })` for an id column — `blank` names what NULL means _there_ (a null currency is USD, a null branch is "Shared" on a plan but "Unassigned" on a customer), `missing` covers a deleted reference ("Deleted user" / "(deleted)"), so a UUID is never shown.
 - **Ids resolve at READ time**, through `useAuditLookups()` (staff + currencies + branches; each `getX()` self-guards on its `loaded` flag). A name frozen at write time would go stale on a rename.
 - A second, smaller registry names the **column itself** when a sibling decides it: `FIELD_LABELS` (`displayFieldLabel` → `formatFieldLabel`) titles `tenant_settings.value` after the setting ("Unpaid months rule") instead of the meaningless "Value". It feeds both the diff row's title and the "Fields changed" list, and is what keeps a setting edit readable now that the frozen `label` is no longer rendered — the old read-time label registry (`LABELS` / `displayLabel`) was removed with it.
 - `showsColumn()` decides what a create/delete snapshot lists: never the technical columns (`id`, `tenant_id`, `created_at`, `updated_at`, `balance` — the same set the diff hides), and an id column only when the registry can name it, so "Currency: LBP" and "Received by: John" appear while `customer_id` and `plan_id` stay hidden.
@@ -4710,10 +4714,10 @@ const DISPLAY: Record<string, AuditValueFormatter> = {
 
 **Where the read state lives is split by lifetime**, and the split matters:
 
-| State | Home | Why |
-| --- | --- | --- |
-| The admin screen's filter session + paging (`tableFilter`, `actorFilter`, `from`/`to`, `scope`, `page`, `hasMore`) | the **`audit` slice** (`useAuditSlice`), registered in `globalStore.ts`, reset in `storeReset.ts`, refreshed in `refreshActiveData.ts` | must survive navigating into an entry and back, and **must** be cleared on logout so a previous tenant's entries can never surface |
-| One record's timeline in a History sheet | the **`useRecordHistory(targets)`** / **`useCustomerHistory(customerId)`** hooks, local to the sheet | per-record and transient; in the store it needed a second parallel set of fields (`recordItems`/`recordLoading`/`recordError`) that two open sheets would overwrite, plus a manual clear on close. Unmounting the sheet now discards it, and the hook carries a stale-response guard the slice version lacked. Both are thin wrappers over one internal `useAuditTimeline(key, load)` — `key` must stay a plain **string** and `load` a **module-level** function, or a fresh identity each render would re-fetch forever |
+| State                                                                                                              | Home                                                                                                                                   | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The admin screen's filter session + paging (`tableFilter`, `actorFilter`, `from`/`to`, `scope`, `page`, `hasMore`) | the **`audit` slice** (`useAuditSlice`), registered in `globalStore.ts`, reset in `storeReset.ts`, refreshed in `refreshActiveData.ts` | must survive navigating into an entry and back, and **must** be cleared on logout so a previous tenant's entries can never surface                                                                                                                                                                                                                                                                                                                                                                                        |
+| One record's timeline in a History sheet                                                                           | the **`useRecordHistory(targets)`** / **`useCustomerHistory(customerId)`** hooks, local to the sheet                                   | per-record and transient; in the store it needed a second parallel set of fields (`recordItems`/`recordLoading`/`recordError`) that two open sheets would overwrite, plus a manual clear on close. Unmounting the sheet now discards it, and the hook carries a stale-response guard the slice version lacked. Both are thin wrappers over one internal `useAuditTimeline(key, load)` — `key` must stay a plain **string** and `load` a **module-level** function, or a fresh identity each render would re-fetch forever |
 
 Don't move the record timeline into the slice, and don't move the filter session out of it.
 
@@ -4741,9 +4745,9 @@ Offline specifics (the `appendOnly` + `pullDays` table flags, the `json` column 
 
 A **wallet** is the cash a user is **physically holding right now**. Like the debts view, it is **computed at runtime — never stored as a balance**. The only persistence is three columns on the ONE cash table, `collections`:
 
-| column | meaning |
-| --- | --- |
-| `held_by_user_id` | who has the cash **now**. NULL = nobody: never attributed, or settled out of the system |
+| column                        | meaning                                                                                                                                                           |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `held_by_user_id`             | who has the cash **now**. NULL = nobody: never attributed, or settled out of the system                                                                           |
 | `remitted_at` / `remitted_by` | the **final settlement** — when the cash left the chain for good, and who took it out. Only ever written together with `held_by_user_id = NULL` (`chk_*_custody`) |
 
 `received_by_user_id` / `recorded_by_user_id` still name whoever **collected** it, and never change — that is what lets a received wallet still say "Collected by Ali".
@@ -4776,7 +4780,7 @@ The rules are one pure file, [`wallet/utils/custody.ts`](../SubsTrack/src/module
 
 Enforced in **two layers**: `WalletService` asserts before every write, and the UI reads the same helper to disable an action with a caption. This is **service-layer** enforcement — `collections_all` is `FOR ALL` with tenant+branch predicates only, matching how the app already enforces the user-management ladder (`UserService.checkToggleActivePermission`).
 
-> **One asymmetry worth knowing.** Cash the owner *receives* leaves the system (they have no wallet). Cash the owner *collects themselves* starts in their own wallet like anybody's, visible only in their **My Wallet**, where "Close out" produces the identical end state. Nothing is lost; it just needs one tap.
+> **One asymmetry worth knowing.** Cash the owner _receives_ leaves the system (they have no wallet). Cash the owner _collects themselves_ starts in their own wallet like anybody's, visible only in their **My Wallet**, where "Close out" produces the identical end state. Nothing is lost; it just needs one tap.
 
 ### What counts as held cash
 
@@ -4789,7 +4793,7 @@ A held row also reports `kind`: the one `charges.kind` all its lines share, or
 hand-over can settle a month AND a sale, and no allocation could split the
 physical cash between them.
 
-`charges` are **excluded** — a bill is money *owed to the business*, not cash anyone holds.
+`charges` are **excluded** — a bill is money _owed to the business_, not cash anyone holds.
 
 **Per-currency + USD.** A holder may carry several currencies at once. `WalletService` groups their items by currency (`WalletCurrencyTotal` = the raw physical cash **plus** its USD value) and sums everything in USD via each row's frozen `rate_per_usd_snapshot` (drift-free, the same principle as `LedgerService`/`DashboardService`). The list shows one USD headline per wallet (formatted into the display currency); the detail shows the per-currency breakdown when more than one currency is involved.
 
@@ -4797,11 +4801,11 @@ physical cash between them.
 
 Whatever the viewer may do resolves to one of three **modes**, decided once (`modeFor` in `WalletsScreen`, from the flags the service baked into each `UserWallet`) so the card menu and the detail sheet can never disagree:
 
-| mode | when | what it does |
-| --- | --- | --- |
-| `receive` | `receiveBlock === null` | moves the cash into the **viewer's** wallet (or out, for the owner) |
-| `close_out` | it's the viewer's own wallet and `canCloseOut` | marks it banked — out of the system |
-| `view` | neither | look only; the menu says **why** instead of showing nothing |
+| mode        | when                                           | what it does                                                        |
+| ----------- | ---------------------------------------------- | ------------------------------------------------------------------- |
+| `receive`   | `receiveBlock === null`                        | moves the cash into the **viewer's** wallet (or out, for the owner) |
+| `close_out` | it's the viewer's own wallet and `canCloseOut` | marks it banked — out of the system                                 |
+| `view`      | neither                                        | look only; the menu says **why** instead of showing nothing         |
 
 Each mode offers the same three shapes: a single row's action, a **long-press multi-select** + the selection bar, and the bulk button ("Receive all" / "Close out all", which re-reads the wallet's current set first so it never acts on a stale list).
 
@@ -4809,13 +4813,13 @@ The write is one method, `transferCustody(ids, fromUserId, toUserId, actorUserId
 
 ### Detail-view transaction list
 
-`WalletDetailView` (shared by the admin detail sheet and the self-view, differing only by `mode`) shows each transaction as a card with the **customer** as the primary line (walk-in sales show "Walk-in"), a secondary `type · descriptor · date · Collected by <name>` line, and the cash amount. **"Collected by" appears only once the cash has moved** — on an untouched wallet the holder *is* the collector, and the line would be noise. It carries client-side **filters** — customer, payment type, and a from/to **date range** — that narrow only the list, never the headline total.
+`WalletDetailView` (shared by the admin detail sheet and the self-view, differing only by `mode`) shows each transaction as a card with the **customer** as the primary line (walk-in sales show "Walk-in"), a secondary `type · descriptor · date · Collected by <name>` line, and the cash amount. **"Collected by" appears only once the cash has moved** — on an untouched wallet the holder _is_ the collector, and the line would be noise. It carries client-side **filters** — customer, payment type, and a from/to **date range** — that narrow only the list, never the headline total.
 
 ### Self-correcting
 
 Because the wallet is derived, voiding or editing a source row flows straight through on the next fetch. A void + re-pay of a month **resets** custody to the collector (the re-recorded cash is fresh) — handled in the payment upsert's reset block, alongside the remittance nulls. If cash was already settled and the source row is later voided, the holder's total can go **negative** (the business now owes them) — correct, and simply shown as a negative USD figure.
 
-A holder is **not always a collector**: an admin who only ever *received* cash recorded none of it. `UserService`'s hard-vs-soft delete split therefore counts rows they **hold** as well as rows they recorded — otherwise `ON DELETE SET NULL` would silently empty their wallet.
+A holder is **not always a collector**: an admin who only ever _received_ cash recorded none of it. `UserService`'s hard-vs-soft delete split therefore counts rows they **hold** as well as rows they recorded — otherwise `ON DELETE SET NULL` would silently empty their wallet.
 
 ### Where it lives
 

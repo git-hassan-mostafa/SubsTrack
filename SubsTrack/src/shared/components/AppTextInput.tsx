@@ -50,9 +50,9 @@ export function AppTextInput({
   const ref = useRef<TextInput>(null);
   const [focused, setFocused] = useState(false);
 
-  const Field = (
-    insideSheet && Platform.OS !== "web" ? BottomSheetTextInput : TextInput
-  ) as unknown as typeof TextInput;
+  const Field = (insideSheet && Platform.OS !== "web"
+    ? BottomSheetTextInput
+    : TextInput) as unknown as typeof TextInput;
 
   const shielded =
     Platform.OS !== "web" && !focused && props.editable !== false;

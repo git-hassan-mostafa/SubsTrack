@@ -1,7 +1,7 @@
-import type { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '@/src/shared/constants';
-import type { ChipTone } from '@/src/shared/components/Chip';
-import type { WalletSource } from '@/src/core/types';
+import type { Ionicons } from "@expo/vector-icons";
+import { COLORS } from "@/src/shared/constants";
+import type { ChipTone } from "@/src/shared/components/Chip";
+import type { WalletSource } from "@/src/core/types";
 
 export interface KindStyle {
   icon: keyof typeof Ionicons.glyphMap;
@@ -12,27 +12,27 @@ export interface KindStyle {
 
 export const KIND_STYLE: Record<WalletSource, KindStyle> = {
   month: {
-    icon: 'calendar-outline',
+    icon: "calendar-outline",
     color: COLORS.success,
-    bgClassName: 'bg-emerald-50',
-    chipTone: 'emerald',
+    bgClassName: "bg-emerald-50",
+    chipTone: "emerald",
   },
   sale: {
-    icon: 'receipt-outline',
+    icon: "receipt-outline",
     color: COLORS.success,
-    bgClassName: 'bg-emerald-50',
-    chipTone: 'emerald',
+    bgClassName: "bg-emerald-50",
+    chipTone: "emerald",
   },
   manual: {
-    icon: 'document-text-outline',
+    icon: "document-text-outline",
     color: COLORS.violet,
-    bgClassName: 'bg-violet-50',
-    chipTone: 'violet',
+    bgClassName: "bg-violet-50",
+    chipTone: "violet",
   },
   mixed: {
-    icon: 'cash-outline',
+    icon: "cash-outline",
     color: COLORS.primary,
-    bgClassName: 'bg-indigo-50',
-    chipTone: 'indigo',
+    bgClassName: "bg-indigo-50",
+    chipTone: "indigo",
   },
 };

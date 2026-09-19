@@ -1,12 +1,12 @@
-import type { StateCreator } from 'zustand';
-import type { Currency, Product } from '@/src/core/types';
+import type { StateCreator } from "zustand";
+import type { Currency, Product } from "@/src/core/types";
 import {
   productService,
   type ProductInput,
   type RestockEntry,
-} from '@/src/modules/admin/products';
-import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import type { GlobalState } from '@/src/state/globalStore';
+} from "@/src/modules/admin/products";
+import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
+import type { GlobalState } from "@/src/state/globalStore";
 
 export interface ProductSlice {
   items: Product[];
@@ -39,7 +39,10 @@ export interface ProductSlice {
       cost?: { unitCost: number | null; currency: Currency | null } | null;
     },
   ) => Promise<boolean>;
-  revertStockMovement: (movementId: string, userId?: string | null) => Promise<boolean>;
+  revertStockMovement: (
+    movementId: string,
+    userId?: string | null,
+  ) => Promise<boolean>;
   batchRestock: (
     entries: RestockEntry[],
     tenantId: string,
@@ -47,7 +50,7 @@ export interface ProductSlice {
     userId?: string | null,
     currency?: Currency | null,
   ) => Promise<boolean>;
-  deleteProduct: (id: string) => Promise<'hard' | 'soft' | null>;
+  deleteProduct: (id: string) => Promise<"hard" | "soft" | null>;
   bulkDeleteProducts: (ids: string[]) => Promise<boolean>;
   reactivateProduct: (id: string) => Promise<void>;
   clearError: () => void;
@@ -56,7 +59,7 @@ export interface ProductSlice {
 
 export const createProductSlice: StateCreator<
   GlobalState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   ProductSlice
 > = (set, get) => ({
@@ -137,13 +140,20 @@ export const createProductSlice: StateCreator<
   applyStockDelta: (deltaByProduct) =>
     set((state) => {
       for (const p of state.products.items) {
-      const delta = deltaByProduct[p.id];
-      if (delta) p.stockOnHand += delta;
+        const delta = deltaByProduct[p.id];
+        if (delta) p.stockOnHand += delta;
       }
-      }),
+    }),
 
-      addStock: async (id, tenantId, quantity, note = null, userId = null, cost = null) => {
-      set((state) => {
+  addStock: async (
+    id,
+    tenantId,
+    quantity,
+    note = null,
+    userId = null,
+    cost = null,
+  ) => {
+    set((state) => {
       state.products.loading = true;
       state.products.error = null;
     });
@@ -177,9 +187,14 @@ export const createProductSlice: StateCreator<
       state.products.error = null;
     });
     try {
-      const { movement, onHand } = await productService.updateMovement(movementId, input);
+      const { movement, onHand } = await productService.updateMovement(
+        movementId,
+        input,
+      );
       set((state) => {
-        const i = state.products.items.findIndex((p) => p.id === movement.productId);
+        const i = state.products.items.findIndex(
+          (p) => p.id === movement.productId,
+        );
         if (i !== -1) state.products.items[i].stockOnHand = onHand;
         state.products.loading = false;
       });
@@ -199,7 +214,10 @@ export const createProductSlice: StateCreator<
       state.products.error = null;
     });
     try {
-      const { productId, onHand } = await productService.revertMovement(movementId, userId);
+      const { productId, onHand } = await productService.revertMovement(
+        movementId,
+        userId,
+      );
       set((state) => {
         const i = state.products.items.findIndex((p) => p.id === productId);
         if (i !== -1) state.products.items[i].stockOnHand = onHand;
@@ -215,7 +233,13 @@ export const createProductSlice: StateCreator<
     }
   },
 
-  batchRestock: async (entries, tenantId, note = null, userId = null, currency = null) => {
+  batchRestock: async (
+    entries,
+    tenantId,
+    note = null,
+    userId = null,
+    currency = null,
+  ) => {
     if (entries.length === 0) return true;
     set((state) => {
       state.products.loading = true;
@@ -231,7 +255,7 @@ export const createProductSlice: StateCreator<
       );
       set((state) => {
         for (const p of state.products.items) {
-        if (p.id in onHand) p.stockOnHand = onHand[p.id];
+          if (p.id in onHand) p.stockOnHand = onHand[p.id];
         }
         state.products.loading = false;
       });
@@ -253,11 +277,13 @@ export const createProductSlice: StateCreator<
     try {
       const mode = await productService.deleteProduct(id);
       set((state) => {
-        if (mode === 'hard') {
-        state.products.items = state.products.items.filter((p) => p.id !== id);
+        if (mode === "hard") {
+          state.products.items = state.products.items.filter(
+            (p) => p.id !== id,
+          );
         } else {
-        const i = state.products.items.findIndex((p) => p.id === id);
-        if (i !== -1) state.products.items[i].active = false;
+          const i = state.products.items.findIndex((p) => p.id === id);
+          if (i !== -1) state.products.items[i].active = false;
         }
         state.products.loading = false;
       });
@@ -282,9 +308,11 @@ export const createProductSlice: StateCreator<
       set((state) => {
         const removed = new Set(hard);
         const softened = new Set(soft);
-        state.products.items = state.products.items.filter((p) => !removed.has(p.id));
+        state.products.items = state.products.items.filter(
+          (p) => !removed.has(p.id),
+        );
         for (const p of state.products.items) {
-        if (softened.has(p.id)) p.active = false;
+          if (softened.has(p.id)) p.active = false;
         }
         state.products.loading = false;
       });

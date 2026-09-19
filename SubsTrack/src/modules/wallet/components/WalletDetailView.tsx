@@ -131,7 +131,8 @@ export function WalletDetailView({
   const target = findCurrency(currencies, displayCurrencyId);
 
   const canAct = mode !== "view";
-  const actionLabel = mode === "close_out" ? t("wallet.close_out") : t("wallet.receive");
+  const actionLabel =
+    mode === "close_out" ? t("wallet.close_out") : t("wallet.receive");
   const actionAllLabel =
     mode === "close_out" ? t("wallet.close_out_all") : t("wallet.receive_all");
 

@@ -11,7 +11,8 @@ export interface Tenant {
   createdAt: string;
 }
 
-export type CustomerRequestStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
+export type CustomerRequestStatus =
+  "pending" | "accepted" | "declined" | "cancelled";
 
 export interface CustomerRequest {
   id: string;

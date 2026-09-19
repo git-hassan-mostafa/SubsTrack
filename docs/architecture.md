@@ -46,4 +46,3 @@ The **native** app is offline-first; **web is unchanged** (talks to Supabase dir
 - **Never `// eslint-disable … react-hooks/*`.** `experiments.reactCompiler` is on, and one such comment switches React Compiler **off for the whole file** — silently losing auto-memoization on exactly the screens that need it. Slice actions are stable references, so just list them in the dep array. Full rules + the other compiler bail-outs (refs read during render, `try/finally`) in gotcha #52.
 
 ---
-

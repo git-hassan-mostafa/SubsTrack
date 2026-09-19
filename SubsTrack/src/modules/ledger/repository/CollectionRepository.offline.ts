@@ -1,41 +1,52 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
-import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
-import type { CashRow, CashStream, WalletSource } from '@/src/core/types';
-import type { DbCharge, DbCollection, DbCollectionItem, DbCustomer } from '@/src/core/types/db';
-import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
-import { newId, nowIso } from '@/src/core/offline/ids';
-import { sanitizeSearchTerm } from '@/src/core/utils/searchTerm';
-import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
+import type { SQLiteDatabase } from "expo-sqlite";
+import { OFFLINE_PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
+import type { CashRow, CashStream, WalletSource } from "@/src/core/types";
+import type {
+  DbCharge,
+  DbCollection,
+  DbCollectionItem,
+  DbCustomer,
+} from "@/src/core/types/db";
+import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
+import { insertDirty, updateDirty } from "@/src/core/offline/db/dml";
+import { newId, nowIso } from "@/src/core/offline/ids";
+import { sanitizeSearchTerm } from "@/src/core/utils/searchTerm";
+import { custodyValues } from "@/src/modules/wallet/utils/custodyValues";
 import type {
   CollectionSortField,
   CreateCollectionPayload,
   FindCollectionsOptions,
   ICollectionRepository,
-} from './ICollectionRepository';
-import type { CreateChargePayload } from './IChargeRepository';
-import { monthBillKey, patchForIncomingCash, resolveBillTarget } from './chargeRevive';
-import { collectionPlanId } from '../utils/collectionPlan';
-import { sumByMonth } from '../utils/monthTotals';
+} from "./ICollectionRepository";
+import type { CreateChargePayload } from "./IChargeRepository";
+import {
+  monthBillKey,
+  patchForIncomingCash,
+  resolveBillTarget,
+} from "./chargeRevive";
+import { collectionPlanId } from "../utils/collectionPlan";
+import { sumByMonth } from "../utils/monthTotals";
 
 /** SQLite-backed hand-overs. Reproduces
  *  `'*, collection_items(*, charges(*)), customers(*)'`. */
 export class OfflineCollectionRepository
   extends OfflineBaseRepository
-  implements ICollectionRepository {
+  implements ICollectionRepository
+{
   private async hydrate(rows: DbCollection[]): Promise<DbCollection[]> {
     if (rows.length === 0) return rows;
     const itemsByParent = await this.childrenByParent<DbCollectionItem>(
-      'collection_items',
-      'collection_id',
+      "collection_items",
+      "collection_id",
       rows.map((r) => r.id),
-      'created_at',
+      "created_at",
     );
     const chargeIds: string[] = [];
-    for (const arr of itemsByParent.values()) for (const it of arr) chargeIds.push(it.charge_id);
-    const charges = await this.rowsById<DbCharge>('charges', chargeIds);
+    for (const arr of itemsByParent.values())
+      for (const it of arr) chargeIds.push(it.charge_id);
+    const charges = await this.rowsById<DbCharge>("charges", chargeIds);
     const customers = await this.rowsById<DbCustomer>(
-      'customers',
+      "customers",
       rows.map((r) => r.customer_id).filter((c): c is string => !!c),
     );
     return rows.map((r) => ({
@@ -44,16 +55,16 @@ export class OfflineCollectionRepository
         ...it,
         charges: charges.get(it.charge_id) ?? null,
       })),
-      customers: r.customer_id ? customers.get(r.customer_id) ?? null : null,
+      customers: r.customer_id ? (customers.get(r.customer_id) ?? null) : null,
     }));
   }
 
   async findById(id: string): Promise<DbCollection | null> {
     const row = await this.first<Record<string, unknown>>(
-      'SELECT * FROM collections WHERE id = ?',
+      "SELECT * FROM collections WHERE id = ?",
       [id],
     );
-    const decoded = this.decodeOne<DbCollection>('collections', row);
+    const decoded = this.decodeOne<DbCollection>("collections", row);
     if (!decoded) return null;
     return (await this.hydrate([decoded]))[0];
   }
@@ -61,32 +72,53 @@ export class OfflineCollectionRepository
   async findByIds(ids: string[]): Promise<DbCollection[]> {
     if (ids.length === 0) return [];
     const rows = await this.all(
-      `SELECT * FROM collections WHERE id IN (${ids.map(() => '?').join(',')})`,
+      `SELECT * FROM collections WHERE id IN (${ids.map(() => "?").join(",")})`,
       ids,
     );
-    return this.hydrate(this.decodeAll<DbCollection>('collections', rows));
+    return this.hydrate(this.decodeAll<DbCollection>("collections", rows));
   }
 
   async find(opts: FindCollectionsOptions): Promise<DbCollection[]> {
     const limit = opts.limit ?? OFFLINE_PAGE_SIZE;
     const offset = opts.offset ?? 0;
-    const dir = opts.sortDirection === 'asc' ? 'ASC' : 'DESC';
-    const sortCol = SORT_COLUMNS[opts.sortField ?? 'received_at'] ?? 'received_at';
+    const dir = opts.sortDirection === "asc" ? "ASC" : "DESC";
+    const sortCol =
+      SORT_COLUMNS[opts.sortField ?? "received_at"] ?? "received_at";
     const parts: { clause: string; params: unknown[] }[] = [];
-    if (!opts.includeVoided) parts.push({ clause: 'c.voided_at IS NULL', params: [] });
-    if (opts.voidedOnly) parts.push({ clause: 'c.voided_at IS NOT NULL', params: [] });
+    if (!opts.includeVoided)
+      parts.push({ clause: "c.voided_at IS NULL", params: [] });
+    if (opts.voidedOnly)
+      parts.push({ clause: "c.voided_at IS NOT NULL", params: [] });
     if (opts.kind) parts.push(kindWhere(opts.kind));
-    if (opts.customerId) parts.push({ clause: 'c.customer_id = ?', params: [opts.customerId] });
+    if (opts.customerId)
+      parts.push({ clause: "c.customer_id = ?", params: [opts.customerId] });
     if (opts.heldByUserId)
-      parts.push({ clause: 'c.held_by_user_id = ?', params: [opts.heldByUserId] });
+      parts.push({
+        clause: "c.held_by_user_id = ?",
+        params: [opts.heldByUserId],
+      });
     if (opts.receivedByUserId)
-      parts.push({ clause: 'c.received_by_user_id = ?', params: [opts.receivedByUserId] });
-    if (opts.startIso) parts.push({ clause: 'c.received_at >= ?', params: [opts.startIso] });
+      parts.push({
+        clause: "c.received_by_user_id = ?",
+        params: [opts.receivedByUserId],
+      });
+    if (opts.startIso)
+      parts.push({ clause: "c.received_at >= ?", params: [opts.startIso] });
     if (opts.endExclusiveIso)
-      parts.push({ clause: 'c.received_at < ?', params: [opts.endExclusiveIso] });
+      parts.push({
+        clause: "c.received_at < ?",
+        params: [opts.endExclusiveIso],
+      });
     const search = sanitizeSearchTerm(opts.searchTerm);
-    if (search) parts.push({ clause: 'cu.name LIKE ?', params: [`%${search}%`] });
-    parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.collections, 'c'));
+    if (search)
+      parts.push({ clause: "cu.name LIKE ?", params: [`%${search}%`] });
+    parts.push(
+      this.branchWhere(
+        opts.branchFilter ?? null,
+        this.BRANCH_SCOPES.collections,
+        "c",
+      ),
+    );
 
     const where = this.combineWhere(parts);
     const rows = await this.all(
@@ -97,26 +129,46 @@ export class OfflineCollectionRepository
         LIMIT ? OFFSET ?`,
       [...where.params, limit, offset],
     );
-    return this.hydrate(this.decodeAll<DbCollection>('collections', rows));
+    return this.hydrate(this.decodeAll<DbCollection>("collections", rows));
   }
 
-  async monthlyTotals(opts: FindCollectionsOptions): Promise<Record<string, number>> {
+  async monthlyTotals(
+    opts: FindCollectionsOptions,
+  ): Promise<Record<string, number>> {
     if (opts.voidedOnly) return {};
     const parts: { clause: string; params: unknown[] }[] = [
-      { clause: 'c.voided_at IS NULL', params: [] },
+      { clause: "c.voided_at IS NULL", params: [] },
     ];
     if (opts.kind) parts.push(kindWhere(opts.kind));
-    if (opts.customerId) parts.push({ clause: 'c.customer_id = ?', params: [opts.customerId] });
+    if (opts.customerId)
+      parts.push({ clause: "c.customer_id = ?", params: [opts.customerId] });
     if (opts.heldByUserId)
-      parts.push({ clause: 'c.held_by_user_id = ?', params: [opts.heldByUserId] });
+      parts.push({
+        clause: "c.held_by_user_id = ?",
+        params: [opts.heldByUserId],
+      });
     if (opts.receivedByUserId)
-      parts.push({ clause: 'c.received_by_user_id = ?', params: [opts.receivedByUserId] });
-    if (opts.startIso) parts.push({ clause: 'c.received_at >= ?', params: [opts.startIso] });
+      parts.push({
+        clause: "c.received_by_user_id = ?",
+        params: [opts.receivedByUserId],
+      });
+    if (opts.startIso)
+      parts.push({ clause: "c.received_at >= ?", params: [opts.startIso] });
     if (opts.endExclusiveIso)
-      parts.push({ clause: 'c.received_at < ?', params: [opts.endExclusiveIso] });
+      parts.push({
+        clause: "c.received_at < ?",
+        params: [opts.endExclusiveIso],
+      });
     const search = sanitizeSearchTerm(opts.searchTerm);
-    if (search) parts.push({ clause: 'cu.name LIKE ?', params: [`%${search}%`] });
-    parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.collections, 'c'));
+    if (search)
+      parts.push({ clause: "cu.name LIKE ?", params: [`%${search}%`] });
+    parts.push(
+      this.branchWhere(
+        opts.branchFilter ?? null,
+        this.BRANCH_SCOPES.collections,
+        "c",
+      ),
+    );
 
     const where = this.combineWhere(parts);
     const rows = await this.all<{
@@ -142,28 +194,36 @@ export class OfflineCollectionRepository
     const rows = await this.all(
       `SELECT i.* FROM collection_items i
          JOIN collections co ON co.id = i.collection_id
-        WHERE ${includeVoided ? '1=1' : 'co.voided_at IS NULL'}
-          AND i.charge_id IN (${chargeIds.map(() => '?').join(',')})`,
+        WHERE ${includeVoided ? "1=1" : "co.voided_at IS NULL"}
+          AND i.charge_id IN (${chargeIds.map(() => "?").join(",")})`,
       chargeIds,
     );
-    return this.decodeAll<DbCollectionItem>('collection_items', rows);
+    return this.decodeAll<DbCollectionItem>("collection_items", rows);
   }
 
   private async reviveTargetBill(
     db: SQLiteDatabase,
     before: DbCharge,
     next: CreateChargePayload,
-    audit: { branchId: string | null; subject: string | null; customerId?: string },
+    audit: {
+      branchId: string | null;
+      subject: string | null;
+      customerId?: string;
+    },
   ): Promise<DbCharge> {
     const chargeId = before.id;
-    const patch = patchForIncomingCash(before, next, await this.paidOn(db, chargeId));
+    const patch = patchForIncomingCash(
+      before,
+      next,
+      await this.paidOn(db, chargeId),
+    );
     if (Object.keys(patch).length === 0) return before;
     const after = { ...before, ...patch } as DbCharge;
-    await updateDirty(db, 'charges', chargeId, patch);
+    await updateDirty(db, "charges", chargeId, patch);
     await this.auditIn(db, {
-      table: 'charges',
+      table: "charges",
       recordId: chargeId,
-      action: 'update',
+      action: "update",
       before,
       after,
       ...audit,
@@ -173,9 +233,9 @@ export class OfflineCollectionRepository
 
   private async paidOn(db: SQLiteDatabase, chargeId: string): Promise<number> {
     const row = await db.getFirstAsync<{ total: number | null }>(
-      'SELECT SUM(ci.amount) AS total FROM collection_items ci ' +
-      'JOIN collections c ON c.id = ci.collection_id ' +
-      'WHERE ci.charge_id = ? AND c.voided_at IS NULL',
+      "SELECT SUM(ci.amount) AS total FROM collection_items ci " +
+        "JOIN collections c ON c.id = ci.collection_id " +
+        "WHERE ci.charge_id = ? AND c.voided_at IS NULL",
       [chargeId] as never[],
     );
     return Number(row?.total ?? 0);
@@ -210,23 +270,26 @@ export class OfflineCollectionRepository
       for (const charge of charges) {
         const byKey = monthBillKey(charge)
           ? this.decodeOne<DbCharge>(
-            'charges',
-            await db.getFirstAsync<Record<string, unknown>>(
-              'SELECT * FROM charges WHERE customer_plan_id = ? AND billing_month = ?',
-              [charge.customer_plan_id, charge.billing_month] as never[],
-            ),
-          )
+              "charges",
+              await db.getFirstAsync<Record<string, unknown>>(
+                "SELECT * FROM charges WHERE customer_plan_id = ? AND billing_month = ?",
+                [charge.customer_plan_id, charge.billing_month] as never[],
+              ),
+            )
           : null;
         const byId = this.decodeOne<DbCharge>(
-          'charges',
+          "charges",
           await db.getFirstAsync<Record<string, unknown>>(
-            'SELECT * FROM charges WHERE id = ?',
+            "SELECT * FROM charges WHERE id = ?",
             [charge.id] as never[],
           ),
         );
         const target = resolveBillTarget(charge, byKey, byId);
-        if ('reuse' in target) {
-          targets.set(charge.id, await this.reviveTargetBill(db, target.reuse, charge, audit));
+        if ("reuse" in target) {
+          targets.set(
+            charge.id,
+            await this.reviveTargetBill(db, target.reuse, charge, audit),
+          );
           continue;
         }
         const chargeRow: DbCharge = {
@@ -244,18 +307,18 @@ export class OfflineCollectionRepository
           ...chargeRow,
           id: target.idTaken ? newId() : chargeRow.id,
         };
-        await insertDirty(db, 'charges', stored);
+        await insertDirty(db, "charges", stored);
         targets.set(charge.id, stored);
         await this.auditIn(db, {
-          table: 'charges',
+          table: "charges",
           recordId: stored.id,
-          action: 'create',
+          action: "create",
           after: stored,
           ...audit,
         });
       }
 
-      await insertDirty(db, 'collections', row);
+      await insertDirty(db, "collections", row);
       for (const it of items) {
         const itemRow: DbCollectionItem = {
           ...it,
@@ -266,25 +329,29 @@ export class OfflineCollectionRepository
           updated_at: now,
         };
         itemRows.push(itemRow);
-        await insertDirty(db, 'collection_items', itemRow);
+        await insertDirty(db, "collection_items", itemRow);
       }
 
       for (const c of targets.values()) settled.set(c.id, c);
       const missing = itemRows
         .map((it) => it.charge_id)
         .filter((chargeId) => !settled.has(chargeId));
-      for (const c of (await this.rowsById<DbCharge>('charges', missing)).values()) {
+      for (const c of (
+        await this.rowsById<DbCharge>("charges", missing)
+      ).values()) {
         settled.set(c.id, c);
       }
 
       await this.auditIn(db, {
-        table: 'collections',
+        table: "collections",
         recordId: id,
-        action: 'create',
+        action: "create",
         after: {
           ...row,
           collection_items: items,
-          plan_id: collectionPlanId(itemRows.map((it) => settled.get(it.charge_id)?.plan_id)),
+          plan_id: collectionPlanId(
+            itemRows.map((it) => settled.get(it.charge_id)?.plan_id),
+          ),
         },
         ...audit,
       });
@@ -299,10 +366,14 @@ export class OfflineCollectionRepository
     };
   }
 
-  async void(id: string, voidedBy: string, reason: string | null): Promise<DbCollection> {
+  async void(
+    id: string,
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<DbCollection> {
     const now = nowIso();
     const prior = await this.forAudit(id);
-    if (!prior) this.handleError(new Error('Collection not found'));
+    if (!prior) this.handleError(new Error("Collection not found"));
     const changes = {
       voided_at: now,
       voided_by: voidedBy,
@@ -311,11 +382,11 @@ export class OfflineCollectionRepository
     };
     const after = { ...prior.row, ...changes };
     await this.write(async (db) => {
-      await updateDirty(db, 'collections', id, changes);
+      await updateDirty(db, "collections", id, changes);
       await this.auditIn(db, {
-        table: 'collections',
+        table: "collections",
         recordId: id,
-        action: 'void',
+        action: "void",
         before: { ...prior.row, plan_id: prior.planId },
         after: { ...after, plan_id: prior.planId },
         customerId: prior.row.customer_id ?? undefined,
@@ -328,14 +399,18 @@ export class OfflineCollectionRepository
 
   private async forAudit(
     id: string,
-  ): Promise<{ row: DbCollection; subject: string | null; planId: string | null } | null> {
+  ): Promise<{
+    row: DbCollection;
+    subject: string | null;
+    planId: string | null;
+  } | null> {
     const raw = await this.first<Record<string, unknown>>(
       `SELECT c.*, cu.name AS __subject FROM collections c
          LEFT JOIN customers cu ON cu.id = c.customer_id
         WHERE c.id = ?`,
       [id],
     );
-    const row = this.decodeOne<DbCollection>('collections', raw);
+    const row = this.decodeOne<DbCollection>("collections", raw);
     if (!row) return null;
     const plans = await this.planIdsByCollection([id]);
     return {
@@ -346,19 +421,27 @@ export class OfflineCollectionRepository
   }
 
   /** Each hand-over's plan, off the bills its items point at — see gotcha #141. */
-  private async planIdsByCollection(ids: string[]): Promise<Map<string, string | null>> {
+  private async planIdsByCollection(
+    ids: string[],
+  ): Promise<Map<string, string | null>> {
     const plans = new Map<string, string | null>();
     if (ids.length === 0) return plans;
-    const rows = await this.all<{ collection_id: string; plan_id: string | null }>(
+    const rows = await this.all<{
+      collection_id: string;
+      plan_id: string | null;
+    }>(
       `SELECT i.collection_id, ch.plan_id
          FROM collection_items i
          JOIN charges ch ON ch.id = i.charge_id
-        WHERE i.collection_id IN (${ids.map(() => '?').join(',')})`,
+        WHERE i.collection_id IN (${ids.map(() => "?").join(",")})`,
       ids,
     );
     const grouped = new Map<string, (string | null)[]>();
     for (const r of rows) {
-      grouped.set(r.collection_id, [...(grouped.get(r.collection_id) ?? []), r.plan_id]);
+      grouped.set(r.collection_id, [
+        ...(grouped.get(r.collection_id) ?? []),
+        r.plan_id,
+      ]);
     }
     for (const [collectionId, planIds] of grouped) {
       plans.set(collectionId, collectionPlanId(planIds));
@@ -373,7 +456,7 @@ export class OfflineCollectionRepository
   ): Promise<DbCollection[]> {
     if (ids.length === 0) return [];
     const now = nowIso();
-    const holes = ids.map(() => '?').join(',');
+    const holes = ids.map(() => "?").join(",");
     const raw = await this.all<Record<string, unknown>>(
       `SELECT c.*, cu.name AS __subject FROM collections c
          LEFT JOIN customers cu ON cu.id = c.customer_id
@@ -383,7 +466,7 @@ export class OfflineCollectionRepository
     const subjects = new Map(
       raw.map((r) => [r.id as string, (r.__subject as string | null) ?? null]),
     );
-    const priors = this.decodeAll<DbCollection>('collections', raw);
+    const priors = this.decodeAll<DbCollection>("collections", raw);
     const live = priors.filter((p) => !p.voided_at);
     if (live.length === 0) return [];
     const plans = await this.planIdsByCollection(live.map((p) => p.id));
@@ -397,9 +480,9 @@ export class OfflineCollectionRepository
       for (const prior of live) {
         const planId = plans.get(prior.id) ?? null;
         await this.auditIn(db, {
-          table: 'collections',
+          table: "collections",
           recordId: prior.id,
-          action: 'void',
+          action: "void",
           before: { ...prior, plan_id: planId },
           after: {
             ...prior,
@@ -423,17 +506,16 @@ export class OfflineCollectionRepository
     }));
   }
 
-
   async collectedInRange(
     startIso: string,
     endExclusiveIso: string,
     branchFilter: BranchFilter,
   ): Promise<CashRow[]> {
     const parts = [
-      { clause: 'co.voided_at IS NULL', params: [] as unknown[] },
-      { clause: 'co.received_at >= ?', params: [startIso] },
-      { clause: 'co.received_at < ?', params: [endExclusiveIso] },
-      this.branchWhere(branchFilter, this.BRANCH_SCOPES.collections, 'co'),
+      { clause: "co.voided_at IS NULL", params: [] as unknown[] },
+      { clause: "co.received_at >= ?", params: [startIso] },
+      { clause: "co.received_at < ?", params: [endExclusiveIso] },
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.collections, "co"),
     ];
     const where = this.combineWhere(parts);
     const rows = await this.all<{
@@ -482,12 +564,14 @@ export class OfflineCollectionRepository
     }));
   }
 
-
-  async findHeld(userId: string, branchFilter: BranchFilter): Promise<DbCollection[]> {
+  async findHeld(
+    userId: string,
+    branchFilter: BranchFilter,
+  ): Promise<DbCollection[]> {
     const parts = [
-      { clause: 'c.held_by_user_id = ?', params: [userId] as unknown[] },
-      { clause: 'c.voided_at IS NULL', params: [] },
-      this.branchWhere(branchFilter, this.BRANCH_SCOPES.collections, 'c'),
+      { clause: "c.held_by_user_id = ?", params: [userId] as unknown[] },
+      { clause: "c.voided_at IS NULL", params: [] },
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.collections, "c"),
     ];
     const where = this.combineWhere(parts);
     const rows = await this.all(
@@ -496,14 +580,14 @@ export class OfflineCollectionRepository
         ${where.sql}`,
       where.params,
     );
-    return this.hydrate(this.decodeAll<DbCollection>('collections', rows));
+    return this.hydrate(this.decodeAll<DbCollection>("collections", rows));
   }
 
   async findAllHeld(branchFilter: BranchFilter): Promise<DbCollection[]> {
     const parts = [
-      { clause: 'c.held_by_user_id IS NOT NULL', params: [] as unknown[] },
-      { clause: 'c.voided_at IS NULL', params: [] },
-      this.branchWhere(branchFilter, this.BRANCH_SCOPES.collections, 'c'),
+      { clause: "c.held_by_user_id IS NOT NULL", params: [] as unknown[] },
+      { clause: "c.voided_at IS NULL", params: [] },
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.collections, "c"),
     ];
     const where = this.combineWhere(parts);
     const rows = await this.all(
@@ -512,7 +596,7 @@ export class OfflineCollectionRepository
         ${where.sql}`,
       where.params,
     );
-    return this.hydrate(this.decodeAll<DbCollection>('collections', rows));
+    return this.hydrate(this.decodeAll<DbCollection>("collections", rows));
   }
 
   async transferCustody(
@@ -525,11 +609,11 @@ export class OfflineCollectionRepository
     await this.write(async (db) => {
       for (const id of ids) {
         const owned = await db.getFirstAsync<{ id: string }>(
-          'SELECT id FROM collections WHERE id = ? AND held_by_user_id = ?',
+          "SELECT id FROM collections WHERE id = ? AND held_by_user_id = ?",
           [id, fromUserId] as never[],
         );
         if (!owned) continue;
-        await updateDirty(db, 'collections', id, {
+        await updateDirty(db, "collections", id, {
           ...custodyValues(toUserId, actorUserId),
           updated_at: nowIso(),
         });
@@ -539,9 +623,9 @@ export class OfflineCollectionRepository
 }
 
 const SORT_COLUMNS: Record<CollectionSortField, string> = {
-  received_at: 'received_at',
-  created_at: 'created_at',
-  updated_at: 'updated_at',
+  received_at: "received_at",
+  created_at: "created_at",
+  updated_at: "updated_at",
 };
 
 function kindWhere(kind: WalletSource): { clause: string; params: unknown[] } {

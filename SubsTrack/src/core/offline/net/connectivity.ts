@@ -1,4 +1,4 @@
-import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
+import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 
 // `isInternetReachable` is null while unknown (just after boot). Treat unknown
 // as online — we'd rather attempt a sync and fail than block on a false offline.

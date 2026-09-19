@@ -1,5 +1,5 @@
-import { useGlobalStore } from '@/src/state/hooks/useGlobalStore';
-import type { LedgerSlice } from '@/src/state/slices/ledger/ledgerSlice';
+import { useGlobalStore } from "@/src/state/hooks/useGlobalStore";
+import type { LedgerSlice } from "@/src/state/slices/ledger/ledgerSlice";
 
 export function useLedgerSlice(): LedgerSlice;
 export function useLedgerSlice<T>(selector: (state: LedgerSlice) => T): T;

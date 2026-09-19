@@ -128,9 +128,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
       />
 
       <BranchPicker
-        label={
-          t("branches.branch_label") + (branchPickerNullable ? "" : " *")
-        }
+        label={t("branches.branch_label") + (branchPickerNullable ? "" : " *")}
         value={form.branchId}
         onChange={(v) => setForm((prev) => ({ ...prev, branchId: v }))}
         nullLabel={t("branches.shared_all_branches")}
@@ -212,49 +210,47 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
         </View>
 
         <Text className="text-xs text-gray-400 mt-1.5">
-          {isMultiMonth
-            ? t("plans.bundle_price_hint")
-            : t("plans.per_month")}
+          {isMultiMonth ? t("plans.bundle_price_hint") : t("plans.per_month")}
         </Text>
       </View>
 
       {!form.isCustomPrice ? (
-      <CurrencyInput
-        label={
-          isMultiMonth
-            ? t("plans.bundle_price_label") + " *"
-            : t("plans.price_label") + " *"
-        }
-        amount={form.price}
-        currencyId={form.currencyId}
-        onChange={({ amount, currencyId }) =>
-          setForm((prev) => ({ ...prev, price: amount, currencyId }))
-        }
-        currencies={currencies}
-        placeholder="0.00"
-        onFocus={clearError}
-      />
+        <CurrencyInput
+          label={
+            isMultiMonth
+              ? t("plans.bundle_price_label") + " *"
+              : t("plans.price_label") + " *"
+          }
+          amount={form.price}
+          currencyId={form.currencyId}
+          onChange={({ amount, currencyId }) =>
+            setForm((prev) => ({ ...prev, price: amount, currencyId }))
+          }
+          currencies={currencies}
+          placeholder="0.00"
+          onFocus={clearError}
+        />
       ) : null}
 
       {/* Custom pricing toggle — hidden for multi-month plans */}
       {!isMultiMonth ? (
-      <View className="flex-row items-center justify-between py-4 border border-gray-100 rounded-xl px-4 mb-6">
-        <View>
-          <Text fontWeight="SemiBold" className="text-sm text-gray-900">
-            {t("plans.custom_pricing_label")}
-          </Text>
-          <Text className="text-xs text-gray-400 mt-0.5">
-            {t("plans.custom_pricing_hint")}
-          </Text>
+        <View className="flex-row items-center justify-between py-4 border border-gray-100 rounded-xl px-4 mb-6">
+          <View>
+            <Text fontWeight="SemiBold" className="text-sm text-gray-900">
+              {t("plans.custom_pricing_label")}
+            </Text>
+            <Text className="text-xs text-gray-400 mt-0.5">
+              {t("plans.custom_pricing_hint")}
+            </Text>
+          </View>
+          <Switch
+            value={form.isCustomPrice}
+            onValueChange={(v) =>
+              setForm((prev) => ({ ...prev, isCustomPrice: v }))
+            }
+            trackColor={{ true: COLORS.primary }}
+          />
         </View>
-        <Switch
-          value={form.isCustomPrice}
-          onValueChange={(v) =>
-            setForm((prev) => ({ ...prev, isCustomPrice: v }))
-          }
-          trackColor={{ true: COLORS.primary }}
-        />
-      </View>
       ) : (
         <View className="mb-6" />
       )}

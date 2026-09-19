@@ -1,6 +1,6 @@
-import type { TFunction } from 'i18next';
-import type { CustomerRequest } from '@/src/core/types';
-import type { QuotaPair } from './types';
+import type { TFunction } from "i18next";
+import type { CustomerRequest } from "@/src/core/types";
+import type { QuotaPair } from "./types";
 
 // A stored request read back as the pair every screen and validator works in.
 export function requestedPair(request: CustomerRequest): QuotaPair {
@@ -12,8 +12,8 @@ export function requestedPair(request: CustomerRequest): QuotaPair {
 export function askText(t: TFunction, extra: QuotaPair): string {
   const parts: string[] = [];
   if (extra.customers > 0)
-    parts.push(t('billing.ask_customers', { count: extra.customers }));
+    parts.push(t("billing.ask_customers", { count: extra.customers }));
   if (extra.plans > 0)
-    parts.push(t('billing.ask_plans', { count: extra.plans }));
-  return parts.join(t('billing.ask_join'));
+    parts.push(t("billing.ask_plans", { count: extra.plans }));
+  return parts.join(t("billing.ask_join"));
 }

@@ -319,7 +319,6 @@ export function CustomerPaymentPanel({
     );
   }
 
-
   const monthLabelOf = useCallback(
     (entry: MonthEntry): string => {
       const span = entry.charge?.durationMonths ?? linePrice.durationMonths;
@@ -485,7 +484,6 @@ export function CustomerPaymentPanel({
     openCollect,
     showPayOrderBlocked,
   ]);
-
 
   /**
    * Sends ONE receipt for a hand-over — the split it covers is listed inside.
@@ -830,7 +828,6 @@ export function CustomerPaymentPanel({
     }
     return items;
   }
-
 
   const selectedEntries = grid.filter((m) =>
     selection.selectedIds.has(m.billingMonth),

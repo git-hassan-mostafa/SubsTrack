@@ -1,6 +1,6 @@
 # Store Freshness After a Write — QA Scenarios
 
-Cross-cutting. Covers the app-wide rule that **a create, an edit or a delete updates the store from what the write returned — it does not re-read the table**. Nothing here is a new feature: every screen below already worked. What is being tested is that each list, badge and section total is *still correct* now that it is patched in memory instead of refetched, and that the two deliberate exceptions still re-read.
+Cross-cutting. Covers the app-wide rule that **a create, an edit or a delete updates the store from what the write returned — it does not re-read the table**. Nothing here is a new feature: every screen below already worked. What is being tested is that each list, badge and section total is _still correct_ now that it is patched in memory instead of refetched, and that the two deliberate exceptions still re-read.
 
 **The rule**
 
@@ -11,6 +11,7 @@ Cross-cutting. Covers the app-wide rule that **a create, an edit or a delete upd
 - **The debts surfaces** → the write cannot patch an aggregate, so it **announces** the change (`ledger.owedVersion`) and they re-read themselves. That is what section 7 tests.
 
 **Reference code:**
+
 - Sale list patches (pure): [saleListPatch.ts](SubsTrack/src/modules/transaction/sales/utils/saleListPatch.ts)
 - Stock deltas from a cart: [saleLines.ts](SubsTrack/src/modules/transaction/sales/utils/saleLines.ts)
 - Section-total patch: [monthSections.ts](SubsTrack/src/shared/lib/monthSections.ts) (`addMonthTotal`)

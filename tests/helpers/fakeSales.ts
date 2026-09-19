@@ -1,9 +1,9 @@
-import type { DbSale, DbSaleItem } from '@/src/core/types/db';
+import type { DbSale, DbSaleItem } from "@/src/core/types/db";
 import type {
   CreateSalePayload,
   UpdateSalePayload,
-} from '@/src/modules/transaction/sales/repository/ISaleRepository';
-import { store } from './fakeLedger';
+} from "@/src/modules/transaction/sales/repository/ISaleRepository";
+import { store } from "./fakeLedger";
 
 /**
  * In-memory sales, following the two real repositories' documented contract:
@@ -32,7 +32,9 @@ export const saleStore = {
     return sales.find((s) => s.id === id) ?? null;
   },
   liveItems(saleId: string) {
-    return saleItems.filter((i) => i.sale_id === saleId && i.voided_at === null);
+    return saleItems.filter(
+      (i) => i.sale_id === saleId && i.voided_at === null,
+    );
   },
   reset() {
     sales = [];
@@ -61,8 +63,16 @@ export const fakeSaleRepository = {
     const { items, movements: mv, charge, ...header } = payload;
     const now = new Date().toISOString();
     const row: DbSale = {
-      ...(header as Omit<DbSale, 'id' | 'created_at' | 'updated_at' | 'voided_at' | 'voided_by' | 'void_reason'>),
-      id: nextId('sale'),
+      ...(header as Omit<
+        DbSale,
+        | "id"
+        | "created_at"
+        | "updated_at"
+        | "voided_at"
+        | "voided_by"
+        | "void_reason"
+      >),
+      id: nextId("sale"),
       created_at: now,
       updated_at: now,
       voided_at: null,
@@ -73,7 +83,7 @@ export const fakeSaleRepository = {
     for (const it of items) {
       saleItems.push({
         ...it,
-        id: nextId('si'),
+        id: nextId("si"),
         sale_id: row.id,
         voided_at: null,
         created_at: now,
@@ -92,13 +102,19 @@ export const fakeSaleRepository = {
 
     // Lines are matched to the existing rows BY POSITION; a dropped line is
     // soft-voided because the sync engine has no tombstones for sale_items.
-    const existing = saleItems.filter((i) => i.sale_id === id && i.voided_at === null);
+    const existing = saleItems.filter(
+      (i) => i.sale_id === id && i.voided_at === null,
+    );
     items.forEach((it, i) => {
       if (existing[i]) Object.assign(existing[i], it);
       else {
         saleItems.push({
-          ...it, id: nextId('si'), sale_id: id, voided_at: null,
-          created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+          ...it,
+          id: nextId("si"),
+          sale_id: id,
+          voided_at: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         } as DbSaleItem);
       }
     });
@@ -107,23 +123,33 @@ export const fakeSaleRepository = {
     }
 
     if (mv !== null) {
-      movements = movements.filter((m) => (m as { sale_id: string }).sale_id !== id);
+      movements = movements.filter(
+        (m) => (m as { sale_id: string }).sale_id !== id,
+      );
       for (const m of mv) movements.push({ ...(m as object), sale_id: id });
     }
     const bill = store.charges.find((c) => c.sale_id === id);
     if (bill) Object.assign(bill, charge);
     return hydrate(row);
   },
-  async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
+  async voidSale(
+    id: string,
+    voidedBy: string,
+    reason: string,
+  ): Promise<DbSale> {
     const row = sales.find((s) => s.id === id)!;
     Object.assign(row, {
-      voided_at: new Date().toISOString(), voided_by: voidedBy, void_reason: reason,
+      voided_at: new Date().toISOString(),
+      voided_by: voidedBy,
+      void_reason: reason,
     });
     // The sale's own bill goes in the same transaction.
     const bill = store.charges.find((c) => c.sale_id === id);
     if (bill) {
       Object.assign(bill, {
-        voided_at: new Date().toISOString(), voided_by: voidedBy, void_reason: reason,
+        voided_at: new Date().toISOString(),
+        voided_by: voidedBy,
+        void_reason: reason,
       });
     }
     return hydrate(row);
@@ -138,7 +164,9 @@ export const fakeSaleRepository = {
       }));
   },
   async countInRange(startIso: string, endExclusiveIso: string) {
-    return sales.filter((s) => s.sold_at >= startIso && s.sold_at < endExclusiveIso).length;
+    return sales.filter(
+      (s) => s.sold_at >= startIso && s.sold_at < endExclusiveIso,
+    ).length;
   },
 };
 

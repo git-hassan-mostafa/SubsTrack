@@ -62,9 +62,12 @@ export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
   const lowering = !editing && QUOTA_KINDS.some((kind) => deltas[kind] < 0);
   const mixed = raising && lowering;
   const totalDelta = deltas.customers + deltas.plans;
-  const tooSmallRaise = (editing || raising) && totalDelta < MIN_CUSTOMER_REQUEST;
+  const tooSmallRaise =
+    (editing || raising) && totalDelta < MIN_CUSTOMER_REQUEST;
   const belowMinimum = !editing && total.customers < MIN_CUSTOMER_ALLOWANCE;
-  const overCap = QUOTA_KINDS.filter((kind) => !editing && total[kind] < active[kind]);
+  const overCap = QUOTA_KINDS.filter(
+    (kind) => !editing && total[kind] < active[kind],
+  );
   const valid =
     (editing || raising || lowering) &&
     !mixed &&
@@ -75,7 +78,10 @@ export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
   // Service lines can never be fewer than customers, so raising the customer
   // box carries the line box up with it rather than showing an error.
   function setCustomers(next: number) {
-    setTotal((prev) => ({ customers: next, plans: Math.max(prev.plans, next) }));
+    setTotal((prev) => ({
+      customers: next,
+      plans: Math.max(prev.plans, next),
+    }));
   }
 
   function fieldError(kind: QuotaKind): string | null {
@@ -85,7 +91,7 @@ export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
         requested: total[kind],
         excess: active[kind] - total[kind],
       });
-    if (kind === 'customers' && belowMinimum)
+    if (kind === "customers" && belowMinimum)
       return t("billing.decrease_min_error", { min: MIN_CUSTOMER_ALLOWANCE });
     return null;
   }
@@ -166,7 +172,7 @@ export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
         current={limits.customers}
         value={total.customers}
         floor={editing ? limits.customers : MIN_CUSTOMER_ALLOWANCE}
-        error={fieldError('customers')}
+        error={fieldError("customers")}
         onChange={setCustomers}
         onFocus={clearError}
       />
@@ -176,7 +182,7 @@ export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
         current={limits.plans}
         value={total.plans}
         floor={editing ? limits.plans : total.customers}
-        error={fieldError('plans')}
+        error={fieldError("plans")}
         onChange={(next) => setTotal((prev) => ({ ...prev, plans: next }))}
         onFocus={clearError}
       />
@@ -210,7 +216,9 @@ export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
       {lowering && overCap.length === 0 ? (
         <Text className="text-xs text-gray-500 mb-4">
           {t("billing.decrease_billing_note", {
-            amount: billingService.monthlyAmountUsd(total.plans, price).toFixed(2),
+            amount: billingService
+              .monthlyAmountUsd(total.plans, price)
+              .toFixed(2),
           })}
         </Text>
       ) : null}

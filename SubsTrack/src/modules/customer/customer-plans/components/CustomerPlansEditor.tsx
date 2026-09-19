@@ -118,7 +118,8 @@ export function CustomerPlansEditor({
         (base.planId !== r.planId && !autoCleared.includes(r.key)) ||
         base.startDate !== r.startDate ||
         base.customPrice !== r.customPrice ||
-        (r.customPrice !== null && base.customCurrencyId !== r.customCurrencyId) ||
+        (r.customPrice !== null &&
+          base.customCurrencyId !== r.customCurrencyId) ||
         base.status !== r.status
       );
     });
@@ -167,9 +168,7 @@ export function CustomerPlansEditor({
   }, [branchId, plans]);
 
   function setRowPlan(key: string, planId: string | null) {
-    setRows((prev) =>
-      prev.map((r) => (r.key === key ? { ...r, planId } : r)),
-    );
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, planId } : r)));
     setAutoCleared((prev) => prev.filter((k) => k !== key));
   }
 

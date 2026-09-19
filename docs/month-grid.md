@@ -64,4 +64,3 @@ Five rules hold this together — breaking any one of them is how the badge went
 The slice holds one field, `customerStatuses`, refreshed by `fetchCustomerStatuses(customers)` (list mount/focus, after bulk pay or void, and when the unpaid rule changes) or patched for a single customer by `syncCustomerStatus` after a local mutation — valid because `findByCustomer` is not year-scoped, so the slice has that customer's full history.
 
 ---
-

@@ -1,5 +1,5 @@
-import { ActivityIndicator, View } from 'react-native';
-import { COLORS } from '@/src/shared/constants';
+import { ActivityIndicator, View } from "react-native";
+import { COLORS } from "@/src/shared/constants";
 
 export function LoadingScreen() {
   return (

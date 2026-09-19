@@ -1,10 +1,10 @@
-import { useAuditStore } from '@/src/modules/admin/audit/state/auditStore';
-import { useDashboardStore } from '@/src/modules/dashboard/state/dashboardStore';
-import { useCollectionsListStore } from '@/src/modules/ledger/state/collectionsListStore';
-import { useExpenseStore } from '@/src/modules/transaction/expenses/state/expenseStore';
-import { useWalletStore } from '@/src/modules/wallet/state/walletStore';
-import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import { getStore } from './globalStore';
+import { useAuditStore } from "@/src/modules/admin/audit/state/auditStore";
+import { useDashboardStore } from "@/src/modules/dashboard/state/dashboardStore";
+import { useCollectionsListStore } from "@/src/modules/ledger/state/collectionsListStore";
+import { useExpenseStore } from "@/src/modules/transaction/expenses/state/expenseStore";
+import { useWalletStore } from "@/src/modules/wallet/state/walletStore";
+import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
+import { getStore } from "./globalStore";
 
 /** Re-fetch the dashboard plus every list store that already holds data. */
 export function refreshActiveData(): void {
@@ -20,7 +20,8 @@ export function refreshActiveData(): void {
   if (s.services.loaded) void s.services.fetchServices();
   if (s.users.loaded) void s.users.fetchUsers();
   if (s.sales.items.length) void s.sales.fetchSales();
-  if (s.ledger.debts) void s.ledger.fetchDebts(resolveBranchFilter(s.auth.user));
+  if (s.ledger.debts)
+    void s.ledger.fetchDebts(resolveBranchFilter(s.auth.user));
   const collections = useCollectionsListStore.getState();
   if (collections.items.length) void collections.fetchCollections();
   const expenses = useExpenseStore.getState();
@@ -34,7 +35,6 @@ export function refreshActiveData(): void {
     void s.payments.fetchCustomerStatuses(s.customers.items);
     void s.ledger.fetchNetByCustomer(resolveBranchFilter(s.auth.user));
   }
-
 
   void s.billing.refreshCounts();
 }

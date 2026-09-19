@@ -1,22 +1,27 @@
-import type { CashRow } from '@/src/core/types';
-import type { DbCharge, DbChargeBalance, DbCollection, DbCollectionItem } from '@/src/core/types/db';
+import type { CashRow } from "@/src/core/types";
+import type {
+  DbCharge,
+  DbChargeBalance,
+  DbCollection,
+  DbCollectionItem,
+} from "@/src/core/types/db";
 import type {
   CreateChargePayload,
   DbChargeWithPaid,
   FindChargesOptions,
   UpdateChargePayload,
-} from '@/src/modules/ledger/repository/IChargeRepository';
+} from "@/src/modules/ledger/repository/IChargeRepository";
 import type {
   CreateCollectionPayload,
   FindCollectionsOptions,
-} from '@/src/modules/ledger/repository/ICollectionRepository';
+} from "@/src/modules/ledger/repository/ICollectionRepository";
 import {
   monthBillKey,
   patchForIncomingCash,
   resolveBillTarget,
-} from '@/src/modules/ledger/repository/chargeRevive';
-import { collectionKind } from '@/src/modules/ledger/utils/collectionKind';
-import { sumByMonth } from '@/src/modules/ledger/utils/monthTotals';
+} from "@/src/modules/ledger/repository/chargeRevive";
+import { collectionKind } from "@/src/modules/ledger/utils/collectionKind";
+import { sumByMonth } from "@/src/modules/ledger/utils/monthTotals";
 
 /**
  * An in-memory ledger that follows the SAME rules the two real repositories
@@ -69,13 +74,13 @@ export const store = {
   },
   seedCharge(over: Partial<DbCharge> = {}): DbCharge {
     const row: DbCharge = {
-      id: over.id ?? nextId('chg'),
-      tenant_id: 't1',
+      id: over.id ?? nextId("chg"),
+      tenant_id: "t1",
       branch_id: null,
-      customer_id: 'cust-1',
-      kind: 'month',
-      customer_plan_id: 'line-1',
-      billing_month: '2026-01-01',
+      customer_id: "cust-1",
+      kind: "month",
+      customer_plan_id: "line-1",
+      billing_month: "2026-01-01",
       duration_months: 1,
       plan_id: null,
       sale_id: null,
@@ -83,12 +88,12 @@ export const store = {
       amount: 20,
       currency_id: null,
       rate_per_usd_snapshot: 1,
-      issued_at: '2026-01-05T10:00:00.000Z',
-      due_date: '2026-01-01',
-      recorded_by_user_id: 'user-1',
+      issued_at: "2026-01-05T10:00:00.000Z",
+      due_date: "2026-01-01",
+      recorded_by_user_id: "user-1",
       notes: null,
-      created_at: '2026-01-05T10:00:00.000Z',
-      updated_at: '2026-01-05T10:00:00.000Z',
+      created_at: "2026-01-05T10:00:00.000Z",
+      updated_at: "2026-01-05T10:00:00.000Z",
       voided_at: null,
       voided_by: null,
       void_reason: null,
@@ -107,33 +112,33 @@ export const store = {
     over: Partial<DbCollection> = {},
   ): DbCollection {
     const row: DbCollection = {
-      id: over.id ?? nextId('col'),
-      tenant_id: 't1',
+      id: over.id ?? nextId("col"),
+      tenant_id: "t1",
       branch_id: null,
-      customer_id: 'cust-1',
+      customer_id: "cust-1",
       amount,
       currency_id: null,
       rate_per_usd_snapshot: 1,
-      received_at: '2026-02-01T10:00:00.000Z',
-      received_by_user_id: 'user-1',
+      received_at: "2026-02-01T10:00:00.000Z",
+      received_by_user_id: "user-1",
       notes: null,
       // Null on purpose: a seeded row stands for one written before the column
       // existed, so the read path's fallback derivation stays exercised.
       kind: null,
-      created_at: '2026-02-01T10:00:00.000Z',
-      updated_at: '2026-02-01T10:00:00.000Z',
+      created_at: "2026-02-01T10:00:00.000Z",
+      updated_at: "2026-02-01T10:00:00.000Z",
       voided_at: null,
       voided_by: null,
       void_reason: null,
-      held_by_user_id: 'user-1',
+      held_by_user_id: "user-1",
       remitted_at: null,
       remitted_by: null,
       ...over,
     };
     collections.push(row);
     items.push({
-      id: nextId('ci'),
-      tenant_id: 't1',
+      id: nextId("ci"),
+      tenant_id: "t1",
       collection_id: row.id,
       charge_id: chargeId,
       amount,
@@ -167,33 +172,68 @@ export const fakeChargeRepository = {
   async findByIds(ids: string[]) {
     return charges.filter((c) => ids.includes(c.id)).map(hydrateCharge);
   },
-  async findMonthChargesForLines(lineIds: string[]): Promise<DbChargeWithPaid[]> {
+  async findMonthChargesForLines(
+    lineIds: string[],
+  ): Promise<DbChargeWithPaid[]> {
     return charges
       .filter(
-        (c) => c.kind === 'month' && c.voided_at === null && lineIds.includes(c.customer_plan_id!),
+        (c) =>
+          c.kind === "month" &&
+          c.voided_at === null &&
+          lineIds.includes(c.customer_plan_id!),
       )
-      .sort((a, b) => (a.billing_month ?? '').localeCompare(b.billing_month ?? ''))
-      .map((charge) => ({ charge: hydrateCharge(charge), paid: paidOn(charge.id) }));
+      .sort((a, b) =>
+        (a.billing_month ?? "").localeCompare(b.billing_month ?? ""),
+      )
+      .map((charge) => ({
+        charge: hydrateCharge(charge),
+        paid: paidOn(charge.id),
+      }));
   },
-  async findMonthChargesForCustomer(customerId: string): Promise<DbChargeWithPaid[]> {
+  async findMonthChargesForCustomer(
+    customerId: string,
+  ): Promise<DbChargeWithPaid[]> {
     return charges
-      .filter((c) => c.kind === 'month' && c.voided_at === null && c.customer_id === customerId)
-      .sort((a, b) => (a.billing_month ?? '').localeCompare(b.billing_month ?? ''))
-      .map((charge) => ({ charge: hydrateCharge(charge), paid: paidOn(charge.id) }));
+      .filter(
+        (c) =>
+          c.kind === "month" &&
+          c.voided_at === null &&
+          c.customer_id === customerId,
+      )
+      .sort((a, b) =>
+        (a.billing_month ?? "").localeCompare(b.billing_month ?? ""),
+      )
+      .map((charge) => ({
+        charge: hydrateCharge(charge),
+        paid: paidOn(charge.id),
+      }));
   },
   async findBySaleId(saleId: string) {
     return charges.find((c) => c.sale_id === saleId) ?? null;
   },
   async findBySaleIds(saleIds: string[]) {
-    return charges.filter((c) => c.sale_id && saleIds.includes(c.sale_id)).map(hydrateCharge);
+    return charges
+      .filter((c) => c.sale_id && saleIds.includes(c.sale_id))
+      .map(hydrateCharge);
   },
-  async findOpenWithPaid(opts: FindChargesOptions): Promise<DbChargeWithPaid[]> {
+  async findOpenWithPaid(
+    opts: FindChargesOptions,
+  ): Promise<DbChargeWithPaid[]> {
     return charges
       .filter((c) => c.voided_at === null && c.written_off_at === null)
-      .filter((c) => (opts.customerId ? c.customer_id === opts.customerId : true))
-      .filter((c) => (opts.customerIds?.length ? opts.customerIds.includes(c.customer_id!) : true))
+      .filter((c) =>
+        opts.customerId ? c.customer_id === opts.customerId : true,
+      )
+      .filter((c) =>
+        opts.customerIds?.length
+          ? opts.customerIds.includes(c.customer_id!)
+          : true,
+      )
       .filter((c) => (opts.kinds?.length ? opts.kinds.includes(c.kind) : true))
-      .map((charge) => ({ charge: hydrateCharge(charge), paid: paidOn(charge.id) }))
+      .map((charge) => ({
+        charge: hydrateCharge(charge),
+        paid: paidOn(charge.id),
+      }))
       .filter((r) => r.charge.amount - r.paid > 0)
       .sort((a, b) => a.charge.due_date.localeCompare(b.charge.due_date));
   },
@@ -203,7 +243,13 @@ export const fakeChargeRepository = {
       .filter((c) => ids.includes(c.id) && c.voided_at === null)
       .map((c) => {
         const paid = paidOn(c.id);
-        return { id: c.id, tenant_id: c.tenant_id, amount: c.amount, paid, balance: c.amount - paid };
+        return {
+          id: c.id,
+          tenant_id: c.tenant_id,
+          amount: c.amount,
+          paid,
+          balance: c.amount - paid,
+        };
       });
   },
   async create(payload: CreateChargePayload): Promise<DbCharge> {
@@ -214,7 +260,11 @@ export const fakeChargeRepository = {
     Object.assign(row, values, { updated_at: new Date().toISOString() });
     return hydrateCharge(row);
   },
-  async void(id: string, voidedBy: string, reason: string | null): Promise<DbCharge> {
+  async void(
+    id: string,
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<DbCharge> {
     const row = charges.find((c) => c.id === id)!;
     Object.assign(row, {
       voided_at: new Date().toISOString(),
@@ -223,7 +273,11 @@ export const fakeChargeRepository = {
     });
     return hydrateCharge(row);
   },
-  async writeOff(id: string, by: string, reason: string | null): Promise<DbCharge> {
+  async writeOff(
+    id: string,
+    by: string,
+    reason: string | null,
+  ): Promise<DbCharge> {
     const row = charges.find((c) => c.id === id)!;
     Object.assign(row, {
       written_off_at: new Date().toISOString(),
@@ -232,9 +286,14 @@ export const fakeChargeRepository = {
     });
     return hydrateCharge(row);
   },
-  async writeOffMany(ids: string[], by: string, reason: string | null): Promise<DbCharge[]> {
+  async writeOffMany(
+    ids: string[],
+    by: string,
+    reason: string | null,
+  ): Promise<DbCharge[]> {
     const live = charges.filter(
-      (c) => ids.includes(c.id) && c.voided_at === null && c.written_off_at === null,
+      (c) =>
+        ids.includes(c.id) && c.voided_at === null && c.written_off_at === null,
     );
     for (const row of live) {
       Object.assign(row, {
@@ -246,10 +305,16 @@ export const fakeChargeRepository = {
     }
     return live.map((r) => hydrateCharge(r));
   },
-  async writtenOffInRange(startIso: string, endExclusiveIso: string): Promise<DbCharge[]> {
+  async writtenOffInRange(
+    startIso: string,
+    endExclusiveIso: string,
+  ): Promise<DbCharge[]> {
     return charges
       .filter((c) => c.written_off_at !== null)
-      .filter((c) => c.written_off_at! >= startIso && c.written_off_at! < endExclusiveIso)
+      .filter(
+        (c) =>
+          c.written_off_at! >= startIso && c.written_off_at! < endExclusiveIso,
+      )
       .map(hydrateCharge);
   },
 };
@@ -262,7 +327,10 @@ export const fakeCollectionRepository = {
       ...row,
       collection_items: items
         .filter((i) => i.collection_id === id)
-        .map((i) => ({ ...i, charges: charges.find((c) => c.id === i.charge_id) ?? null })),
+        .map((i) => ({
+          ...i,
+          charges: charges.find((c) => c.id === i.charge_id) ?? null,
+        })),
     };
   },
   async findByIds(ids: string[]): Promise<DbCollection[]> {
@@ -277,18 +345,25 @@ export const fakeCollectionRepository = {
     let rows = collections.slice();
     if (!opts.includeVoided) rows = rows.filter((c) => c.voided_at === null);
     if (opts.voidedOnly) rows = rows.filter((c) => c.voided_at !== null);
-    if (opts.customerId) rows = rows.filter((c) => c.customer_id === opts.customerId);
-    if (opts.heldByUserId) rows = rows.filter((c) => c.held_by_user_id === opts.heldByUserId);
-    if (opts.startIso) rows = rows.filter((c) => c.received_at >= opts.startIso!);
-    if (opts.endExclusiveIso) rows = rows.filter((c) => c.received_at < opts.endExclusiveIso!);
+    if (opts.customerId)
+      rows = rows.filter((c) => c.customer_id === opts.customerId);
+    if (opts.heldByUserId)
+      rows = rows.filter((c) => c.held_by_user_id === opts.heldByUserId);
+    if (opts.startIso)
+      rows = rows.filter((c) => c.received_at >= opts.startIso!);
+    if (opts.endExclusiveIso)
+      rows = rows.filter((c) => c.received_at < opts.endExclusiveIso!);
     // Both repositories fall back to deriving the kind from the row's own items
     // when the frozen column is still null — the mirror's COALESCE, in JS.
-    if (opts.kind) rows = rows.filter((c) => (c.kind ?? derivedKind(c.id)) === opts.kind);
-    const asc = opts.sortDirection === 'asc';
-    const field = opts.sortField ?? 'received_at';
+    if (opts.kind)
+      rows = rows.filter((c) => (c.kind ?? derivedKind(c.id)) === opts.kind);
+    const asc = opts.sortDirection === "asc";
+    const field = opts.sortField ?? "received_at";
     // created_at breaks ties, exactly as both repositories order.
     const key = (c: DbCollection) => `${c[field]}|${c.created_at}`;
-    rows.sort((a, b) => (asc ? key(a).localeCompare(key(b)) : key(b).localeCompare(key(a))));
+    rows.sort((a, b) =>
+      asc ? key(a).localeCompare(key(b)) : key(b).localeCompare(key(a)),
+    );
     return fakeCollectionRepository.findByIds(rows.map((r) => r.id));
   },
   // A voided hand-over pays nothing; only a DISPLAY caller asks to see it.
@@ -299,16 +374,21 @@ export const fakeCollectionRepository = {
     const rows = items.filter((i) => chargeIds.includes(i.charge_id));
     if (includeVoided) return rows;
     return rows.filter(
-      (i) => collections.find((c) => c.id === i.collection_id)?.voided_at === null,
+      (i) =>
+        collections.find((c) => c.id === i.collection_id)?.voided_at === null,
     );
   },
-  async monthlyTotals(opts: FindCollectionsOptions): Promise<Record<string, number>> {
+  async monthlyTotals(
+    opts: FindCollectionsOptions,
+  ): Promise<Record<string, number>> {
     // Both repositories: voided money is not money, so it has no total.
     if (opts.voidedOnly) return {};
     let rows = collections.filter((c) => c.voided_at === null);
-    if (opts.customerId) rows = rows.filter((c) => c.customer_id === opts.customerId);
+    if (opts.customerId)
+      rows = rows.filter((c) => c.customer_id === opts.customerId);
     // Same type filter as `find`, or a header total would not match its rows.
-    if (opts.kind) rows = rows.filter((c) => (c.kind ?? derivedKind(c.id)) === opts.kind);
+    if (opts.kind)
+      rows = rows.filter((c) => (c.kind ?? derivedKind(c.id)) === opts.kind);
     return sumByMonth(
       rows.map((r) => ({
         received_at: r.received_at,
@@ -329,20 +409,25 @@ export const fakeCollectionRepository = {
         key ? charges.find((c) => monthBillKey(c) === key) : null,
         charges.find((c) => c.id === next.id),
       );
-      if ('reuse' in target) {
-        Object.assign(target.reuse, patchForIncomingCash(target.reuse, next, paidOn(target.reuse.id)));
+      if ("reuse" in target) {
+        Object.assign(
+          target.reuse,
+          patchForIncomingCash(target.reuse, next, paidOn(target.reuse.id)),
+        );
         targets.set(next.id, target.reuse);
         continue;
       }
       targets.set(
         next.id,
-        store.seedCharge(target.idTaken ? { ...next, id: nextId('chg') } : { ...next }),
+        store.seedCharge(
+          target.idTaken ? { ...next, id: nextId("chg") } : { ...next },
+        ),
       );
     }
 
     const row: DbCollection = {
       ...header,
-      id: nextId('col'),
+      id: nextId("col"),
       created_at: now,
       updated_at: now,
       voided_at: null,
@@ -355,7 +440,7 @@ export const fakeCollectionRepository = {
     collections.push(row);
     const itemRows: DbCollectionItem[] = newItems.map((it) => ({
       ...it,
-      id: nextId('ci'),
+      id: nextId("ci"),
       collection_id: row.id,
       charge_id: targets.get(it.charge_id)?.id ?? it.charge_id,
       created_at: now,
@@ -370,7 +455,11 @@ export const fakeCollectionRepository = {
       })),
     };
   },
-  async void(id: string, voidedBy: string, reason: string | null): Promise<DbCollection> {
+  async void(
+    id: string,
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<DbCollection> {
     const row = collections.find((c) => c.id === id)!;
     Object.assign(row, {
       voided_at: new Date().toISOString(),
@@ -381,8 +470,14 @@ export const fakeCollectionRepository = {
     });
     return { ...row };
   },
-  async voidMany(ids: string[], voidedBy: string, reason: string | null): Promise<DbCollection[]> {
-    const live = collections.filter((c) => ids.includes(c.id) && c.voided_at === null);
+  async voidMany(
+    ids: string[],
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<DbCollection[]> {
+    const live = collections.filter(
+      (c) => ids.includes(c.id) && c.voided_at === null,
+    );
     for (const row of live) {
       Object.assign(row, {
         voided_at: new Date().toISOString(),
@@ -393,11 +488,20 @@ export const fakeCollectionRepository = {
     }
     return live.map((r) => ({ ...r }));
   },
-  async collectedInRange(startIso: string, endExclusiveIso: string): Promise<CashRow[]> {
+  async collectedInRange(
+    startIso: string,
+    endExclusiveIso: string,
+  ): Promise<CashRow[]> {
     return items
-      .map((i) => ({ i, col: collections.find((c) => c.id === i.collection_id)! }))
+      .map((i) => ({
+        i,
+        col: collections.find((c) => c.id === i.collection_id)!,
+      }))
       .filter(({ col }) => col.voided_at === null)
-      .filter(({ col }) => col.received_at >= startIso && col.received_at < endExclusiveIso)
+      .filter(
+        ({ col }) =>
+          col.received_at >= startIso && col.received_at < endExclusiveIso,
+      )
       .map(({ i, col }) => {
         const ch = charges.find((c) => c.id === i.charge_id)!;
         return {
@@ -419,17 +523,27 @@ export const fakeCollectionRepository = {
   },
   async findHeld(userId: string): Promise<DbCollection[]> {
     return fakeCollectionRepository.findByIds(
-      collections.filter((c) => c.held_by_user_id === userId && !c.voided_at).map((c) => c.id),
+      collections
+        .filter((c) => c.held_by_user_id === userId && !c.voided_at)
+        .map((c) => c.id),
     );
   },
   async findAllHeld(): Promise<DbCollection[]> {
     return fakeCollectionRepository.findByIds(
-      collections.filter((c) => c.held_by_user_id !== null && !c.voided_at).map((c) => c.id),
+      collections
+        .filter((c) => c.held_by_user_id !== null && !c.voided_at)
+        .map((c) => c.id),
     );
   },
-  async transferCustody(ids: string[], fromUserId: string, toUserId: string | null) {
+  async transferCustody(
+    ids: string[],
+    fromUserId: string,
+    toUserId: string | null,
+  ) {
     for (const id of ids) {
-      const row = collections.find((c) => c.id === id && c.held_by_user_id === fromUserId);
+      const row = collections.find(
+        (c) => c.id === id && c.held_by_user_id === fromUserId,
+      );
       if (!row) continue;
       row.held_by_user_id = toUserId;
       if (toUserId === null) {

@@ -1,4 +1,4 @@
-import { Linking } from 'react-native';
+import { Linking } from "react-native";
 
 // Opens a WhatsApp chat with the given number, optionally pre-filling a
 // message. Uses the wa.me deep-link, which works on web and native (opening
@@ -8,11 +8,11 @@ export async function openWhatsApp(
   phone: string | null | undefined,
   message?: string,
 ): Promise<boolean> {
-  const digits = (phone ?? '').replace(/\D/g, '');
+  const digits = (phone ?? "").replace(/\D/g, "");
   if (!digits) return false;
 
   const url = `https://wa.me/${digits}${
-    message ? `?text=${encodeURIComponent(message)}` : ''
+    message ? `?text=${encodeURIComponent(message)}` : ""
   }`;
   try {
     await Linking.openURL(url);

@@ -27,7 +27,8 @@ import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 // When locked to a specific customer, the form only needs their id + name (no
 // picker is rendered), so callers may pass a lightweight customer ref — e.g. the
 // debtor detail sheet, which has only the debtor's id/name, not a full Customer.
-type CustomerRef = Pick<Customer, "id" | "name"> & Partial<Pick<Customer, "branchId">>;
+type CustomerRef = Pick<Customer, "id" | "name"> &
+  Partial<Pick<Customer, "branchId">>;
 
 // A locked customer may arrive as a bare {id, name} (the debtor sheet has no
 // full record), so the branch falls back to the recording user's.
@@ -83,7 +84,11 @@ export function CustomDebtFormSheet({
   });
 
   const lockedCustomer: CustomerRef | null = editing
-    ? { id: editing.customerId, name: editing.customerName, branchId: editing.branchId }
+    ? {
+        id: editing.customerId,
+        name: editing.customerName,
+        branchId: editing.branchId,
+      }
     : (initialCustomer ?? null);
   const customer: CustomerRef | null = lockedCustomer ?? picked;
 
@@ -133,79 +138,77 @@ export function CustomDebtFormSheet({
       <FormSheet
         onDismiss={onDismiss}
         dirty={dirty}
-        title={editing ? t("debts.edit_custom_debt") : t("debts.add_custom_debt")}
+        title={
+          editing ? t("debts.edit_custom_debt") : t("debts.add_custom_debt")
+        }
       >
-            {error ? (
-              <ErrorBanner message={error} onDismiss={clearError} />
-            ) : null}
+        {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
-            {lockedCustomer ? (
-              <View className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50">
-                <Text className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                  {t("debts.customer_label")}
-                </Text>
-                <Text fontWeight="Medium" className="text-base text-gray-900">
-                  {customer?.name}
-                </Text>
-              </View>
-            ) : (
-              <CustomerPicker
-                label={t("debts.customer_label") + " *"}
-                placeholder={t("debts.pick_customer")}
-                value={picked}
-                onChange={setPicked}
-                onAddNew={() => setAddCustomerOpen(true)}
-              />
-            )}
+        {lockedCustomer ? (
+          <View className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50">
+            <Text className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+              {t("debts.customer_label")}
+            </Text>
+            <Text fontWeight="Medium" className="text-base text-gray-900">
+              {customer?.name}
+            </Text>
+          </View>
+        ) : (
+          <CustomerPicker
+            label={t("debts.customer_label") + " *"}
+            placeholder={t("debts.pick_customer")}
+            value={picked}
+            onChange={setPicked}
+            onAddNew={() => setAddCustomerOpen(true)}
+          />
+        )}
 
-            <CurrencyInput
-              label={t("debts.amount_label") + " *"}
-              amount={amount}
-              currencyId={currencyId}
-              onChange={({ amount: a, currencyId: c }) => {
-                setAmount(a);
-                setCurrencyId(c);
-              }}
-              currencies={currencies}
-              placeholder="0.00"
-              lockCurrency={currencyLocked}
-              error={
-                belowCollected
-                  ? t("debts.amount_floor_hint", { amount: collectedLabel })
-                  : null
-              }
-              onFocus={clearError}
-            />
+        <CurrencyInput
+          label={t("debts.amount_label") + " *"}
+          amount={amount}
+          currencyId={currencyId}
+          onChange={({ amount: a, currencyId: c }) => {
+            setAmount(a);
+            setCurrencyId(c);
+          }}
+          currencies={currencies}
+          placeholder="0.00"
+          lockCurrency={currencyLocked}
+          error={
+            belowCollected
+              ? t("debts.amount_floor_hint", { amount: collectedLabel })
+              : null
+          }
+          onFocus={clearError}
+        />
 
-            {currencyLocked && !belowCollected ? (
-              <Text className="-mt-2 mb-4 text-xs text-gray-500">
-                {t("debts.currency_locked_hint", { amount: collectedLabel })}
-              </Text>
-            ) : null}
+        {currencyLocked && !belowCollected ? (
+          <Text className="-mt-2 mb-4 text-xs text-gray-500">
+            {t("debts.currency_locked_hint", { amount: collectedLabel })}
+          </Text>
+        ) : null}
 
-            <Input
-              label={t("debts.description_label")}
-              value={description}
-              onChangeText={setDescription}
-              placeholder={t("debts.description_placeholder")}
-              multiline
-            />
+        <Input
+          label={t("debts.description_label")}
+          value={description}
+          onChangeText={setDescription}
+          placeholder={t("debts.description_placeholder")}
+          multiline
+        />
 
-            <DatePickerInput
-              label={t("ledger.due_date")}
-              value={dueDate}
-              onChange={setDueDate}
-            />
+        <DatePickerInput
+          label={t("ledger.due_date")}
+          value={dueDate}
+          onChange={setDueDate}
+        />
 
-            <Button
-              label={
-                editing ? t("debts.save_changes") : t("debts.add_custom_debt")
-              }
-              onPress={handleSubmit}
-              loading={loading}
-              disabled={submitDisabled}
-              fullWidth
-            />
+        <Button
+          label={editing ? t("debts.save_changes") : t("debts.add_custom_debt")}
+          onPress={handleSubmit}
+          loading={loading}
+          disabled={submitDisabled}
+          fullWidth
+        />
         <View className="h-24" />
       </FormSheet>
 

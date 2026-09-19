@@ -1,11 +1,11 @@
-import { Linking } from 'react-native';
+import { Linking } from "react-native";
 
 // Opens the Google Maps app (or the browser when the app is not installed) so
 // staff can find a place, drop a pin, and copy its share link to paste back
 // into the customer form.
 export async function openMapsApp(): Promise<boolean> {
   try {
-    await Linking.openURL('https://www.google.com/maps');
+    await Linking.openURL("https://www.google.com/maps");
     return true;
   } catch {
     return false;
@@ -20,11 +20,12 @@ export async function openMapsApp(): Promise<boolean> {
 export async function openLocation(
   url: string | null | undefined,
 ): Promise<boolean> {
-  const raw = (url ?? '').trim();
+  const raw = (url ?? "").trim();
   if (!raw) return false;
-  const target = /^[a-z]+:\/\//i.test(raw) || raw.startsWith('geo:')
-    ? raw
-    : `https://${raw}`;
+  const target =
+    /^[a-z]+:\/\//i.test(raw) || raw.startsWith("geo:")
+      ? raw
+      : `https://${raw}`;
   try {
     await Linking.openURL(target);
     return true;

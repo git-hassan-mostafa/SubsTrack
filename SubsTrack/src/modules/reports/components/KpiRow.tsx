@@ -38,11 +38,19 @@ export function KpiRow({ items }: { items: Kpi[] }) {
           {row.map((k) => (
             <View key={k.key} className="flex-1">
               <View className="flex-row">
-                <StatTile label={k.label} value={k.value} sub={k.sub} tone={k.tone} />
+                <StatTile
+                  label={k.label}
+                  value={k.value}
+                  sub={k.sub}
+                  tone={k.tone}
+                />
               </View>
               {k.delta ? (
                 <View className="mt-1 ps-1">
-                  <ComparisonPill delta={k.delta} higherIsBetter={k.higherIsBetter} />
+                  <ComparisonPill
+                    delta={k.delta}
+                    higherIsBetter={k.higherIsBetter}
+                  />
                 </View>
               ) : null}
             </View>

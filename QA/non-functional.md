@@ -6,237 +6,237 @@ Cross-cutting concerns that don't fit a single feature: performance, error handl
 
 ## 1. Performance
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 1.1 | App cold start | Force-quit, reopen | < 3 seconds to LoadingScreen → first screen on a mid-tier device |
-| 1.2 | Hot start | Background then foreground | < 1 second to interactive |
-| 1.3 | Customer list with 1000+ rows | Seed many customers | Initial render < 1s; scroll is smooth (FlatList virtualization) |
-| 1.4 | Pagination smoothness | Scroll continuously through pages | No jank; loadingMore footer visible briefly |
-| 1.5 | Search latency | Type in search field | Debounced; UI never freezes |
-| 1.6 | Year switch on detail | Switch year on a 500-payment customer | Spinner; then renders < 500ms |
-| 1.7 | Dashboard metrics | 5000 customers and 50000 payments | Dashboard returns within network round-trip; counts use `count: 'exact', head: true` |
-| 1.8 | Memory growth | Open 10 customer detail screens in sequence | No leaks (each detail resets payments on unmount) |
-| 1.9 | Form sheet animation | Tap "+ Add" rapidly | Animation does not stutter; no double-mount |
-| 1.10 | Month grid memo | Tap cells, navigate years | Cells re-render minimally (verify with React profiler) |
+| #    | Scenario                      | Steps                                       | Expected result                                                                      |
+| ---- | ----------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 1.1  | App cold start                | Force-quit, reopen                          | < 3 seconds to LoadingScreen → first screen on a mid-tier device                     |
+| 1.2  | Hot start                     | Background then foreground                  | < 1 second to interactive                                                            |
+| 1.3  | Customer list with 1000+ rows | Seed many customers                         | Initial render < 1s; scroll is smooth (FlatList virtualization)                      |
+| 1.4  | Pagination smoothness         | Scroll continuously through pages           | No jank; loadingMore footer visible briefly                                          |
+| 1.5  | Search latency                | Type in search field                        | Debounced; UI never freezes                                                          |
+| 1.6  | Year switch on detail         | Switch year on a 500-payment customer       | Spinner; then renders < 500ms                                                        |
+| 1.7  | Dashboard metrics             | 5000 customers and 50000 payments           | Dashboard returns within network round-trip; counts use `count: 'exact', head: true` |
+| 1.8  | Memory growth                 | Open 10 customer detail screens in sequence | No leaks (each detail resets payments on unmount)                                    |
+| 1.9  | Form sheet animation          | Tap "+ Add" rapidly                         | Animation does not stutter; no double-mount                                          |
+| 1.10 | Month grid memo               | Tap cells, navigate years                   | Cells re-render minimally (verify with React profiler)                               |
 
 ## 2. Error handling
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 2.1 | Network offline at app start | Disable network, cold start | LoadingScreen → restore fails → routed to login screen with no banner crash |
-| 2.2 | Network offline during a fetch | Pull-to-refresh on customers | ErrorBanner with friendly message; existing list preserved |
-| 2.3 | Network offline during a write | Submit a form | ErrorBanner inside the sheet; form state preserved |
-| 2.4 | Slow network (5s+) | Throttle | Loading indicators visible; timeouts don't surface raw URLs |
-| 2.5 | Partial network (DNS only) | Use a captive portal | App reports a connection error, no infinite spinner |
-| 2.6 | Backend 500 | Force a server error | ErrorBanner; no raw stack traces |
-| 2.7 | Auth token revoked | Invalidate JWT mid-session | Next request fails; user is bounced to login on next refresh (verify) |
-| 2.8 | RLS denial | Try to read another tenant's row | Empty result or "not found" — no crash, no leak |
-| 2.9 | Schema mismatch | Backend column missing | Friendly error or graceful degradation, no crash |
-| 2.10 | ErrorBoundary catch | Force a thrown render error | ErrorBoundary fallback shown; "Try again" works |
+| #    | Scenario                       | Steps                            | Expected result                                                             |
+| ---- | ------------------------------ | -------------------------------- | --------------------------------------------------------------------------- |
+| 2.1  | Network offline at app start   | Disable network, cold start      | LoadingScreen → restore fails → routed to login screen with no banner crash |
+| 2.2  | Network offline during a fetch | Pull-to-refresh on customers     | ErrorBanner with friendly message; existing list preserved                  |
+| 2.3  | Network offline during a write | Submit a form                    | ErrorBanner inside the sheet; form state preserved                          |
+| 2.4  | Slow network (5s+)             | Throttle                         | Loading indicators visible; timeouts don't surface raw URLs                 |
+| 2.5  | Partial network (DNS only)     | Use a captive portal             | App reports a connection error, no infinite spinner                         |
+| 2.6  | Backend 500                    | Force a server error             | ErrorBanner; no raw stack traces                                            |
+| 2.7  | Auth token revoked             | Invalidate JWT mid-session       | Next request fails; user is bounced to login on next refresh (verify)       |
+| 2.8  | RLS denial                     | Try to read another tenant's row | Empty result or "not found" — no crash, no leak                             |
+| 2.9  | Schema mismatch                | Backend column missing           | Friendly error or graceful degradation, no crash                            |
+| 2.10 | ErrorBoundary catch            | Force a thrown render error      | ErrorBoundary fallback shown; "Try again" works                             |
 
 ## 3. Loading & spinner UX
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 3.1 | First-time loading | Empty store → fetch | ActivityIndicator visible; replaced by content |
-| 3.2 | Re-fetch with cached data | Pull-to-refresh after data exists | Existing data stays visible; spinner only at the refresh control |
-| 3.3 | Form submit loading | Submit | Button shows loading state; sheet not closed prematurely |
-| 3.4 | Loading and error coexistence | Trigger a slow request that ultimately errors | Spinner shown until error; ErrorBanner replaces it |
-| 3.5 | Concurrent fetches | Quickly switch tabs | No "loading flash" between cached results |
+| #   | Scenario                      | Steps                                         | Expected result                                                  |
+| --- | ----------------------------- | --------------------------------------------- | ---------------------------------------------------------------- |
+| 3.1 | First-time loading            | Empty store → fetch                           | ActivityIndicator visible; replaced by content                   |
+| 3.2 | Re-fetch with cached data     | Pull-to-refresh after data exists             | Existing data stays visible; spinner only at the refresh control |
+| 3.3 | Form submit loading           | Submit                                        | Button shows loading state; sheet not closed prematurely         |
+| 3.4 | Loading and error coexistence | Trigger a slow request that ultimately errors | Spinner shown until error; ErrorBanner replaces it               |
+| 3.5 | Concurrent fetches            | Quickly switch tabs                           | No "loading flash" between cached results                        |
 
 ## 4. Accessibility
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 4.1 | VoiceOver / TalkBack on login | Enable screen reader | All inputs labelled; button announces "Sign In" |
-| 4.2 | VoiceOver on customer card | Enable | Reads name, plan, status pill |
-| 4.3 | VoiceOver on month cell | Enable | Reads month label and status (verify accessibilityLabel; if absent, file finding) |
-| 4.4 | Larger system font | Enable Dynamic Type / Android font scale | Layout still usable; key text scales |
-| 4.5 | Reduce Motion | Enable system setting | Modal animations still work but can be reduced; verify nothing crashes |
-| 4.6 | Color contrast | Inspect each pill | All text meets WCAG AA over its background |
-| 4.7 | Tap targets | Each button / row | ≥ 44pt minimum |
+| #   | Scenario                      | Steps                                    | Expected result                                                                   |
+| --- | ----------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------- |
+| 4.1 | VoiceOver / TalkBack on login | Enable screen reader                     | All inputs labelled; button announces "Sign In"                                   |
+| 4.2 | VoiceOver on customer card    | Enable                                   | Reads name, plan, status pill                                                     |
+| 4.3 | VoiceOver on month cell       | Enable                                   | Reads month label and status (verify accessibilityLabel; if absent, file finding) |
+| 4.4 | Larger system font            | Enable Dynamic Type / Android font scale | Layout still usable; key text scales                                              |
+| 4.5 | Reduce Motion                 | Enable system setting                    | Modal animations still work but can be reduced; verify nothing crashes            |
+| 4.6 | Color contrast                | Inspect each pill                        | All text meets WCAG AA over its background                                        |
+| 4.7 | Tap targets                   | Each button / row                        | ≥ 44pt minimum                                                                    |
 
 ## 5. Internationalization & RTL
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 5.1 | All visible strings i18n-ed | Switch language | Every label translates. Hardcoded English strings (e.g. "Welcome back", "Inactive", "+ Add") should be flagged for translation |
-| 5.2 | RTL layout | Switch to Arabic | Layouts mirror; logical paddings (`me-`, `ms-`) work |
-| 5.3 | Cairo font | Switch to Arabic | Cairo font applied to all Text components |
-| 5.4 | Number formatting | Currency in Arabic | Locale-aware via `Intl.NumberFormat`; verify display currency formatting in both locales |
-| 5.5 | Date formatting | Customer "since" date in Arabic | Locale-aware via `getDateLocale`; spot-check for any remaining hardcoded en-US |
-| 5.6 | Long translations | Some Arabic strings are longer | UI layouts (cards, buttons) accommodate longer text without truncation |
-| 5.7 | Multi-currency symbols | LBP "ل.ل", EUR "€", USD "$" | Render correctly in receipts, plan cards, CurrencyInput dropdown |
-| 5.8 | Multi-month chevrons in RTL | Pay Dec–Feb bundle, switch to Arabic | Chevrons on `wrapFromPrev` / `wrapToNext` cells point in the RTL-correct direction (via `DirectionalIcon`) |
+| #   | Scenario                    | Steps                                | Expected result                                                                                                                |
+| --- | --------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| 5.1 | All visible strings i18n-ed | Switch language                      | Every label translates. Hardcoded English strings (e.g. "Welcome back", "Inactive", "+ Add") should be flagged for translation |
+| 5.2 | RTL layout                  | Switch to Arabic                     | Layouts mirror; logical paddings (`me-`, `ms-`) work                                                                           |
+| 5.3 | Cairo font                  | Switch to Arabic                     | Cairo font applied to all Text components                                                                                      |
+| 5.4 | Number formatting           | Currency in Arabic                   | Locale-aware via `Intl.NumberFormat`; verify display currency formatting in both locales                                       |
+| 5.5 | Date formatting             | Customer "since" date in Arabic      | Locale-aware via `getDateLocale`; spot-check for any remaining hardcoded en-US                                                 |
+| 5.6 | Long translations           | Some Arabic strings are longer       | UI layouts (cards, buttons) accommodate longer text without truncation                                                         |
+| 5.7 | Multi-currency symbols      | LBP "ل.ل", EUR "€", USD "$"          | Render correctly in receipts, plan cards, CurrencyInput dropdown                                                               |
+| 5.8 | Multi-month chevrons in RTL | Pay Dec–Feb bundle, switch to Arabic | Chevrons on `wrapFromPrev` / `wrapToNext` cells point in the RTL-correct direction (via `DirectionalIcon`)                     |
 
 ## 6. Observability & logs
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 6.1 | No PII in logs | Login, browse, log out | console.log output should not include passwords or full PII |
-| 6.2 | Error log signal | Trigger errors | Errors are logged with enough context for debugging without secrets |
-| 6.3 | Crashlytics / Sentry hookup | (If wired) | Verify crashes report; otherwise file a finding |
+| #   | Scenario                    | Steps                  | Expected result                                                     |
+| --- | --------------------------- | ---------------------- | ------------------------------------------------------------------- |
+| 6.1 | No PII in logs              | Login, browse, log out | console.log output should not include passwords or full PII         |
+| 6.2 | Error log signal            | Trigger errors         | Errors are logged with enough context for debugging without secrets |
+| 6.3 | Crashlytics / Sentry hookup | (If wired)             | Verify crashes report; otherwise file a finding                     |
 
 ## 7. Security
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 7.1 | Password masked everywhere | Login + Add Staff forms | Always `secureTextEntry` |
-| 7.2 | No tenant_id from client | Inspect repository writes | tenant_id is derived from JWT, never from user input |
-| 7.3 | RLS coverage | Migrations | Every table has RLS enabled; policies filter by tenant_id |
-| 7.4 | Rate limiting | Out of scope client-side | Backend should enforce; verify with backend team |
-| 7.5 | No SQL injection | All filters use parameterized queries (Supabase client) | Confirm |
-| 7.6 | No XSS in receipt notes | Save notes containing `<script>` | Rendered as plain text in receipt; no execution |
-| 7.7 | Token storage | Inspect AsyncStorage | Token is encrypted at rest by the OS keychain (Supabase default) |
+| #   | Scenario                   | Steps                                                   | Expected result                                                  |
+| --- | -------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------- |
+| 7.1 | Password masked everywhere | Login + Add Staff forms                                 | Always `secureTextEntry`                                         |
+| 7.2 | No tenant_id from client   | Inspect repository writes                               | tenant_id is derived from JWT, never from user input             |
+| 7.3 | RLS coverage               | Migrations                                              | Every table has RLS enabled; policies filter by tenant_id        |
+| 7.4 | Rate limiting              | Out of scope client-side                                | Backend should enforce; verify with backend team                 |
+| 7.5 | No SQL injection           | All filters use parameterized queries (Supabase client) | Confirm                                                          |
+| 7.6 | No XSS in receipt notes    | Save notes containing `<script>`                        | Rendered as plain text in receipt; no execution                  |
+| 7.7 | Token storage              | Inspect AsyncStorage                                    | Token is encrypted at rest by the OS keychain (Supabase default) |
 
 ## 8. Resilience & data integrity
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 8.1 | Force-kill mid-write | Submit form, kill app | Either the write completed or it didn't — no partial / orphaned rows |
-| 8.2 | Concurrent edits | Two devices editing same record | Last write wins (no merge UI); no crashes |
-| 8.3 | Concurrent payment for same month | Two devices on same (customer, month) | First wins; second sees "A payment already exists for this customer and month" |
-| 8.4 | Voiding twice | Void a payment, void it again from another device | Second succeeds idempotently or no-ops; verify; no data corruption |
-| 8.5 | Clock skew on device | Set device clock 1 day ahead | Status logic uses device clock for current month; verify acceptable behavior at month boundary |
-| 8.6 | DB unique constraint failure | Force a duplicate insert | Service translates to user-friendly message |
-| 8.7 | Snapshot integrity | Edit a plan's price after bills exist | Every existing bill keeps its own frozen amount and rate; only the next month billed uses the new price |
-| 8.8 | Payment FX snapshot integrity | Edit a currency's `rate_per_usd` after payments exist | Existing payments' USD equivalents (via `rate_per_usd_snapshot`) unchanged on Dashboard, Receipt, Year totals |
-| 8.9 | Multi-month coverage integrity | Pay a Jan–Mar bundle, then void | Single row voided, all 3 months revert in one atomic operation |
-| 8.10 | Multi-month conflict atomicity | Two devices submit overlapping multi-month bundles | First succeeds; second's conflict detection adjusts effectiveStart/effectiveDuration, OR rejects depending on `skipConflicts` flag |
-| 8.11 | Soft-delete preservation | Delete a referenced currency / branch | Referenced rows keep their FK pointing at the soft-deleted (active=false) entity. No cascading data loss |
-| 8.12 | Hard-delete cascades | Delete a customer with no payments → hard delete | Customer row removed. Deletion of customer WITH payments soft-deletes instead |
-| 8.13 | Cross-tenant FK | Force a write linking entities from two tenants | RLS denies at insert/update time. No corruption |
+| #    | Scenario                          | Steps                                                 | Expected result                                                                                                                    |
+| ---- | --------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 8.1  | Force-kill mid-write              | Submit form, kill app                                 | Either the write completed or it didn't — no partial / orphaned rows                                                               |
+| 8.2  | Concurrent edits                  | Two devices editing same record                       | Last write wins (no merge UI); no crashes                                                                                          |
+| 8.3  | Concurrent payment for same month | Two devices on same (customer, month)                 | First wins; second sees "A payment already exists for this customer and month"                                                     |
+| 8.4  | Voiding twice                     | Void a payment, void it again from another device     | Second succeeds idempotently or no-ops; verify; no data corruption                                                                 |
+| 8.5  | Clock skew on device              | Set device clock 1 day ahead                          | Status logic uses device clock for current month; verify acceptable behavior at month boundary                                     |
+| 8.6  | DB unique constraint failure      | Force a duplicate insert                              | Service translates to user-friendly message                                                                                        |
+| 8.7  | Snapshot integrity                | Edit a plan's price after bills exist                 | Every existing bill keeps its own frozen amount and rate; only the next month billed uses the new price                            |
+| 8.8  | Payment FX snapshot integrity     | Edit a currency's `rate_per_usd` after payments exist | Existing payments' USD equivalents (via `rate_per_usd_snapshot`) unchanged on Dashboard, Receipt, Year totals                      |
+| 8.9  | Multi-month coverage integrity    | Pay a Jan–Mar bundle, then void                       | Single row voided, all 3 months revert in one atomic operation                                                                     |
+| 8.10 | Multi-month conflict atomicity    | Two devices submit overlapping multi-month bundles    | First succeeds; second's conflict detection adjusts effectiveStart/effectiveDuration, OR rejects depending on `skipConflicts` flag |
+| 8.11 | Soft-delete preservation          | Delete a referenced currency / branch                 | Referenced rows keep their FK pointing at the soft-deleted (active=false) entity. No cascading data loss                           |
+| 8.12 | Hard-delete cascades              | Delete a customer with no payments → hard delete      | Customer row removed. Deletion of customer WITH payments soft-deletes instead                                                      |
+| 8.13 | Cross-tenant FK                   | Force a write linking entities from two tenants       | RLS denies at insert/update time. No corruption                                                                                    |
 
 ## 9. Device matrix
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 9.1 | iOS smallest supported | iPhone SE | All forms fit; KeyboardAvoidingView prevents overlap |
-| 9.2 | iOS largest | iPhone 15 Pro Max | Layouts use available space; no excessive blank areas |
-| 9.3 | Android compact | Pixel 4a | Same layout integrity |
-| 9.4 | Android tablet | Tablet | Layouts don't break; verify tab bar usability |
-| 9.5 | iPad | iPad portrait + landscape | App is mobile-first; verify it does not crash and is usable |
-| 9.6 | Old OS | iOS 14 / Android API 26 (if supported) | App still functions |
+| #   | Scenario               | Steps                                  | Expected result                                             |
+| --- | ---------------------- | -------------------------------------- | ----------------------------------------------------------- |
+| 9.1 | iOS smallest supported | iPhone SE                              | All forms fit; KeyboardAvoidingView prevents overlap        |
+| 9.2 | iOS largest            | iPhone 15 Pro Max                      | Layouts use available space; no excessive blank areas       |
+| 9.3 | Android compact        | Pixel 4a                               | Same layout integrity                                       |
+| 9.4 | Android tablet         | Tablet                                 | Layouts don't break; verify tab bar usability               |
+| 9.5 | iPad                   | iPad portrait + landscape              | App is mobile-first; verify it does not crash and is usable |
+| 9.6 | Old OS                 | iOS 14 / Android API 26 (if supported) | App still functions                                         |
 
 ## 9b. Web browser Back button (web build only)
 
 On web, **browser Back is never a close button.** Nothing in the app listens to it — no sheet, no popup, no dialog, no selection bar — so it always navigates the route, and the app touches browser history not at all (gotcha #44). Everything closes by its own affordances: header button, backdrop, drag, or the dialog's own buttons. These scenarios exist to prove the app does not fight the browser and that no overlay is left stuck or unclickable. Run them in a desktop browser.
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 9b.1 | **Reported bug — clicks die after closing a sheet** | Open any form sheet, close it with the header ✕, then click any button on the screen. Repeat closing via the backdrop | Every button responds on the FIRST click, both ways |
-| 9b.1b | A web sheet cannot be dragged | Open any sheet and try to drag it down — by the grey handle bar AND by the title bar | Nothing moves and the sheet does not close (drag is native-only, gotcha #46). The handle bar is still drawn but inert |
-| 9b.2 | A sheet ignores Back | Open any form sheet (e.g. Customer form), press browser Back | The sheet does **not** close by Back; the route navigates as normal. A sheet owned by that screen goes away with it, and the page is still fully clickable |
-| 9b.3 | A dialog ignores Back | Admin → Wallets → open a collector wallet → "Receive all" (confirm dialog); press Back | The dialog does **not** close by Back; the route navigates. The dialog is still answerable by its own buttons and the page under it is clickable afterwards |
-| 9b.4 | Back never traps the user | With any sheet / popup / dialog open, press Back several times fast | Plain browser navigation each time; the site must never wedge, and one Back must never need two presses |
-| 9b.5 | Dialogs close by their buttons | Open the "Customer limit reached" modal (hit the customer allowance) or the location help modal; use its ✕ / Close / Cancel | The dialog closes; route unchanged; the screen stays clickable |
-| 9b.6 | Confirm can't be dismissed mid-action | Start a confirm action that shows a spinner; press Back while it runs | The action finishes normally; Back only navigates and never cancels it halfway |
-| 9b.7 | Pickers and menus close by clicking outside | Open a dropdown / currency / date picker inside a form, or a row's 3-dot menu; click the dark backdrop | It closes; the form sheet under it stays open |
-| 9b.8 | Selection bar clears by its own ✕ | Admin → Wallets → open a collector wallet → select a few rows → tap the toolbar's ✕ | The selection clears; the sheet stays open |
-| 9b.9 | Router history is untouched | Customers → customer detail → open a sheet → close it with Cancel → press Back | Goes back to the customer list exactly once — no swallowed press, no double step |
+| #     | Scenario                                            | Steps                                                                                                                       | Expected result                                                                                                                                             |
+| ----- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 9b.1  | **Reported bug — clicks die after closing a sheet** | Open any form sheet, close it with the header ✕, then click any button on the screen. Repeat closing via the backdrop       | Every button responds on the FIRST click, both ways                                                                                                         |
+| 9b.1b | A web sheet cannot be dragged                       | Open any sheet and try to drag it down — by the grey handle bar AND by the title bar                                        | Nothing moves and the sheet does not close (drag is native-only, gotcha #46). The handle bar is still drawn but inert                                       |
+| 9b.2  | A sheet ignores Back                                | Open any form sheet (e.g. Customer form), press browser Back                                                                | The sheet does **not** close by Back; the route navigates as normal. A sheet owned by that screen goes away with it, and the page is still fully clickable  |
+| 9b.3  | A dialog ignores Back                               | Admin → Wallets → open a collector wallet → "Receive all" (confirm dialog); press Back                                      | The dialog does **not** close by Back; the route navigates. The dialog is still answerable by its own buttons and the page under it is clickable afterwards |
+| 9b.4  | Back never traps the user                           | With any sheet / popup / dialog open, press Back several times fast                                                         | Plain browser navigation each time; the site must never wedge, and one Back must never need two presses                                                     |
+| 9b.5  | Dialogs close by their buttons                      | Open the "Customer limit reached" modal (hit the customer allowance) or the location help modal; use its ✕ / Close / Cancel | The dialog closes; route unchanged; the screen stays clickable                                                                                              |
+| 9b.6  | Confirm can't be dismissed mid-action               | Start a confirm action that shows a spinner; press Back while it runs                                                       | The action finishes normally; Back only navigates and never cancels it halfway                                                                              |
+| 9b.7  | Pickers and menus close by clicking outside         | Open a dropdown / currency / date picker inside a form, or a row's 3-dot menu; click the dark backdrop                      | It closes; the form sheet under it stays open                                                                                                               |
+| 9b.8  | Selection bar clears by its own ✕                   | Admin → Wallets → open a collector wallet → select a few rows → tap the toolbar's ✕                                         | The selection clears; the sheet stays open                                                                                                                  |
+| 9b.9  | Router history is untouched                         | Customers → customer detail → open a sheet → close it with Cancel → press Back                                              | Goes back to the customer list exactly once — no swallowed press, no double step                                                                            |
 
 ## 9c. Bottom sheets — Android Back, scrolling, keyboard (native build only)
 
 Regression pack for the sheet defects fixed after the Gorhom migration (gotchas #44 / #45 / #47). Run on a real Android device (edge-to-edge behaviour does not always reproduce in a simulator).
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 9c.1 | Back closes a form sheet | Open any form sheet (Customer / Sale / Payment form); press hardware Back | Sheet closes; still on the same screen — the route must NOT change |
-| 9c.2 | Back closes a popup, not the route | Open a Dropdown / date picker / 3-dot action menu; press Back | Only the popup closes; the screen (and any sheet under it) stays open |
-| 9c.3 | Back unwinds stacked sheets in order | Open a form sheet → open a picker inside it → press Back twice | 1st Back closes the picker, 2nd closes the form sheet; still on the same screen |
-| 9c.4 | Back exits selection before the sheet | Admin → Wallets → open a collector → long-press a transaction (selection bar) → press Back | 1st Back clears the selection, 2nd Back closes the wallet sheet |
-| 9c.5 | Payments-history sheet scrolls | 3-dot menu → Payments history; swipe up over the list | The list scrolls through every section; pull-to-refresh and infinite scroll still work |
-| 9c.6 | Collector wallet sheet scrolls | Admin → Wallets → open a collector with many transactions; swipe up | The body scrolls to the last transaction |
-| 9c.7 | Sheet still drags closed by its handle | Open any full sheet; drag the grey handle bar down | Sheet closes (dragging the body scrolls it instead — that is expected) |
-| 9c.7a | Sheet drags from its whole header | Open any sheet with a header row (form sheet, dropdown, currency / date / customer picker, payments-history, debtor detail, collector wallet); drag **from the title text**, not the handle | The sheet follows the finger and closes on a downward drag — the same as dragging the handle |
-| 9c.7b | Header buttons still tap | In the same headers, tap Cancel / Close / Confirm and the "+" in the debtor-detail header | Each button fires normally; a plain tap is never swallowed by the drag gesture |
-| 9c.7d | Action menu drags from anywhere | Open any 3-dot action menu; drag down starting **on one of the action rows** | The whole menu follows the finger and closes; the row is NOT triggered |
-| 9c.7e | Action menu rows still tap | Tap each row of an action menu, including a slightly imprecise tap that moves a few pixels | The action fires every time (the drag only takes over after ~12pt of vertical movement) |
-| 9c.7c | Header drag does not break the body | Open the Customer form and the payments-history sheet; scroll the body up and down | The body still scrolls freely; the sheet itself does not move while scrolling |
-| 9c.8 | Long form reaches its last field with the keyboard open | Open the Customer form, focus a field near the top so the keyboard opens, then scroll to the bottom | The last field AND the Save button are reachable and fully visible above the keyboard |
-| 9c.9 | Dropdown search stays above the keyboard | Open a searchable picker (e.g. customer picker) and type | The search box and results stay visible above the keyboard |
-| 9c.10 | Keyboard close restores the sheet | From 9c.8, dismiss the keyboard | The sheet returns to its normal height with no gap or jump |
-| 9c.11 | **Reported bug — picker sheet clips its last rows** | Open the currency picker (a money field's currency chip) and the product picker (Record sale → product dropdown), each with 2, 4 and 10+ options | Every row is fully visible; the sheet height matches its content (header + list, nothing cut off at the bottom) and no empty gap under the list |
-| 9c.12 | Picker list scrolls when it is capped | Open a dropdown with many options (e.g. products, plans, branches); swipe up over the list | The list scrolls to the last option inside the 360px cap; the sheet itself does not move |
-| 9c.13 | Date picker sheet hugs its columns | Open any date picker (native + web) | The sheet is only as tall as header + the 200px wheels (+ Clear row); wheels scroll and open on the selected value |
-| 9c.14 | Customer picker's last row clears the nav bar | Open the customer picker (Record sale / debt form) and scroll to the very end | The last row sits fully above the Android nav bar / home indicator |
+| #     | Scenario                                                | Steps                                                                                                                                                                                       | Expected result                                                                                                                                 |
+| ----- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 9c.1  | Back closes a form sheet                                | Open any form sheet (Customer / Sale / Payment form); press hardware Back                                                                                                                   | Sheet closes; still on the same screen — the route must NOT change                                                                              |
+| 9c.2  | Back closes a popup, not the route                      | Open a Dropdown / date picker / 3-dot action menu; press Back                                                                                                                               | Only the popup closes; the screen (and any sheet under it) stays open                                                                           |
+| 9c.3  | Back unwinds stacked sheets in order                    | Open a form sheet → open a picker inside it → press Back twice                                                                                                                              | 1st Back closes the picker, 2nd closes the form sheet; still on the same screen                                                                 |
+| 9c.4  | Back exits selection before the sheet                   | Admin → Wallets → open a collector → long-press a transaction (selection bar) → press Back                                                                                                  | 1st Back clears the selection, 2nd Back closes the wallet sheet                                                                                 |
+| 9c.5  | Payments-history sheet scrolls                          | 3-dot menu → Payments history; swipe up over the list                                                                                                                                       | The list scrolls through every section; pull-to-refresh and infinite scroll still work                                                          |
+| 9c.6  | Collector wallet sheet scrolls                          | Admin → Wallets → open a collector with many transactions; swipe up                                                                                                                         | The body scrolls to the last transaction                                                                                                        |
+| 9c.7  | Sheet still drags closed by its handle                  | Open any full sheet; drag the grey handle bar down                                                                                                                                          | Sheet closes (dragging the body scrolls it instead — that is expected)                                                                          |
+| 9c.7a | Sheet drags from its whole header                       | Open any sheet with a header row (form sheet, dropdown, currency / date / customer picker, payments-history, debtor detail, collector wallet); drag **from the title text**, not the handle | The sheet follows the finger and closes on a downward drag — the same as dragging the handle                                                    |
+| 9c.7b | Header buttons still tap                                | In the same headers, tap Cancel / Close / Confirm and the "+" in the debtor-detail header                                                                                                   | Each button fires normally; a plain tap is never swallowed by the drag gesture                                                                  |
+| 9c.7d | Action menu drags from anywhere                         | Open any 3-dot action menu; drag down starting **on one of the action rows**                                                                                                                | The whole menu follows the finger and closes; the row is NOT triggered                                                                          |
+| 9c.7e | Action menu rows still tap                              | Tap each row of an action menu, including a slightly imprecise tap that moves a few pixels                                                                                                  | The action fires every time (the drag only takes over after ~12pt of vertical movement)                                                         |
+| 9c.7c | Header drag does not break the body                     | Open the Customer form and the payments-history sheet; scroll the body up and down                                                                                                          | The body still scrolls freely; the sheet itself does not move while scrolling                                                                   |
+| 9c.8  | Long form reaches its last field with the keyboard open | Open the Customer form, focus a field near the top so the keyboard opens, then scroll to the bottom                                                                                         | The last field AND the Save button are reachable and fully visible above the keyboard                                                           |
+| 9c.9  | Dropdown search stays above the keyboard                | Open a searchable picker (e.g. customer picker) and type                                                                                                                                    | The search box and results stay visible above the keyboard                                                                                      |
+| 9c.10 | Keyboard close restores the sheet                       | From 9c.8, dismiss the keyboard                                                                                                                                                             | The sheet returns to its normal height with no gap or jump                                                                                      |
+| 9c.11 | **Reported bug — picker sheet clips its last rows**     | Open the currency picker (a money field's currency chip) and the product picker (Record sale → product dropdown), each with 2, 4 and 10+ options                                            | Every row is fully visible; the sheet height matches its content (header + list, nothing cut off at the bottom) and no empty gap under the list |
+| 9c.12 | Picker list scrolls when it is capped                   | Open a dropdown with many options (e.g. products, plans, branches); swipe up over the list                                                                                                  | The list scrolls to the last option inside the 360px cap; the sheet itself does not move                                                        |
+| 9c.13 | Date picker sheet hugs its columns                      | Open any date picker (native + web)                                                                                                                                                         | The sheet is only as tall as header + the 200px wheels (+ Clear row); wheels scroll and open on the selected value                              |
+| 9c.14 | Customer picker's last row clears the nav bar           | Open the customer picker (Record sale / debt form) and scroll to the very end                                                                                                               | The last row sits fully above the Android nav bar / home indicator                                                                              |
 
 ## 10. Update / migration
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 10.1 | OTA update via expo-updates | On a build made after `updates.url` + `channel` existed: change a visible string, `npm run ota-preview`, fully close and reopen the app | The bundle downloads in the background; the "New version ready" pill appears at the bottom above the tab bar |
-| 10.1a | Restart applies the update | From 10.1, tap **Restart** | The app reloads immediately and shows the new string; reopening later still shows it |
-| 10.1b | Ignoring the banner still updates | From 10.1, ignore the pill and kill + reopen the app instead | The new string is live; no pill (nothing left pending) |
-| 10.1c | Update check while offline | Airplane mode, open the app | No pill, no error banner, no delay on launch — every screen works from SQLite |
-| 10.1d | Update arrives while the app is open | Keep the app open, publish an update, background the app ~5 s, return to it | The pill appears without a cold start (foreground re-check) |
-| 10.1e | Rollback reaches devices | `eas update:rollback`, then background + return | The pill appears; Restart returns the app to the previous JS |
-| 10.1f | Fingerprint mismatch delivers nothing | Add a native dep (fingerprint changes), publish, reopen the installed app | Nothing downloads, no pill, no crash — the old JS keeps running |
-| 10.1g | Dev + web are unaffected | Run `npx expo run:android` (dev build) and `npm run serve-web` | No update pill in either; app behaves as before |
-| 10.2 | Schema migration applied | Run new migration | App that requires the column does not crash |
-| 10.3 | Backwards compatibility | Old client with new server | Soft errors for missing columns; no app crash |
-| 10.4 | OTA that adds a local column | Publish an update adding a column to `tables.ts`, reopen | `applySchema` `ALTER`s it in on start; no crash, sync still works |
+| #     | Scenario                              | Steps                                                                                                                                   | Expected result                                                                                              |
+| ----- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| 10.1  | OTA update via expo-updates           | On a build made after `updates.url` + `channel` existed: change a visible string, `npm run ota-preview`, fully close and reopen the app | The bundle downloads in the background; the "New version ready" pill appears at the bottom above the tab bar |
+| 10.1a | Restart applies the update            | From 10.1, tap **Restart**                                                                                                              | The app reloads immediately and shows the new string; reopening later still shows it                         |
+| 10.1b | Ignoring the banner still updates     | From 10.1, ignore the pill and kill + reopen the app instead                                                                            | The new string is live; no pill (nothing left pending)                                                       |
+| 10.1c | Update check while offline            | Airplane mode, open the app                                                                                                             | No pill, no error banner, no delay on launch — every screen works from SQLite                                |
+| 10.1d | Update arrives while the app is open  | Keep the app open, publish an update, background the app ~5 s, return to it                                                             | The pill appears without a cold start (foreground re-check)                                                  |
+| 10.1e | Rollback reaches devices              | `eas update:rollback`, then background + return                                                                                         | The pill appears; Restart returns the app to the previous JS                                                 |
+| 10.1f | Fingerprint mismatch delivers nothing | Add a native dep (fingerprint changes), publish, reopen the installed app                                                               | Nothing downloads, no pill, no crash — the old JS keeps running                                              |
+| 10.1g | Dev + web are unaffected              | Run `npx expo run:android` (dev build) and `npm run serve-web`                                                                          | No update pill in either; app behaves as before                                                              |
+| 10.2  | Schema migration applied              | Run new migration                                                                                                                       | App that requires the column does not crash                                                                  |
+| 10.3  | Backwards compatibility               | Old client with new server                                                                                                              | Soft errors for missing columns; no app crash                                                                |
+| 10.4  | OTA that adds a local column          | Publish an update adding a column to `tables.ts`, reopen                                                                                | `applySchema` `ALTER`s it in on start; no crash, sync still works                                            |
 
 ## 11. Background / lifecycle
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 11.1 | Background app for 5 min | Background and return | Stores intact; no re-fetch unless screen is focused |
-| 11.2 | Background app for 24 h | Re-open | Token may expire — restoreSession handles. Drops to login if expired |
-| 11.3 | Phone call interruption | Receive a call mid-form | Form state preserved on return |
-| 11.4 | Memory pressure | Open many apps | App returns to last route; verify state restoration |
-| 11.5 | Push notifications | (Out of scope unless wired) | Skip |
+| #    | Scenario                 | Steps                       | Expected result                                                      |
+| ---- | ------------------------ | --------------------------- | -------------------------------------------------------------------- |
+| 11.1 | Background app for 5 min | Background and return       | Stores intact; no re-fetch unless screen is focused                  |
+| 11.2 | Background app for 24 h  | Re-open                     | Token may expire — restoreSession handles. Drops to login if expired |
+| 11.3 | Phone call interruption  | Receive a call mid-form     | Form state preserved on return                                       |
+| 11.4 | Memory pressure          | Open many apps              | App returns to last route; verify state restoration                  |
+| 11.5 | Push notifications       | (Out of scope unless wired) | Skip                                                                 |
 
 ## 12. Restart & recovery
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 12.1 | Force-quit and reopen | After every feature touched | Data persists, last route is reasonable (default = Customers) |
-| 12.2 | Clear app storage | Wipe data | Fresh login required; no leftover preferences |
-| 12.3 | OS-killed in background | Long background, OS evicts | On reopen, restore proceeds via restoreSession |
+| #    | Scenario                | Steps                       | Expected result                                               |
+| ---- | ----------------------- | --------------------------- | ------------------------------------------------------------- |
+| 12.1 | Force-quit and reopen   | After every feature touched | Data persists, last route is reasonable (default = Customers) |
+| 12.2 | Clear app storage       | Wipe data                   | Fresh login required; no leftover preferences                 |
+| 12.3 | OS-killed in background | Long background, OS evicts  | On reopen, restore proceeds via restoreSession                |
 
 ## 13. Multiline text boxes must not steal the page scroll
 
 Regression cover for gotcha #78 — a multiline `TextInput` inside a scroll view used to scroll its own text instead of the page. Applies to every field built on the shared `Input` with `multiline`.
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 13.1 | Customer form notes | Open Add/Edit Customer, put a finger **on the Notes box** and drag up/down | The **sheet** scrolls; the notes box does not scroll internally |
-| 13.1b | Box that already has text (the reported bug) | Edit a customer whose Notes are 2–4 lines long, then drag starting on the Notes box — **on Android** | The sheet scrolls and the text inside does **not** shift even slightly. A few px of jiggle means the pinned height regressed |
-| 13.2 | Long note grows the box | Type/paste ~10 lines into Notes | The box grows to fit every line (no inner scrollbar, nothing clipped); the sheet scrolls to reach the buttons |
-| 13.3 | Sale form notes | Record Sale → drag starting on Notes | Sheet scrolls |
-| 13.4 | Product description | Add Product → drag starting on Description | Sheet scrolls |
-| 13.5 | Custom debt description | Add custom debt → drag starting on Description | Sheet scrolls |
-| 13.6 | Debt payment notes | Record debt payment → drag starting on Notes | Sheet scrolls |
-| 13.7 | Sale void reason | Sale detail → Void → drag starting on the reason box | Sheet scrolls |
-| 13.8 | Keyboard still lifts the field | Focus each multiline field with the keyboard open | Field stays above the keyboard; text remains fully visible while typing |
-| 13.9 | Developer import box (deliberate exception) | Settings → Developer → paste a large export, drag on the box | The BOX scrolls its own content and stays 220px tall — it must not grow the page |
-| 13.10 | Void-reason dialogs unchanged | Payment void / bulk void / skip-month sheets | Reason box behaves as before; the dialog's buttons stay on screen |
-| 13.11 | Android + iOS | Repeat 13.1 on both | Same behavior on both platforms (Android pins the height, iOS disables the inner scroll — the result must look identical) |
-| 13.12 | RTL | Arabic | Text stays top-aligned and end-anchored; scrolling behaves identically |
-| 13.13 | Growing box does not flicker | Type a long note one word at a time | The box grows line by line, no jump/flicker, caret stays visible |
-| 13.14 | Known remainder — single-line field | Give a customer a very long address, then drag starting on the **Address** box (single line) | The page may not scroll (Android keeps the drag for a horizontally scrollable field). Documented in gotcha #78, not a regression |
+| #     | Scenario                                     | Steps                                                                                                | Expected result                                                                                                                  |
+| ----- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 13.1  | Customer form notes                          | Open Add/Edit Customer, put a finger **on the Notes box** and drag up/down                           | The **sheet** scrolls; the notes box does not scroll internally                                                                  |
+| 13.1b | Box that already has text (the reported bug) | Edit a customer whose Notes are 2–4 lines long, then drag starting on the Notes box — **on Android** | The sheet scrolls and the text inside does **not** shift even slightly. A few px of jiggle means the pinned height regressed     |
+| 13.2  | Long note grows the box                      | Type/paste ~10 lines into Notes                                                                      | The box grows to fit every line (no inner scrollbar, nothing clipped); the sheet scrolls to reach the buttons                    |
+| 13.3  | Sale form notes                              | Record Sale → drag starting on Notes                                                                 | Sheet scrolls                                                                                                                    |
+| 13.4  | Product description                          | Add Product → drag starting on Description                                                           | Sheet scrolls                                                                                                                    |
+| 13.5  | Custom debt description                      | Add custom debt → drag starting on Description                                                       | Sheet scrolls                                                                                                                    |
+| 13.6  | Debt payment notes                           | Record debt payment → drag starting on Notes                                                         | Sheet scrolls                                                                                                                    |
+| 13.7  | Sale void reason                             | Sale detail → Void → drag starting on the reason box                                                 | Sheet scrolls                                                                                                                    |
+| 13.8  | Keyboard still lifts the field               | Focus each multiline field with the keyboard open                                                    | Field stays above the keyboard; text remains fully visible while typing                                                          |
+| 13.9  | Developer import box (deliberate exception)  | Settings → Developer → paste a large export, drag on the box                                         | The BOX scrolls its own content and stays 220px tall — it must not grow the page                                                 |
+| 13.10 | Void-reason dialogs unchanged                | Payment void / bulk void / skip-month sheets                                                         | Reason box behaves as before; the dialog's buttons stay on screen                                                                |
+| 13.11 | Android + iOS                                | Repeat 13.1 on both                                                                                  | Same behavior on both platforms (Android pins the height, iOS disables the inner scroll — the result must look identical)        |
+| 13.12 | RTL                                          | Arabic                                                                                               | Text stays top-aligned and end-anchored; scrolling behaves identically                                                           |
+| 13.13 | Growing box does not flicker                 | Type a long note one word at a time                                                                  | The box grows line by line, no jump/flicker, caret stays visible                                                                 |
+| 13.14 | Known remainder — single-line field          | Give a customer a very long address, then drag starting on the **Address** box (single line)         | The page may not scroll (Android keeps the drag for a horizontally scrollable field). Documented in gotcha #78, not a regression |
 
 ## 14. Typing in a field — no lost letters, no jumping caret
 
 Regression cover for gotcha #134 — the field owns the text being typed (`useTextField`), so a `value` prop arriving one render late can no longer retype the field. Run each on **both** Android and web; every field below goes through `Input`, `SearchTextBox`, `CurrencyInput` or one of the five raw `TextInput`s.
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 14.1 | Caret stays where it was put (the reported bug) | Add Customer → Name → type `acd`, tap between `a` and `c`, type `b` | Text reads `abcd` **and the caret sits right after the `b`**; typing `e` gives `abecd` |
-| 14.2 | Fast typing keeps every letter | Type a 25–30 character name as fast as possible | Every character appears, in order, no duplicates |
-| 14.3 | Backspace in the middle | Put the caret mid-word in a long address and hold Backspace | Characters disappear one by one from that spot; the caret never jumps to the end |
-| 14.4 | Select and replace | Select the middle word of Notes and type over it | Only that word is replaced; the caret lands after what was typed |
-| 14.5 | Every field of one form | Add Customer: Name, Phone, Address, Area, Location URL, Notes | All behave the same — 14.1 passes in each |
-| 14.6 | Prefill still lands | Edit an existing customer | Every field opens with the saved value |
-| 14.7 | Clear button still clears | Edit a customer with a Location URL, focus the URL field, tap the **X** | The field empties (this is the owner speaking, not an echo) |
-| 14.8 | Amount field keeps a typed decimal | Collect → type `12.` then `5` | The field shows `12.` while typing and ends at `12.5` — never snaps back to `12` |
-| 14.9 | "Full amount" chip wins over typing | Collect → type `30` in the amount, then tap the full-amount chip | The field shows the full amount |
-| 14.10 | Cap dialog wins too | Collect → type more than the bill, dismiss the "cannot exceed" banner | The field shows the maximum |
-| 14.11 | Digits-only filter | Currency form → decimals / rate; Product → initial stock | Letters are refused **as typed** (nothing appears), the caret stays put |
-| 14.12 | Stepper and typing agree | Batch restock → type `4` in a row's quantity, then tap **+** twice | The field reads `6`; typing after that continues from `6` |
-| 14.13 | Search box unchanged | Customer list search: type a name fast, then clear it | Results follow the text; no lost letters; clearing shows the full list |
-| 14.14 | Void reason boxes | Payment void / sale bulk void / skip month | Type a two-sentence reason mid-word edits included — 14.1 and 14.3 pass |
-| 14.15 | RTL | Arabic — repeat 14.1 and 14.3 in Name and Notes | Same behavior; the caret stays at the edit point |
-| 14.16 | Sheet lift still works (native) | Focus each field with the keyboard open | Field stays above the keyboard, text visible while typing |
-| 14.17 | Submit sends what is on screen | Fill a form doing mid-word edits, save, reopen | Saved values match exactly what the fields showed |
+| #     | Scenario                                        | Steps                                                                   | Expected result                                                                        |
+| ----- | ----------------------------------------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 14.1  | Caret stays where it was put (the reported bug) | Add Customer → Name → type `acd`, tap between `a` and `c`, type `b`     | Text reads `abcd` **and the caret sits right after the `b`**; typing `e` gives `abecd` |
+| 14.2  | Fast typing keeps every letter                  | Type a 25–30 character name as fast as possible                         | Every character appears, in order, no duplicates                                       |
+| 14.3  | Backspace in the middle                         | Put the caret mid-word in a long address and hold Backspace             | Characters disappear one by one from that spot; the caret never jumps to the end       |
+| 14.4  | Select and replace                              | Select the middle word of Notes and type over it                        | Only that word is replaced; the caret lands after what was typed                       |
+| 14.5  | Every field of one form                         | Add Customer: Name, Phone, Address, Area, Location URL, Notes           | All behave the same — 14.1 passes in each                                              |
+| 14.6  | Prefill still lands                             | Edit an existing customer                                               | Every field opens with the saved value                                                 |
+| 14.7  | Clear button still clears                       | Edit a customer with a Location URL, focus the URL field, tap the **X** | The field empties (this is the owner speaking, not an echo)                            |
+| 14.8  | Amount field keeps a typed decimal              | Collect → type `12.` then `5`                                           | The field shows `12.` while typing and ends at `12.5` — never snaps back to `12`       |
+| 14.9  | "Full amount" chip wins over typing             | Collect → type `30` in the amount, then tap the full-amount chip        | The field shows the full amount                                                        |
+| 14.10 | Cap dialog wins too                             | Collect → type more than the bill, dismiss the "cannot exceed" banner   | The field shows the maximum                                                            |
+| 14.11 | Digits-only filter                              | Currency form → decimals / rate; Product → initial stock                | Letters are refused **as typed** (nothing appears), the caret stays put                |
+| 14.12 | Stepper and typing agree                        | Batch restock → type `4` in a row's quantity, then tap **+** twice      | The field reads `6`; typing after that continues from `6`                              |
+| 14.13 | Search box unchanged                            | Customer list search: type a name fast, then clear it                   | Results follow the text; no lost letters; clearing shows the full list                 |
+| 14.14 | Void reason boxes                               | Payment void / sale bulk void / skip month                              | Type a two-sentence reason mid-word edits included — 14.1 and 14.3 pass                |
+| 14.15 | RTL                                             | Arabic — repeat 14.1 and 14.3 in Name and Notes                         | Same behavior; the caret stays at the edit point                                       |
+| 14.16 | Sheet lift still works (native)                 | Focus each field with the keyboard open                                 | Field stays above the keyboard, text visible while typing                              |
+| 14.17 | Submit sends what is on screen                  | Fill a form doing mid-word edits, save, reopen                          | Saved values match exactly what the fields showed                                      |

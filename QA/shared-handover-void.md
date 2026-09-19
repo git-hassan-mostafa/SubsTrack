@@ -10,6 +10,7 @@ Covers the **red warning that names the other bills a void un-pays**. Nothing ab
 - The bill the user is acting **on** is deliberately **not** listed — that outcome is already expected; listing it buries the surprise.
 
 **Reference code:**
+
 - Pure split→rows: [sharedBills.ts](SubsTrack/src/modules/ledger/utils/sharedBills.ts)
 - The banner: [SharedBillsWarning.tsx](SubsTrack/src/modules/ledger/components/SharedBillsWarning.tsx)
 - Payment void: [VoidCollectionDialog.tsx](SubsTrack/src/modules/ledger/components/VoidCollectionDialog.tsx)

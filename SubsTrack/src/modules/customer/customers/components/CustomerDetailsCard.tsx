@@ -73,11 +73,7 @@ export function CustomerDetailsCard({
         {customer.phoneNumber ? (
           <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
             <View className="flex-row items-center gap-3">
-              <Ionicons
-                name="call-outline"
-                size={16}
-                color={COLORS.gray400}
-              />
+              <Ionicons name="call-outline" size={16} color={COLORS.gray400} />
               <Text className="text-sm text-gray-500">
                 {t("customers.phone_label")}
               </Text>
@@ -243,11 +239,7 @@ export function CustomerDetailsCard({
             className="flex-row items-center justify-between px-4 py-3.5"
           >
             <View className="flex-row items-center gap-3">
-              <Ionicons
-                name="trash-outline"
-                size={16}
-                color={COLORS.danger}
-              />
+              <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
               <Text className="text-sm" style={{ color: COLORS.danger }}>
                 {t("customers.delete_label")}
               </Text>

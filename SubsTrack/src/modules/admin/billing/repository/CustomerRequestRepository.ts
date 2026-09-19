@@ -63,7 +63,7 @@ export class CustomerRequestRepository
 }
 
 const impl: ICustomerRequestRepository =
-  Platform.OS === 'web'
+  Platform.OS === "web"
     ? new CustomerRequestRepository()
     : new OfflineCustomerRequestRepository();
 

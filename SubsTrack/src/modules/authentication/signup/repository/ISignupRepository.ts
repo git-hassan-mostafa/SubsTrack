@@ -1,4 +1,4 @@
-import type { CreateTenantInput, CreateTenantResult } from '../utils/types';
+import type { CreateTenantInput, CreateTenantResult } from "../utils/types";
 
 /**
  * The Signup repository contract. Both the Supabase (online/web) class and the

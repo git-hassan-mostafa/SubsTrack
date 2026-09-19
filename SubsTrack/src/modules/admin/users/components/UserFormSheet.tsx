@@ -191,9 +191,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
         placeholder={t("users.username_placeholder")}
         autoCapitalize="none"
         onFocus={clearError}
-        error={
-          usernameInvalid ? t("users.username_invalid_chars") : undefined
-        }
+        error={usernameInvalid ? t("users.username_invalid_chars") : undefined}
       />
 
       <Input
@@ -210,9 +208,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
           <Input
             label={t("users.password_label") + " *"}
             value={form.password}
-            onChangeText={(v) =>
-              setForm((prev) => ({ ...prev, password: v }))
-            }
+            onChangeText={(v) => setForm((prev) => ({ ...prev, password: v }))}
             placeholder={t("users.password_placeholder")}
             secureTextEntry
             onFocus={clearError}
@@ -226,9 +222,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
             placeholder={t("users.confirm_password_placeholder")}
             secureTextEntry
             onFocus={clearError}
-            error={
-              passwordMismatch ? t("users.password_mismatch") : undefined
-            }
+            error={passwordMismatch ? t("users.password_mismatch") : undefined}
           />
         </>
       ) : (
@@ -291,9 +285,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
                 secureTextEntry
                 onFocus={clearError}
                 error={
-                  newPasswordMismatch
-                    ? t("users.password_mismatch")
-                    : undefined
+                  newPasswordMismatch ? t("users.password_mismatch") : undefined
                 }
               />
             </>

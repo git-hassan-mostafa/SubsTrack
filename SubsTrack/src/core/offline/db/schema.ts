@@ -8,7 +8,10 @@ const SQL_TYPE: Record<ColType, string> = {
   json: "TEXT",
 };
 
-const DIRTY_COLUMN: [string, string] = ["_dirty", "_dirty INTEGER NOT NULL DEFAULT 0"];
+const DIRTY_COLUMN: [string, string] = [
+  "_dirty",
+  "_dirty INTEGER NOT NULL DEFAULT 0",
+];
 
 /**
  * Every column of a table as `[name, SQL definition]`, in declaration order.
@@ -18,10 +21,14 @@ const DIRTY_COLUMN: [string, string] = ["_dirty", "_dirty INTEGER NOT NULL DEFAU
  * exception — it only ever ships with a freshly created table).
  */
 export function columnDefs(t: TableSpec): [string, string][] {
-  const cols: [string, string][] = Object.entries(t.columns).map(([name, type]) => [
-    name,
-    name === "id" ? "id TEXT PRIMARY KEY NOT NULL" : `${name} ${SQL_TYPE[type]}`,
-  ]);
+  const cols: [string, string][] = Object.entries(t.columns).map(
+    ([name, type]) => [
+      name,
+      name === "id"
+        ? "id TEXT PRIMARY KEY NOT NULL"
+        : `${name} ${SQL_TYPE[type]}`,
+    ],
+  );
   cols.push(DIRTY_COLUMN);
   return cols;
 }

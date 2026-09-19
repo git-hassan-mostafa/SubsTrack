@@ -11,7 +11,10 @@ export interface GrantedCounts {
 // defaults rather than the app restating them.
 export type CreateTenantPayload = Pick<DbTenant, "name" | "tenant_code"> &
   Partial<
-    Pick<DbTenant, "customer_allowance" | "plan_allowance" | "price_per_plan_usd">
+    Pick<
+      DbTenant,
+      "customer_allowance" | "plan_allowance" | "price_per_plan_usd"
+    >
   >;
 
 // true = the table carries an active flag; plans is the only one without.

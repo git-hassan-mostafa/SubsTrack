@@ -1,4 +1,4 @@
-import type { DbAppOption } from '@/src/core/types/db';
+import type { DbAppOption } from "@/src/core/types/db";
 
 /**
  * The Option repository contract. Both the Supabase (online/web) class and the

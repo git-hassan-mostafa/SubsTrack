@@ -36,11 +36,7 @@ export function RecordsSheet({
   const { t } = useTranslation();
 
   return (
-    <FormSheet
-      visible={visible}
-      onDismiss={onDismiss}
-      title={title}
-    >
+    <FormSheet visible={visible} onDismiss={onDismiss} title={title}>
       <View className="pb-8">
         <View className="flex-row items-baseline gap-2 pb-3 border-b border-gray-100">
           <Text className="text-xs text-gray-400">{t("reports.total")}</Text>
@@ -57,7 +53,9 @@ export function RecordsSheet({
         ) : (
           rows.map((row) => {
             const source = findCurrency(currencies, row.currencyId);
-            const frozen = source ? { ...source, ratePerUsd: row.ratePerUsdSnapshot } : null;
+            const frozen = source
+              ? { ...source, ratePerUsd: row.ratePerUsdSnapshot }
+              : null;
             return (
               <View
                 key={row.id}
@@ -68,7 +66,9 @@ export function RecordsSheet({
                     {row.title}
                   </Text>
                   <Text className="text-xs text-gray-400" numberOfLines={1}>
-                    {[formatDate(row.date), row.subtitle].filter(Boolean).join(" · ")}
+                    {[formatDate(row.date), row.subtitle]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </Text>
                 </View>
                 <View className="items-end">

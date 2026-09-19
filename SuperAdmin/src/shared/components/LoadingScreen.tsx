@@ -1,4 +1,4 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 interface LoadingScreenProps {
   message?: string;
@@ -14,6 +14,11 @@ export function LoadingScreen({ message }: LoadingScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5f9' },
-  message: { marginTop: 16, fontSize: 14, color: '#64748b' },
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f1f5f9",
+  },
+  message: { marginTop: 16, fontSize: 14, color: "#64748b" },
 });

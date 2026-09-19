@@ -108,7 +108,7 @@ export const createBranchSlice: StateCreator<
       if (mode === "hard") {
         set((state) => {
           state.branches.items = state.branches.items.filter(
-          (b) => b.id !== id,
+            (b) => b.id !== id,
           );
           state.branches.loading = false;
         });
@@ -142,10 +142,10 @@ export const createBranchSlice: StateCreator<
         const removed = new Set(hard);
         const softened = new Set(soft);
         state.branches.items = state.branches.items.filter(
-        (b) => !removed.has(b.id),
+          (b) => !removed.has(b.id),
         );
         for (const b of state.branches.items) {
-        if (softened.has(b.id)) b.active = false;
+          if (softened.has(b.id)) b.active = false;
         }
         state.branches.loading = false;
       });

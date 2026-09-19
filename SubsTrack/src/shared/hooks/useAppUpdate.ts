@@ -11,8 +11,7 @@ async function downloadIfAvailable(): Promise<void> {
     if (result.isAvailable || result.isRollBackToEmbedded) {
       await Updates.fetchUpdateAsync();
     }
-  } catch {
-  }
+  } catch {}
 }
 
 /**

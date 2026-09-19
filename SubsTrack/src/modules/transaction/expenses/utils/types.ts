@@ -1,5 +1,5 @@
-import type { BranchFilter } from '@/src/core/constants';
-import type { Currency, ExpenseCategory } from '@/src/core/types';
+import type { BranchFilter } from "@/src/core/constants";
+import type { Currency, ExpenseCategory } from "@/src/core/types";
 
 // Form input for a hand-typed expense. `currency` null = USD (we snapshot
 // ratePerUsd from it, mirroring DebtService / SaleService / PaymentService).

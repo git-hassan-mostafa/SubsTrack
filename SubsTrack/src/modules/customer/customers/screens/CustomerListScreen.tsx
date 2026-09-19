@@ -43,10 +43,7 @@ import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomDebtFormSheet } from "@/src/modules/transaction/debts/components/CustomDebtFormSheet";
 import { useDebtRowActions } from "@/src/modules/transaction/debts/hooks/useDebtRowActions";
-import {
-  useCollectSheet,
-  virtualMonthItem,
-} from "@/src/modules/ledger";
+import { useCollectSheet, virtualMonthItem } from "@/src/modules/ledger";
 import { getStore } from "@/src/state/globalStore";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
@@ -231,7 +228,10 @@ export function CustomerListScreen() {
     );
     await fetchCustomerStatuses(all as Customer[]);
     const state = getStore().getState();
-    return filterRef.current(state.customers.items, state.payments.customerStatuses);
+    return filterRef.current(
+      state.customers.items,
+      state.payments.customerStatuses,
+    );
   }, [fetchMoreCustomers, fetchCustomerStatuses]);
 
   const {
@@ -297,7 +297,8 @@ export function CustomerListScreen() {
       .filter((l) => !notDue.has(l.id) && !uncovered.has(l.id))
       .map((l) => {
         const price = resolveLinePrice(l);
-        const priced = price.isFixed && price.amount !== null && price.amount > 0;
+        const priced =
+          price.isFixed && price.amount !== null && price.amount > 0;
         return virtualMonthItem({
           customerId: customer.id,
           customerName: customer.name,
@@ -340,7 +341,9 @@ export function CustomerListScreen() {
     const uncovered = new Set(status?.uncoveredLineIds);
     return startedActiveLines(customer).filter(
       (l) =>
-        !resolveLinePrice(l).isFixed && !notDue.has(l.id) && !uncovered.has(l.id),
+        !resolveLinePrice(l).isFixed &&
+        !notDue.has(l.id) &&
+        !uncovered.has(l.id),
     ).length;
   }
 
@@ -388,7 +391,11 @@ export function CustomerListScreen() {
         receivedAt: new Date().toISOString(),
         receivedByUserId: user.id,
         notes: null,
-        lines: group.map((item) => ({ item, amount: item.balance, settles: true })),
+        lines: group.map((item) => ({
+          item,
+          amount: item.balance,
+          settles: true,
+        })),
       });
       if (row) created.push(row);
       else failed += 1;
@@ -400,7 +407,10 @@ export function CustomerListScreen() {
         ? customers.find((c) => c.id === customerId)
         : null;
       if (paidCustomer) {
-        void syncCustomerStatus(paidCustomer.id, paidCustomer.customerPlans ?? []);
+        void syncCustomerStatus(
+          paidCustomer.id,
+          paidCustomer.customerPlans ?? [],
+        );
       }
     }
     void fetchNetDebtByCustomer(branchFilter);
@@ -575,10 +585,7 @@ export function CustomerListScreen() {
     if (bulkBusy || selected.length === 0 || !user) return;
     const eligible = selected.filter(shouldShowQuickPay);
     const requests = eligible.flatMap(eligibleFixedLines);
-    const customCount = eligible.reduce(
-      (n, c) => n + typedLinesDueCount(c),
-      0,
-    );
+    const customCount = eligible.reduce((n, c) => n + typedLinesDueCount(c), 0);
     const multiCount = requests.filter((r) => r.durationMonths > 1).length;
 
     if (requests.length === 0) {

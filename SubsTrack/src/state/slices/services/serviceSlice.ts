@@ -1,11 +1,11 @@
-import type { StateCreator } from 'zustand';
-import type { Service } from '@/src/core/types';
+import type { StateCreator } from "zustand";
+import type { Service } from "@/src/core/types";
 import {
   serviceCatalogService,
   type ServiceInput,
-} from '@/src/modules/admin/service-catalog';
-import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import type { GlobalState } from '@/src/state/globalStore';
+} from "@/src/modules/admin/service-catalog";
+import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
+import type { GlobalState } from "@/src/state/globalStore";
 
 /**
  * The service price list. The products slice minus every stock action.
@@ -19,9 +19,12 @@ export interface ServiceSlice {
   error: string | null;
   getServices: () => Promise<void>;
   fetchServices: () => Promise<void>;
-  createService: (data: ServiceInput, tenantId: string) => Promise<Service | null>;
+  createService: (
+    data: ServiceInput,
+    tenantId: string,
+  ) => Promise<Service | null>;
   updateService: (id: string, data: ServiceInput) => Promise<Service | null>;
-  deleteService: (id: string) => Promise<'hard' | 'soft' | null>;
+  deleteService: (id: string) => Promise<"hard" | "soft" | null>;
   bulkDeleteServices: (ids: string[]) => Promise<boolean>;
   reactivateService: (id: string) => Promise<void>;
   clearError: () => void;
@@ -30,7 +33,7 @@ export interface ServiceSlice {
 
 export const createServiceSlice: StateCreator<
   GlobalState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   ServiceSlice
 > = (set, get) => ({
@@ -117,8 +120,10 @@ export const createServiceSlice: StateCreator<
     try {
       const mode = await serviceCatalogService.deleteService(id);
       set((state) => {
-        if (mode === 'hard') {
-          state.services.items = state.services.items.filter((s) => s.id !== id);
+        if (mode === "hard") {
+          state.services.items = state.services.items.filter(
+            (s) => s.id !== id,
+          );
         } else {
           const i = state.services.items.findIndex((s) => s.id === id);
           if (i !== -1) state.services.items[i].active = false;
@@ -142,11 +147,14 @@ export const createServiceSlice: StateCreator<
       state.services.error = null;
     });
     try {
-      const { hard, soft } = await serviceCatalogService.deleteManyServices(ids);
+      const { hard, soft } =
+        await serviceCatalogService.deleteManyServices(ids);
       set((state) => {
         const removed = new Set(hard);
         const softened = new Set(soft);
-        state.services.items = state.services.items.filter((s) => !removed.has(s.id));
+        state.services.items = state.services.items.filter(
+          (s) => !removed.has(s.id),
+        );
         for (const s of state.services.items) {
           if (softened.has(s.id)) s.active = false;
         }

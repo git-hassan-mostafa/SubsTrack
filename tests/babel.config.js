@@ -2,7 +2,7 @@
 // spawning native tool binaries, so babel is the only pipeline that runs here.
 module.exports = {
   presets: [
-    ['@babel/preset-env', { targets: { node: 'current' } }],
-    ['@babel/preset-typescript', { isTSX: true, allExtensions: true }],
+    ["@babel/preset-env", { targets: { node: "current" } }],
+    ["@babel/preset-typescript", { isTSX: true, allExtensions: true }],
   ],
 };

@@ -28,7 +28,13 @@ export function buildGridsFor(
   for (const line of lines) {
     const lineBills = bills.filter((b) => b.charge.customerPlanId === line.id);
     const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
-    grids[line.id] = paymentService.buildMonthGrid(line, lineBills, lineSkips, year, unpaidRule);
+    grids[line.id] = paymentService.buildMonthGrid(
+      line,
+      lineBills,
+      lineSkips,
+      year,
+      unpaidRule,
+    );
     uncoveredMonths[line.id] = paymentService.uncoveredBillingMonths(
       line,
       lineBills,

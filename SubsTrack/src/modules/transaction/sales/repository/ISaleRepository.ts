@@ -1,16 +1,16 @@
-import type { BranchFilter } from '@/src/core/constants';
-import type { DbSale, DbSaleItem } from '@/src/core/types/db';
-import type { CreateStockMovementPayload } from '@/src/modules/admin/products';
+import type { BranchFilter } from "@/src/core/constants";
+import type { DbSale, DbSaleItem } from "@/src/core/types/db";
+import type { CreateStockMovementPayload } from "@/src/modules/admin/products";
 import type {
   CreateChargePayload,
   UpdateChargePayload,
-} from '@/src/modules/ledger/repository/IChargeRepository';
-import type { FindSalesOptions } from '../utils/types';
+} from "@/src/modules/ledger/repository/IChargeRepository";
+import type { FindSalesOptions } from "../utils/types";
 
 // The bill a sale raises, minus the one column the repository fills in — the
 // sale's id, which does not exist until the header is inserted. Exactly the
 // same contract as `sale_id` on an item or a movement.
-export type SaleChargePayload = Omit<CreateChargePayload, 'sale_id'>;
+export type SaleChargePayload = Omit<CreateChargePayload, "sale_id">;
 
 // One line of the sale to create — product or service. `sale_id` is filled in by
 // the repository, and a line is never born voided. Built by
@@ -18,7 +18,13 @@ export type SaleChargePayload = Omit<CreateChargePayload, 'sale_id'>;
 // line sets.
 export type CreateSaleItemPayload = Omit<
   DbSaleItem,
-  'id' | 'sale_id' | 'voided_at' | 'created_at' | 'updated_at' | 'products' | 'services'
+  | "id"
+  | "sale_id"
+  | "voided_at"
+  | "created_at"
+  | "updated_at"
+  | "products"
+  | "services"
 >;
 
 // Sale header to create + its lines + the stock decrements they cause.
@@ -30,17 +36,17 @@ export type CreateSaleItemPayload = Omit<
 // labour comes off no shelf.
 export type CreateSalePayload = Omit<
   DbSale,
-  | 'id'
-  | 'created_at'
-  | 'updated_at'
-  | 'voided_at'
-  | 'voided_by'
-  | 'void_reason'
-  | 'sale_items'
-  | 'customers'
+  | "id"
+  | "created_at"
+  | "updated_at"
+  | "voided_at"
+  | "voided_by"
+  | "void_reason"
+  | "sale_items"
+  | "customers"
 > & {
   items: CreateSaleItemPayload[];
-  movements: Omit<CreateStockMovementPayload, 'sale_id'>[];
+  movements: Omit<CreateStockMovementPayload, "sale_id">[];
   charge: SaleChargePayload;
 };
 
@@ -55,16 +61,16 @@ export type CreateSalePayload = Omit<
 // history with a void + re-add pair.
 export type UpdateSalePayload = Pick<
   DbSale,
-  | 'branch_id'
-  | 'items_summary'
-  | 'customer_id'
-  | 'total_amount'
-  | 'currency_id'
-  | 'rate_per_usd_snapshot'
-  | 'notes'
+  | "branch_id"
+  | "items_summary"
+  | "customer_id"
+  | "total_amount"
+  | "currency_id"
+  | "rate_per_usd_snapshot"
+  | "notes"
 > & {
   items: CreateSaleItemPayload[];
-  movements: Omit<CreateStockMovementPayload, 'sale_id'>[] | null;
+  movements: Omit<CreateStockMovementPayload, "sale_id">[] | null;
   charge: UpdateChargePayload;
   actorUserId: string | null;
 };

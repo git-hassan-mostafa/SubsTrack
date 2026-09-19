@@ -3,11 +3,12 @@
 Covers role-based navigation, the Admin landing screen, tab visibility, the action menus across list screens, and routing edge cases. Multi-tenancy isolation has its own file ([multi-tenancy.md](multi-tenancy.md)).
 
 **Reference code:**
-- Tabs layout: [_layout.tsx (tabs)](SubsTrack/app/(app)/(tabs)/_layout.tsx)
-- App layout (gates auth/tenant): [_layout.tsx (app)](SubsTrack/app/(app)/_layout.tsx)
+
+- Tabs layout: [_layout.tsx (tabs)](<SubsTrack/app/(app)/(tabs)/_layout.tsx>)
+- App layout (gates auth/tenant): [_layout.tsx (app)](<SubsTrack/app/(app)/_layout.tsx>)
 - Root layout (session/locale init): [_layout.tsx (root)](SubsTrack/app/_layout.tsx)
-- Admin index: [admin/index.tsx](SubsTrack/app/(app)/(tabs)/admin/index.tsx)
-- Admin layout: [admin/_layout.tsx](SubsTrack/app/(app)/(tabs)/admin/_layout.tsx)
+- Admin index: [admin/index.tsx](<SubsTrack/app/(app)/(tabs)/admin/index.tsx>)
+- Admin layout: [admin/_layout.tsx](<SubsTrack/app/(app)/(tabs)/admin/_layout.tsx>)
 - Admin sub-routes: dashboard, plans, users, branches, currencies, tenant-settings
 - useAuth hook: [useAuth.ts](SubsTrack/src/modules/auth/hooks/useAuth.ts)
 - ActionMenu (cross-screen): [ActionMenu.tsx](SubsTrack/src/shared/components/ActionMenu.tsx)
@@ -19,174 +20,174 @@ Covers role-based navigation, the Admin landing screen, tab visibility, the acti
 
 `isAdmin` = role is `admin` OR `superadmin`.
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 1.1 | Admin sees six tabs | Login as admin | Tabs: Home, Customers, Transactions, Reports, Admin, Settings |
-| 1.2 | User sees three tabs | Login as user | Tabs: Customers, Transactions, Settings (Home / Reports / Admin hidden via `href: null`) |
-| 1.3 | Superadmin sees admin tab | Login as superadmin | Same as admin |
-| 1.4 | Tab order on RTL | Switch to Arabic | Order is reversed visually; Home should still be the first tab logically |
-| 1.5 | Tab icons | Look at icons | home / people-outline / swap-horizontal-outline / stats-chart-outline / shield-outline / settings-outline |
-| 1.7 | Settings is a tab, not a header button | Any screen | No gear icon in the header — only the branch chip and the 3-dot menu; Settings is reached from the tab bar |
-| 1.8 | Six tabs still fit | Login as admin on a small phone, English and Arabic | Every icon and the selected label fit on one line; no clipping or overlap |
-| 1.6 | Tab label translation | Switch language | Labels render in the active language |
+| #   | Scenario                               | Steps                                               | Expected result                                                                                            |
+| --- | -------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 1.1 | Admin sees six tabs                    | Login as admin                                      | Tabs: Home, Customers, Transactions, Reports, Admin, Settings                                              |
+| 1.2 | User sees three tabs                   | Login as user                                       | Tabs: Customers, Transactions, Settings (Home / Reports / Admin hidden via `href: null`)                   |
+| 1.3 | Superadmin sees admin tab              | Login as superadmin                                 | Same as admin                                                                                              |
+| 1.4 | Tab order on RTL                       | Switch to Arabic                                    | Order is reversed visually; Home should still be the first tab logically                                   |
+| 1.5 | Tab icons                              | Look at icons                                       | home / people-outline / swap-horizontal-outline / stats-chart-outline / shield-outline / settings-outline  |
+| 1.7 | Settings is a tab, not a header button | Any screen                                          | No gear icon in the header — only the branch chip and the 3-dot menu; Settings is reached from the tab bar |
+| 1.8 | Six tabs still fit                     | Login as admin on a small phone, English and Arabic | Every icon and the selected label fit on one line; no clipping or overlap                                  |
+| 1.6 | Tab label translation                  | Switch language                                     | Labels render in the active language                                                                       |
 
 ## 2. Initial route after login
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 2.1 | After login | Successful login | Redirected to `/(app)/(tabs)/customers` regardless of role |
-| 2.2 | Already authenticated landing | Cold start with valid session | Routed to `/(app)/(tabs)/customers` |
-| 2.3 | Role change mid-session | Admin changes user's role | Session does not refresh — logout-or-relaunch required for tab visibility to update |
+| #   | Scenario                      | Steps                         | Expected result                                                                     |
+| --- | ----------------------------- | ----------------------------- | ----------------------------------------------------------------------------------- |
+| 2.1 | After login                   | Successful login              | Redirected to `/(app)/(tabs)/customers` regardless of role                          |
+| 2.2 | Already authenticated landing | Cold start with valid session | Routed to `/(app)/(tabs)/customers`                                                 |
+| 2.3 | Role change mid-session       | Admin changes user's role     | Session does not refresh — logout-or-relaunch required for tab visibility to update |
 
 ## 3. Admin landing screen
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 3.1 | Render | Tap Admin tab | Title "Admin", subtitle "Manage your organization" |
-| 3.2 | Compact stats card | Top of screen | Cells: Collected (display currency), Unpaid, Customers |
-| 3.3 | Loading on first open | First open with no metrics | ActivityIndicator inside Collected cell |
-| 3.4 | Refresh on focus | Switch tabs and back | Metrics refresh |
-| 3.5 | Manage menu items | Look at the list | Rows for: Dashboard, Tenant Settings, Branches (if multi-branch), Currencies, Plans, Staff. Each with relevant count subtitle |
-| 3.6 | Tap Dashboard | Pushes Dashboard screen |
-| 3.7 | Tap Tenant Settings | Pushes Tenant Settings screen |
-| 3.8 | Tap Branches | Pushes Branches list (if multi-branch UI is on, else verify entry point) |
-| 3.9 | Tap Currencies | Pushes Currencies list |
-| 3.10 | Tap Plans | Pushes Plans list |
-| 3.11 | Tap Staff | Pushes Staff list |
-| 3.12 | Back navigation | Inside any sub-screen, tap back | Returns to Admin landing |
+| #    | Scenario              | Steps                                                                    | Expected result                                                                                                               |
+| ---- | --------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| 3.1  | Render                | Tap Admin tab                                                            | Title "Admin", subtitle "Manage your organization"                                                                            |
+| 3.2  | Compact stats card    | Top of screen                                                            | Cells: Collected (display currency), Unpaid, Customers                                                                        |
+| 3.3  | Loading on first open | First open with no metrics                                               | ActivityIndicator inside Collected cell                                                                                       |
+| 3.4  | Refresh on focus      | Switch tabs and back                                                     | Metrics refresh                                                                                                               |
+| 3.5  | Manage menu items     | Look at the list                                                         | Rows for: Dashboard, Tenant Settings, Branches (if multi-branch), Currencies, Plans, Staff. Each with relevant count subtitle |
+| 3.6  | Tap Dashboard         | Pushes Dashboard screen                                                  |
+| 3.7  | Tap Tenant Settings   | Pushes Tenant Settings screen                                            |
+| 3.8  | Tap Branches          | Pushes Branches list (if multi-branch UI is on, else verify entry point) |
+| 3.9  | Tap Currencies        | Pushes Currencies list                                                   |
+| 3.10 | Tap Plans             | Pushes Plans list                                                        |
+| 3.11 | Tap Staff             | Pushes Staff list                                                        |
+| 3.12 | Back navigation       | Inside any sub-screen, tap back                                          | Returns to Admin landing                                                                                                      |
 
 ## 4. Auth gating
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 4.1 | Unauthenticated to /(app) deeplink | Open `/(app)/(tabs)/customers` while logged out | Redirected to `/(auth)/login` |
-| 4.2 | Authenticated to /(auth) deeplink | Open `/(auth)/login` while logged in | Redirected to `/(app)/(tabs)/customers` |
-| 4.3 | Inactive tenant to any /(app) route | Login when tenant inactive | TenantInactiveScreen shown |
-| 4.4 | Restoring session | Cold start | LoadingScreen until restore completes |
+| #   | Scenario                            | Steps                                           | Expected result                         |
+| --- | ----------------------------------- | ----------------------------------------------- | --------------------------------------- |
+| 4.1 | Unauthenticated to /(app) deeplink  | Open `/(app)/(tabs)/customers` while logged out | Redirected to `/(auth)/login`           |
+| 4.2 | Authenticated to /(auth) deeplink   | Open `/(auth)/login` while logged in            | Redirected to `/(app)/(tabs)/customers` |
+| 4.3 | Inactive tenant to any /(app) route | Login when tenant inactive                      | TenantInactiveScreen shown              |
+| 4.4 | Restoring session                   | Cold start                                      | LoadingScreen until restore completes   |
 
 ## 5. Stack navigation inside Admin
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 5.1 | Pushed screens hide native header | All admin sub-screens use `headerShown: false` | Each renders its own header |
-| 5.2 | Hardware back on Android | Press back on Plans/Users/Dashboard/Branches/Currencies | Returns to Admin landing |
-| 5.3 | Swipe back on iOS | Swipe right edge | Same |
-| 5.4 | Deep navigation | Admin → Plans → tap plan to edit (modal) → cancel → back | Returns to Plans, not Admin landing |
-| 5.5 | State retention | Open Plans, scroll, navigate to Users, back | Plans scroll position retained |
+| #   | Scenario                          | Steps                                                    | Expected result                     |
+| --- | --------------------------------- | -------------------------------------------------------- | ----------------------------------- |
+| 5.1 | Pushed screens hide native header | All admin sub-screens use `headerShown: false`           | Each renders its own header         |
+| 5.2 | Hardware back on Android          | Press back on Plans/Users/Dashboard/Branches/Currencies  | Returns to Admin landing            |
+| 5.3 | Swipe back on iOS                 | Swipe right edge                                         | Same                                |
+| 5.4 | Deep navigation                   | Admin → Plans → tap plan to edit (modal) → cancel → back | Returns to Plans, not Admin landing |
+| 5.5 | State retention                   | Open Plans, scroll, navigate to Users, back              | Plans scroll position retained      |
 
 ## 6. Routing edge cases
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 6.1 | Unknown deep link | `/some/unknown/path` | Expo Router fallback — verify reasonable UX |
-| 6.2 | Logout during admin route | While on Plans, logout from Settings | Redirected to login; admin stack discarded |
-| 6.3 | Re-open after backgrounding on Plans | App in background, return | Plans screen still rendered with cached data |
-| 6.4 | Session expiry during admin work | Token expires while on Plans | Next API call surfaces error; on refresh user is bounced to login |
-| 6.5 | QuickPay deeplink | Navigate to `/customers/[id]?quickPay=1` | If logged in: detail screen opens + auto-fires the collect sheet. If logged out: redirect to login |
+| #   | Scenario                             | Steps                                    | Expected result                                                                                    |
+| --- | ------------------------------------ | ---------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 6.1 | Unknown deep link                    | `/some/unknown/path`                     | Expo Router fallback — verify reasonable UX                                                        |
+| 6.2 | Logout during admin route            | While on Plans, logout from Settings     | Redirected to login; admin stack discarded                                                         |
+| 6.3 | Re-open after backgrounding on Plans | App in background, return                | Plans screen still rendered with cached data                                                       |
+| 6.4 | Session expiry during admin work     | Token expires while on Plans             | Next API call surfaces error; on refresh user is bounced to login                                  |
+| 6.5 | QuickPay deeplink                    | Navigate to `/customers/[id]?quickPay=1` | If logged in: detail screen opens + auto-fires the collect sheet. If logged out: redirect to login |
 
 ## 6b. Refreshed / deep-linked nested page (web) — the tab-root anchor
 
 Each tab's `_layout.tsx` exports `unstable_settings = { anchor: "index" }`, so landing directly on a nested URL still places the tab's list screen underneath it. Without it the stack held one route and both the tab icon and Back were dead. Run every row **on web after a browser refresh** (native is covered by 5.2/5.3), then repeat 6b.1 on Android to confirm nothing regressed.
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 6b.1 | Active tab icon returns to the list | Customers → open a customer → **refresh the browser** → tap the Customers tab icon | Navigates to the customers list; URL becomes `/customers` |
-| 6b.2 | In-screen Back after refresh | Same, but press the screen's own back arrow | Returns to the customers list, not out of the app |
-| 6b.3 | Browser Back after refresh | Same, but press the browser's Back button | Leaves the customer detail without exiting the app |
-| 6b.4 | Deeper nested page | Open a customer's Sales page → refresh → tap the Customers tab icon | Lands on the customers list (pops the whole stack, not one level) |
-| 6b.5 | Admin sub-screen | Admin → Plans → refresh → tap the Admin tab icon | Lands on the Admin hub |
-| 6b.6 | Settings sub-screen | Settings → My Wallet → refresh → tap the Settings tab icon | Lands on the Settings screen |
-| 6b.7 | Switching to another tab still works | After refresh on a customer detail, tap the Transactions tab | Opens Transactions normally |
-| 6b.8 | Returning to the tab keeps its root | After 6b.1, tap Transactions then Customers again | Customers list shown, not the old detail page |
-| 6b.9 | Already at a tab root | On the customers list, tap the Customers tab icon | Nothing happens; no error, no flicker |
-| 6b.10 | Android unchanged | Repeat 6b.1 and 6b.4 on Android (no refresh — navigate normally) | Same as before the change: tab icon returns to the list |
+| #     | Scenario                             | Steps                                                                              | Expected result                                                   |
+| ----- | ------------------------------------ | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 6b.1  | Active tab icon returns to the list  | Customers → open a customer → **refresh the browser** → tap the Customers tab icon | Navigates to the customers list; URL becomes `/customers`         |
+| 6b.2  | In-screen Back after refresh         | Same, but press the screen's own back arrow                                        | Returns to the customers list, not out of the app                 |
+| 6b.3  | Browser Back after refresh           | Same, but press the browser's Back button                                          | Leaves the customer detail without exiting the app                |
+| 6b.4  | Deeper nested page                   | Open a customer's Sales page → refresh → tap the Customers tab icon                | Lands on the customers list (pops the whole stack, not one level) |
+| 6b.5  | Admin sub-screen                     | Admin → Plans → refresh → tap the Admin tab icon                                   | Lands on the Admin hub                                            |
+| 6b.6  | Settings sub-screen                  | Settings → My Wallet → refresh → tap the Settings tab icon                         | Lands on the Settings screen                                      |
+| 6b.7  | Switching to another tab still works | After refresh on a customer detail, tap the Transactions tab                       | Opens Transactions normally                                       |
+| 6b.8  | Returning to the tab keeps its root  | After 6b.1, tap Transactions then Customers again                                  | Customers list shown, not the old detail page                     |
+| 6b.9  | Already at a tab root                | On the customers list, tap the Customers tab icon                                  | Nothing happens; no error, no flicker                             |
+| 6b.10 | Android unchanged                    | Repeat 6b.1 and 6b.4 on Android (no refresh — navigate normally)                   | Same as before the change: tab icon returns to the list           |
 
 ## 6c. Back follows the visit history, not the tab order
 
 `app/(app)/(tabs)/_layout.tsx` sets `backBehavior="history"`. React Navigation's default (`firstRoute`) sent Back from **any** tab to the first tab (Home), no matter where the user came from. Run each row on Android with the hardware/gesture Back, then repeat with the screen's own back arrow where one exists.
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 6c.1 | Back returns to the previous tab | Home → Customers tab → Transactions tab → Back | Customers tab (was: Home) |
-| 6c.2 | Three tabs deep | Home → Customers → Transactions → Reports → Back, Back | Transactions, then Customers |
-| 6c.3 | Settings from a non-Home tab | Customers → Settings tab → Back | Customers list (was: Home) |
-| 6c.4 | Settings keeps the tab's stack position | Customers → open a customer → Settings tab → Back | The same customer detail page, not the customers list |
-| 6c.5 | Settings sub-page | Transactions → Settings tab → My Wallet → Back, Back | Settings, then Transactions |
-| 6c.6 | Stack pop still wins over tab history | Admin → Plans → Back | Admin hub (unchanged — the stack pops first) |
-| 6c.7 | Cross-tab jump into a nested page | Transactions → Expenses → a stock row → "Open product" → Back, Back | Products' parent (Admin hub), then Transactions |
-| 6c.8 | Non-admin never lands on the dashboard | Log in as `user` (Home/Reports/Admin tabs hidden) → Customers → Settings tab → Back | Customers list — the admin-only dashboard must never appear |
-| 6c.9 | Revisiting a tab does not stack up | Home → Customers → Home → Customers → Back | Home once, then Back exits the app (duplicates are collapsed) |
-| 6c.10 | Back at the entry tab exits | Fresh login → Back immediately | App exits (Android) — no navigation loop |
-| 6c.11 | Web browser Back | Repeat 6c.1 and 6c.3 on web with the browser's Back button | Same destinations as native |
-| 6c.12 | Anchor behaviour unchanged | Re-run every row of §6b | Unchanged |
+| #     | Scenario                                | Steps                                                                               | Expected result                                               |
+| ----- | --------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| 6c.1  | Back returns to the previous tab        | Home → Customers tab → Transactions tab → Back                                      | Customers tab (was: Home)                                     |
+| 6c.2  | Three tabs deep                         | Home → Customers → Transactions → Reports → Back, Back                              | Transactions, then Customers                                  |
+| 6c.3  | Settings from a non-Home tab            | Customers → Settings tab → Back                                                     | Customers list (was: Home)                                    |
+| 6c.4  | Settings keeps the tab's stack position | Customers → open a customer → Settings tab → Back                                   | The same customer detail page, not the customers list         |
+| 6c.5  | Settings sub-page                       | Transactions → Settings tab → My Wallet → Back, Back                                | Settings, then Transactions                                   |
+| 6c.6  | Stack pop still wins over tab history   | Admin → Plans → Back                                                                | Admin hub (unchanged — the stack pops first)                  |
+| 6c.7  | Cross-tab jump into a nested page       | Transactions → Expenses → a stock row → "Open product" → Back, Back                 | Products' parent (Admin hub), then Transactions               |
+| 6c.8  | Non-admin never lands on the dashboard  | Log in as `user` (Home/Reports/Admin tabs hidden) → Customers → Settings tab → Back | Customers list — the admin-only dashboard must never appear   |
+| 6c.9  | Revisiting a tab does not stack up      | Home → Customers → Home → Customers → Back                                          | Home once, then Back exits the app (duplicates are collapsed) |
+| 6c.10 | Back at the entry tab exits             | Fresh login → Back immediately                                                      | App exits (Android) — no navigation loop                      |
+| 6c.11 | Web browser Back                        | Repeat 6c.1 and 6c.3 on web with the browser's Back button                          | Same destinations as native                                   |
+| 6c.12 | Anchor behaviour unchanged              | Re-run every row of §6b                                                             | Unchanged                                                     |
 
 ## 7. Action menu (cross-screen pattern)
 
 `ActionMenu` is reused on Customers, Users, Plans, Branches, Currencies cards. Opened via tap on the ⋮ icon or long-press on the card.
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 7.1 | Open via ⋮ | Tap the icon | Modal sheet opens with the entity's name/title and a list of actions |
-| 7.2 | Open via long-press | Long-press the card | Same as 7.1 |
-| 7.3 | Dismiss | Tap outside / hardware back | Sheet closes without action |
-| 7.4 | Destructive actions styling | Look at Delete / Deactivate items | Red icon + text |
-| 7.5 | Item ordering | Look at list | Constructive actions first (Pay Now, Edit), state toggles next (Activate/Deactivate), destructive last (Delete) |
-| 7.6 | Per-context items | See individual feature files | Customer menu / User menu / Plan menu / Branch menu / Currency menu each have their own item sets — see feature files |
-| 7.7 | Loading state per row | Tap a Quick Pay action that fires async work | Card's ⋮ icon shows a spinner while in-flight (see [customers.md § 8.11](customers.md)) |
-| 7.8 | Disabled actions | If any action is contextually invalid | Verify display (greyed out or excluded) |
+| #   | Scenario                    | Steps                                        | Expected result                                                                                                       |
+| --- | --------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 7.1 | Open via ⋮                  | Tap the icon                                 | Modal sheet opens with the entity's name/title and a list of actions                                                  |
+| 7.2 | Open via long-press         | Long-press the card                          | Same as 7.1                                                                                                           |
+| 7.3 | Dismiss                     | Tap outside / hardware back                  | Sheet closes without action                                                                                           |
+| 7.4 | Destructive actions styling | Look at Delete / Deactivate items            | Red icon + text                                                                                                       |
+| 7.5 | Item ordering               | Look at list                                 | Constructive actions first (Pay Now, Edit), state toggles next (Activate/Deactivate), destructive last (Delete)       |
+| 7.6 | Per-context items           | See individual feature files                 | Customer menu / User menu / Plan menu / Branch menu / Currency menu each have their own item sets — see feature files |
+| 7.7 | Loading state per row       | Tap a Quick Pay action that fires async work | Card's ⋮ icon shows a spinner while in-flight (see [customers.md § 8.11](customers.md))                               |
+| 7.8 | Disabled actions            | If any action is contextually invalid        | Verify display (greyed out or excluded)                                                                               |
 
 ## 8. Touch feedback
 
 App standardized on `PressableOpacity` for tappable elements (per recent `feat: touchable opacity` commit). Cards, menus, list items, buttons all darken/fade on press.
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 8.1 | Card touch feedback | Tap a customer/plan/user card | Card has visible opacity-down feedback on press |
-| 8.2 | Button touch feedback | Tap any primary button | Same |
-| 8.3 | Menu item touch feedback | Tap menu rows | Same |
-| 8.4 | RTL touch | Switch to Arabic | Same feedback behavior in RTL |
+| #   | Scenario                 | Steps                         | Expected result                                 |
+| --- | ------------------------ | ----------------------------- | ----------------------------------------------- |
+| 8.1 | Card touch feedback      | Tap a customer/plan/user card | Card has visible opacity-down feedback on press |
+| 8.2 | Button touch feedback    | Tap any primary button        | Same                                            |
+| 8.3 | Menu item touch feedback | Tap menu rows                 | Same                                            |
+| 8.4 | RTL touch                | Switch to Arabic              | Same feedback behavior in RTL                   |
 
 ## 9. Required-field asterisks
 
 Per recent enhancement (`enhancement: add astrisk to required fields`), every form labels required fields with "*".
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 9.1 | Customer form | Open Add Customer | Name and Branch labels show "*" (there is no customer Start Date field) |
-| 9.2 | Plan form | Open Add Plan | Name and Price labels show "*" (Price hidden when Custom Pricing toggled on) |
-| 9.3 | User form | Open Add Staff | Full Name, Username, Password, Confirm Password labels show "*". Branch label shows "*" when branch is required |
-| 9.4 | Currency form | Open Add Currency | Code, Name, Symbol, Rate, Decimals labels show "*" |
-| 9.5 | Branch form | Open Add Branch | Name label shows "*" |
-| 9.6 | Payment form | Open Pay Form | Amount field is implicitly required (resolved by scenario) — verify whether labels show "*" |
+| #   | Scenario      | Steps             | Expected result                                                                                                 |
+| --- | ------------- | ----------------- | --------------------------------------------------------------------------------------------------------------- |
+| 9.1 | Customer form | Open Add Customer | Name and Branch labels show "*" (there is no customer Start Date field)                                         |
+| 9.2 | Plan form     | Open Add Plan     | Name and Price labels show "*" (Price hidden when Custom Pricing toggled on)                                    |
+| 9.3 | User form     | Open Add Staff    | Full Name, Username, Password, Confirm Password labels show "_". Branch label shows "_" when branch is required |
+| 9.4 | Currency form | Open Add Currency | Code, Name, Symbol, Rate, Decimals labels show "*"                                                              |
+| 9.5 | Branch form   | Open Add Branch   | Name label shows "*"                                                                                            |
+| 9.6 | Payment form  | Open Pay Form     | Amount field is implicitly required (resolved by scenario) — verify whether labels show "*"                     |
 
 ## 10. Permissions matrix (high level)
 
-| Module / route | Admin | Superadmin | User |
-|----------------|-------|------------|------|
-| Customers list / detail | ✓ | ✓ | ✓ |
-| Customer create | ✓ | ✓ | ✓ |
-| Customer edit | ✓ | ✓ | ✓ |
-| Customer deactivate / delete | ✓ | ✓ | ✗ |
-| Quick Pay | ✓ | ✓ | ✓ |
-| Payments record / edit | ✓ | ✓ | ✓ |
-| Payments void | ✓ | ✓ | ⚠ verify gate |
-| Plans CRUD | ✓ | ✓ | ✗ (tab hidden) |
-| Users (Staff) CRUD | ✓ | ✓ | ✗ |
-| User delete | Only `user`-role accounts | All | ✗ |
-| Branches CRUD | ✓ | ✓ | ✗ |
-| Currencies CRUD | ✓ | ✓ | ✗ |
-| Tenant Settings (display currency, unpaid rule) | ✓ | ✓ | ✗ — admin tab hidden; the settings written here are tenant-wide, so a `user` sees the result but cannot change it |
-| Dashboard | ✓ | ✓ | ✗ |
-| Settings (user prefs) | ✓ | ✓ | ✓ |
+| Module / route                                  | Admin                     | Superadmin | User                                                                                                              |
+| ----------------------------------------------- | ------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------- |
+| Customers list / detail                         | ✓                         | ✓          | ✓                                                                                                                 |
+| Customer create                                 | ✓                         | ✓          | ✓                                                                                                                 |
+| Customer edit                                   | ✓                         | ✓          | ✓                                                                                                                 |
+| Customer deactivate / delete                    | ✓                         | ✓          | ✗                                                                                                                 |
+| Quick Pay                                       | ✓                         | ✓          | ✓                                                                                                                 |
+| Payments record / edit                          | ✓                         | ✓          | ✓                                                                                                                 |
+| Payments void                                   | ✓                         | ✓          | ⚠ verify gate                                                                                                     |
+| Plans CRUD                                      | ✓                         | ✓          | ✗ (tab hidden)                                                                                                    |
+| Users (Staff) CRUD                              | ✓                         | ✓          | ✗                                                                                                                 |
+| User delete                                     | Only `user`-role accounts | All        | ✗                                                                                                                 |
+| Branches CRUD                                   | ✓                         | ✓          | ✗                                                                                                                 |
+| Currencies CRUD                                 | ✓                         | ✓          | ✗                                                                                                                 |
+| Tenant Settings (display currency, unpaid rule) | ✓                         | ✓          | ✗ — admin tab hidden; the settings written here are tenant-wide, so a `user` sees the result but cannot change it |
+| Dashboard                                       | ✓                         | ✓          | ✗                                                                                                                 |
+| Settings (user prefs)                           | ✓                         | ✓          | ✓                                                                                                                 |
 
 ## 11. Internationalization (cross-cutting)
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 11.1 | All visible strings translated | English then Arabic | Every label maps to a translation. File any English-only string |
-| 11.2 | Hardcoded strings | Spot-check screens | File any remaining hardcoded English |
-| 11.3 | RTL flipping | Arabic | Layouts flip; logical paddings (`me-`, `ms-`) used throughout |
-| 11.4 | Cairo font | Arabic | Cairo applied via `Text.defaultProps` |
-| 11.5 | Number formatting | Numbers / currencies | Formatted per active locale (USD via en-US default; LBP / EUR via Intl) |
-| 11.6 | Date formatting | All date displays | Locale-aware (see `getDateLocale`) |
-| 11.7 | RTL chevrons in multi-month grid | Arabic | Direction-aware via `DirectionalIcon` |
+| #    | Scenario                         | Steps                | Expected result                                                         |
+| ---- | -------------------------------- | -------------------- | ----------------------------------------------------------------------- |
+| 11.1 | All visible strings translated   | English then Arabic  | Every label maps to a translation. File any English-only string         |
+| 11.2 | Hardcoded strings                | Spot-check screens   | File any remaining hardcoded English                                    |
+| 11.3 | RTL flipping                     | Arabic               | Layouts flip; logical paddings (`me-`, `ms-`) used throughout           |
+| 11.4 | Cairo font                       | Arabic               | Cairo applied via `Text.defaultProps`                                   |
+| 11.5 | Number formatting                | Numbers / currencies | Formatted per active locale (USD via en-US default; LBP / EUR via Intl) |
+| 11.6 | Date formatting                  | All date displays    | Locale-aware (see `getDateLocale`)                                      |
+| 11.7 | RTL chevrons in multi-month grid | Arabic               | Direction-aware via `DirectionalIcon`                                   |

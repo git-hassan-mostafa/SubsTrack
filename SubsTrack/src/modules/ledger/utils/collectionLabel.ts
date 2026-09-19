@@ -1,4 +1,4 @@
-import type { CollectionListItem } from '@/src/core/types';
+import type { CollectionListItem } from "@/src/core/types";
 
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
@@ -12,12 +12,14 @@ const NAMED = 2;
  * the list read, so naming them costs nothing.
  */
 export function collectionLabel(
-  item: Pick<CollectionListItem, 'itemLabels'>,
+  item: Pick<CollectionListItem, "itemLabels">,
   t: TFn,
 ): string {
   const labels = item.itemLabels.filter((l) => l.length > 0);
-  if (labels.length === 0) return t('ledger.payment');
-  const named = labels.slice(0, NAMED).join(', ');
+  if (labels.length === 0) return t("ledger.payment");
+  const named = labels.slice(0, NAMED).join(", ");
   const rest = labels.length - NAMED;
-  return rest > 0 ? `${named} ${t('ledger.plus_more', { count: rest })}` : named;
+  return rest > 0
+    ? `${named} ${t("ledger.plus_more", { count: rest })}`
+    : named;
 }

@@ -1,17 +1,17 @@
-import { isolate } from '@/src/core/utils/bidi';
+import { isolate } from "@/src/core/utils/bidi";
 
 export interface SentencePart {
   text: string;
   bold: boolean;
 }
 
-const OPEN = '\uE000';
-const CLOSE = '\uE001';
+const OPEN = "\uE000";
+const CLOSE = "\uE001";
 const MARKERS = /[\uE000\uE001]/g;
 
 // Bold survives translation as a marker pair, not <Trans> — see gotcha #132.
 export function bold(value: string): string {
-  return `${OPEN}${isolate(value.replace(MARKERS, ''))}${CLOSE}`;
+  return `${OPEN}${isolate(value.replace(MARKERS, ""))}${CLOSE}`;
 }
 
 /** Splits an interpolated sentence into runs; an unclosed marker runs to the end. */
@@ -31,7 +31,7 @@ export function toParts(sentence: string): SentencePart[] {
     const after = rest.slice(open + 1);
     const close = after.indexOf(CLOSE);
     if (close === -1) {
-      parts.push({ text: after.replace(MARKERS, ''), bold: true });
+      parts.push({ text: after.replace(MARKERS, ""), bold: true });
       break;
     }
     parts.push({ text: after.slice(0, close), bold: true });

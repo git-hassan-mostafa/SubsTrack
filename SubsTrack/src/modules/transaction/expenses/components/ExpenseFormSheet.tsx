@@ -49,7 +49,9 @@ export function ExpenseFormSheet({ onDismiss, onCreated }: Props) {
   const [currencyId, setCurrencyId] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [day, setDay] = useState(today());
-  const [branchId, setBranchId] = useState<string | null>(user?.branchId ?? null);
+  const [branchId, setBranchId] = useState<string | null>(
+    user?.branchId ?? null,
+  );
 
   const dirty = useDirtyForm({ category, amount, description, day, branchId });
 
@@ -83,7 +85,11 @@ export function ExpenseFormSheet({ onDismiss, onCreated }: Props) {
   const submitDisabled = amount == null || amount <= 0 || loading;
 
   return (
-    <FormSheet onDismiss={onDismiss} dirty={dirty} title={t("expenses.add_title")}>
+    <FormSheet
+      onDismiss={onDismiss}
+      dirty={dirty}
+      title={t("expenses.add_title")}
+    >
       {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
       <Dropdown<ExpenseCategory>

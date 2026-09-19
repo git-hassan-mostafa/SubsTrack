@@ -62,7 +62,10 @@ async function pushTable(db: SQLiteDatabase, table: string): Promise<void> {
   );
   if (raw.length === 0) return;
 
-  const groups = new Map<string, { id: string; row: Record<string, unknown> }[]>();
+  const groups = new Map<
+    string,
+    { id: string; row: Record<string, unknown> }[]
+  >();
   for (const r of raw) {
     const row = stripForPush(table, decodeRow(table, r));
     const entry = { id: r.id as string, row };

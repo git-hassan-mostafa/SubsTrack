@@ -299,10 +299,7 @@ export function SaleDetailSheet({
 
       {/* Detail rows card */}
       <View className={`${CARD_SURFACE} overflow-hidden mb-4`}>
-        <Row
-          label={t("sales.sold_at_label")}
-          value={formatDate(sale.soldAt)}
-        />
+        <Row label={t("sales.sold_at_label")} value={formatDate(sale.soldAt)} />
         <Row
           label={t("sales.receipt_id_label")}
           value={receiptId(sale.id)}

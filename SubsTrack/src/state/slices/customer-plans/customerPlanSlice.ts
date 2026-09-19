@@ -1,11 +1,11 @@
-import type { StateCreator } from 'zustand';
+import type { StateCreator } from "zustand";
 import {
   customerPlanService,
   type LineDraft,
   type RemovedLine,
-} from '@/src/modules/customer/customer-plans';
-import { QuotaExceededError } from '@/src/modules/admin/billing/utils/quotaError';
-import type { GlobalState } from '@/src/state/globalStore';
+} from "@/src/modules/customer/customer-plans";
+import { QuotaExceededError } from "@/src/modules/admin/billing/utils/quotaError";
+import type { GlobalState } from "@/src/state/globalStore";
 
 // Thin slice for the customer form's inline Plans editor. Service lines are the
 // source of truth on the Customer object (joined via customer_plans), so a sync
@@ -29,7 +29,7 @@ export interface CustomerPlanSlice {
 
 export const createCustomerPlanSlice: StateCreator<
   GlobalState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   CustomerPlanSlice
 > = (set, get) => ({
@@ -62,8 +62,7 @@ export const createCustomerPlanSlice: StateCreator<
       const reactivatedSet = new Set(reactivated);
       const removedSet = new Set(removed.map((r) => r.id));
       const keptCancelled = existing.filter(
-        (l) =>
-          !l.active && !reactivatedSet.has(l.id) && !removedSet.has(l.id),
+        (l) => !l.active && !reactivatedSet.has(l.id) && !removedSet.has(l.id),
       );
       get().customers.setCustomerLines(customerId, [
         ...active,
@@ -88,7 +87,8 @@ export const createCustomerPlanSlice: StateCreator<
 
   hasPayments: (lineId) => customerPlanService.hasPayments(lineId),
 
-  getPaidLineIds: (customerId) => customerPlanService.getPaidLineIds(customerId),
+  getPaidLineIds: (customerId) =>
+    customerPlanService.getPaidLineIds(customerId),
 
   clearError: () =>
     set((state) => {

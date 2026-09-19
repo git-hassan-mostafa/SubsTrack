@@ -34,6 +34,8 @@ export class SignupRepository implements ISignupRepository {
 }
 
 const impl: ISignupRepository =
-  Platform.OS === "web" ? new SignupRepository() : new OfflineSignupRepository();
+  Platform.OS === "web"
+    ? new SignupRepository()
+    : new OfflineSignupRepository();
 
 export default impl;

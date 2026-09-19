@@ -1,10 +1,11 @@
-import { IS_OFFLINE_CAPABLE } from '../offline/platform';
-import { getDb } from '../offline/db/sqlite';
-import { insertDirty } from '../offline/db/dml';
-import { newId, nowIso } from '../offline/ids';
-import type { getStore as GetStore } from '@/src/state/globalStore';
+import { IS_OFFLINE_CAPABLE } from "../offline/platform";
+import { getDb } from "../offline/db/sqlite";
+import { insertDirty } from "../offline/db/dml";
+import { newId, nowIso } from "../offline/ids";
+import type { getStore as GetStore } from "@/src/state/globalStore";
 
-export type ExceptionSource = 'boundary' | 'global_handler' | 'repository' | 'service';
+export type ExceptionSource =
+  "boundary" | "global_handler" | "repository" | "service";
 
 interface LogExceptionInput {
   source: ExceptionSource;
@@ -29,7 +30,9 @@ export async function logException(input: LogExceptionInput): Promise<void> {
   if (!IS_OFFLINE_CAPABLE) return;
 
   try {
-    const { getStore } = require('@/src/state/globalStore') as { getStore: typeof GetStore };
+    const { getStore } = require("@/src/state/globalStore") as {
+      getStore: typeof GetStore;
+    };
     const user = getStore().getState().auth.user;
     const row = {
       id: newId(),
@@ -44,8 +47,8 @@ export async function logException(input: LogExceptionInput): Promise<void> {
       created_at: nowIso(),
       updated_at: nowIso(),
     };
-    await insertDirty(getDb(), 'exception_logs', row);
+    await insertDirty(getDb(), "exception_logs", row);
   } catch (loggingError) {
-    console.error('[errorLogger] failed to log exception:', loggingError);
+    console.error("[errorLogger] failed to log exception:", loggingError);
   }
 }

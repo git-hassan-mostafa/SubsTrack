@@ -1,6 +1,5 @@
 import type { CustomerPlan, Plan } from "@/src/core/types";
 
-
 /** Where a line's amount comes from. "typed" = nothing remembered, staff must enter it. */
 export type LinePriceKind = "special" | "plan" | "typed";
 
@@ -13,7 +12,10 @@ export interface LinePrice {
 }
 
 /** Structural, so an unsaved editor ROW resolves the same way a saved line does. */
-export type PricedLine = Pick<CustomerPlan, "customPrice" | "customCurrencyId"> & {
+export type PricedLine = Pick<
+  CustomerPlan,
+  "customPrice" | "customCurrencyId"
+> & {
   plan?: Plan | null;
 };
 
@@ -42,5 +44,11 @@ export function resolveLinePrice(line: PricedLine): LinePrice {
     };
   }
 
-  return { amount: null, currencyId: null, durationMonths, isFixed: false, kind: "typed" };
+  return {
+    amount: null,
+    currencyId: null,
+    durationMonths,
+    isFixed: false,
+    kind: "typed",
+  };
 }

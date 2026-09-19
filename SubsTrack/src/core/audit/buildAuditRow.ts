@@ -1,8 +1,8 @@
-import type { AuditAction, AuditTable } from '@/src/core/types';
-import type { DbAuditLog } from '@/src/core/types/db';
-import { newId, nowIso } from '../offline/ids';
-import type { getStore as GetStore } from '@/src/state/globalStore';
-import { describeAudit } from './describe';
+import type { AuditAction, AuditTable } from "@/src/core/types";
+import type { DbAuditLog } from "@/src/core/types/db";
+import { newId, nowIso } from "../offline/ids";
+import type { getStore as GetStore } from "@/src/state/globalStore";
+import { describeAudit } from "./describe";
 
 /**
  * Any `Db*` row. Deliberately NOT `Record<string, unknown>`: a plain interface has
@@ -22,22 +22,22 @@ export interface AuditInput {
   customerId?: string | null;
 }
 
-const IGNORED_FIELDS = new Set(['updated_at', 'balance']);
+const IGNORED_FIELDS = new Set(["updated_at", "balance"]);
 
 // Identity columns carried into after_data even when unchanged — see gotcha #132.
 const CONTEXT_FIELDS: Partial<Record<AuditTable, string[]>> = {
-  charges: ['billing_month', 'kind', 'description', 'currency_id', 'plan_id'],
-  collections: ['amount', 'currency_id', 'kind', 'plan_id'],
-  plans: ['name', 'currency_id'],
-  products: ['name', 'currency_id'],
-  services: ['name'],
-  users: ['full_name'],
-  branches: ['name'],
-  currencies: ['code'],
-  customer_requests: ['requested_count', 'status'],
-  skipped_months: ['billing_month', 'skipped'],
-  customer_plans: ['plan_id'],
-  tenant_settings: ['key'],
+  charges: ["billing_month", "kind", "description", "currency_id", "plan_id"],
+  collections: ["amount", "currency_id", "kind", "plan_id"],
+  plans: ["name", "currency_id"],
+  products: ["name", "currency_id"],
+  services: ["name"],
+  users: ["full_name"],
+  branches: ["name"],
+  currencies: ["code"],
+  customer_requests: ["requested_count", "status"],
+  skipped_months: ["billing_month", "skipped"],
+  customer_plans: ["plan_id"],
+  tenant_settings: ["key"],
 };
 
 /**
@@ -50,11 +50,13 @@ const CONTEXT_FIELDS: Partial<Record<AuditTable, string[]>> = {
  * An audit row describes ONE table's own columns; a child's change gets its own
  * entry from its own repository. So anything non-scalar is not this row's business.
  */
-function ownColumns(row: Record<string, unknown> | null): Record<string, unknown> | null {
+function ownColumns(
+  row: Record<string, unknown> | null,
+): Record<string, unknown> | null {
   if (!row) return null;
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(row)) {
-    if (v !== null && typeof v === 'object') continue;
+    if (v !== null && typeof v === "object") continue;
     out[k] = v;
   }
   return out;
@@ -62,20 +64,21 @@ function ownColumns(row: Record<string, unknown> | null): Record<string, unknown
 
 /** NULL, undefined and '' are all "no value" as far as the trail is concerned. */
 function isBlank(v: unknown): boolean {
-  return v === null || v === undefined || v === '';
+  return v === null || v === undefined || v === "";
 }
 
 /** A row's own `name`, for the one table whose record IS the subject (customers). */
 function subjectOfRow(row: Record<string, unknown> | null): string | null {
   const name = row?.name;
-  return typeof name === 'string' && name !== '' ? name : null;
+  return typeof name === "string" && name !== "" ? name : null;
 }
 
 /** Shallow value compare — enough for the flat scalar rows the mirror stores. */
 function sameValue(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (isBlank(a) && isBlank(b)) return true;
-  if (typeof a === 'object' || typeof b === 'object') return JSON.stringify(a) === JSON.stringify(b);
+  if (typeof a === "object" || typeof b === "object")
+    return JSON.stringify(a) === JSON.stringify(b);
   return false;
 }
 
@@ -94,12 +97,18 @@ function sameValue(a: unknown, b: unknown): boolean {
  * initialization". Same reason and same shape as errorLogger.ts.
  */
 export function buildAuditRow(input: AuditInput): DbAuditLog | null {
-  const { getStore } = require('@/src/state/globalStore') as { getStore: typeof GetStore };
+  const { getStore } = require("@/src/state/globalStore") as {
+    getStore: typeof GetStore;
+  };
   const user = getStore().getState().auth.user;
   if (!user?.tenantId) return null;
 
-  const before = ownColumns((input.before ?? null) as Record<string, unknown> | null);
-  const after = ownColumns((input.after ?? null) as Record<string, unknown> | null);
+  const before = ownColumns(
+    (input.before ?? null) as Record<string, unknown> | null,
+  );
+  const after = ownColumns(
+    (input.after ?? null) as Record<string, unknown> | null,
+  );
 
   let changed: string[] | null = null;
   let beforeData: Record<string, unknown> | null = null;
@@ -145,8 +154,10 @@ export function buildAuditRow(input: AuditInput): DbAuditLog | null {
     after_data: afterData,
     changed,
     label: input.label ?? describeAudit(input.table, row),
-    subject: input.subject ?? (input.table === 'customers' ? subjectOfRow(row) : null),
-    subject_id: input.customerId ?? (input.table === 'customers' ? input.recordId : null),
+    subject:
+      input.subject ?? (input.table === "customers" ? subjectOfRow(row) : null),
+    subject_id:
+      input.customerId ?? (input.table === "customers" ? input.recordId : null),
     actor_user_id: user.id,
     actor_username: user.username,
     occurred_at: now,

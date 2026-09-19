@@ -71,7 +71,9 @@ export function EntityCard({
           }`}
         >
           {renderIcon ??
-            (icon ? <Ionicons name={icon} size={18} color={iconColor} /> : null)}
+            (icon ? (
+              <Ionicons name={icon} size={18} color={iconColor} />
+            ) : null)}
         </View>
       )}
 

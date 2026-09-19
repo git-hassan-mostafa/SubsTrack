@@ -1,5 +1,9 @@
-import type { Charge, Collection, CollectionItem } from '@/src/core/types';
-import type { DbCharge, DbCollection, DbCollectionItem } from '@/src/core/types/db';
+import type { Charge, Collection, CollectionItem } from "@/src/core/types";
+import type {
+  DbCharge,
+  DbCollection,
+  DbCollectionItem,
+} from "@/src/core/types/db";
 
 export function mapDbChargeToCharge(row: DbCharge): Charge {
   return {
@@ -32,7 +36,9 @@ export function mapDbChargeToCharge(row: DbCharge): Charge {
   };
 }
 
-export function mapDbCollectionItemToCollectionItem(row: DbCollectionItem): CollectionItem {
+export function mapDbCollectionItemToCollectionItem(
+  row: DbCollectionItem,
+): CollectionItem {
   return {
     id: row.id,
     tenantId: row.tenant_id,

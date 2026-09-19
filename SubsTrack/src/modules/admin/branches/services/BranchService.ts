@@ -1,9 +1,8 @@
-import type { Branch } from '@/src/core/types';
-import i18n from '@/src/core/i18n';
-import repository from '../repository/BranchRepository';
-import { mapDbBranchToBranch } from '../utils/mapper';
-import { BranchInput } from '../utils/types';
-
+import type { Branch } from "@/src/core/types";
+import i18n from "@/src/core/i18n";
+import repository from "../repository/BranchRepository";
+import { mapDbBranchToBranch } from "../utils/mapper";
+import { BranchInput } from "../utils/types";
 
 class BranchService {
   async getBranches(): Promise<Branch[]> {
@@ -35,18 +34,18 @@ class BranchService {
     }
   }
 
-  async deleteBranch(id: string): Promise<'hard' | 'soft'> {
+  async deleteBranch(id: string): Promise<"hard" | "soft"> {
     const activeCount = await repository.countActive();
     if (activeCount <= 1) {
-      throw new Error(i18n.t('errors.branch_last_active'));
+      throw new Error(i18n.t("errors.branch_last_active"));
     }
     const refs = await repository.countReferences(id);
     if (refs > 0) {
       await repository.update(id, { active: false });
-      return 'soft';
+      return "soft";
     }
     await repository.delete(id);
-    return 'hard';
+    return "hard";
   }
 
   async reactivateBranch(id: string): Promise<Branch> {
@@ -63,7 +62,7 @@ class BranchService {
       repository.countActiveAmong(ids),
     ]);
     if (activeCount - activeSelected < 1) {
-      throw new Error(i18n.t('errors.branch_last_active'));
+      throw new Error(i18n.t("errors.branch_last_active"));
     }
     const referenced = await repository.referencedIds(ids);
     const soft = ids.filter((id) => referenced.has(id));
@@ -76,19 +75,22 @@ class BranchService {
   }
 
   private validate(data: BranchInput): BranchInput {
-    const name = (data.name ?? '').trim();
-    if (!name) throw new Error(i18n.t('errors.branch_name_required'));
-    if (name.length > 60) throw new Error(i18n.t('errors.branch_name_too_long'));
+    const name = (data.name ?? "").trim();
+    if (!name) throw new Error(i18n.t("errors.branch_name_required"));
+    if (name.length > 60)
+      throw new Error(i18n.t("errors.branch_name_too_long"));
     return { name };
   }
 
   private rethrow(err: unknown): never {
-    const msg = err instanceof Error ? err.message : '';
-    if (msg.includes('uq_branches_name_tenant') || msg.includes('duplicate')) {
-      throw new Error(i18n.t('errors.branch_name_exists'));
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("uq_branches_name_tenant") || msg.includes("duplicate")) {
+      throw new Error(i18n.t("errors.branch_name_exists"));
     }
-    throw err instanceof Error ? err : new Error(i18n.t('errors.connection_error'));
+    throw err instanceof Error
+      ? err
+      : new Error(i18n.t("errors.connection_error"));
   }
 }
 
-export default new BranchService()
+export default new BranchService();

@@ -1,11 +1,13 @@
-import { useGlobalStore } from '@/src/state/hooks/useGlobalStore';
-import type { TenantSettingSlice } from '@/src/state/slices/tenantSettings/tenantSettingSlice';
-import type { UnpaidStartRule } from '@/src/core/types';
-import tenantSettingService from '@/src/modules/admin/tenant-settings/services/TenantSettingService';
-import { TENANT_SETTING_KEYS } from '@/src/modules/admin/tenant-settings/utils/constants';
+import { useGlobalStore } from "@/src/state/hooks/useGlobalStore";
+import type { TenantSettingSlice } from "@/src/state/slices/tenantSettings/tenantSettingSlice";
+import type { UnpaidStartRule } from "@/src/core/types";
+import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
+import { TENANT_SETTING_KEYS } from "@/src/modules/admin/tenant-settings/utils/constants";
 
 export function useTenantSettingSlice(): TenantSettingSlice;
-export function useTenantSettingSlice<T>(selector: (state: TenantSettingSlice) => T): T;
+export function useTenantSettingSlice<T>(
+  selector: (state: TenantSettingSlice) => T,
+): T;
 export function useTenantSettingSlice<T = TenantSettingSlice>(
   selector?: (state: TenantSettingSlice) => T,
 ): T {
@@ -15,11 +17,12 @@ export function useTenantSettingSlice<T = TenantSettingSlice>(
   });
 }
 
-
 /** Raw string value of a tenant setting, or `null` if unset. */
 export const useTenantSettingValue = (key: string): string | null =>
   useTenantSettingSlice(
-    (s) => s.items.find((x) => x.key.toLowerCase() === key.toLowerCase())?.value ?? null,
+    (s) =>
+      s.items.find((x) => x.key.toLowerCase() === key.toLowerCase())?.value ??
+      null,
   );
 
 /** The tenant's unpaid rule; falls back to the app default when unset. */

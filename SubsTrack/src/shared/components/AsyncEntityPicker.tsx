@@ -94,9 +94,7 @@ export function AsyncEntityPicker<T>({
         >
           <Text
             fontWeight="Medium"
-            className={`text-sm ${
-              isActive ? "text-primary" : "text-gray-500"
-            }`}
+            className={`text-sm ${isActive ? "text-primary" : "text-gray-500"}`}
             numberOfLines={1}
           >
             {displayLabel ?? placeholder ?? t("common.input_search")}
@@ -269,10 +267,7 @@ function AsyncPickerModal<T>({
   return (
     <BottomSheetScaffold visible onDismiss={handleClose} scrollable>
       <SheetDragArea className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
-        <Text
-          fontWeight="SemiBold"
-          className="text-base text-gray-900"
-        >
+        <Text fontWeight="SemiBold" className="text-base text-gray-900">
           {title}
         </Text>
         <PressableOpacity onPress={handleClose}>

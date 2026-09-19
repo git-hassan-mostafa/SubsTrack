@@ -50,10 +50,14 @@ export function PeriodPicker({ value, onChange }: Props) {
               key={preset}
               onPress={() => pick(preset)}
               className={`px-3 py-1.5 rounded-full border ${
-                active ? "bg-primary border-primary" : "bg-white border-gray-200"
+                active
+                  ? "bg-primary border-primary"
+                  : "bg-white border-gray-200"
               }`}
             >
-              <Text className={`text-xs ${active ? "text-white" : "text-gray-600"}`}>
+              <Text
+                className={`text-xs ${active ? "text-white" : "text-gray-600"}`}
+              >
                 {t(`reports.period_${preset}`)}
               </Text>
             </PressableOpacity>
@@ -68,7 +72,13 @@ export function PeriodPicker({ value, onChange }: Props) {
               value={value.fromDate}
               maxDate={value.toDate}
               triggerStyle="chip"
-              onChange={(from) => onChange({ preset: "custom", fromDate: from, toDate: value.toDate })}
+              onChange={(from) =>
+                onChange({
+                  preset: "custom",
+                  fromDate: from,
+                  toDate: value.toDate,
+                })
+              }
             />
           </View>
           <Text className="text-xs text-gray-400">→</Text>
@@ -77,7 +87,13 @@ export function PeriodPicker({ value, onChange }: Props) {
               value={value.toDate}
               minDate={value.fromDate}
               triggerStyle="chip"
-              onChange={(to) => onChange({ preset: "custom", fromDate: value.fromDate, toDate: to })}
+              onChange={(to) =>
+                onChange({
+                  preset: "custom",
+                  fromDate: value.fromDate,
+                  toDate: to,
+                })
+              }
             />
           </View>
         </View>

@@ -12,5 +12,5 @@ import { useActiveBranches } from "./useActiveBranches";
  * in one place.
  */
 export function useIsMultiBranchActive(): boolean {
-    return useActiveBranches().length > 1;
+  return useActiveBranches().length > 1;
 }

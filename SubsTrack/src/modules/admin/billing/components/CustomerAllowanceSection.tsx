@@ -66,7 +66,11 @@ export function CustomerAllowanceSection() {
         {t("billing.section_title")}
       </Text>
 
-      <UsageBar kind="customers" used={active.customers} total={limits.customers} />
+      <UsageBar
+        kind="customers"
+        used={active.customers}
+        total={limits.customers}
+      />
 
       <View className="mt-4 pt-4 border-t border-gray-100">
         <UsageBar kind="plans" used={active.plans} total={limits.plans} />
@@ -122,7 +126,10 @@ export function CustomerAllowanceSection() {
         <>
           {declined ? (
             <View className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mt-4">
-              <Text fontWeight="SemiBold" className="text-sm text-red-800 mb-0.5">
+              <Text
+                fontWeight="SemiBold"
+                className="text-sm text-red-800 mb-0.5"
+              >
                 {t("billing.declined_title")}
               </Text>
               <Text className="text-xs text-red-700">

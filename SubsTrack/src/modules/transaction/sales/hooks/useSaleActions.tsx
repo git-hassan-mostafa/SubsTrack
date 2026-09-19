@@ -153,7 +153,9 @@ export function useSaleActions({
       if (sales.length === 0) return;
       setVoidTarget({
         saleIds: sales.map((s) => s.id),
-        chargeIds: sales.map((s) => s.chargeId).filter((id): id is string => !!id),
+        chargeIds: sales
+          .map((s) => s.chargeId)
+          .filter((id): id is string => !!id),
       });
     },
     sheets: (

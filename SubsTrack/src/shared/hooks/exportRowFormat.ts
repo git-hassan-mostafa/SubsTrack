@@ -69,10 +69,17 @@ export function cell(value: unknown): CsvValue {
   return scalar(value);
 }
 
-function walk(value: unknown, prefix: string, out: ExportRow, depth: number): void {
+function walk(
+  value: unknown,
+  prefix: string,
+  out: ExportRow,
+  depth: number,
+): void {
   if (Array.isArray(value)) {
     const parts = value
-      .map((item) => (isRecord(item) ? nameOf(item) || namesIn(item) : scalar(item)))
+      .map((item) =>
+        isRecord(item) ? nameOf(item) || namesIn(item) : scalar(item),
+      )
       .filter((s) => s !== "");
     if (parts.length > 0) out[prefix] = parts.join(", ");
     return;

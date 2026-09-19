@@ -1,24 +1,24 @@
-import type { Charge, Sale, SaleItem } from '@/src/core/types';
-import type { BranchFilter } from '@/src/core/constants';
-import i18n from '@/src/core/i18n';
-import { newId, nowIso } from '@/src/core/offline/ids';
-import { localMonthKey } from '@/src/core/utils/date';
-import repository from '../repository/SaleRepository';
-import chargeRepository from '@/src/modules/ledger/repository/ChargeRepository';
-import collectionRepository from '@/src/modules/ledger/repository/CollectionRepository';
-import { chargeService } from '@/src/modules/ledger/services/ChargeService';
-import { collectionService } from '@/src/modules/ledger/services/CollectionService';
-import { mapDbChargeToCharge } from '@/src/modules/ledger/utils/mapper';
-import { openItemFromCharge } from '@/src/modules/ledger/utils/openItems';
-import productService from '@/src/modules/admin/products/services/ProductService';
+import type { Charge, Sale, SaleItem } from "@/src/core/types";
+import type { BranchFilter } from "@/src/core/constants";
+import i18n from "@/src/core/i18n";
+import { newId, nowIso } from "@/src/core/offline/ids";
+import { localMonthKey } from "@/src/core/utils/date";
+import repository from "../repository/SaleRepository";
+import chargeRepository from "@/src/modules/ledger/repository/ChargeRepository";
+import collectionRepository from "@/src/modules/ledger/repository/CollectionRepository";
+import { chargeService } from "@/src/modules/ledger/services/ChargeService";
+import { collectionService } from "@/src/modules/ledger/services/CollectionService";
+import { mapDbChargeToCharge } from "@/src/modules/ledger/utils/mapper";
+import { openItemFromCharge } from "@/src/modules/ledger/utils/openItems";
+import productService from "@/src/modules/admin/products/services/ProductService";
 import {
   CreateSaleInput,
   CreateSaleItemInput,
   UpdateSaleInput,
   type FindSalesOptions,
-} from '../utils/types'
-import type { SaleChargePayload } from '../repository/ISaleRepository';
-import { mapDbSaleToSale } from '../utils/mapper';
+} from "../utils/types";
+import type { SaleChargePayload } from "../repository/ISaleRepository";
+import { mapDbSaleToSale } from "../utils/mapper";
 import {
   cartUnits,
   lineName,
@@ -27,7 +27,7 @@ import {
   savedUnits,
   toItemPayload,
   type ProductLineInput,
-} from '../utils/saleLines';
+} from "../utils/saleLines";
 
 // Frozen human summary of everything in a sale, e.g. "Water ×2, Installation".
 // Contains every line's name — products and services alike — so the Sales-tab
@@ -35,14 +35,14 @@ import {
 // never shows a count (it is always one job), so it prints as a bare name. A
 // sale with no lines is a bare typed total, so it falls back to a generic word.
 function buildItemsSummary(items: CreateSaleItemInput[]): string {
-  if (items.length === 0) return i18n.t('sales.no_items_summary');
+  if (items.length === 0) return i18n.t("sales.no_items_summary");
   return items
     .map((it) => {
       const name = lineName(it);
       const qty = lineQuantity(it);
       return qty > 1 ? `${name} ×${qty}` : name;
     })
-    .join(', ');
+    .join(", ");
 }
 
 // Only the DEFAULT total — never what a sale is billed for (gotcha #142).
@@ -99,7 +99,9 @@ class SaleService {
 
   private async withMoney(sales: Sale[]): Promise<Sale[]> {
     if (sales.length === 0) return sales;
-    const charges = await chargeRepository.findBySaleIds(sales.map((s) => s.id));
+    const charges = await chargeRepository.findBySaleIds(
+      sales.map((s) => s.id),
+    );
     if (charges.length === 0) return sales;
     const bySale = new Map(charges.map((c) => [c.sale_id!, c]));
     const paid = await this.paidByCharge(charges.map((c) => c.id));
@@ -115,7 +117,9 @@ class SaleService {
     });
   }
 
-  private async paidByCharge(chargeIds: string[]): Promise<Map<string, number>> {
+  private async paidByCharge(
+    chargeIds: string[],
+  ): Promise<Map<string, number>> {
     const balances = await chargeRepository.balances(chargeIds);
     return new Map(balances.map((b) => [b.id, b.paid]));
   }
@@ -123,7 +127,7 @@ class SaleService {
   private async chargeIdOf(sale: Sale): Promise<string> {
     if (sale.chargeId) return sale.chargeId;
     const charge = await chargeRepository.findBySaleId(sale.id);
-    if (!charge) throw new Error(i18n.t('errors.collect_unknown_item'));
+    if (!charge) throw new Error(i18n.t("errors.collect_unknown_item"));
     return charge.id;
   }
 
@@ -132,11 +136,11 @@ class SaleService {
     await this.assertStockAvailable(productLines(input.items));
     const ratePerUsdSnapshot = input.currency?.ratePerUsd ?? 1;
     if (!(ratePerUsdSnapshot > 0)) {
-      throw new Error(i18n.t('errors.rate_snapshot_positive'));
+      throw new Error(i18n.t("errors.rate_snapshot_positive"));
     }
     const total = totalOf(input);
     if (!input.customerId && input.amountPaid + 1e-9 < total) {
-      throw new Error(i18n.t('errors.sale_walkin_must_be_paid'));
+      throw new Error(i18n.t("errors.sale_walkin_must_be_paid"));
     }
     const soldAt = nowIso();
     const chargeId = newId();
@@ -146,7 +150,7 @@ class SaleService {
       tenant_id: input.tenantId,
       branch_id: input.branchId,
       customer_id: input.customerId,
-      kind: 'sale',
+      kind: "sale",
       customer_plan_id: null,
       billing_month: null,
       duration_months: 1,
@@ -174,9 +178,15 @@ class SaleService {
       charge: chargePayload,
       items: input.items.map((it) => toItemPayload(it, input.tenantId)),
       movements: productLines(input.items).map((it) =>
-        productService.movement(input.tenantId, it.product.id, -it.quantity, 'sale', {
-          userId: input.recordedByUserId,
-        }),
+        productService.movement(
+          input.tenantId,
+          it.product.id,
+          -it.quantity,
+          "sale",
+          {
+            userId: input.recordedByUserId,
+          },
+        ),
       ),
     });
 
@@ -213,7 +223,7 @@ class SaleService {
   // `collectedTotal` is absolute, and lowering it rebuilds the cash — gotcha #111.
   async updateSale(sale: Sale, input: UpdateSaleInput): Promise<Sale> {
     if (sale.voidedAt !== null) {
-      throw new Error(i18n.t('errors.sale_voided_not_editable'));
+      throw new Error(i18n.t("errors.sale_voided_not_editable"));
     }
     this.validate(input);
     await this.assertStockAvailable(
@@ -222,29 +232,34 @@ class SaleService {
     );
     const ratePerUsdSnapshot = input.currency?.ratePerUsd ?? 1;
     if (!(ratePerUsdSnapshot > 0)) {
-      throw new Error(i18n.t('errors.rate_snapshot_positive'));
+      throw new Error(i18n.t("errors.rate_snapshot_positive"));
     }
     const total = totalOf(input);
     const nextCurrencyId = input.currency?.id ?? null;
     const collected = input.collectedTotal ?? sale.amountPaid;
-    if (!Number.isFinite(collected) || collected < 0 || collected > total + EPSILON) {
-      throw new Error(i18n.t('errors.sale_amount_paid_invalid'));
+    if (
+      !Number.isFinite(collected) ||
+      collected < 0 ||
+      collected > total + EPSILON
+    ) {
+      throw new Error(i18n.t("errors.sale_amount_paid_invalid"));
     }
     if (!input.customerId && collected + EPSILON < total) {
-      throw new Error(i18n.t('errors.sale_walkin_must_be_paid'));
+      throw new Error(i18n.t("errors.sale_walkin_must_be_paid"));
     }
     const rebuild =
       sale.amountPaid > 0 &&
-      (collected + EPSILON < sale.amountPaid || nextCurrencyId !== sale.currencyId);
+      (collected + EPSILON < sale.amountPaid ||
+        nextCurrencyId !== sale.currencyId);
     if (rebuild && !input.actorUserId) {
-      throw new Error(i18n.t('errors.sale_edit_actor_required'));
+      throw new Error(i18n.t("errors.sale_edit_actor_required"));
     }
     const unpaid = rebuild
       ? await collectionService.unpayCharge(
-        await this.chargeIdOf(sale),
-        input.actorUserId!,
-        i18n.t('sales.void_reason_edited'),
-      )
+          await this.chargeIdOf(sale),
+          input.actorUserId!,
+          i18n.t("sales.void_reason_edited"),
+        )
       : null;
     const row = await repository.update(sale.id, {
       branch_id: input.branchId,
@@ -263,10 +278,16 @@ class SaleService {
       movements: this.sameStockFootprint(sale.items, input.items)
         ? null
         : productLines(input.items).map((it) =>
-          productService.movement(sale.tenantId, it.product.id, -it.quantity, 'sale', {
-            userId: input.actorUserId,
-          }),
-        ),
+            productService.movement(
+              sale.tenantId,
+              it.product.id,
+              -it.quantity,
+              "sale",
+              {
+                userId: input.actorUserId,
+              },
+            ),
+          ),
       actorUserId: input.actorUserId,
     });
 
@@ -274,7 +295,7 @@ class SaleService {
     const takeNow = collected - alreadyOn;
     if (takeNow > EPSILON) {
       const charge = await chargeRepository.findBySaleId(sale.id);
-      if (!charge) throw new Error(i18n.t('errors.collect_unknown_item'));
+      if (!charge) throw new Error(i18n.t("errors.collect_unknown_item"));
       await collectionService.collect({
         tenantId: sale.tenantId,
         customerId: input.customerId,
@@ -303,11 +324,17 @@ class SaleService {
     return updated;
   }
 
-  countInRange(startIso: string, endExclusiveIso: string, branchFilter: BranchFilter = null) {
+  countInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ) {
     return repository.countInRange(startIso, endExclusiveIso, branchFilter);
   }
 
-  async getMonthlyTotals(opts: FindSalesOptions = {}): Promise<Record<string, number>> {
+  async getMonthlyTotals(
+    opts: FindSalesOptions = {},
+  ): Promise<Record<string, number>> {
     const rows = await repository.monthlyTotals(opts);
     const totals: Record<string, number> = {};
     for (const r of rows) {
@@ -352,16 +379,22 @@ class SaleService {
   ): Promise<void> {
     const charges = await chargeRepository.findBySaleIds(saleIds);
     if (charges.length === 0) return;
-    const paymentIds = await chargeService.paymentIdsForCharges(charges.map((c) => c.id));
+    const paymentIds = await chargeService.paymentIdsForCharges(
+      charges.map((c) => c.id),
+    );
     if (paymentIds.length === 0) return;
     await collectionRepository.voidMany(paymentIds, voidedBy, reason || null);
   }
 
-  private sameStockFootprint(before: SaleItem[], after: CreateSaleItemInput[]): boolean {
+  private sameStockFootprint(
+    before: SaleItem[],
+    after: CreateSaleItemInput[],
+  ): boolean {
     const was = savedUnits(before);
     const now = cartUnits(after);
     if (was.size !== now.size) return false;
-    for (const [id, quantity] of was) if (now.get(id) !== quantity) return false;
+    for (const [id, quantity] of was)
+      if (now.get(id) !== quantity) return false;
     return true;
   }
 
@@ -382,10 +415,15 @@ class SaleService {
     for (const [id, { name, quantity }] of needed) {
       const available = (onHand[id] ?? 0) + (credited.get(id) ?? 0);
       if (available <= 0) {
-        throw new Error(i18n.t('errors.sale_out_of_stock', { product: name }));
+        throw new Error(i18n.t("errors.sale_out_of_stock", { product: name }));
       }
       if (available < quantity) {
-        throw new Error(i18n.t('errors.sale_insufficient_stock', { product: name, available }));
+        throw new Error(
+          i18n.t("errors.sale_insufficient_stock", {
+            product: name,
+            available,
+          }),
+        );
       }
     }
   }
@@ -396,37 +434,42 @@ class SaleService {
     amountPaid?: number;
   }): void {
     if (!Array.isArray(input.items)) {
-      throw new Error(i18n.t('errors.sale_items_required'));
+      throw new Error(i18n.t("errors.sale_items_required"));
     }
     for (const it of input.items) {
-      if (it.kind === 'product') {
-        if (!it.product?.id) throw new Error(i18n.t('errors.sale_product_required'));
+      if (it.kind === "product") {
+        if (!it.product?.id)
+          throw new Error(i18n.t("errors.sale_product_required"));
         if (!Number.isInteger(it.quantity) || it.quantity <= 0) {
-          throw new Error(i18n.t('errors.sale_quantity_invalid'));
+          throw new Error(i18n.t("errors.sale_quantity_invalid"));
         }
       } else if (!lineName(it)) {
-        throw new Error(i18n.t('errors.sale_service_required'));
+        throw new Error(i18n.t("errors.sale_service_required"));
       }
-      if (typeof it.unitAmount !== 'number' || Number.isNaN(it.unitAmount) || it.unitAmount <= 0) {
-        throw new Error(i18n.t('errors.sale_amount_positive'));
+      if (
+        typeof it.unitAmount !== "number" ||
+        Number.isNaN(it.unitAmount) ||
+        it.unitAmount <= 0
+      ) {
+        throw new Error(i18n.t("errors.sale_amount_positive"));
       }
     }
     const total = totalOf(input);
-    if (typeof total !== 'number' || Number.isNaN(total) || total <= 0) {
-      throw new Error(i18n.t('errors.sale_total_positive'));
+    if (typeof total !== "number" || Number.isNaN(total) || total <= 0) {
+      throw new Error(i18n.t("errors.sale_total_positive"));
     }
     if (input.amountPaid === undefined) return;
     if (
-      typeof input.amountPaid !== 'number' ||
+      typeof input.amountPaid !== "number" ||
       Number.isNaN(input.amountPaid) ||
       input.amountPaid < 0 ||
       input.amountPaid > total + 1e-9
     ) {
-      throw new Error(i18n.t('errors.sale_amount_paid_invalid'));
+      throw new Error(i18n.t("errors.sale_amount_paid_invalid"));
     }
   }
 }
 
 const EPSILON = 1e-9;
 
-export default new SaleService()
+export default new SaleService();

@@ -86,7 +86,8 @@ export function validateBackup(
     const rows: BackupRow[] = [];
 
     for (const entry of raw) {
-      if (!isPlainObject(entry)) return fail("invalid_file", { table: spec.name });
+      if (!isPlainObject(entry))
+        return fail("invalid_file", { table: spec.name });
 
       const row: BackupRow = {};
       for (const [column, value] of Object.entries(entry)) {
@@ -172,8 +173,7 @@ export function validateBackup(
   const backup: LocalBackup = {
     format: BACKUP_FORMAT,
     version: parsed.version,
-    exportedAt:
-      typeof parsed.exportedAt === "string" ? parsed.exportedAt : "",
+    exportedAt: typeof parsed.exportedAt === "string" ? parsed.exportedAt : "",
     app: isPlainObject(parsed.app)
       ? {
           version:

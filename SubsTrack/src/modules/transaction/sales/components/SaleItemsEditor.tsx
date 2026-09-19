@@ -198,7 +198,8 @@ export function SaleItemsEditor({
   );
 
   const poolFor = useCallback(
-    (product: Product) => product.stockOnHand + (stockCredit.get(product.id) ?? 0),
+    (product: Product) =>
+      product.stockOnHand + (stockCredit.get(product.id) ?? 0),
     [stockCredit],
   );
   const currencyOptions: DropdownOption<string>[] = currencies
@@ -220,20 +221,26 @@ export function SaleItemsEditor({
     };
   });
 
-  const serviceOptions: DropdownOption<string>[] = sellableServices.map((s) => ({
-    label: s.name,
-    sublabel: formatMoney(
-      s.price,
-      findCurrency(currencies, s.currencyId),
-      saleCurrency,
-    ),
-    value: s.id,
-    disabled: !s.active,
-  }));
+  const serviceOptions: DropdownOption<string>[] = sellableServices.map(
+    (s) => ({
+      label: s.name,
+      sublabel: formatMoney(
+        s.price,
+        findCurrency(currencies, s.currencyId),
+        saleCurrency,
+      ),
+      value: s.id,
+      disabled: !s.active,
+    }),
+  );
 
   // What's still sellable for a row: the pool minus what the OTHER rows already
   // took of the same product (the same product can sit on several lines).
-  function availableIn(list: Row[], key: string, productId: string | null): number {
+  function availableIn(
+    list: Row[],
+    key: string,
+    productId: string | null,
+  ): number {
     const product = sellableProducts.find((p) => p.id === productId);
     if (!product) return 0;
     const takenElsewhere = list
@@ -254,7 +261,10 @@ export function SaleItemsEditor({
   // Adopt the first picked catalog item's currency as the sale currency, unless
   // the user already chose one. Returns the currency the caller should price in.
   // A one-off typed service has no currency of its own, so it never gets here.
-  function adoptCurrency(key: string, itemCurrencyId: string | null): Currency | null {
+  function adoptCurrency(
+    key: string,
+    itemCurrencyId: string | null,
+  ): Currency | null {
     const isFirstPick = !rows.some((r) => r.key !== key && rowIsNamed(r));
     let targetId = currencyId;
     if (isFirstPick && !currencyTouched) {
@@ -266,7 +276,9 @@ export function SaleItemsEditor({
 
   function selectProduct(key: string, productId: string | null) {
     const product = sellableProducts.find((p) => p.id === productId) ?? null;
-    const target = product ? adoptCurrency(key, product.currencyId) : saleCurrency;
+    const target = product
+      ? adoptCurrency(key, product.currencyId)
+      : saleCurrency;
     setRows((prev) =>
       prev.map((r) =>
         r.key === key
@@ -274,7 +286,10 @@ export function SaleItemsEditor({
               ...r,
               productId,
               quantity: product
-                ? Math.min(r.quantity, Math.max(1, availableIn(prev, key, productId)))
+                ? Math.min(
+                    r.quantity,
+                    Math.max(1, availableIn(prev, key, productId)),
+                  )
                 : r.quantity,
               unitAmount: product
                 ? priceInCurrency(product, target)
@@ -289,7 +304,9 @@ export function SaleItemsEditor({
   // `services` yet on this render, so a lookup would miss it and the line would
   // open with no price.
   function applyService(key: string, service: Service | null) {
-    const target = service ? adoptCurrency(key, service.currencyId) : saleCurrency;
+    const target = service
+      ? adoptCurrency(key, service.currencyId)
+      : saleCurrency;
     setRows((prev) =>
       prev.map((r) =>
         r.key === key
@@ -378,15 +395,22 @@ export function SaleItemsEditor({
         continue;
       }
       if (r.lineType === "product") {
-        const product = sellableProducts.find((p) => p.id === r.productId) ?? null;
+        const product =
+          sellableProducts.find((p) => p.id === r.productId) ?? null;
         if (product) {
-          lines.push({ kind: "product", product, quantity: r.quantity, unitAmount: amount });
+          lines.push({
+            kind: "product",
+            product,
+            quantity: r.quantity,
+            unitAmount: amount,
+          });
         } else {
           incomplete = true;
         }
         continue;
       }
-      const service = sellableServices.find((s) => s.id === r.serviceId) ?? null;
+      const service =
+        sellableServices.find((s) => s.id === r.serviceId) ?? null;
       const name = service?.name ?? r.customName.trim();
       if (name) {
         lines.push({ kind: "service", service, name, unitAmount: amount });
@@ -397,7 +421,10 @@ export function SaleItemsEditor({
     const perProduct = new Map<string, number>();
     for (const l of lines) {
       if (l.kind !== "product") continue;
-      perProduct.set(l.product.id, (perProduct.get(l.product.id) ?? 0) + l.quantity);
+      perProduct.set(
+        l.product.id,
+        (perProduct.get(l.product.id) ?? 0) + l.quantity,
+      );
     }
     const oversold = [...perProduct].some(([id, qty]) => {
       const product = sellableProducts.find((p) => p.id === id);

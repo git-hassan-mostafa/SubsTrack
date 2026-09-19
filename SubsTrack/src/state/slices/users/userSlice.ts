@@ -1,15 +1,15 @@
-import type { StateCreator } from 'zustand';
-import type { AppUser, UserRole } from '@/src/core/types';
-import { userService } from '@/src/modules/admin/users';
-import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import type { GlobalState } from '@/src/state/globalStore';
+import type { StateCreator } from "zustand";
+import type { AppUser, UserRole } from "@/src/core/types";
+import { userService } from "@/src/modules/admin/users";
+import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
+import type { GlobalState } from "@/src/state/globalStore";
 
 interface UserCreateInput {
   username: string;
   fullName: string;
   password: string;
   phone: string | null;
-  role: 'admin' | 'user';
+  role: "admin" | "user";
   branchId: string | null;
 }
 
@@ -17,7 +17,7 @@ interface UserUpdateInput {
   username: string;
   fullName: string;
   phone: string | null;
-  role: 'admin' | 'user';
+  role: "admin" | "user";
   branchId: string | null;
   newPassword?: string;
 }
@@ -36,9 +36,24 @@ export interface UserSlice {
     currentUserRole: string,
     data: UserUpdateInput,
   ) => Promise<void>;
-  deactivateUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<void>;
-  activateUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<void>;
-  deleteUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<'hard' | 'soft' | null>;
+  deactivateUser: (
+    id: string,
+    callerId: string,
+    callerRole: UserRole,
+    targetRole: UserRole,
+  ) => Promise<void>;
+  activateUser: (
+    id: string,
+    callerId: string,
+    callerRole: UserRole,
+    targetRole: UserRole,
+  ) => Promise<void>;
+  deleteUser: (
+    id: string,
+    callerId: string,
+    callerRole: UserRole,
+    targetRole: UserRole,
+  ) => Promise<"hard" | "soft" | null>;
   bulkDeleteUsers: (
     targets: { id: string; role: UserRole }[],
     callerId: string,
@@ -50,7 +65,7 @@ export interface UserSlice {
 
 export const createUserSlice: StateCreator<
   GlobalState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   UserSlice
 > = (set, get) => {
@@ -95,7 +110,11 @@ export const createUserSlice: StateCreator<
         state.users.error = null;
       });
       try {
-        const user = await userService.createUser(data, tenantId, tenantHasBranches());
+        const user = await userService.createUser(
+          data,
+          tenantId,
+          tenantHasBranches(),
+        );
         set((state) => {
           state.users.items.push(user);
           state.users.loading = false;
@@ -140,7 +159,12 @@ export const createUserSlice: StateCreator<
         state.users.error = null;
       });
       try {
-        const updated = await userService.deactivateUser(id, callerId, callerRole, targetRole);
+        const updated = await userService.deactivateUser(
+          id,
+          callerId,
+          callerRole,
+          targetRole,
+        );
         set((state) => {
           const i = state.users.items.findIndex((u) => u.id === id);
           if (i !== -1) state.users.items[i] = updated;
@@ -160,7 +184,12 @@ export const createUserSlice: StateCreator<
         state.users.error = null;
       });
       try {
-        const updated = await userService.activateUser(id, callerId, callerRole, targetRole);
+        const updated = await userService.activateUser(
+          id,
+          callerId,
+          callerRole,
+          targetRole,
+        );
         set((state) => {
           const i = state.users.items.findIndex((u) => u.id === id);
           if (i !== -1) state.users.items[i] = updated;
@@ -180,8 +209,13 @@ export const createUserSlice: StateCreator<
         state.users.error = null;
       });
       try {
-        const result = await userService.deleteUser(id, callerId, callerRole, targetRole);
-        if (result.mode === 'hard') {
+        const result = await userService.deleteUser(
+          id,
+          callerId,
+          callerRole,
+          targetRole,
+        );
+        if (result.mode === "hard") {
           set((state) => {
             state.users.items = state.users.items.filter((u) => u.id !== id);
             state.users.loading = false;
@@ -218,9 +252,11 @@ export const createUserSlice: StateCreator<
         set((state) => {
           const removed = new Set(hard);
           const softened = new Set(soft);
-          state.users.items = state.users.items.filter((u) => !removed.has(u.id));
+          state.users.items = state.users.items.filter(
+            (u) => !removed.has(u.id),
+          );
           for (const u of state.users.items) {
-          if (softened.has(u.id)) u.active = false;
+            if (softened.has(u.id)) u.active = false;
           }
           state.users.loading = false;
         });

@@ -1,16 +1,16 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
-import type { BranchFilter } from '@/src/core/constants';
-import type { DbProduct, DbStockMovement } from '@/src/core/types/db';
-import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { insertDirty, markDeleted } from '@/src/core/offline/db/dml';
-import { newId, nowIso } from '@/src/core/offline/ids';
-import { toStockCostRow } from '../utils/mapper';
+import type { SQLiteDatabase } from "expo-sqlite";
+import type { BranchFilter } from "@/src/core/constants";
+import type { DbProduct, DbStockMovement } from "@/src/core/types/db";
+import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
+import { insertDirty, markDeleted } from "@/src/core/offline/db/dml";
+import { newId, nowIso } from "@/src/core/offline/ids";
+import { toStockCostRow } from "../utils/mapper";
 import type {
   CreateStockMovementPayload,
   IProductRepository,
   StockCostRow,
   UpdateStockMovementPayload,
-} from './IProductRepository';
+} from "./IProductRepository";
 
 /**
  * SQLite-backed Product repository. Reads from the local mirror; writes mutate
@@ -18,27 +18,37 @@ import type {
  * `pending_deletes`) so the next sync pushes them. Returns the same `DbProduct`
  * shapes as the Supabase repository.
  */
-export class OfflineProductRepository extends OfflineBaseRepository implements IProductRepository {
+export class OfflineProductRepository
+  extends OfflineBaseRepository
+  implements IProductRepository
+{
   async findAll(branchFilter: BranchFilter = null): Promise<DbProduct[]> {
     const where = this.combineWhere([
-      this.branchWhere(branchFilter, this.BRANCH_SCOPES.products, 'products'),
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.products, "products"),
     ]);
     const rows = await this.all(
       `SELECT * FROM products ${where.sql} ORDER BY active DESC, name`,
       where.params,
     );
-    return this.decodeAll<DbProduct>('products', rows);
+    return this.decodeAll<DbProduct>("products", rows);
   }
 
-  async create(payload: Omit<DbProduct, 'id' | 'created_at' | 'updated_at'>): Promise<DbProduct> {
+  async create(
+    payload: Omit<DbProduct, "id" | "created_at" | "updated_at">,
+  ): Promise<DbProduct> {
     const now = nowIso();
-    const row: DbProduct = { id: newId(), created_at: now, updated_at: now, ...payload };
+    const row: DbProduct = {
+      id: newId(),
+      created_at: now,
+      updated_at: now,
+      ...payload,
+    };
     await this.write(async (db) => {
-      await insertDirty(db, 'products', row);
+      await insertDirty(db, "products", row);
       await this.auditIn(db, {
-        table: 'products',
+        table: "products",
         recordId: row.id,
-        action: 'create',
+        action: "create",
         after: row,
         branchId: row.branch_id,
       });
@@ -51,18 +61,24 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
     payload: Partial<
       Pick<
         DbProduct,
-        | 'name' | 'description' | 'price' | 'currency_id'
-        | 'cost_price' | 'cost_currency_id' | 'branch_id' | 'active'
+        | "name"
+        | "description"
+        | "price"
+        | "currency_id"
+        | "cost_price"
+        | "cost_currency_id"
+        | "branch_id"
+        | "active"
       >
     >,
   ): Promise<DbProduct> {
     const row = await this.auditedUpdate<DbProduct>(
-      'products',
+      "products",
       id,
       { ...payload, updated_at: nowIso() },
-      { action: payload.active === true ? 'restore' : 'update' },
+      { action: payload.active === true ? "restore" : "update" },
     );
-    if (!row) this.handleError(new Error('Product not found'));
+    if (!row) this.handleError(new Error("Product not found"));
     return row;
   }
 
@@ -75,16 +91,16 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
     await this.write(async (db) => {
       for (const id of ids) {
         const before = this.decodeOne<DbProduct>(
-          'products',
-          await this.first('SELECT * FROM products WHERE id = ?', [id]),
+          "products",
+          await this.first("SELECT * FROM products WHERE id = ?", [id]),
         );
         await this.deleteProductRow(db, id);
-        await markDeleted(db, 'products', id);
+        await markDeleted(db, "products", id);
         if (before) {
           await this.auditIn(db, {
-            table: 'products',
+            table: "products",
             recordId: id,
-            action: 'delete',
+            action: "delete",
             before,
             branchId: before.branch_id,
           });
@@ -93,15 +109,20 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
     });
   }
 
-  private async deleteProductRow(db: SQLiteDatabase, id: string): Promise<void> {
-    await db.runAsync('DELETE FROM stock_movements WHERE product_id = ?', [id] as never[]);
-    await db.runAsync('DELETE FROM products WHERE id = ?', [id] as never[]);
+  private async deleteProductRow(
+    db: SQLiteDatabase,
+    id: string,
+  ): Promise<void> {
+    await db.runAsync("DELETE FROM stock_movements WHERE product_id = ?", [
+      id,
+    ] as never[]);
+    await db.runAsync("DELETE FROM products WHERE id = ?", [id] as never[]);
   }
 
   async deactivateMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     for (const id of ids) {
-      await this.auditedUpdate<DbProduct>('products', id, {
+      await this.auditedUpdate<DbProduct>("products", id, {
         active: false,
         updated_at: nowIso(),
       });
@@ -109,26 +130,32 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
   }
 
   async referencedIds(ids: string[]): Promise<Set<string>> {
-    return this.referencedIdsIn('sale_items', 'product_id', ids);
+    return this.referencedIdsIn("sale_items", "product_id", ids);
   }
 
   async countAll(branchFilter: BranchFilter = null): Promise<number> {
     const where = this.combineWhere([
-      { clause: 'products.active = 1', params: [] },
-      this.branchWhere(branchFilter, this.BRANCH_SCOPES.products, 'products'),
+      { clause: "products.active = 1", params: [] },
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.products, "products"),
     ]);
-    return this.count(`SELECT COUNT(*) AS n FROM products ${where.sql}`, where.params);
+    return this.count(
+      `SELECT COUNT(*) AS n FROM products ${where.sql}`,
+      where.params,
+    );
   }
 
   async countReferences(id: string): Promise<number> {
-    return this.count('SELECT COUNT(*) AS n FROM sale_items WHERE product_id = ?', [id]);
+    return this.count(
+      "SELECT COUNT(*) AS n FROM sale_items WHERE product_id = ?",
+      [id],
+    );
   }
 
   async stockOnHand(productIds?: string[]): Promise<Record<string, number>> {
     if (productIds && productIds.length === 0) return {};
     const idFilter = productIds
-      ? ` AND product_id IN (${productIds.map(() => '?').join(', ')})`
-      : '';
+      ? ` AND product_id IN (${productIds.map(() => "?").join(", ")})`
+      : "";
     const rows = await this.all<{ product_id: string; on_hand: number }>(
       `SELECT product_id, SUM(quantity_delta) AS on_hand FROM stock_movements
        WHERE voided_at IS NULL${idFilter} GROUP BY product_id`,
@@ -151,22 +178,25 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
       updated_at: now,
     }));
     await this.write(async (db) => {
-      for (const row of rows) await insertDirty(db, 'stock_movements', row);
+      for (const row of rows) await insertDirty(db, "stock_movements", row);
     });
   }
 
-  async movementsForProduct(productId: string, limit = 20): Promise<DbStockMovement[]> {
+  async movementsForProduct(
+    productId: string,
+    limit = 20,
+  ): Promise<DbStockMovement[]> {
     const rows = await this.all(
-      'SELECT * FROM stock_movements WHERE product_id = ? ORDER BY occurred_at DESC LIMIT ?',
+      "SELECT * FROM stock_movements WHERE product_id = ? ORDER BY occurred_at DESC LIMIT ?",
       [productId, limit],
     );
-    return this.decodeAll<DbStockMovement>('stock_movements', rows);
+    return this.decodeAll<DbStockMovement>("stock_movements", rows);
   }
 
   async findMovement(id: string): Promise<DbStockMovement | null> {
     return this.decodeOne<DbStockMovement>(
-      'stock_movements',
-      await this.first('SELECT * FROM stock_movements WHERE id = ?', [id]),
+      "stock_movements",
+      await this.first("SELECT * FROM stock_movements WHERE id = ?", [id]),
     );
   }
 
@@ -175,7 +205,7 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
     payload: UpdateStockMovementPayload,
   ): Promise<DbStockMovement> {
     const row = await this.auditedUpdate<DbStockMovement>(
-      'stock_movements',
+      "stock_movements",
       id,
       { ...payload, updated_at: nowIso() },
       {
@@ -183,26 +213,36 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
         audit: await this.movementAudit(id),
       },
     );
-    if (!row) this.handleError(new Error('Stock movement not found'));
+    if (!row) this.handleError(new Error("Stock movement not found"));
     return row;
   }
 
-  async voidMovement(id: string, voidedBy: string | null): Promise<DbStockMovement> {
+  async voidMovement(
+    id: string,
+    voidedBy: string | null,
+  ): Promise<DbStockMovement> {
     const now = nowIso();
     const row = await this.auditedUpdate<DbStockMovement>(
-      'stock_movements',
+      "stock_movements",
       id,
       { voided_at: now, voided_by: voidedBy, updated_at: now },
-      { action: 'void', branchColumn: null, audit: await this.movementAudit(id) },
+      {
+        action: "void",
+        branchColumn: null,
+        audit: await this.movementAudit(id),
+      },
     );
-    if (!row) this.handleError(new Error('Stock movement not found'));
+    if (!row) this.handleError(new Error("Stock movement not found"));
     return row;
   }
 
   private async movementAudit(
     movementId: string,
   ): Promise<{ branchId: string | null; subject: string | null }> {
-    const row = await this.first<{ branch_id: string | null; name: string | null }>(
+    const row = await this.first<{
+      branch_id: string | null;
+      name: string | null;
+    }>(
       `SELECT p.branch_id AS branch_id, p.name AS name
        FROM stock_movements m JOIN products p ON m.product_id = p.id
        WHERE m.id = ?`,
@@ -218,10 +258,13 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
   ): Promise<StockCostRow[]> {
     const where = this.combineWhere([
       { clause: "m.reason <> 'sale'", params: [] },
-      { clause: 'm.unit_cost IS NOT NULL', params: [] },
-      { clause: 'm.voided_at IS NULL', params: [] },
-      { clause: 'm.occurred_at >= ? AND m.occurred_at < ?', params: [startIso, endExclusiveIso] },
-      this.branchWhere(branchFilter, this.BRANCH_SCOPES.stock_movements, 'p'),
+      { clause: "m.unit_cost IS NOT NULL", params: [] },
+      { clause: "m.voided_at IS NULL", params: [] },
+      {
+        clause: "m.occurred_at >= ? AND m.occurred_at < ?",
+        params: [startIso, endExclusiveIso],
+      },
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.stock_movements, "p"),
     ]);
     const rows = await this.all<{
       id: string;
@@ -244,7 +287,10 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
       where.params,
     );
     return rows.map((r) =>
-      toStockCostRow(r, { name: r.product_name, branch_id: r.product_branch_id }),
+      toStockCostRow(r, {
+        name: r.product_name,
+        branch_id: r.product_branch_id,
+      }),
     );
   }
 }

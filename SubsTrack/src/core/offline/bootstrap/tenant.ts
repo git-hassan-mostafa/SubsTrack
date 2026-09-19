@@ -1,14 +1,19 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
-import { getDb, wipeOfflineData } from '../db/sqlite';
-import { TABLES } from '../db/tables';
-import { getMeta, setMeta, META_ACTIVE_TENANT, META_ACTIVE_BRANCH_SCOPE } from '../sync';
+import type { SQLiteDatabase } from "expo-sqlite";
+import { getDb, wipeOfflineData } from "../db/sqlite";
+import { TABLES } from "../db/tables";
+import {
+  getMeta,
+  setMeta,
+  META_ACTIVE_TENANT,
+  META_ACTIVE_BRANCH_SCOPE,
+} from "../sync";
 
 export interface TenantScopeResult {
   wiped: boolean;
   blockedByPending: boolean;
 }
 
-export const BRANCH_SCOPE_TENANT_WIDE = '__all__';
+export const BRANCH_SCOPE_TENANT_WIDE = "__all__";
 
 /** Normalize a user's branch_id into the branch-scope key stored in sync_meta. */
 export function branchScopeKey(branchId: string | null): string {
@@ -23,11 +28,15 @@ export function branchScopeKey(branchId: string | null): string {
  * flushPendingWrites(), so in the normal flow they are pushed before any wipe.
  */
 export async function hasUnsyncedWrites(db: SQLiteDatabase): Promise<boolean> {
-  const del = await db.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM pending_deletes');
+  const del = await db.getFirstAsync<{ n: number }>(
+    "SELECT COUNT(*) AS n FROM pending_deletes",
+  );
   if ((del?.n ?? 0) > 0) return true;
   for (const t of TABLES) {
-    if (t.scope !== 'tenant' || t.appendOnly) continue;
-    const r = await db.getFirstAsync<{ n: number }>(`SELECT COUNT(*) AS n FROM ${t.name} WHERE _dirty = 1`);
+    if (t.scope !== "tenant" || t.appendOnly) continue;
+    const r = await db.getFirstAsync<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM ${t.name} WHERE _dirty = 1`,
+    );
     if ((r?.n ?? 0) > 0) return true;
   }
   return false;

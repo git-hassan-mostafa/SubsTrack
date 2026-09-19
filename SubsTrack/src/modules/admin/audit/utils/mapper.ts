@@ -1,10 +1,10 @@
-import type { AuditChange, AuditEntry, AuditTable } from '@/src/core/types';
-import type { DbAuditLog } from '@/src/core/types/db';
-import { isHiddenColumn } from './valueDisplay';
+import type { AuditChange, AuditEntry, AuditTable } from "@/src/core/types";
+import type { DbAuditLog } from "@/src/core/types/db";
+import { isHiddenColumn } from "./valueDisplay";
 
 /** NULL, undefined and '' all mean "no value" — see `isNoOp`. */
 function isBlank(v: unknown): boolean {
-  return v === null || v === undefined || v === '';
+  return v === null || v === undefined || v === "";
 }
 
 /**

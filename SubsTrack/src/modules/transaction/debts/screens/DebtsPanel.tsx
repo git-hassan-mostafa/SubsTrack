@@ -21,7 +21,11 @@ import type { CustomerDebts } from "@/src/core/types";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
-import { useCollectSheet, useOpenBill, useOwedChanged } from "@/src/modules/ledger";
+import {
+  useCollectSheet,
+  useOpenBill,
+  useOwedChanged,
+} from "@/src/modules/ledger";
 import { useDebtRowActions } from "../hooks/useDebtRowActions";
 import { DebtorCard } from "../components/DebtorCard";
 import { DebtorDetailSheet } from "../components/DebtorDetailSheet";

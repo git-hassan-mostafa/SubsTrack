@@ -1,30 +1,41 @@
-import { Platform } from 'react-native';
-import { BaseRepository } from '@/src/core/utils/BaseRepository';
-import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
-import type { CashRow, CashStream } from '@/src/core/types';
-import type { DbCharge, DbCollection, DbCollectionItem } from '@/src/core/types/db';
-import { newId } from '@/src/core/offline/ids';
-import { sanitizeSearchTerm } from '@/src/core/utils/searchTerm';
-import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
+import { Platform } from "react-native";
+import { BaseRepository } from "@/src/core/utils/BaseRepository";
+import { PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
+import type { CashRow, CashStream } from "@/src/core/types";
+import type {
+  DbCharge,
+  DbCollection,
+  DbCollectionItem,
+} from "@/src/core/types/db";
+import { newId } from "@/src/core/offline/ids";
+import { sanitizeSearchTerm } from "@/src/core/utils/searchTerm";
+import { custodyValues } from "@/src/modules/wallet/utils/custodyValues";
 import type {
   CreateCollectionItemPayload,
   CreateCollectionPayload,
   FindCollectionsOptions,
   ICollectionRepository,
-} from './ICollectionRepository';
-import type { CreateChargePayload } from './IChargeRepository';
-import { monthBillKey, patchForIncomingCash, resolveBillTarget } from './chargeRevive';
-import { OfflineCollectionRepository } from './CollectionRepository.offline';
-import { collectionPlanId } from '../utils/collectionPlan';
-import { sumByMonth } from '../utils/monthTotals';
+} from "./ICollectionRepository";
+import type { CreateChargePayload } from "./IChargeRepository";
+import {
+  monthBillKey,
+  patchForIncomingCash,
+  resolveBillTarget,
+} from "./chargeRevive";
+import { OfflineCollectionRepository } from "./CollectionRepository.offline";
+import { collectionPlanId } from "../utils/collectionPlan";
+import { sumByMonth } from "../utils/monthTotals";
 
-const COLLECTION_SELECT = '*, collection_items(*, charges(*)), customers(*)';
-const COLLECTION_SELECT_SEARCH = '*, collection_items(*, charges(*)), customers!inner(*)';
-const COLLECTION_SELECT_PLAN = '*, collection_items(charges(plan_id))';
+const COLLECTION_SELECT = "*, collection_items(*, charges(*)), customers(*)";
+const COLLECTION_SELECT_SEARCH =
+  "*, collection_items(*, charges(*)), customers!inner(*)";
+const COLLECTION_SELECT_PLAN = "*, collection_items(charges(plan_id))";
 
 // The plan named on a hand-over's audit row, off the bills its items point at.
 function collectionPlanOf(row: DbCollection | null): string | null {
-  return collectionPlanId((row?.collection_items ?? []).map((it) => it.charges?.plan_id));
+  return collectionPlanId(
+    (row?.collection_items ?? []).map((it) => it.charges?.plan_id),
+  );
 }
 
 // The joined shape `collectedInRange` reads — one settled bill plus the
@@ -69,14 +80,17 @@ function toCashRow(r: CollectedItemRow): CashRow {
     stream: r.charges.kind,
   };
 }
-const COLLECTION_SELECT_LEAN = '*, customers(*)';
+const COLLECTION_SELECT_LEAN = "*, customers(*)";
 
-export class CollectionRepository extends BaseRepository implements ICollectionRepository {
+export class CollectionRepository
+  extends BaseRepository
+  implements ICollectionRepository
+{
   async findById(id: string): Promise<DbCollection | null> {
     const { data, error } = await this.db
-      .from('collections')
+      .from("collections")
       .select(COLLECTION_SELECT)
-      .eq('id', id)
+      .eq("id", id)
       .maybeSingle();
     if (error) this.handleError(error);
     return (data as DbCollection) ?? null;
@@ -85,9 +99,9 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
   async findByIds(ids: string[]): Promise<DbCollection[]> {
     if (ids.length === 0) return [];
     const { data, error } = await this.db
-      .from('collections')
+      .from("collections")
       .select(COLLECTION_SELECT)
-      .in('id', ids);
+      .in("id", ids);
     if (error) this.handleError(error);
     return (data ?? []) as DbCollection[];
   }
@@ -96,56 +110,79 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     const limit = opts.limit ?? PAGE_SIZE;
     const offset = opts.offset ?? 0;
     const search = sanitizeSearchTerm(opts.searchTerm);
-    const asc = opts.sortDirection === 'asc';
-    const sortField = opts.sortField ?? 'received_at';
+    const asc = opts.sortDirection === "asc";
+    const sortField = opts.sortField ?? "received_at";
     let query = this.db
-      .from('collections')
+      .from("collections")
       .select(search ? COLLECTION_SELECT_SEARCH : COLLECTION_SELECT)
       .order(sortField, { ascending: asc });
-    if (sortField !== 'created_at') query = query.order('created_at', { ascending: asc });
+    if (sortField !== "created_at")
+      query = query.order("created_at", { ascending: asc });
     query = query.range(offset, offset + limit - 1);
 
-    if (!opts.includeVoided) query = query.is('voided_at', null);
-    if (opts.voidedOnly) query = query.not('voided_at', 'is', null);
-    if (opts.kind) query = query.eq('kind', opts.kind);
-    if (opts.customerId) query = query.eq('customer_id', opts.customerId);
-    if (opts.heldByUserId) query = query.eq('held_by_user_id', opts.heldByUserId);
-    if (opts.receivedByUserId) query = query.eq('received_by_user_id', opts.receivedByUserId);
-    if (opts.startIso) query = query.gte('received_at', opts.startIso);
-    if (opts.endExclusiveIso) query = query.lt('received_at', opts.endExclusiveIso);
-    if (search) query = query.ilike('customers.name', `%${search}%`);
-    query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.collections);
+    if (!opts.includeVoided) query = query.is("voided_at", null);
+    if (opts.voidedOnly) query = query.not("voided_at", "is", null);
+    if (opts.kind) query = query.eq("kind", opts.kind);
+    if (opts.customerId) query = query.eq("customer_id", opts.customerId);
+    if (opts.heldByUserId)
+      query = query.eq("held_by_user_id", opts.heldByUserId);
+    if (opts.receivedByUserId)
+      query = query.eq("received_by_user_id", opts.receivedByUserId);
+    if (opts.startIso) query = query.gte("received_at", opts.startIso);
+    if (opts.endExclusiveIso)
+      query = query.lt("received_at", opts.endExclusiveIso);
+    if (search) query = query.ilike("customers.name", `%${search}%`);
+    query = this.applyBranchFilter(
+      query,
+      opts.branchFilter ?? null,
+      this.BRANCH_SCOPES.collections,
+    );
 
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbCollection[];
   }
 
-  async monthlyTotals(opts: FindCollectionsOptions): Promise<Record<string, number>> {
+  async monthlyTotals(
+    opts: FindCollectionsOptions,
+  ): Promise<Record<string, number>> {
     if (opts.voidedOnly) return {};
     const search = sanitizeSearchTerm(opts.searchTerm);
     let query = this.db
-      .from('collections')
+      .from("collections")
       .select(
         search
-          ? 'received_at, amount, rate_per_usd_snapshot, customers!inner(name)'
-          : 'received_at, amount, rate_per_usd_snapshot',
+          ? "received_at, amount, rate_per_usd_snapshot, customers!inner(name)"
+          : "received_at, amount, rate_per_usd_snapshot",
       )
-      .is('voided_at', null);
+      .is("voided_at", null);
 
-    if (opts.customerId) query = query.eq('customer_id', opts.customerId);
-    if (opts.heldByUserId) query = query.eq('held_by_user_id', opts.heldByUserId);
-    if (opts.receivedByUserId) query = query.eq('received_by_user_id', opts.receivedByUserId);
-    if (opts.startIso) query = query.gte('received_at', opts.startIso);
-    if (opts.endExclusiveIso) query = query.lt('received_at', opts.endExclusiveIso);
-    if (opts.kind) query = query.eq('kind', opts.kind);
-    if (search) query = query.ilike('customers.name', `%${search}%`);
-    query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.collections);
+    if (opts.customerId) query = query.eq("customer_id", opts.customerId);
+    if (opts.heldByUserId)
+      query = query.eq("held_by_user_id", opts.heldByUserId);
+    if (opts.receivedByUserId)
+      query = query.eq("received_by_user_id", opts.receivedByUserId);
+    if (opts.startIso) query = query.gte("received_at", opts.startIso);
+    if (opts.endExclusiveIso)
+      query = query.lt("received_at", opts.endExclusiveIso);
+    if (opts.kind) query = query.eq("kind", opts.kind);
+    if (search) query = query.ilike("customers.name", `%${search}%`);
+    query = this.applyBranchFilter(
+      query,
+      opts.branchFilter ?? null,
+      this.BRANCH_SCOPES.collections,
+    );
 
     const { data, error } = await query;
     if (error) this.handleError(error);
     return sumByMonth(
-      (data as unknown as { received_at: string; amount: number; rate_per_usd_snapshot: number }[] | null) ?? [],
+      (data as unknown as
+        | {
+            received_at: string;
+            amount: number;
+            rate_per_usd_snapshot: number;
+          }[]
+        | null) ?? [],
     );
   }
 
@@ -156,10 +193,10 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
   ): Promise<DbCollectionItem[]> {
     if (chargeIds.length === 0) return [];
     let query = this.db
-      .from('collection_items')
-      .select('*, collections!inner(*)')
-      .in('charge_id', chargeIds);
-    if (!includeVoided) query = query.is('collections.voided_at', null);
+      .from("collection_items")
+      .select("*, collections!inner(*)")
+      .in("charge_id", chargeIds);
+    if (!includeVoided) query = query.is("collections.voided_at", null);
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbCollectionItem[];
@@ -170,9 +207,12 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     charges: CreateChargePayload[],
   ): Promise<{ byKey: Map<string, DbCharge>; byId: Map<string, DbCharge> }> {
     const { data: idRows, error: idError } = await this.db
-      .from('charges')
-      .select('*')
-      .in('id', charges.map((c) => c.id));
+      .from("charges")
+      .select("*")
+      .in(
+        "id",
+        charges.map((c) => c.id),
+      );
     if (idError) this.handleError(idError);
     const byId = new Map(((idRows ?? []) as DbCharge[]).map((r) => [r.id, r]));
 
@@ -181,12 +221,17 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     if (keyed.length === 0) return { byKey, byId };
 
     const { data: keyRows, error: keyError } = await this.db
-      .from('charges')
-      .select('*')
-      .in('customer_plan_id', [...new Set(keyed.map((c) => c.customer_plan_id as string))])
-      .in('billing_month', [...new Set(keyed.map((c) => c.billing_month as string))]);
+      .from("charges")
+      .select("*")
+      .in("customer_plan_id", [
+        ...new Set(keyed.map((c) => c.customer_plan_id as string)),
+      ])
+      .in("billing_month", [
+        ...new Set(keyed.map((c) => c.billing_month as string)),
+      ]);
     if (keyError) this.handleError(keyError);
-    for (const row of (keyRows ?? []) as DbCharge[]) byKey.set(monthBillKey(row) as string, row);
+    for (const row of (keyRows ?? []) as DbCharge[])
+      byKey.set(monthBillKey(row) as string, row);
     return { byKey, byId };
   }
 
@@ -199,17 +244,17 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     if (Object.keys(patch).length === 0) return row;
 
     const { data, error } = await this.db
-      .from('charges')
+      .from("charges")
       .update(patch)
-      .eq('id', row.id)
-      .select('*, customers(*)')
+      .eq("id", row.id)
+      .select("*, customers(*)")
       .single();
     if (error) this.handleError(error);
     const after = data as DbCharge;
     this.audit({
-      table: 'charges',
+      table: "charges",
       recordId: row.id,
-      action: 'update',
+      action: "update",
       before: row,
       after,
       branchId: after.branch_id,
@@ -224,17 +269,20 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
   ): Promise<void> {
     if (raise.length === 0) return;
     const { data, error } = await this.db
-      .from('charges')
-      .upsert(raise.map((r) => r.payload), { onConflict: 'id', ignoreDuplicates: true })
+      .from("charges")
+      .upsert(
+        raise.map((r) => r.payload),
+        { onConflict: "id", ignoreDuplicates: true },
+      )
       .select();
     if (error) this.handleError(error);
 
     const rows = new Map(((data ?? []) as DbCharge[]).map((r) => [r.id, r]));
     for (const row of rows.values()) {
       this.audit({
-        table: 'charges',
+        table: "charges",
         recordId: row.id,
-        action: 'create',
+        action: "create",
         after: row,
         branchId: row.branch_id,
         customerId: row.customer_id ?? undefined,
@@ -261,10 +309,17 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     const raise: { payloadId: string; payload: CreateChargePayload }[] = [];
     for (const next of charges) {
       const key = monthBillKey(next);
-      const target = resolveBillTarget(next, key ? byKey.get(key) : null, byId.get(next.id));
-      if ('reuse' in target) {
+      const target = resolveBillTarget(
+        next,
+        key ? byKey.get(key) : null,
+        byId.get(next.id),
+      );
+      if ("reuse" in target) {
         const row = target.reuse;
-        resolved.set(next.id, await this.reviveTargetBill(row, next, paidById.get(row.id) ?? 0));
+        resolved.set(
+          next.id,
+          await this.reviveTargetBill(row, next, paidById.get(row.id) ?? 0),
+        );
         continue;
       }
       raise.push({
@@ -277,7 +332,9 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     return resolved;
   }
 
-  private async paidByCharge(chargeIds: string[]): Promise<Map<string, number>> {
+  private async paidByCharge(
+    chargeIds: string[],
+  ): Promise<Map<string, number>> {
     const items = await this.findItemsForCharges(chargeIds);
     const paid = new Map<string, number>();
     for (const it of items) {
@@ -294,10 +351,15 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     const targets = new Map<string, DbCharge>();
     for (const row of bills.values()) targets.set(row.id, row);
     const missing = [
-      ...new Set(items.map((it) => it.charge_id).filter((cid) => !targets.has(cid))),
+      ...new Set(
+        items.map((it) => it.charge_id).filter((cid) => !targets.has(cid)),
+      ),
     ];
     if (missing.length === 0) return targets;
-    const { data, error } = await this.db.from('charges').select('*').in('id', missing);
+    const { data, error } = await this.db
+      .from("charges")
+      .select("*")
+      .in("id", missing);
     if (error) this.handleError(error);
     for (const row of (data ?? []) as DbCharge[]) targets.set(row.id, row);
     return targets;
@@ -314,7 +376,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     const targets = await this.settledBills(bills, itemPayloads);
 
     const { data, error } = await this.db
-      .from('collections')
+      .from("collections")
       .insert({ ...header, held_by_user_id: header.received_by_user_id })
       .select(COLLECTION_SELECT_LEAN)
       .single();
@@ -322,20 +384,22 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     const created = data as DbCollection;
 
     const { data: itemData, error: itemsError } = await this.db
-      .from('collection_items')
+      .from("collection_items")
       .insert(itemPayloads.map((it) => ({ ...it, collection_id: created.id })))
       .select();
     if (itemsError) this.handleError(itemsError);
     const itemRows = (itemData ?? []) as DbCollectionItem[];
 
     this.audit({
-      table: 'collections',
+      table: "collections",
       recordId: created.id,
-      action: 'create',
+      action: "create",
       after: {
         ...created,
         collection_items: itemPayloads,
-        plan_id: collectionPlanId(itemPayloads.map((it) => targets.get(it.charge_id)?.plan_id)),
+        plan_id: collectionPlanId(
+          itemPayloads.map((it) => targets.get(it.charge_id)?.plan_id),
+        ),
       },
       branchId: created.branch_id,
       customerId: created.customer_id ?? undefined,
@@ -351,27 +415,35 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     };
   }
 
-  async void(id: string, voidedBy: string, reason: string | null): Promise<DbCollection> {
+  async void(
+    id: string,
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<DbCollection> {
     const { data: priorData } = await this.db
-      .from('collections')
+      .from("collections")
       .select(COLLECTION_SELECT_PLAN)
-      .eq('id', id)
+      .eq("id", id)
       .maybeSingle();
     const prior = (priorData as DbCollection) ?? null;
     const planId = collectionPlanOf(prior);
     const { data, error } = await this.db
-      .from('collections')
-      .update({ voided_at: new Date().toISOString(), voided_by: voidedBy, void_reason: reason })
-      .eq('id', id)
-      .is('voided_at', null)
+      .from("collections")
+      .update({
+        voided_at: new Date().toISOString(),
+        voided_by: voidedBy,
+        void_reason: reason,
+      })
+      .eq("id", id)
+      .is("voided_at", null)
       .select(COLLECTION_SELECT_LEAN)
       .single();
     if (error) this.handleError(error);
     const voided = data as DbCollection;
     this.audit({
-      table: 'collections',
+      table: "collections",
       recordId: id,
-      action: 'void',
+      action: "void",
       before: prior ? { ...prior, plan_id: planId } : prior,
       after: { ...voided, plan_id: planId },
       customerId: voided.customer_id ?? undefined,
@@ -388,15 +460,21 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
   ): Promise<DbCollection[]> {
     if (ids.length === 0) return [];
     const { data: priors } = await this.db
-      .from('collections')
+      .from("collections")
       .select(COLLECTION_SELECT_PLAN)
-      .in('id', ids);
-    const priorById = new Map(((priors ?? []) as DbCollection[]).map((c) => [c.id, c]));
+      .in("id", ids);
+    const priorById = new Map(
+      ((priors ?? []) as DbCollection[]).map((c) => [c.id, c]),
+    );
     const { data, error } = await this.db
-      .from('collections')
-      .update({ voided_at: new Date().toISOString(), voided_by: voidedBy, void_reason: reason })
-      .in('id', ids)
-      .is('voided_at', null)
+      .from("collections")
+      .update({
+        voided_at: new Date().toISOString(),
+        voided_by: voidedBy,
+        void_reason: reason,
+      })
+      .in("id", ids)
+      .is("voided_at", null)
       .select(COLLECTION_SELECT_LEAN);
     if (error) this.handleError(error);
     const voided = (data ?? []) as DbCollection[];
@@ -404,9 +482,9 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
       const prior = priorById.get(row.id) ?? null;
       const planId = collectionPlanOf(prior);
       this.audit({
-        table: 'collections',
+        table: "collections",
         recordId: row.id,
-        action: 'void',
+        action: "void",
         before: prior ? { ...prior, plan_id: planId } : prior,
         after: { ...row, plan_id: planId },
         customerId: row.customer_id ?? undefined,
@@ -417,40 +495,45 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     return voided;
   }
 
-
   async collectedInRange(
     startIso: string,
     endExclusiveIso: string,
     branchFilter: BranchFilter,
   ): Promise<CashRow[]> {
     let query = this.db
-      .from('collection_items')
+      .from("collection_items")
       .select(
-        'id, amount, charges!inner(kind, plan_id, description, billing_month), ' +
-        'collections!inner(id, received_at, currency_id, rate_per_usd_snapshot, branch_id, ' +
-        'received_by_user_id, customer_id, notes, voided_at, customers(name))',
+        "id, amount, charges!inner(kind, plan_id, description, billing_month), " +
+          "collections!inner(id, received_at, currency_id, rate_per_usd_snapshot, branch_id, " +
+          "received_by_user_id, customer_id, notes, voided_at, customers(name))",
       )
-      .is('collections.voided_at', null)
-      .gte('collections.received_at', startIso)
-      .lt('collections.received_at', endExclusiveIso);
+      .is("collections.voided_at", null)
+      .gte("collections.received_at", startIso)
+      .lt("collections.received_at", endExclusiveIso);
     query = this.applyBranchFilter(query, branchFilter, {
       ...this.BRANCH_SCOPES.collections,
-      kind: 'inherited',
-      joinedTable: 'collections',
+      kind: "inherited",
+      joinedTable: "collections",
     });
     const { data, error } = await query;
     if (error) this.handleError(error);
     return ((data ?? []) as unknown as CollectedItemRow[]).map(toCashRow);
   }
 
-
-  async findHeld(userId: string, branchFilter: BranchFilter): Promise<DbCollection[]> {
+  async findHeld(
+    userId: string,
+    branchFilter: BranchFilter,
+  ): Promise<DbCollection[]> {
     let query = this.db
-      .from('collections')
+      .from("collections")
       .select(COLLECTION_SELECT)
-      .eq('held_by_user_id', userId)
-      .is('voided_at', null);
-    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.collections);
+      .eq("held_by_user_id", userId)
+      .is("voided_at", null);
+    query = this.applyBranchFilter(
+      query,
+      branchFilter,
+      this.BRANCH_SCOPES.collections,
+    );
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbCollection[];
@@ -458,11 +541,15 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
 
   async findAllHeld(branchFilter: BranchFilter): Promise<DbCollection[]> {
     let query = this.db
-      .from('collections')
+      .from("collections")
       .select(COLLECTION_SELECT)
-      .not('held_by_user_id', 'is', null)
-      .is('voided_at', null);
-    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.collections);
+      .not("held_by_user_id", "is", null)
+      .is("voided_at", null);
+    query = this.applyBranchFilter(
+      query,
+      branchFilter,
+      this.BRANCH_SCOPES.collections,
+    );
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbCollection[];
@@ -476,14 +563,14 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
   ): Promise<void> {
     if (ids.length === 0) return;
     const { error } = await this.db
-      .from('collections')
+      .from("collections")
       .update(custodyValues(toUserId, actorUserId))
-      .in('id', ids)
-      .eq('held_by_user_id', fromUserId);
+      .in("id", ids)
+      .eq("held_by_user_id", fromUserId);
     if (error) this.handleError(error);
   }
 }
 
-export default Platform.OS === 'web'
+export default Platform.OS === "web"
   ? new CollectionRepository()
   : new OfflineCollectionRepository();

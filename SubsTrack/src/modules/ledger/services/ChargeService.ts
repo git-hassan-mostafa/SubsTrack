@@ -1,18 +1,22 @@
-import type { BranchFilter } from '@/src/core/constants';
-import i18n from '@/src/core/i18n';
+import type { BranchFilter } from "@/src/core/constants";
+import i18n from "@/src/core/i18n";
 import type {
   Charge,
   CustomerDebts,
   DebtsView,
   MonthBill,
   OpenItem,
-} from '@/src/core/types';
-import { deterministicId, newId, nowIso } from '@/src/core/offline/ids';
-import { daysLate } from '@/src/core/utils/date';
-import repository from '../repository/ChargeRepository';
-import collectionRepository from '../repository/CollectionRepository';
-import { mapDbChargeToCharge } from '../utils/mapper';
-import { chargeLabel, isDebtItem, openItemFromCharge } from '../utils/openItems';
+} from "@/src/core/types";
+import { deterministicId, newId, nowIso } from "@/src/core/offline/ids";
+import { daysLate } from "@/src/core/utils/date";
+import repository from "../repository/ChargeRepository";
+import collectionRepository from "../repository/CollectionRepository";
+import { mapDbChargeToCharge } from "../utils/mapper";
+import {
+  chargeLabel,
+  isDebtItem,
+  openItemFromCharge,
+} from "../utils/openItems";
 
 export interface CreateManualChargeInput {
   tenantId: string;
@@ -42,18 +46,18 @@ export interface UpdateManualChargeInput {
  * model, so no method here ever touches an amount received.
  */
 class ChargeService {
-
   monthChargeId(customerPlanId: string, billingMonth: string): Promise<string> {
     return deterministicId(customerPlanId, billingMonth);
   }
-
 
   async getById(id: string): Promise<Charge | null> {
     const row = await repository.findById(id);
     return row ? mapDbChargeToCharge(row) : null;
   }
 
-  async getMonthBillsForLines(customerPlanIds: string[]): Promise<Map<string, MonthBill[]>> {
+  async getMonthBillsForLines(
+    customerPlanIds: string[],
+  ): Promise<Map<string, MonthBill[]>> {
     const rows = await repository.findMonthChargesForLines(customerPlanIds);
     const byLine = new Map<string, MonthBill[]>();
     for (const { charge: row, paid } of rows) {
@@ -86,7 +90,7 @@ class ChargeService {
         mapDbChargeToCharge(charge),
         paid,
         chargeLabel(charge),
-        charge.customers?.name ?? '',
+        charge.customers?.name ?? "",
       ),
     );
   }
@@ -94,7 +98,7 @@ class ChargeService {
   buildDebtsView(open: OpenItem[]): DebtsView {
     const byCustomer = new Map<string, CustomerDebts>();
     for (const item of open) {
-      if (item.kind === 'month' && item.paid <= 0) continue;
+      if (item.kind === "month" && item.paid <= 0) continue;
       let entry = byCustomer.get(item.customerId);
       if (!entry) {
         entry = {
@@ -130,13 +134,15 @@ class ChargeService {
       entry.oldestDaysLate = daysLate(entry.items[0].dueDate, today);
       for (const i of entry.items) {
         const usd = i.balance / i.ratePerUsdSnapshot;
-        if (i.kind === 'month') monthsUsd += usd;
-        else if (i.kind === 'sale') salesUsd += usd;
+        if (i.kind === "month") monthsUsd += usd;
+        else if (i.kind === "sale") salesUsd += usd;
         else manualUsd += usd;
       }
       customers.push(entry);
     }
-    customers.sort((a, b) => b.oldestDaysLate - a.oldestDaysLate || b.debtUsd - a.debtUsd);
+    customers.sort(
+      (a, b) => b.oldestDaysLate - a.oldestDaysLate || b.debtUsd - a.debtUsd,
+    );
 
     return {
       customers,
@@ -151,11 +157,12 @@ class ChargeService {
     };
   }
 
-
   async addManualCharge(input: CreateManualChargeInput): Promise<Charge> {
     this.validateAmount(input.amount);
-    if (!input.customerId) throw new Error(i18n.t('errors.debt_customer_required'));
-    if (!(input.ratePerUsdSnapshot > 0)) throw new Error(i18n.t('errors.rate_snapshot_positive'));
+    if (!input.customerId)
+      throw new Error(i18n.t("errors.debt_customer_required"));
+    if (!(input.ratePerUsdSnapshot > 0))
+      throw new Error(i18n.t("errors.rate_snapshot_positive"));
 
     const now = nowIso();
     const row = await repository.create({
@@ -163,7 +170,7 @@ class ChargeService {
       tenant_id: input.tenantId,
       branch_id: input.branchId,
       customer_id: input.customerId,
-      kind: 'manual',
+      kind: "manual",
       customer_plan_id: null,
       billing_month: null,
       duration_months: 1,
@@ -182,28 +189,39 @@ class ChargeService {
   }
 
   /** Amount, currency and rate are ONE frozen unit once money lands — gotcha #126. */
-  async updateManualCharge(id: string, values: UpdateManualChargeInput): Promise<Charge> {
+  async updateManualCharge(
+    id: string,
+    values: UpdateManualChargeInput,
+  ): Promise<Charge> {
     if (values.amount !== undefined) this.validateAmount(values.amount);
     const existing = await repository.findById(id);
-    if (!existing) throw new Error(i18n.t('errors.charge_not_found'));
+    if (!existing) throw new Error(i18n.t("errors.charge_not_found"));
     if (existing.voided_at || existing.written_off_at) {
-      throw new Error(i18n.t('errors.charge_not_editable'));
+      throw new Error(i18n.t("errors.charge_not_editable"));
     }
 
     const movesCurrency =
-      values.currencyId !== undefined && values.currencyId !== existing.currency_id;
+      values.currencyId !== undefined &&
+      values.currencyId !== existing.currency_id;
     const needsBalance = values.amount !== undefined || movesCurrency;
-    const paid = needsBalance ? ((await repository.balances([id]))[0]?.paid ?? 0) : 0;
+    const paid = needsBalance
+      ? ((await repository.balances([id]))[0]?.paid ?? 0)
+      : 0;
 
-    if (movesCurrency && paid > 0) throw new Error(i18n.t('errors.charge_currency_locked'));
+    if (movesCurrency && paid > 0)
+      throw new Error(i18n.t("errors.charge_currency_locked"));
     if (values.amount !== undefined && values.amount + EPSILON < paid) {
-      throw new Error(i18n.t('errors.charge_amount_below_collected'));
+      throw new Error(i18n.t("errors.charge_amount_below_collected"));
     }
 
     const row = await repository.update(id, {
-      ...(values.description !== undefined ? { description: values.description.trim() } : {}),
+      ...(values.description !== undefined
+        ? { description: values.description.trim() }
+        : {}),
       ...(values.amount !== undefined ? { amount: values.amount } : {}),
-      ...(values.currencyId !== undefined ? { currency_id: values.currencyId } : {}),
+      ...(values.currencyId !== undefined
+        ? { currency_id: values.currencyId }
+        : {}),
       ...(values.ratePerUsdSnapshot !== undefined
         ? { rate_per_usd_snapshot: values.ratePerUsdSnapshot }
         : {}),
@@ -213,9 +231,14 @@ class ChargeService {
     return mapDbChargeToCharge(row);
   }
 
-  async voidCharge(id: string, voidedBy: string, reason: string | null): Promise<Charge> {
+  async voidCharge(
+    id: string,
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<Charge> {
     const [balance] = await repository.balances([id]);
-    if (balance && balance.paid > 0) throw new Error(i18n.t('errors.charge_void_has_money'));
+    if (balance && balance.paid > 0)
+      throw new Error(i18n.t("errors.charge_void_has_money"));
     const row = await repository.void(id, voidedBy, reason);
     return mapDbChargeToCharge(row);
   }
@@ -243,11 +266,16 @@ class ChargeService {
     return mapDbChargeToCharge(row);
   }
 
-  async writeOff(id: string, writtenOffBy: string, reason: string | null): Promise<Charge> {
+  async writeOff(
+    id: string,
+    writtenOffBy: string,
+    reason: string | null,
+  ): Promise<Charge> {
     const charge = await repository.findById(id);
-    if (!charge) throw new Error(i18n.t('errors.charge_not_found'));
-    if (charge.voided_at) throw new Error(i18n.t('errors.charge_voided'));
-    if (charge.written_off_at) throw new Error(i18n.t('errors.charge_already_written_off'));
+    if (!charge) throw new Error(i18n.t("errors.charge_not_found"));
+    if (charge.voided_at) throw new Error(i18n.t("errors.charge_voided"));
+    if (charge.written_off_at)
+      throw new Error(i18n.t("errors.charge_already_written_off"));
     const row = await repository.writeOff(id, writtenOffBy, reason);
     return mapDbChargeToCharge(row);
   }
@@ -259,7 +287,11 @@ class ChargeService {
     reason: string | null,
   ): Promise<Charge[]> {
     if (ids.length === 0) return [];
-    const rows = await repository.writeOffMany([...new Set(ids)], writtenOffBy, reason);
+    const rows = await repository.writeOffMany(
+      [...new Set(ids)],
+      writtenOffBy,
+      reason,
+    );
     return rows.map(mapDbChargeToCharge);
   }
 
@@ -268,22 +300,31 @@ class ChargeService {
     endExclusiveIso: string,
     branchFilter: BranchFilter,
   ): Promise<number> {
-    const rows = await repository.writtenOffInRange(startIso, endExclusiveIso, branchFilter);
+    const rows = await repository.writtenOffInRange(
+      startIso,
+      endExclusiveIso,
+      branchFilter,
+    );
     if (rows.length === 0) return 0;
-    const balances = await collectionRepository.findItemsForCharges(rows.map((r) => r.id));
+    const balances = await collectionRepository.findItemsForCharges(
+      rows.map((r) => r.id),
+    );
     const paidBy = new Map<string, number>();
     for (const it of balances) {
       paidBy.set(it.charge_id, (paidBy.get(it.charge_id) ?? 0) + it.amount);
     }
     return rows.reduce(
-      (sum, r) => sum + Math.max(0, r.amount - (paidBy.get(r.id) ?? 0)) / r.rate_per_usd_snapshot,
+      (sum, r) =>
+        sum +
+        Math.max(0, r.amount - (paidBy.get(r.id) ?? 0)) /
+          r.rate_per_usd_snapshot,
       0,
     );
   }
 
   private validateAmount(amount: number): void {
     if (!Number.isFinite(amount) || amount <= 0) {
-      throw new Error(i18n.t('errors.debt_amount_positive'));
+      throw new Error(i18n.t("errors.debt_amount_positive"));
     }
   }
 }

@@ -1,5 +1,5 @@
-import type { BranchFilter } from '@/src/core/constants';
-import type { DbService } from '@/src/core/types/db';
+import type { BranchFilter } from "@/src/core/constants";
+import type { DbService } from "@/src/core/types/db";
 
 /**
  * The Service (price list) repository contract. Both the Supabase (online/web)
@@ -12,11 +12,21 @@ import type { DbService } from '@/src/core/types/db';
  */
 export interface IServiceRepository {
   findAll(branchFilter?: BranchFilter): Promise<DbService[]>;
-  create(payload: Omit<DbService, 'id' | 'created_at' | 'updated_at'>): Promise<DbService>;
+  create(
+    payload: Omit<DbService, "id" | "created_at" | "updated_at">,
+  ): Promise<DbService>;
   update(
     id: string,
     payload: Partial<
-      Pick<DbService, 'name' | 'description' | 'price' | 'currency_id' | 'branch_id' | 'active'>
+      Pick<
+        DbService,
+        | "name"
+        | "description"
+        | "price"
+        | "currency_id"
+        | "branch_id"
+        | "active"
+      >
     >,
   ): Promise<DbService>;
   delete(id: string): Promise<void>;

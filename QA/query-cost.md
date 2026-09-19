@@ -1,6 +1,6 @@
 # Query Cost of the Write Paths — QA Scenarios
 
-Cross-cutting. Covers the rewrite of **how** the money reads and writes talk to the local SQLite mirror. **Nothing here is a new feature and no number on any screen should change.** What is being tested is that every figure is *still* correct now that:
+Cross-cutting. Covers the rewrite of **how** the money reads and writes talk to the local SQLite mirror. **Nothing here is a new feature and no number on any screen should change.** What is being tested is that every figure is _still_ correct now that:
 
 - "what is still owed" comes from **one** query (`ChargeRepository.findOpenWithPaid`) instead of "read every bill, then ask a second query what has been paid on each",
 - the month grid's bills arrive **with** what has reached them (`DbChargeWithPaid`) instead of a second balances read,

@@ -9,5 +9,5 @@
  * so a term matches the same characters on both platforms.
  */
 export function sanitizeSearchTerm(term: string | undefined | null): string {
-  return (term ?? '').trim().replace(/[,()%*\\]/g, '');
+  return (term ?? "").trim().replace(/[,()%*\\]/g, "");
 }

@@ -23,7 +23,8 @@ export type CustomerFlag = CustomerMonthStatus | "overdue";
 export function customerFlags(status: CustomerStatus | null): CustomerFlag[] {
   if (!status) return [];
   const flags: CustomerFlag[] = [];
-  if (!(status.status === "unpaid" && status.overdue)) flags.push(status.status);
+  if (!(status.status === "unpaid" && status.overdue))
+    flags.push(status.status);
   if (status.overdue) flags.push("overdue");
   return flags;
 }

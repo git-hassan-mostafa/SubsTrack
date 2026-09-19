@@ -1,12 +1,17 @@
-import type { Currency, Product, StockMovement } from '@/src/core/types';
-import type { DbStockMovement } from '@/src/core/types/db';
-import type { BranchFilter } from '@/src/core/constants';
-import i18n from '@/src/core/i18n';
-import repository from '../repository/ProductRepository';
-import type { CreateStockMovementPayload, StockCostRow } from '../repository/IProductRepository';
-import { mapDbProductToProduct, mapDbStockMovementToStockMovement } from '../utils/mapper';
-import { ProductInput, RestockEntry } from '../utils/types';
-
+import type { Currency, Product, StockMovement } from "@/src/core/types";
+import type { DbStockMovement } from "@/src/core/types/db";
+import type { BranchFilter } from "@/src/core/constants";
+import i18n from "@/src/core/i18n";
+import repository from "../repository/ProductRepository";
+import type {
+  CreateStockMovementPayload,
+  StockCostRow,
+} from "../repository/IProductRepository";
+import {
+  mapDbProductToProduct,
+  mapDbStockMovementToStockMovement,
+} from "../utils/mapper";
+import { ProductInput, RestockEntry } from "../utils/types";
 
 class ProductService {
   async getProducts(branchFilter: BranchFilter = null): Promise<Product[]> {
@@ -39,7 +44,7 @@ class ProductService {
       const initial = data.initialStock ?? 0;
       if (initial > 0) {
         await repository.addMovements([
-          this.movement(tenantId, row.id, initial, 'initial', {
+          this.movement(tenantId, row.id, initial, "initial", {
             userId,
             unitCost: data.initialStockUnitCost ?? data.costPrice ?? null,
             currency: costCurrency,
@@ -71,14 +76,14 @@ class ProductService {
     }
   }
 
-  async deleteProduct(id: string): Promise<'hard' | 'soft'> {
+  async deleteProduct(id: string): Promise<"hard" | "soft"> {
     const refs = await repository.countReferences(id);
     if (refs > 0) {
       await repository.update(id, { active: false });
-      return 'soft';
+      return "soft";
     }
     await repository.delete(id);
-    return 'hard';
+    return "hard";
   }
 
   async reactivateProduct(id: string): Promise<Product> {
@@ -110,10 +115,10 @@ class ProductService {
     cost: { unitCost: number | null; currency: Currency | null } | null = null,
   ): Promise<number> {
     if (!Number.isInteger(quantity) || quantity <= 0) {
-      throw new Error(i18n.t('errors.stock_delta_invalid'));
+      throw new Error(i18n.t("errors.stock_delta_invalid"));
     }
     await repository.addMovements([
-      this.movement(tenantId, productId, quantity, 'restock', {
+      this.movement(tenantId, productId, quantity, "restock", {
         note,
         userId,
         unitCost: cost?.unitCost ?? null,
@@ -134,7 +139,7 @@ class ProductService {
   ): Promise<{ movement: StockMovement; onHand: number }> {
     const existing = await this.liveManualMovement(movementId);
     if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
-      throw new Error(i18n.t('errors.stock_delta_invalid'));
+      throw new Error(i18n.t("errors.stock_delta_invalid"));
     }
     const cost = this.costFields(
       existing.reason,
@@ -149,7 +154,8 @@ class ProductService {
       cost.rate_per_usd_snapshot = existing.rate_per_usd_snapshot;
     }
     const row = await repository.updateMovement(movementId, {
-      quantity_delta: existing.quantity_delta > 0 ? input.quantity : -input.quantity,
+      quantity_delta:
+        existing.quantity_delta > 0 ? input.quantity : -input.quantity,
       note: input.note?.trim() || null,
       ...cost,
     });
@@ -170,13 +176,16 @@ class ProductService {
     return { productId: row.product_id, onHand: stock[row.product_id] ?? 0 };
   }
 
-  private async liveManualMovement(movementId: string): Promise<DbStockMovement> {
+  private async liveManualMovement(
+    movementId: string,
+  ): Promise<DbStockMovement> {
     const existing = await repository.findMovement(movementId);
-    if (!existing) throw new Error(i18n.t('errors.stock_movement_missing'));
-    if (existing.reason === 'sale') {
-      throw new Error(i18n.t('errors.stock_movement_sale_locked'));
+    if (!existing) throw new Error(i18n.t("errors.stock_movement_missing"));
+    if (existing.reason === "sale") {
+      throw new Error(i18n.t("errors.stock_movement_sale_locked"));
     }
-    if (existing.voided_at) throw new Error(i18n.t('errors.stock_movement_voided_locked'));
+    if (existing.voided_at)
+      throw new Error(i18n.t("errors.stock_movement_voided_locked"));
     return existing;
   }
 
@@ -187,11 +196,14 @@ class ProductService {
     userId: string | null = null,
     currency: Currency | null = null,
   ): Promise<Record<string, number>> {
-    const valid = entries.filter((e) => Number.isInteger(e.quantity) && e.quantity > 0);
-    if (valid.length === 0) throw new Error(i18n.t('errors.stock_delta_invalid'));
+    const valid = entries.filter(
+      (e) => Number.isInteger(e.quantity) && e.quantity > 0,
+    );
+    if (valid.length === 0)
+      throw new Error(i18n.t("errors.stock_delta_invalid"));
     await repository.addMovements(
       valid.map((e) =>
-        this.movement(tenantId, e.productId, e.quantity, 'restock', {
+        this.movement(tenantId, e.productId, e.quantity, "restock", {
           note,
           userId,
           unitCost: e.unitCost ?? null,
@@ -215,7 +227,7 @@ class ProductService {
     tenantId: string,
     productId: string,
     quantityDelta: number,
-    reason: CreateStockMovementPayload['reason'],
+    reason: CreateStockMovementPayload["reason"],
     extra: {
       saleId?: string | null;
       note?: string | null;
@@ -231,7 +243,11 @@ class ProductService {
       quantity_delta: quantityDelta,
       reason,
       sale_id: extra.saleId ?? null,
-      ...this.costFields(reason, extra.unitCost ?? null, extra.currency ?? null),
+      ...this.costFields(
+        reason,
+        extra.unitCost ?? null,
+        extra.currency ?? null,
+      ),
       note: extra.note?.trim() || null,
       recorded_by_user_id: extra.userId ?? null,
       occurred_at: extra.occurredAt ?? new Date().toISOString(),
@@ -239,14 +255,15 @@ class ProductService {
   }
 
   private costFields(
-    reason: CreateStockMovementPayload['reason'],
+    reason: CreateStockMovementPayload["reason"],
     unitCost: number | null,
     currency: Currency | null,
   ): Pick<
     CreateStockMovementPayload,
-    'unit_cost' | 'currency_id' | 'rate_per_usd_snapshot'
+    "unit_cost" | "currency_id" | "rate_per_usd_snapshot"
   > {
-    const costed = reason !== 'sale' && typeof unitCost === 'number' && unitCost > 0;
+    const costed =
+      reason !== "sale" && typeof unitCost === "number" && unitCost > 0;
     return {
       unit_cost: costed ? unitCost : null,
       currency_id: costed ? (currency?.id ?? null) : null,
@@ -259,31 +276,42 @@ class ProductService {
     endExclusiveIso: string,
     branchFilter: BranchFilter = null,
   ): Promise<StockCostRow[]> {
-    return repository.stockCostsInRange(startIso, endExclusiveIso, branchFilter);
+    return repository.stockCostsInRange(
+      startIso,
+      endExclusiveIso,
+      branchFilter,
+    );
   }
 
   private validate(data: ProductInput): void {
-    if (!data.name?.trim()) throw new Error(i18n.t('errors.product_name_required'));
-    if (typeof data.price !== 'number' || Number.isNaN(data.price)) {
-      throw new Error(i18n.t('errors.product_price_required'));
+    if (!data.name?.trim())
+      throw new Error(i18n.t("errors.product_name_required"));
+    if (typeof data.price !== "number" || Number.isNaN(data.price)) {
+      throw new Error(i18n.t("errors.product_price_required"));
     }
-    if (data.price <= 0) throw new Error(i18n.t('errors.product_price_positive'));
+    if (data.price <= 0)
+      throw new Error(i18n.t("errors.product_price_positive"));
     if (data.costPrice != null && !(data.costPrice > 0)) {
-      throw new Error(i18n.t('errors.product_cost_positive'));
+      throw new Error(i18n.t("errors.product_cost_positive"));
     }
     const initial = data.initialStock ?? 0;
     if (!Number.isInteger(initial) || initial < 0) {
-      throw new Error(i18n.t('errors.product_stock_invalid'));
+      throw new Error(i18n.t("errors.product_stock_invalid"));
     }
   }
 
   private rethrow(err: unknown): never {
-    const msg = err instanceof Error ? err.message : '';
-    if (msg.includes('uq_products_name_tenant_branch') || msg.includes('duplicate')) {
-      throw new Error(i18n.t('errors.product_name_exists'));
+    const msg = err instanceof Error ? err.message : "";
+    if (
+      msg.includes("uq_products_name_tenant_branch") ||
+      msg.includes("duplicate")
+    ) {
+      throw new Error(i18n.t("errors.product_name_exists"));
     }
-    throw err instanceof Error ? err : new Error(i18n.t('errors.connection_error'));
+    throw err instanceof Error
+      ? err
+      : new Error(i18n.t("errors.connection_error"));
   }
 }
 
-export default new ProductService()
+export default new ProductService();

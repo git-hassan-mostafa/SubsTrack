@@ -1,5 +1,5 @@
-import { useGlobalStore } from '@/src/state/hooks/useGlobalStore';
-import type { PaymentSlice } from '@/src/state/slices/payments/paymentSlice';
+import { useGlobalStore } from "@/src/state/hooks/useGlobalStore";
+import type { PaymentSlice } from "@/src/state/slices/payments/paymentSlice";
 
 export function usePaymentSlice(): PaymentSlice;
 export function usePaymentSlice<T>(selector: (state: PaymentSlice) => T): T;

@@ -1,6 +1,10 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
-import { CREATE_INDEX_STATEMENTS, CREATE_TABLE_STATEMENTS, columnDefs } from './schema';
-import { TABLES, type TableSpec } from './tables';
+import type { SQLiteDatabase } from "expo-sqlite";
+import {
+  CREATE_INDEX_STATEMENTS,
+  CREATE_TABLE_STATEMENTS,
+  columnDefs,
+} from "./schema";
+import { TABLES, type TableSpec } from "./tables";
 
 /**
  * Reconcile the local mirror with `TABLES` — no version numbers, no migration
@@ -22,11 +26,16 @@ export async function applySchema(db: SQLiteDatabase): Promise<void> {
 }
 
 /** SQLite has no `ADD COLUMN IF NOT EXISTS` — diff the spec against the real table. */
-async function addMissingColumns(db: SQLiteDatabase, t: TableSpec): Promise<void> {
-  const rows = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${t.name});`);
+async function addMissingColumns(
+  db: SQLiteDatabase,
+  t: TableSpec,
+): Promise<void> {
+  const rows = await db.getAllAsync<{ name: string }>(
+    `PRAGMA table_info(${t.name});`,
+  );
   const existing = new Set(rows.map((r) => r.name));
   for (const [name, def] of columnDefs(t)) {
-    if (name === 'id' || existing.has(name)) continue;
+    if (name === "id" || existing.has(name)) continue;
     await db.execAsync(`ALTER TABLE ${t.name} ADD COLUMN ${def};`);
   }
 }

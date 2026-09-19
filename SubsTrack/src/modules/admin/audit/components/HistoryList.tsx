@@ -1,5 +1,10 @@
 import { useMemo, useState, type ReactElement } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  View,
+} from "react-native";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { useTranslation } from "react-i18next";
 import type { AuditEntry, AuditSource } from "@/src/core/types";
@@ -49,16 +54,15 @@ export function HistoryList({
   const [openEntry, setOpenEntry] = useState<AuditEntry | null>(null);
 
   const lookups = useAuditLookups();
-  const base = useMemo<AuditContextBase>(
-    () => ({ t, lookups }),
-    [t, lookups],
-  );
+  const base = useMemo<AuditContextBase>(() => ({ t, lookups }), [t, lookups]);
 
   const List = inSheet ? BottomSheetFlatList : FlatList;
 
   return (
     <>
-      {error ? <ErrorBanner message={error} onDismiss={onDismissError} /> : null}
+      {error ? (
+        <ErrorBanner message={error} onDismiss={onDismissError} />
+      ) : null}
 
       {loading && entries.length === 0 ? (
         <View className="flex-1 items-center justify-center">
@@ -134,7 +138,9 @@ function SourceNote({ source }: { source: AuditSource }) {
   if (!IS_OFFLINE_CAPABLE) return null;
   return (
     <Text className="text-xs text-gray-400 mb-3">
-      {t(source === "server" ? "audit.showing_full" : "audit.local_window_note")}
+      {t(
+        source === "server" ? "audit.showing_full" : "audit.local_window_note",
+      )}
     </Text>
   );
 }

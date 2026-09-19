@@ -194,8 +194,7 @@ export function BranchesScreen() {
           icon: "pause-circle-outline",
           label: t("branches.deactivate"),
           destructive: true,
-          onPress: () =>
-            void handleDeactivateBranch(one).then(clearSelection),
+          onPress: () => void handleDeactivateBranch(one).then(clearSelection),
         });
       } else {
         actions.push({

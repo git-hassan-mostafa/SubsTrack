@@ -111,8 +111,11 @@ export class TenantService {
       this.repository.findPendingRequests(),
     ]);
     const byTenant = new Map<string, CustomerRequest>();
-    for (const r of requests) byTenant.set(r.tenant_id, mapDbCustomerRequest(r));
-    return rows.map((row) => mapDbTenantToTenant(row, byTenant.get(row.id) ?? null));
+    for (const r of requests)
+      byTenant.set(r.tenant_id, mapDbCustomerRequest(r));
+    return rows.map((row) =>
+      mapDbTenantToTenant(row, byTenant.get(row.id) ?? null),
+    );
   }
 
   async getTenantCounts(tenantId: string): Promise<TenantCounts> {
@@ -121,8 +124,10 @@ export class TenantService {
 
   async createTenant(data: CreateTenantInput): Promise<Tenant> {
     if (!data.name.trim()) throw new Error("Tenant name is required");
-    if (!data.adminUserName.trim()) throw new Error("Admin username is required");
-    if (!data.adminFullName.trim()) throw new Error("Admin full name is required");
+    if (!data.adminUserName.trim())
+      throw new Error("Admin username is required");
+    if (!data.adminFullName.trim())
+      throw new Error("Admin full name is required");
     if (data.adminPassword.length < 8)
       throw new Error("Password must be at least 8 characters");
     // Only what was actually typed is checked; an omitted field takes the

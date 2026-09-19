@@ -3,6 +3,7 @@
 Covers the money model that replaced `payments` / `custom_debts` / `debt_payments`: raising a bill, collecting against it (in one go, in installments, or across several bills at once via the oldest-first waterfall), voiding a hand-over, and writing a bill off. **Run this file before `debts.md`, `payments.md`, `monthly-grid.md`, `sales.md`, `wallet.md`, `dashboard.md` and `reports.md`** — every one of those reads these three tables.
 
 **Reference code:**
+
 - Services: [ChargeService.ts](../SubsTrack/src/modules/ledger/services/ChargeService.ts), [CollectionService.ts](../SubsTrack/src/modules/ledger/services/CollectionService.ts), [LedgerService.ts](../SubsTrack/src/modules/ledger/services/LedgerService.ts)
 - The allocation algorithm: [waterfall.ts](../SubsTrack/src/modules/ledger/utils/waterfall.ts) · the debt rule + item builders: [openItems.ts](../SubsTrack/src/modules/ledger/utils/openItems.ts)
 - Repositories: `ChargeRepository(.offline)`, `CollectionRepository(.offline)`
@@ -16,7 +17,7 @@ Covers the money model that replaced `payments` / `custom_debts` / `debt_payment
 ## 0. Critical invariants
 
 1. **A balance is never stored.** `balance = charge.amount − Σ collection_items (of non-voided collections)`. There is no `paid` column anywhere. Verify by querying `charge_balances` directly after each scenario.
-2. **Everything keys off MONEY, not off a row existing.** A bill left at 0 collected must read *identically* to a month that was never touched: `unpaid` in the grid, absent from Debts, not "covered" for the pay-order gate.
+2. **Everything keys off MONEY, not off a row existing.** A bill left at 0 collected must read _identically_ to a month that was never touched: `unpaid` in the grid, absent from Debts, not "covered" for the pay-order gate.
 3. **A fully unpaid month is OWED but is NOT a debt.** It belongs to the month grid. Only a **partly paid** month appears on the Debts screen.
 4. **One currency per hand-over**, equal to the currency of every bill it pays.
 5. **Overpay is refused**, at the service and in the sheet.
@@ -47,15 +48,15 @@ Covers the money model that replaced `payments` / `custom_debts` / `debt_payment
 
 Set up ONE customer owing exactly this:
 
-| What | Amount | Due |
-| --- | --- | --- |
-| January (unpaid month) | 20 | Jan |
-| February (unpaid month) | 20 | Feb |
-| A pay-later sale | 40 | 5 Mar |
-| A hand-typed fee | 20 | 10 Mar |
+| What                    | Amount | Due    |
+| ----------------------- | ------ | ------ |
+| January (unpaid month)  | 20     | Jan    |
+| February (unpaid month) | 20     | Feb    |
+| A pay-later sale        | 40     | 5 Mar  |
+| A hand-typed fee        | 20     | 10 Mar |
 
 3.1 Customer list → the card's 3-dot → **Collect money**. The sheet opens with **Owed 100** and all four rows listed.
-3.2 Type **55**. The preview updates live: January **pays in full**, February **pays in full**, the sale shows **15** and *"leaves 25 owing"*, the fee shows **—** / *"not covered"*.
+3.2 Type **55**. The preview updates live: January **pays in full**, February **pays in full**, the sale shows **15** and _"leaves 25 owing"_, the fee shows **—** / _"not covered"_.
 3.3 "Still owed after" reads **45**.
 3.4 Save. **One** `collections` row of 55, with **three** `collection_items` (20 / 20 / 15).
 3.5 January and February cells both turn green. The two month bills were **materialized by this write** — they did not exist before it.
@@ -80,7 +81,7 @@ Set up ONE customer owing exactly this:
 
 6.1 After scenario 3, open the January cell → **View bill** → the payment row's 3-dot → **Void payment**.
 6.2 The dialog warns that this payment settled **3 bills** and voiding it makes all of them owed again. Confirm.
-6.3 January and February cells go back to **red / unpaid** — *not* to "partial", and *not* to any new state. The empty bills are still in the DB (`charges` rows exist with 0 collected).
+6.3 January and February cells go back to **red / unpaid** — _not_ to "partial", and _not_ to any new state. The empty bills are still in the DB (`charges` rows exist with 0 collected).
 6.4 The Debts screen does **not** list those two months (an empty month bill is not a debt).
 6.5 The sale goes back to owing 40, the fee to 20.
 6.6 The money-in history still shows the 55, dimmed, marked **Voided**; the month-section total drops by 55.
@@ -98,23 +99,23 @@ Set up ONE customer owing exactly this:
 
 ## 6b. Void a whole bill (the bill AND its payments)
 
-The other statement to 6: there the *cash* was wrong and the bill stays owed; here the **bill should never have existed**, so the cash goes with it. Reachable from the month cell's 3-dot → **Void this month**, from **View bill**'s header 3-dot menu, and — for a sale — from the sale's own **Void sale**.
+The other statement to 6: there the _cash_ was wrong and the bill stays owed; here the **bill should never have existed**, so the cash goes with it. Reachable from the month cell's 3-dot → **Void this month**, from **View bill**'s header 3-dot menu, and — for a sale — from the sale's own **Void sale**.
 
 6b.1 On a **fully unpaid** month that still holds a bill (collect it, then void the hand-over per section 6 — the empty bill stays), the cell menu offers **Void this month**. Confirm: the bill is gone, the cell stays red/unpaid, and re-collecting raises a **fresh** bill (the frozen price is no longer preserved — that is the point of voiding it).
-6b.2 On a **paid** month, the cell menu offers **Void this month** *and* **View bill**. The confirm names the month and states that any money collected on it is voided too. It carries **no count** — the wording is the same whether one payment or five are involved.
+6b.2 On a **paid** month, the cell menu offers **Void this month** _and_ **View bill**. The confirm names the month and states that any money collected on it is voided too. It carries **no count** — the wording is the same whether one payment or five are involved.
 6b.3 Confirm 6b.2. The cell goes red/unpaid, the money-in history shows the hand-over dimmed + **Voided**, the dashboard revenue and the collector's wallet both drop by that amount.
 6b.4 **The wider case, which the message must warn about:** collect 55 across Jan + Feb + a sale (scenario 3), then void **January's** bill. The confirm warns that a payment which also settled another bill is undone in full, making that bill owed again. Confirm — February **and** the sale go back to owed as well, because one physical hand-over cannot be half-undone.
 6b.5 A month with **two** hand-overs on it (installments, scenario 2): both are voided, and the confirm reads exactly as it did in 6b.2 (no count, so no wording to get wrong).
 6b.6 **View bill** → the header **3-dot menu → Void this month** does exactly the same thing as the cell menu, and the sheet closes itself once the bill is gone.
 6b.7 A month with **no bill at all** (never collected) offers **no** void action — there is nothing to void.
 6b.8 Cancel the confirm at every entry point: nothing is written, no payment is voided.
-6b.9 Admin → Audit Log shows a `charges` **void** entry *and* a `collections` **void** entry per payment, all by the acting user.
-6b.10 **Order:** the payments are voided before the bill, so an interrupted run leaves an *unpaid bill* (still owed, recoverable) — never live cash pointing at a voided bill.
+6b.9 Admin → Audit Log shows a `charges` **void** entry _and_ a `collections` **void** entry per payment, all by the acting user.
+6b.10 **Order:** the payments are voided before the bill, so an interrupted run leaves an _unpaid bill_ (still owed, recoverable) — never live cash pointing at a voided bill.
 6b.11 Offline: do 6b.4 on a device with no network, then sync. The bill and every payment arrive voided; no balance goes negative.
 6b.12 **Speed (the regression this guards).** Void a bill carrying **10+** hand-overs, on a device (offline path). It must complete in roughly the time one payment takes — the payments go in **one** UPDATE inside **one** transaction (`voidMany`), not a transaction per row queuing behind `withDbLock`. Same for the money-in history's bulk void of 10+ rows, and for a 10-sale bulk void.
 6b.13 **Opening a void dialog costs no reads.** The confirm appears instantly for any bill or selection, however many payments are involved — it states that the money goes without counting it. Watch the network / SQL log: nothing is queried until Confirm is pressed.
 6b.14 Audit is still **one entry per hand-over** after a batched void (not one for the batch), and each carries its own `before_data`.
-6b.15 **Newest month first.** With July *and* August paid on one service line, **Void this month** on July is refused — a "Not available" popup names August, and the destructive confirm never opens. Void August first, then July: both go through. Same from the bill sheet's header 3-dot menu. Only a **month** bill is gated this way: a **sale** bill and a **hand-typed fee** are voided regardless of any month, and voiding one hand-over (section 6) is never blocked. Full matrix in `payments.md` §8.
+6b.15 **Newest month first.** With July _and_ August paid on one service line, **Void this month** on July is refused — a "Not available" popup names August, and the destructive confirm never opens. Void August first, then July: both go through. Same from the bill sheet's header 3-dot menu. Only a **month** bill is gated this way: a **sale** bill and a **hand-typed fee** are voided regardless of any month, and voiding one hand-over (section 6) is never blocked. Full matrix in `payments.md` §8.
 
 ## 8. Two currencies
 
@@ -127,10 +128,10 @@ The other statement to 6: there the *cash* was wrong and the bill stays owed; he
 ## 8b. A line with no set price (typed amount)
 
 Set-up: a customer whose only service line is **"No plan"** (or a plan marked
-*custom price*), so `resolveLinePrice` returns `kind: 'typed'`.
+_custom price_), so `resolveLinePrice` returns `kind: 'typed'`.
 
 8b.1 Tap the current month's cell. The collect sheet opens — **not** a "no set price" dead-end popup.
-8b.2 It shows a hint, then **Amount for this month**, then **Amount**. The currency picker on the first field is *unlocked*; the second follows it.
+8b.2 It shows a hint, then **Amount for this month**, then **Amount**. The currency picker on the first field is _unlocked_; the second follows it.
 8b.3 Type `50` in the month amount. The collected amount auto-fills to `50`. Save → one `charges` row of 50 and one `collections` row of 50; the cell turns green.
 8b.4 Repeat on another month, but lower the collected amount to `20`. Save → the bill is **50**, the hand-over **20**, the cell is green with the amber **PARTIAL** ring, and the bill sheet reads `20/50`.
 8b.5 That remaining 30 now appears on the **Debts** screen and in the waterfall — from this point the line behaves like any priced one.
@@ -164,9 +165,9 @@ Set-up: a customer whose only service line is **"No plan"** (or a plan marked
 ## 12. Things that must NOT be possible
 
 12.1 No screen offers to edit the amount of a recorded hand-over.
-12.2 No month cell offers to void a *single payment* — that lives in **View bill**, which owns the per-hand-over void. The cell's own **Void this month** is the whole bill, not one payment.
+12.2 No month cell offers to void a _single payment_ — that lives in **View bill**, which owns the per-hand-over void. The cell's own **Void this month** is the whole bill, not one payment.
 12.3 No "Complete" action anywhere (on a debt row or a sale row).
-12.4 A partly-paid month never shows a "partial" *status* — it is `paid` everywhere the status is read, and only the ring / fraction distinguish it.
+12.4 A partly-paid month never shows a "partial" _status_ — it is `paid` everywhere the status is read, and only the ring / fraction distinguish it.
 12.5 Collecting a month while an **earlier** month of the same line is uncovered is refused, naming the older month.
 
 ## 13. Offline: the bill's two unique keys (gotcha #114)
@@ -203,7 +204,7 @@ An "empty" bill is a month whose only payment was voided. It must read exactly l
 14.3.1 Collect a month at $50 and **do not** void it. Change the plan price to $40.
 14.3.2 The month still reads $50 everywhere (grid, View bill, receipt) — the price froze when the money landed.
 14.3.3 A **partly** paid month (paid $20 of $50) also keeps $50 after a price change; the sheet still offers the $30 remainder, not a re-priced figure.
-14.3.4 Void the *bill* (not the payment) and confirm nothing is re-priced by that action alone.
+14.3.4 Void the _bill_ (not the payment) and confirm nothing is re-priced by that action alone.
 
 ### 14.4 Currency changes with the price
 

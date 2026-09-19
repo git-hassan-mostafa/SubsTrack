@@ -1,9 +1,9 @@
-import type { Service } from '@/src/core/types';
-import type { BranchFilter } from '@/src/core/constants';
-import i18n from '@/src/core/i18n';
-import repository from '../repository/ServiceRepository';
-import { mapDbServiceToService } from '../utils/mapper';
-import { ServiceInput } from '../utils/types';
+import type { Service } from "@/src/core/types";
+import type { BranchFilter } from "@/src/core/constants";
+import i18n from "@/src/core/i18n";
+import repository from "../repository/ServiceRepository";
+import { mapDbServiceToService } from "../utils/mapper";
+import { ServiceInput } from "../utils/types";
 
 /**
  * Business logic for the service price list — the twin of ProductService, minus
@@ -53,14 +53,14 @@ class ServiceCatalogService {
     }
   }
 
-  async deleteService(id: string): Promise<'hard' | 'soft'> {
+  async deleteService(id: string): Promise<"hard" | "soft"> {
     const refs = await repository.countReferences(id);
     if (refs > 0) {
       await repository.update(id, { active: false });
-      return 'soft';
+      return "soft";
     }
     await repository.delete(id);
-    return 'hard';
+    return "hard";
   }
 
   async reactivateService(id: string): Promise<Service> {
@@ -68,7 +68,9 @@ class ServiceCatalogService {
     return mapDbServiceToService(row);
   }
 
-  async deleteManyServices(ids: string[]): Promise<{ hard: string[]; soft: string[] }> {
+  async deleteManyServices(
+    ids: string[],
+  ): Promise<{ hard: string[]; soft: string[] }> {
     if (ids.length === 0) return { hard: [], soft: [] };
     const referenced = await repository.referencedIds(ids);
     const soft = ids.filter((id) => referenced.has(id));
@@ -81,20 +83,27 @@ class ServiceCatalogService {
   }
 
   private validate(data: ServiceInput): void {
-    if (!data.name?.trim()) throw new Error(i18n.t('errors.service_name_required'));
-    if (typeof data.price !== 'number' || Number.isNaN(data.price)) {
-      throw new Error(i18n.t('errors.service_price_required'));
+    if (!data.name?.trim())
+      throw new Error(i18n.t("errors.service_name_required"));
+    if (typeof data.price !== "number" || Number.isNaN(data.price)) {
+      throw new Error(i18n.t("errors.service_price_required"));
     }
-    if (data.price <= 0) throw new Error(i18n.t('errors.service_price_positive'));
+    if (data.price <= 0)
+      throw new Error(i18n.t("errors.service_price_positive"));
   }
 
   private rethrow(err: unknown): never {
-    const msg = err instanceof Error ? err.message : '';
-    if (msg.includes('uq_services_name_tenant_branch') || msg.includes('duplicate')) {
-      throw new Error(i18n.t('errors.service_name_exists'));
+    const msg = err instanceof Error ? err.message : "";
+    if (
+      msg.includes("uq_services_name_tenant_branch") ||
+      msg.includes("duplicate")
+    ) {
+      throw new Error(i18n.t("errors.service_name_exists"));
     }
-    throw err instanceof Error ? err : new Error(i18n.t('errors.connection_error'));
+    throw err instanceof Error
+      ? err
+      : new Error(i18n.t("errors.connection_error"));
   }
 }
 
-export default new ServiceCatalogService()
+export default new ServiceCatalogService();

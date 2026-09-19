@@ -1,9 +1,9 @@
-import type { BranchFilter } from '@/src/core/constants';
-import type { DbService } from '@/src/core/types/db';
-import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { insertDirty, markDeleted } from '@/src/core/offline/db/dml';
-import { newId, nowIso } from '@/src/core/offline/ids';
-import type { IServiceRepository } from './IServiceRepository';
+import type { BranchFilter } from "@/src/core/constants";
+import type { DbService } from "@/src/core/types/db";
+import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
+import { insertDirty, markDeleted } from "@/src/core/offline/db/dml";
+import { newId, nowIso } from "@/src/core/offline/ids";
+import type { IServiceRepository } from "./IServiceRepository";
 
 /**
  * SQLite-backed Service repository. Reads from the local mirror; writes mutate
@@ -17,24 +17,31 @@ export class OfflineServiceRepository
 {
   async findAll(branchFilter: BranchFilter = null): Promise<DbService[]> {
     const where = this.combineWhere([
-      this.branchWhere(branchFilter, this.BRANCH_SCOPES.services, 'services'),
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.services, "services"),
     ]);
     const rows = await this.all(
       `SELECT * FROM services ${where.sql} ORDER BY active DESC, name`,
       where.params,
     );
-    return this.decodeAll<DbService>('services', rows);
+    return this.decodeAll<DbService>("services", rows);
   }
 
-  async create(payload: Omit<DbService, 'id' | 'created_at' | 'updated_at'>): Promise<DbService> {
+  async create(
+    payload: Omit<DbService, "id" | "created_at" | "updated_at">,
+  ): Promise<DbService> {
     const now = nowIso();
-    const row: DbService = { id: newId(), created_at: now, updated_at: now, ...payload };
+    const row: DbService = {
+      id: newId(),
+      created_at: now,
+      updated_at: now,
+      ...payload,
+    };
     await this.write(async (db) => {
-      await insertDirty(db, 'services', row);
+      await insertDirty(db, "services", row);
       await this.auditIn(db, {
-        table: 'services',
+        table: "services",
         recordId: row.id,
-        action: 'create',
+        action: "create",
         after: row,
         branchId: row.branch_id,
       });
@@ -45,16 +52,24 @@ export class OfflineServiceRepository
   async update(
     id: string,
     payload: Partial<
-      Pick<DbService, 'name' | 'description' | 'price' | 'currency_id' | 'branch_id' | 'active'>
+      Pick<
+        DbService,
+        | "name"
+        | "description"
+        | "price"
+        | "currency_id"
+        | "branch_id"
+        | "active"
+      >
     >,
   ): Promise<DbService> {
     const row = await this.auditedUpdate<DbService>(
-      'services',
+      "services",
       id,
       { ...payload, updated_at: nowIso() },
-      { action: payload.active === true ? 'restore' : 'update' },
+      { action: payload.active === true ? "restore" : "update" },
     );
-    if (!row) this.handleError(new Error('Service not found'));
+    if (!row) this.handleError(new Error("Service not found"));
     return row;
   }
 
@@ -67,16 +82,16 @@ export class OfflineServiceRepository
     await this.write(async (db) => {
       for (const id of ids) {
         const before = this.decodeOne<DbService>(
-          'services',
-          await this.first('SELECT * FROM services WHERE id = ?', [id]),
+          "services",
+          await this.first("SELECT * FROM services WHERE id = ?", [id]),
         );
-        await db.runAsync('DELETE FROM services WHERE id = ?', [id] as never[]);
-        await markDeleted(db, 'services', id);
+        await db.runAsync("DELETE FROM services WHERE id = ?", [id] as never[]);
+        await markDeleted(db, "services", id);
         if (before) {
           await this.auditIn(db, {
-            table: 'services',
+            table: "services",
             recordId: id,
-            action: 'delete',
+            action: "delete",
             before,
             branchId: before.branch_id,
           });
@@ -88,7 +103,7 @@ export class OfflineServiceRepository
   async deactivateMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     for (const id of ids) {
-      await this.auditedUpdate<DbService>('services', id, {
+      await this.auditedUpdate<DbService>("services", id, {
         active: false,
         updated_at: nowIso(),
       });
@@ -96,18 +111,24 @@ export class OfflineServiceRepository
   }
 
   async referencedIds(ids: string[]): Promise<Set<string>> {
-    return this.referencedIdsIn('sale_items', 'service_id', ids);
+    return this.referencedIdsIn("sale_items", "service_id", ids);
   }
 
   async countAll(branchFilter: BranchFilter = null): Promise<number> {
     const where = this.combineWhere([
-      { clause: 'services.active = 1', params: [] },
-      this.branchWhere(branchFilter, this.BRANCH_SCOPES.services, 'services'),
+      { clause: "services.active = 1", params: [] },
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.services, "services"),
     ]);
-    return this.count(`SELECT COUNT(*) AS n FROM services ${where.sql}`, where.params);
+    return this.count(
+      `SELECT COUNT(*) AS n FROM services ${where.sql}`,
+      where.params,
+    );
   }
 
   async countReferences(id: string): Promise<number> {
-    return this.count('SELECT COUNT(*) AS n FROM sale_items WHERE service_id = ?', [id]);
+    return this.count(
+      "SELECT COUNT(*) AS n FROM sale_items WHERE service_id = ?",
+      [id],
+    );
   }
 }

@@ -142,7 +142,11 @@ export function ExpensesPanel({ filterRowRef }: Props = {}) {
             className="text-2xl text-gray-900"
             numberOfLines={1}
           >
-            {outflowLabel(filtered ? visibleTotalUsd : summary.totalUsd, null, target)}
+            {outflowLabel(
+              filtered ? visibleTotalUsd : summary.totalUsd,
+              null,
+              target,
+            )}
           </Text>
           {/* `!== 0` rather than `> 0`: a month of stock credits nets negative
               and must still show its split. */}
@@ -224,7 +228,11 @@ export function ExpensesPanel({ filterRowRef }: Props = {}) {
             sections={sections}
             keyExtractor={(i) => i.id}
             stickySectionHeadersEnabled={false}
-            contentContainerStyle={{ padding: 16, paddingBottom: 96, flexGrow: 1 }}
+            contentContainerStyle={{
+              padding: 16,
+              paddingBottom: 96,
+              flexGrow: 1,
+            }}
             refreshControl={
               <RefreshControl
                 refreshing={loading}
@@ -244,7 +252,9 @@ export function ExpensesPanel({ filterRowRef }: Props = {}) {
               <ExpenseCard
                 item={item}
                 onVoid={handleVoid}
-                onOpenProduct={() => router.push("/(app)/(tabs)/admin/products")}
+                onOpenProduct={() =>
+                  router.push("/(app)/(tabs)/admin/products")
+                }
               />
             )}
             ListEmptyComponent={
@@ -256,7 +266,10 @@ export function ExpensesPanel({ filterRowRef }: Props = {}) {
           />
         )}
 
-        <FAB onPress={() => setFormOpen(true)} accessibilityLabel={t("expenses.add_title")} />
+        <FAB
+          onPress={() => setFormOpen(true)}
+          accessibilityLabel={t("expenses.add_title")}
+        />
       </ResponsiveContainer>
 
       {formOpen && <ExpenseFormSheet onDismiss={() => setFormOpen(false)} />}

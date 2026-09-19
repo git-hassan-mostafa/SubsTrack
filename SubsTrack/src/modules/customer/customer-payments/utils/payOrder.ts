@@ -2,7 +2,6 @@ import { toBillingMonth } from "@/src/core/utils/date";
 
 export { billingMonthLabel } from "@/src/core/utils/billingMonth";
 
-
 /** Every billing month a payment covers (a multi-month block covers N of them). */
 export function coveredBillingMonths(
   billingMonth: string,

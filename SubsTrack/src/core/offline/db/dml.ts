@@ -1,19 +1,19 @@
-import type { SQLiteDatabase } from 'expo-sqlite';
-import { encodeRow, encodeRowsUniform } from './codec';
-import { inBatches } from '../batch';
-import { newId } from '../ids';
+import type { SQLiteDatabase } from "expo-sqlite";
+import { encodeRow, encodeRowsUniform } from "./codec";
+import { inBatches } from "../batch";
+import { newId } from "../ids";
 
 function placeholders(n: number): string {
-  return Array.from({ length: n }, () => '?').join(', ');
+  return Array.from({ length: n }, () => "?").join(", ");
 }
 
 const BATCH_ROWS = 200;
 
 const NATURAL_KEYS: Record<string, string[]> = {
-  charges: ['customer_plan_id', 'billing_month'],
-  skipped_months: ['customer_plan_id', 'billing_month'],
-  tenant_settings: ['tenant_id', 'key'],
-  collection_items: ['collection_id', 'charge_id'],
+  charges: ["customer_plan_id", "billing_month"],
+  skipped_months: ["customer_plan_id", "billing_month"],
+  tenant_settings: ["tenant_id", "key"],
+  collection_items: ["collection_id", "charge_id"],
 };
 
 /** INSERT a fully-formed local row (id + timestamps already set) and mark it dirty. */
@@ -23,10 +23,10 @@ export async function insertDirty(
   row: object,
 ): Promise<void> {
   const { columns, values } = encodeRow(table, row);
-  const cols = [...columns, '_dirty'];
+  const cols = [...columns, "_dirty"];
   const vals = [...values, 1];
   await db.runAsync(
-    `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${placeholders(cols.length)})`,
+    `INSERT INTO ${table} (${cols.join(", ")}) VALUES (${placeholders(cols.length)})`,
     vals as never[],
   );
 }
@@ -40,8 +40,11 @@ export async function updateDirty(
 ): Promise<void> {
   const { columns, values } = encodeRow(table, partial);
   if (columns.length === 0) return;
-  const set = [...columns.map((c) => `${c} = ?`), '_dirty = 1'].join(', ');
-  await db.runAsync(`UPDATE ${table} SET ${set} WHERE id = ?`, [...values, id] as never[]);
+  const set = [...columns.map((c) => `${c} = ?`), "_dirty = 1"].join(", ");
+  await db.runAsync(`UPDATE ${table} SET ${set} WHERE id = ?`, [
+    ...values,
+    id,
+  ] as never[]);
 }
 
 /**
@@ -60,16 +63,19 @@ export async function upsertNaturalKeyDirty(
   row: object,
 ): Promise<string> {
   const key = NATURAL_KEYS[table];
-  if (!key) throw new Error(`upsertNaturalKeyDirty: ${table} has no natural key`);
-  const keep = ['id', ...key, 'created_at'];
+  if (!key)
+    throw new Error(`upsertNaturalKeyDirty: ${table} has no natural key`);
+  const keep = ["id", ...key, "created_at"];
   const r = row as Record<string, unknown>;
-  const where = key.map((c) => `${c} = ?`).join(' AND ');
+  const where = key.map((c) => `${c} = ?`).join(" AND ");
   const existing = await db.getFirstAsync<{ id: string }>(
     `SELECT id FROM ${table} WHERE ${where}`,
     key.map((c) => r[c]) as never[],
   );
   if (existing) {
-    const patch = Object.fromEntries(Object.entries(r).filter(([c]) => !keep.includes(c)));
+    const patch = Object.fromEntries(
+      Object.entries(r).filter(([c]) => !keep.includes(c)),
+    );
     await updateDirty(db, table, existing.id, patch);
     return existing.id;
   }
@@ -87,7 +93,7 @@ export async function upsertNaturalKeyDirty(
  * separator is a NUL so it can never appear inside a value and merge two keys.
  */
 function naturalKeyOf(key: string[], row: Record<string, unknown>): string {
-  return key.map((c) => String(row[c])).join('\u0000');
+  return key.map((c) => String(row[c])).join("\u0000");
 }
 
 /**
@@ -128,13 +134,13 @@ export async function clearNaturalKeyDuplicates(
   const key = NATURAL_KEYS[table];
   if (!key) return skip;
 
-  const cols = key.join(', ');
+  const cols = key.join(", ");
   const tuple = `(${placeholders(key.length)})`;
   const stale: string[] = [];
   for (const batch of inBatches(rows, BATCH_ROWS)) {
     const dups = await db.getAllAsync<Record<string, unknown>>(
       `SELECT id, _dirty, ${cols} FROM ${table}
-       WHERE (${cols}) IN (VALUES ${batch.map(() => tuple).join(', ')})`,
+       WHERE (${cols}) IN (VALUES ${batch.map(() => tuple).join(", ")})`,
       batch.flatMap((r) => key.map((c) => r[c])) as never[],
     );
     const byKey = new Map(dups.map((d) => [naturalKeyOf(key, d), d]));
@@ -165,14 +171,14 @@ export async function upsertFromServer(
   row: object,
 ): Promise<void> {
   const { columns, values } = encodeRow(table, row);
-  const cols = [...columns, '_dirty'];
+  const cols = [...columns, "_dirty"];
   const vals = [...values, 0];
   const updates = cols
-    .filter((c) => c !== 'id')
+    .filter((c) => c !== "id")
     .map((c) => `${c} = excluded.${c}`)
-    .join(', ');
+    .join(", ");
   await db.runAsync(
-    `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${placeholders(cols.length)})
+    `INSERT INTO ${table} (${cols.join(", ")}) VALUES (${placeholders(cols.length)})
      ON CONFLICT (id) DO UPDATE SET ${updates}`,
     vals as never[],
   );
@@ -192,14 +198,14 @@ export async function upsertManyFromServer(
 ): Promise<void> {
   for (const batch of inBatches(rows, BATCH_ROWS)) {
     const { columns, values } = encodeRowsUniform(table, batch);
-    const cols = [...columns, '_dirty'];
+    const cols = [...columns, "_dirty"];
     const updates = cols
-      .filter((c) => c !== 'id')
+      .filter((c) => c !== "id")
       .map((c) => `${c} = excluded.${c}`)
-      .join(', ');
+      .join(", ");
     const tuple = `(${placeholders(cols.length)})`;
     await db.runAsync(
-      `INSERT INTO ${table} (${cols.join(', ')}) VALUES ${batch.map(() => tuple).join(', ')}
+      `INSERT INTO ${table} (${cols.join(", ")}) VALUES ${batch.map(() => tuple).join(", ")}
        ON CONFLICT (id) DO UPDATE SET ${updates}`,
       values.flatMap((v) => [...v, 0]) as never[],
     );

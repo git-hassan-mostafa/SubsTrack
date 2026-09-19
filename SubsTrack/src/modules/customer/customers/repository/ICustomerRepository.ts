@@ -1,6 +1,6 @@
-import type { BranchFilter } from '@/src/core/constants';
-import type { UnpaidStartRule } from '@/src/core/types';
-import type { DbCustomer } from '@/src/core/types/db';
+import type { BranchFilter } from "@/src/core/constants";
+import type { UnpaidStartRule } from "@/src/core/types";
+import type { DbCustomer } from "@/src/core/types/db";
 
 // A customer row with its service lines (each carrying its joined plan).
 export type CustomerWithLines = DbCustomer;
@@ -18,17 +18,17 @@ export interface UnpaidMonthCount {
 
 export type CreateCustomerPayload = Pick<
   DbCustomer,
-  | 'name'
-  | 'phone_number'
-  | 'address'
-  | 'area'
-  | 'notes'
-  | 'location_url'
-  | 'branch_id'
-  | 'tenant_id'
-  | 'active'
-  | 'is_regular'
-  | 'cancelled_at'
+  | "name"
+  | "phone_number"
+  | "address"
+  | "area"
+  | "notes"
+  | "location_url"
+  | "branch_id"
+  | "tenant_id"
+  | "active"
+  | "is_regular"
+  | "cancelled_at"
 >;
 
 export interface ICustomerRepository {
@@ -45,7 +45,14 @@ export interface ICustomerRepository {
     payload: Partial<
       Pick<
         DbCustomer,
-        'name' | 'phone_number' | 'address' | 'area' | 'notes' | 'location_url' | 'branch_id' | 'is_regular'
+        | "name"
+        | "phone_number"
+        | "address"
+        | "area"
+        | "notes"
+        | "location_url"
+        | "branch_id"
+        | "is_regular"
       >
     >,
   ): Promise<CustomerWithLines>;
@@ -63,6 +70,14 @@ export interface ICustomerRepository {
     branchFilter?: BranchFilter,
     unpaidRule?: UnpaidStartRule,
   ): Promise<UnpaidMonthCount>;
-  countCreatedInRange(start: string, endExclusive: string, branchFilter?: BranchFilter): Promise<number>;
-  countCancelledInRange(start: string, endExclusive: string, branchFilter?: BranchFilter): Promise<number>;
+  countCreatedInRange(
+    start: string,
+    endExclusive: string,
+    branchFilter?: BranchFilter,
+  ): Promise<number>;
+  countCancelledInRange(
+    start: string,
+    endExclusive: string,
+    branchFilter?: BranchFilter,
+  ): Promise<number>;
 }

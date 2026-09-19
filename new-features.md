@@ -370,7 +370,7 @@ CREATE TABLE plan_price_snapshots (
 
 ---
 
-### 6.3 Revenue Reports (Exportable) ✅ *(partly — phase 1)*
+### 6.3 Revenue Reports (Exportable) ✅ _(partly — phase 1)_
 
 Shipped as the **Reports** tab (admin-only): any period, collected vs spent vs net, per stream, per expense category, per currency, with drill-downs and CSV export. **Per plan and per staff are phase 2** — `CashRow` already carries `planId` and `receivedByUserId`, so both are aggregation only, with no new query. Per branch is already there through the header branch chip. PDF was dropped in favour of CSV. See [docs/features.md](docs/features.md) → Reports.
 
@@ -518,7 +518,7 @@ CREATE TABLE audit_logs (  -- append-only; the app writes it, no triggers
 
 ---
 
-### 9.3 Data Export (Excel / CSV) ✅ *(partly — reports only)*
+### 9.3 Data Export (Excel / CSV) ✅ _(partly — reports only)_
 
 `src/shared/lib/csv.ts` does client-side CSV generation + the system share sheet (a plain download on web), and Reports exports its money and debts sheets through it. **A full customer + payment-history export is still open** — it is now one more `CsvTable` builder plus a call site, not new plumbing.
 
@@ -570,7 +570,6 @@ DROP TABLE tier_plans;  -- with tenants.tier_id / tier_upgraded_at
 - The `AllowPlanUpgrade` option, `useCanUpgradePlan` and `<CanUpgrade>` are gone with the tiers; `SupportWhatsAppNumber` now serves the request flow.
 
 ---
-
 
 ## 11. Long-Term / Strategic Features
 
@@ -670,32 +669,32 @@ RLS: `app_options_select` → `SELECT` to `authenticated` only. No write policy 
 
 ## Summary Table
 
-| Feature                      | Priority  | Schema Change                                                         |
-| ---------------------------- | --------- | --------------------------------------------------------------------- |
-| Partial payments             | 🔴 High   | Yes — `amount_due`, `amount_paid`, `balance` on payments              |
-| Dual currency (USD/LBP)      | 🔴 High   | Yes — `currency`, `exchange_rate` on payments; `currency` on plans    |
-| Branch / zone management ✅  | 🟡 Medium | Yes — new `branches` table; `branch_id` on users, customers, plans     |
-| Customer notes ✅            | 🔴 High   | Yes — `notes` on customers                                            |
-| Customer area/zone ✅        | 🔴 High   | Yes — `area` on customers                                             |
-| Customer tags                | 🟡 Medium | Yes — `tags[]` on customers                                           |
-| Quick pay (one-tap) ✅        | 🔴 High   | No                                                                    |
-| Debt aging report            | 🔴 High   | No                                                                    |
-| Daily collection summary     | 🟡 Medium | No                                                                    |
-| Bulk payment recording       | 🟡 Medium | No                                                                    |
-| Equipment tracking           | 🟡 Medium | Yes — new `equipment` table                                           |
-| Expense tracking             | 🟡 Medium | Yes — new `expenses` table                                            |
-| Plan price history           | 🟡 Medium | Yes — new `plan_price_snapshots` table                                |
-| Revenue reports + export     | 🔴 High   | No                                                                    |
-| WhatsApp reminders           | 🔴 High   | Yes — new `notification_templates` + `notification_log` tables        |
-| SMS integration              | 🟡 Medium | No (reuses notification tables)                                       |
-| Broadcast message            | 🟡 Medium | No                                                                    |
-| Audit log ✅                 | 🔴 High   | Yes — new `audit_logs` table (append-only, written by the app)        |
-| Printed receipt (PDF)        | 🔴 High   | No                                                                    |
-| Data export (CSV)            | 🟡 Medium | No                                                                    |
-| Churn tracking               | 🟡 Medium | No                                                                    |
-| Staff performance report     | 🟡 Medium | No                                                                    |
-| Customer self-service portal | 🟢 Low    | No (separate app)                                                     |
-| API access                   | 🟢 Low    | No                                                                    |
-| White-label                  | 🟢 Low    | Minor — theming columns on tenants                                    |
-| App options + default LBP ✅ | 🔴 High   | Yes — new `app_options` table; auto-seeded `LBP` currency per tenant   |
-| Plan-upgrade & signup flags ✅ | 🔴 High | No — three new `app_options` rows                                     |
+| Feature                        | Priority  | Schema Change                                                        |
+| ------------------------------ | --------- | -------------------------------------------------------------------- |
+| Partial payments               | 🔴 High   | Yes — `amount_due`, `amount_paid`, `balance` on payments             |
+| Dual currency (USD/LBP)        | 🔴 High   | Yes — `currency`, `exchange_rate` on payments; `currency` on plans   |
+| Branch / zone management ✅    | 🟡 Medium | Yes — new `branches` table; `branch_id` on users, customers, plans   |
+| Customer notes ✅              | 🔴 High   | Yes — `notes` on customers                                           |
+| Customer area/zone ✅          | 🔴 High   | Yes — `area` on customers                                            |
+| Customer tags                  | 🟡 Medium | Yes — `tags[]` on customers                                          |
+| Quick pay (one-tap) ✅         | 🔴 High   | No                                                                   |
+| Debt aging report              | 🔴 High   | No                                                                   |
+| Daily collection summary       | 🟡 Medium | No                                                                   |
+| Bulk payment recording         | 🟡 Medium | No                                                                   |
+| Equipment tracking             | 🟡 Medium | Yes — new `equipment` table                                          |
+| Expense tracking               | 🟡 Medium | Yes — new `expenses` table                                           |
+| Plan price history             | 🟡 Medium | Yes — new `plan_price_snapshots` table                               |
+| Revenue reports + export       | 🔴 High   | No                                                                   |
+| WhatsApp reminders             | 🔴 High   | Yes — new `notification_templates` + `notification_log` tables       |
+| SMS integration                | 🟡 Medium | No (reuses notification tables)                                      |
+| Broadcast message              | 🟡 Medium | No                                                                   |
+| Audit log ✅                   | 🔴 High   | Yes — new `audit_logs` table (append-only, written by the app)       |
+| Printed receipt (PDF)          | 🔴 High   | No                                                                   |
+| Data export (CSV)              | 🟡 Medium | No                                                                   |
+| Churn tracking                 | 🟡 Medium | No                                                                   |
+| Staff performance report       | 🟡 Medium | No                                                                   |
+| Customer self-service portal   | 🟢 Low    | No (separate app)                                                    |
+| API access                     | 🟢 Low    | No                                                                   |
+| White-label                    | 🟢 Low    | Minor — theming columns on tenants                                   |
+| App options + default LBP ✅   | 🔴 High   | Yes — new `app_options` table; auto-seeded `LBP` currency per tenant |
+| Plan-upgrade & signup flags ✅ | 🔴 High   | No — three new `app_options` rows                                    |

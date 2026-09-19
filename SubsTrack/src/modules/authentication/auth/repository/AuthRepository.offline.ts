@@ -1,14 +1,24 @@
-import type { Session } from '@supabase/supabase-js';
-import { supabase } from '@/src/shared/lib/supabase';
-import type { DbBranch, DbTenant, DbUser } from '@/src/core/types/db';
-import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { upsertFromServer } from '@/src/core/offline/db/dml';
-import { isOnline } from '@/src/core/offline/net/connectivity';
-import { RequiresConnectionError, OrganizationSwitchBlockedError } from '@/src/core/offline/errors';
-import { ensureTenantScope, hasUnsyncedWrites } from '@/src/core/offline/bootstrap/tenant';
-import { runSync, runSyncIfDue, flushPendingWrites } from '@/src/core/offline/sync';
-import type { IAuthRepository } from './IAuthRepository';
-import { AuthRepository } from './AuthRepository';
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/src/shared/lib/supabase";
+import type { DbBranch, DbTenant, DbUser } from "@/src/core/types/db";
+import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
+import { upsertFromServer } from "@/src/core/offline/db/dml";
+import { isOnline } from "@/src/core/offline/net/connectivity";
+import {
+  RequiresConnectionError,
+  OrganizationSwitchBlockedError,
+} from "@/src/core/offline/errors";
+import {
+  ensureTenantScope,
+  hasUnsyncedWrites,
+} from "@/src/core/offline/bootstrap/tenant";
+import {
+  runSync,
+  runSyncIfDue,
+  flushPendingWrites,
+} from "@/src/core/offline/sync";
+import type { IAuthRepository } from "./IAuthRepository";
+import { AuthRepository } from "./AuthRepository";
 
 /**
  * Read-through cache over the online AuthRepository. Auth itself is online-only
@@ -17,7 +27,10 @@ import { AuthRepository } from './AuthRepository';
  * cache the profile + tenant and block on an initial full pull so downstream
  * offline reads (currencies, branches, customers…) find data.
  */
-export class OfflineAuthRepository extends OfflineBaseRepository implements IAuthRepository {
+export class OfflineAuthRepository
+  extends OfflineBaseRepository
+  implements IAuthRepository
+{
   private online = new AuthRepository();
 
   async signIn(email: string, password: string): Promise<Session> {
@@ -28,8 +41,7 @@ export class OfflineAuthRepository extends OfflineBaseRepository implements IAut
   async signOut(): Promise<void> {
     try {
       if (await hasUnsyncedWrites(this.db)) await flushPendingWrites();
-    } catch {
-    }
+    } catch {}
     return this.online.signOut();
   }
 
@@ -41,25 +53,32 @@ export class OfflineAuthRepository extends OfflineBaseRepository implements IAut
     if (await isOnline()) {
       const profile = await this.online.getUserProfile(userId);
       if (!profile) return profile;
-      const scope = await ensureTenantScope(profile.tenant_id, profile.branch_id);
+      const scope = await ensureTenantScope(
+        profile.tenant_id,
+        profile.branch_id,
+      );
       if (scope.blockedByPending) throw new OrganizationSwitchBlockedError();
       // Empty AFTER scoping — so a tenant switch (which just wiped) counts as empty
       // and blocks on the full pull below, instead of dropping the user into blank
       // screens while a background pull runs.
-      const wasEmpty = (await this.count('SELECT COUNT(*) AS n FROM customers')) === 0;
-      await upsertFromServer(this.db, 'users', profile);
+      const wasEmpty =
+        (await this.count("SELECT COUNT(*) AS n FROM customers")) === 0;
+      await upsertFromServer(this.db, "users", profile);
       const branch = (profile as { branches?: DbBranch | null }).branches;
-      if (branch) await upsertFromServer(this.db, 'branches', branch);
+      if (branch) await upsertFromServer(this.db, "branches", branch);
       if (wasEmpty) await runSync();
       else void runSyncIfDue();
       return profile;
     }
-    const row = await this.first('SELECT * FROM users WHERE id = ?', [userId]);
+    const row = await this.first("SELECT * FROM users WHERE id = ?", [userId]);
     if (!row) return null;
-    const user = this.decodeOne<DbUser>('users', row)!;
+    const user = this.decodeOne<DbUser>("users", row)!;
     if (user.branch_id) {
-      const branches = await this.rowsById<DbBranch>('branches', [user.branch_id]);
-      (user as { branches?: DbBranch | null }).branches = branches.get(user.branch_id) ?? null;
+      const branches = await this.rowsById<DbBranch>("branches", [
+        user.branch_id,
+      ]);
+      (user as { branches?: DbBranch | null }).branches =
+        branches.get(user.branch_id) ?? null;
     }
     return user;
   }
@@ -78,17 +97,21 @@ export class OfflineAuthRepository extends OfflineBaseRepository implements IAut
     return this.online.getTenantByCode(tenantCode);
   }
 
-  onAuthStateChange(callback: Parameters<typeof supabase.auth.onAuthStateChange>[0]) {
+  onAuthStateChange(
+    callback: Parameters<typeof supabase.auth.onAuthStateChange>[0],
+  ) {
     return this.online.onAuthStateChange(callback);
   }
 
   private async cacheTenant(tenant: DbTenant): Promise<void> {
-    await upsertFromServer(this.db, 'tenants', tenant);
+    await upsertFromServer(this.db, "tenants", tenant);
   }
 
   private async readCachedTenant(tenantId: string): Promise<DbTenant | null> {
-    const row = await this.first('SELECT * FROM tenants WHERE id = ?', [tenantId]);
+    const row = await this.first("SELECT * FROM tenants WHERE id = ?", [
+      tenantId,
+    ]);
     if (!row) return null;
-    return this.decodeOne<DbTenant>('tenants', row);
+    return this.decodeOne<DbTenant>("tenants", row);
   }
 }

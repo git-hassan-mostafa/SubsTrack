@@ -35,7 +35,9 @@ export function CollectQuickActionSheet({ onDismiss }: Props) {
   const clearError = useLedgerSlice((s) => s.clearError);
 
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const { open: openCollect, sheet } = useCollectSheet({ onCollected: onDismiss });
+  const { open: openCollect, sheet } = useCollectSheet({
+    onCollected: onDismiss,
+  });
   const showError = error != null && sheet == null;
 
   useEffect(() => {
@@ -56,7 +58,11 @@ export function CollectQuickActionSheet({ onDismiss }: Props) {
 
   return (
     <>
-      <FormSheet visible onDismiss={onDismiss} title={t("ledger.collect_money")}>
+      <FormSheet
+        visible
+        onDismiss={onDismiss}
+        title={t("ledger.collect_money")}
+      >
         <View className="gap-4 pb-8">
           {showError ? (
             <ErrorBanner message={error} onDismiss={clearError} />

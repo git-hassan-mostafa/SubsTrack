@@ -39,7 +39,7 @@ matching `docs/` file. Dev phase: architecture + DB schema are open to change.
 5. No Supabase calls outside the repository layer. Sole exception: the sync engine
    `src/core/offline/sync/`.
    5b. Native repos are a platform switch (`Platform.OS === 'web' ? Supabase :
-   Offline`). Never `new XxxRepository()` in a service/slice — import the default.
+Offline`). Never `new XxxRepository()` in a service/slice — import the default.
    Both impls `implements IXxxRepository`; changing one's method surface must
    change the interface, and therefore the other.
 6. RLS enforces multi-tenancy; app-level filtering is secondary.
@@ -75,7 +75,7 @@ matching `docs/` file. Dev phase: architecture + DB schema are open to change.
 - New scenario → add test-plan scenarios under `QA/`.
 - **Anything touching money → a unit test in `tests/`.** Run `npm test` there
   before claiming a money change works. (`cd tests && npm install --ignore-scripts`;
-  if it says *Access is denied*: `node node_modules/jest/bin/jest.js`.)
+  if it says _Access is denied_: `node node_modules/jest/bin/jest.js`.)
 - `tests/` is a separate npm package **and must never move into `SubsTrack/`** —
   its `package.json` would feed the OTA fingerprint and silently cut every
   installed app off from updates (gotcha #53).
@@ -92,20 +92,20 @@ implementation detail unless explicitly requested.
 
 ## 2. Doc Map — read ON DEMAND, never all up front
 
-| File | Read before… |
-| --- | --- |
-| `docs/domain-notes.md` | any feature work — ledger, sales/services, stock, expenses, reports, wallet, invoices, audit trail, money-in history, dashboard revenue |
-| `docs/gotchas.md` | ledger / payments / currency / branches / sales / revenue / expenses / reports / signup / audit / invoice code (130+ numbered traps, area index at top) |
-| `docs/features.md` | editing a feature's behavior (exhaustive) |
-| `docs/db-schema.md` | any DB column or constraint question |
-| `docs/month-grid.md` | month grid, customer badges, pay/void order, skipped months |
-| `docs/architecture.md` | slice vs module-store decisions, offline seam detail, write-patch rules |
-| `docs/ui-patterns.md` | bottom sheets, list cards, `PageHeader`, `ActionMenu`, styling, navigation |
-| `docs/offline.md` | touching ANY repository or the sync engine |
-| `docs/build-and-release.md` | running the apps, `tests/`, OTA/EAS publishing |
-| `docs/ota-fingerprint-mismatch.md` | an OTA update never reaches the installed app |
-| `docs/edge-functions.md` | auth / user / tenant creation |
-| `docs/project-structure.md` | directory trees (can go stale — prefer a file search) |
+| File                               | Read before…                                                                                                                                            |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/domain-notes.md`             | any feature work — ledger, sales/services, stock, expenses, reports, wallet, invoices, audit trail, money-in history, dashboard revenue                 |
+| `docs/gotchas.md`                  | ledger / payments / currency / branches / sales / revenue / expenses / reports / signup / audit / invoice code (130+ numbered traps, area index at top) |
+| `docs/features.md`                 | editing a feature's behavior (exhaustive)                                                                                                               |
+| `docs/db-schema.md`                | any DB column or constraint question                                                                                                                    |
+| `docs/month-grid.md`               | month grid, customer badges, pay/void order, skipped months                                                                                             |
+| `docs/architecture.md`             | slice vs module-store decisions, offline seam detail, write-patch rules                                                                                 |
+| `docs/ui-patterns.md`              | bottom sheets, list cards, `PageHeader`, `ActionMenu`, styling, navigation                                                                              |
+| `docs/offline.md`                  | touching ANY repository or the sync engine                                                                                                              |
+| `docs/build-and-release.md`        | running the apps, `tests/`, OTA/EAS publishing                                                                                                          |
+| `docs/ota-fingerprint-mismatch.md` | an OTA update never reaches the installed app                                                                                                           |
+| `docs/edge-functions.md`           | auth / user / tenant creation                                                                                                                           |
+| `docs/project-structure.md`        | directory trees (can go stale — prefer a file search)                                                                                                   |
 
 ---
 
@@ -387,8 +387,8 @@ Facts that change how you code and are easy to get wrong:
   item/customer search, never replacing it. One search helper per repository,
   shared by `findAll` + `monthlyTotals`, so a page and its total cannot disagree.
 - **A PostgREST `or()` may only name columns of the table being queried.** A
-  dotted embed path (`customers.name.ilike…`) is a 400 — *"failed to parse logic
-  tree"* — so sales search resolves matching customers in a **pre-query** and ORs
+  dotted embed path (`customers.name.ilike…`) is a 400 — _"failed to parse logic
+  tree"_ — so sales search resolves matching customers in a **pre-query** and ORs
   `customer_id.in.(…)`, the shape the product filter already used. **Never reach
   for `customers!inner`**: it makes the embed filterable but INNER-joins away
   every WALK-IN sale. Offline needs none of this — SQL ORs `c.name` over its LEFT
@@ -439,7 +439,7 @@ keeps `monthGridsByLine`. Full rules, the badge contract and the order helpers:
 - Months are **never stored in the DB**; a month has no bill until money first
   reaches it.
 - **The grid keys off MONEY, not row existence** — an empty bill (its only
-  collection voided) reads *identically* to a month never touched.
+  collection voided) reads _identically_ to a month never touched.
 - A partial payment resolves to `"paid"` — there is **no `"partial"` MonthStatus**.
   Only presentation differs (amber **ring**, not fill; sublabel `PARTIAL`; on a
   multi-month block only the first cell is ringed).
@@ -509,7 +509,7 @@ first, and rows must clear a floor before the CHECK that enforces it is added.
    a `DEFAULT`. A single-column `CHECK`/`UNIQUE`/`REFERENCES` rides the same line
    (prefix `CONSTRAINT <name>` when the name matters). A **multi-column**
    constraint cannot — it goes in that table's "Table-level constraints"
-   `DO $$ … pg_constraint …` block; because that block is guarded, *editing* an
+   `DO $$ … pg_constraint …` block; because that block is guarded, _editing_ an
    existing constraint is **not** picked up on a live DB — declare the new one
    under a NEW name in `script.sql` and drop the old one by name in
    `migration.sql`.

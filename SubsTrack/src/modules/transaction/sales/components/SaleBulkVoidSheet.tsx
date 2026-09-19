@@ -33,7 +33,12 @@ interface Props {
 // The message states that any money collected goes with the sale. It never
 // COUNTS the hand-overs — a bare number warns nobody; it names the other bills
 // they also settled instead, since a shared hand-over is voided whole (#125).
-export function SaleBulkVoidSheet({ saleIds, chargeIds, onVoided, onDismiss }: Props) {
+export function SaleBulkVoidSheet({
+  saleIds,
+  chargeIds,
+  onVoided,
+  onDismiss,
+}: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const voidSales = useSaleSlice((s) => s.voidSales);

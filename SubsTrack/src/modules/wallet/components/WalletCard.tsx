@@ -1,19 +1,19 @@
-import { View } from 'react-native';
-import { useTranslation } from 'react-i18next';
-import { COLORS } from '@/src/shared/constants';
-import { EntityCard } from '@/src/shared/components/EntityCard';
+import { View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { COLORS } from "@/src/shared/constants";
+import { EntityCard } from "@/src/shared/components/EntityCard";
 import {
   CardAmount,
   CardChips,
   CardMeta,
   CardSubtitle,
   CardTitle,
-} from '@/src/shared/components/CardText';
-import { Chip } from '@/src/shared/components/Chip';
-import { findCurrency, formatMoney } from '@/src/core/utils/currency';
-import { useCurrencySlice } from '@/src/state/hooks/useCurrencySlice';
-import { useDisplayCurrencyId } from '@/src/state/hooks/useTenantSettingSlice';
-import type { UserWallet } from '@/src/core/types';
+} from "@/src/shared/components/CardText";
+import { Chip } from "@/src/shared/components/Chip";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import type { UserWallet } from "@/src/core/types";
 
 interface Props {
   wallet: UserWallet;
@@ -47,13 +47,15 @@ export function WalletCard({ wallet, onPress, onMenu, menuLoading }: Props) {
       <View className="flex-1 me-2">
         <CardTitle numberOfLines={1}>{wallet.holderName}</CardTitle>
         <CardSubtitle className="mt-0.5" numberOfLines={1}>
-          {t('wallet.transactions_count', { count: wallet.itemCount })}
+          {t("wallet.transactions_count", { count: wallet.itemCount })}
         </CardSubtitle>
         {wallet.isSelf || !wallet.active ? (
           <CardChips>
-            {wallet.isSelf ? <Chip text={t('wallet.you')} tone="indigo" /> : null}
+            {wallet.isSelf ? (
+              <Chip text={t("wallet.you")} tone="indigo" />
+            ) : null}
             {!wallet.active ? (
-              <Chip text={t('common.inactive')} tone="gray" />
+              <Chip text={t("common.inactive")} tone="gray" />
             ) : null}
           </CardChips>
         ) : null}
@@ -63,7 +65,7 @@ export function WalletCard({ wallet, onPress, onMenu, menuLoading }: Props) {
         <CardAmount>{formatMoney(wallet.totalUsd, null, target)}</CardAmount>
         {wallet.byCurrency.length > 1 ? (
           <CardMeta className="mt-0.5">
-            {t('wallet.currencies_count', { count: wallet.byCurrency.length })}
+            {t("wallet.currencies_count", { count: wallet.byCurrency.length })}
           </CardMeta>
         ) : null}
       </View>

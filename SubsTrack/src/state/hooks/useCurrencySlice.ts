@@ -1,5 +1,5 @@
-import { useGlobalStore } from '@/src/state/hooks/useGlobalStore';
-import type { CurrencySlice } from '@/src/state/slices/currencies/currencySlice';
+import { useGlobalStore } from "@/src/state/hooks/useGlobalStore";
+import type { CurrencySlice } from "@/src/state/slices/currencies/currencySlice";
 
 export function useCurrencySlice(): CurrencySlice;
 export function useCurrencySlice<T>(selector: (state: CurrencySlice) => T): T;

@@ -69,7 +69,9 @@ export function CurrencyCollectSection({
             ? t("ledger.amount_received_in", { currency: code })
             : t("ledger.amount")
         }
-        labelAction={<CollectAllButton onPress={() => onChangeAmount(plan.owed)} />}
+        labelAction={
+          <CollectAllButton onPress={() => onChangeAmount(plan.owed)} />
+        }
         amount={plan.amount}
         currencyId={plan.currencyId}
         currencies={currencies}

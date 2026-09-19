@@ -1,15 +1,15 @@
-import type { AppUser, UserRole } from '@/src/core/types';
-import type { BranchFilter } from '@/src/core/constants';
-import i18n from '@/src/core/i18n';
-import repository from '../repository/UserRepository';
-import { mapDbUserToAppUser } from '../utils/mapper';
+import type { AppUser, UserRole } from "@/src/core/types";
+import type { BranchFilter } from "@/src/core/constants";
+import i18n from "@/src/core/i18n";
+import repository from "../repository/UserRepository";
+import { mapDbUserToAppUser } from "../utils/mapper";
 
 interface CreateUserInput {
   username: string;
   fullName: string;
   password: string;
   phone: string | null;
-  role: 'admin' | 'user';
+  role: "admin" | "user";
   branchId: string | null;
 }
 
@@ -17,7 +17,7 @@ interface UpdateUserInput {
   username: string;
   fullName: string;
   phone: string | null;
-  role: 'admin' | 'user';
+  role: "admin" | "user";
   branchId: string | null;
   newPassword?: string;
 }
@@ -29,9 +29,9 @@ class UserService {
   }
 
   private validateUsername(username: string): void {
-    if (!username.trim()) throw new Error(i18n.t('errors.username_required'));
+    if (!username.trim()) throw new Error(i18n.t("errors.username_required"));
     if (!/^[a-zA-Z0-9._]+$/.test(username.trim())) {
-      throw new Error(i18n.t('errors.username_invalid_chars'));
+      throw new Error(i18n.t("errors.username_invalid_chars"));
     }
   }
 
@@ -41,9 +41,12 @@ class UserService {
     tenantHasBranches: boolean,
   ): Promise<AppUser> {
     this.validateUsername(data.username);
-    if (!data.fullName.trim()) throw new Error(i18n.t('errors.fullname_required'));
-    if (data.password.length < 8) throw new Error(i18n.t('errors.password_too_short'));
-    if (!['admin', 'user'].includes(data.role)) throw new Error(i18n.t('errors.role_invalid'));
+    if (!data.fullName.trim())
+      throw new Error(i18n.t("errors.fullname_required"));
+    if (data.password.length < 8)
+      throw new Error(i18n.t("errors.password_too_short"));
+    if (!["admin", "user"].includes(data.role))
+      throw new Error(i18n.t("errors.role_invalid"));
     this.validateBranchAssignment(data.role, data.branchId, tenantHasBranches);
 
     try {
@@ -70,12 +73,13 @@ class UserService {
     tenantHasBranches: boolean,
   ): Promise<AppUser> {
     this.validateUsername(data.username);
-    if (!data.fullName.trim()) throw new Error(i18n.t('errors.fullname_required'));
+    if (!data.fullName.trim())
+      throw new Error(i18n.t("errors.fullname_required"));
     if (id === currentUserId && data.role !== currentUserRole) {
-      throw new Error(i18n.t('errors.cannot_change_own_role'));
+      throw new Error(i18n.t("errors.cannot_change_own_role"));
     }
     if (data.newPassword !== undefined && data.newPassword.length < 8) {
-      throw new Error(i18n.t('errors.password_too_short'));
+      throw new Error(i18n.t("errors.password_too_short"));
     }
     this.validateBranchAssignment(data.role, data.branchId, tenantHasBranches);
     try {
@@ -87,7 +91,9 @@ class UserService {
           role: data.role,
           branch_id: data.branchId,
         }),
-        data.newPassword ? repository.updatePassword(id, data.newPassword) : Promise.resolve(),
+        data.newPassword
+          ? repository.updatePassword(id, data.newPassword)
+          : Promise.resolve(),
       ]);
       return mapDbUserToAppUser(row);
     } catch (err) {
@@ -96,13 +102,13 @@ class UserService {
   }
 
   private validateBranchAssignment(
-    role: 'admin' | 'user',
+    role: "admin" | "user",
     branchId: string | null,
     tenantHasBranches: boolean,
   ): void {
     if (!tenantHasBranches) return;
-    if (role === 'user' && !branchId) {
-      throw new Error(i18n.t('errors.staff_needs_branch'));
+    if (role === "user" && !branchId) {
+      throw new Error(i18n.t("errors.staff_needs_branch"));
     }
   }
 
@@ -111,7 +117,7 @@ class UserService {
     callerId: string,
     callerRole: UserRole,
     targetRole: UserRole,
-  ): Promise<{ mode: 'hard' } | { mode: 'soft'; user: AppUser }> {
+  ): Promise<{ mode: "hard" } | { mode: "soft"; user: AppUser }> {
     this.checkToggleActivePermission(id, callerId, callerRole, targetRole);
     const paymentCount = await repository.countPayments(id);
     if (paymentCount === 0) {
@@ -120,11 +126,11 @@ class UserService {
       } catch (err) {
         this.rethrow(err);
       }
-      return { mode: 'hard' };
+      return { mode: "hard" };
     }
     try {
       const row = await repository.setActive(id, false);
-      return { mode: 'soft', user: mapDbUserToAppUser(row) };
+      return { mode: "soft", user: mapDbUserToAppUser(row) };
     } catch (err) {
       this.rethrow(err);
     }
@@ -190,24 +196,26 @@ class UserService {
     callerRole: UserRole,
     targetRole: UserRole,
   ): void {
-    if (callerRole === 'user') {
-      throw new Error(i18n.t('errors.forbidden'));
+    if (callerRole === "user") {
+      throw new Error(i18n.t("errors.forbidden"));
     }
-    if (callerRole === 'admin' && targetRole !== 'user') {
-      throw new Error(i18n.t('errors.admin_can_only_toggle_staff'));
+    if (callerRole === "admin" && targetRole !== "user") {
+      throw new Error(i18n.t("errors.admin_can_only_toggle_staff"));
     }
-    if (callerRole === 'superadmin' && targetId === callerId) {
-      throw new Error(i18n.t('errors.cannot_deactivate_self'));
+    if (callerRole === "superadmin" && targetId === callerId) {
+      throw new Error(i18n.t("errors.cannot_deactivate_self"));
     }
   }
 
   private rethrow(err: unknown): never {
-    const msg = err instanceof Error ? err.message : '';
-    if (msg.includes('uq_users_username_tenant') || msg.includes('duplicate')) {
-      throw new Error(i18n.t('errors.username_exists'));
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("uq_users_username_tenant") || msg.includes("duplicate")) {
+      throw new Error(i18n.t("errors.username_exists"));
     }
-    throw err instanceof Error ? err : new Error(i18n.t('errors.connection_error'));
+    throw err instanceof Error
+      ? err
+      : new Error(i18n.t("errors.connection_error"));
   }
 }
 
-export default new UserService()
+export default new UserService();

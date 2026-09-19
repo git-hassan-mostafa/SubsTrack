@@ -34,7 +34,10 @@ export type RemovedLine = {
 };
 
 class CustomerPlanService {
-  async createLine(data: CustomerPlanInput, tenantId: string): Promise<CustomerPlan> {
+  async createLine(
+    data: CustomerPlanInput,
+    tenantId: string,
+  ): Promise<CustomerPlan> {
     this.validateDate(data.startDate);
     const row = await repository.create({
       customer_id: data.customerId,
@@ -68,7 +71,10 @@ class CustomerPlanService {
     return mapDbCustomerPlanToCustomerPlan(row);
   }
 
-  async deleteLine(id: string, hardDelete = false): Promise<CustomerPlan | null> {
+  async deleteLine(
+    id: string,
+    hardDelete = false,
+  ): Promise<CustomerPlan | null> {
     const paymentCount = await repository.countPayments(id);
     if (hardDelete || paymentCount === 0) {
       await repository.delete(id);
@@ -190,4 +196,4 @@ class CustomerPlanService {
   }
 }
 
-export default new CustomerPlanService()
+export default new CustomerPlanService();

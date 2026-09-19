@@ -1,10 +1,13 @@
-import type { StateCreator } from 'zustand';
-import type { Customer, CustomerPlan } from '@/src/core/types';
-import { customerService } from '@/src/modules/customer/customers';
-import { resolveBranchFilter, ownedRowMatchesFilter } from '@/src/shared/lib/branchFilter';
-import { QuotaExceededError } from '@/src/modules/admin/billing/utils/quotaError';
-import { activeLines } from '@/src/modules/customer/customer-plans/utils/activeLines';
-import type { GlobalState } from '@/src/state/globalStore';
+import type { StateCreator } from "zustand";
+import type { Customer, CustomerPlan } from "@/src/core/types";
+import { customerService } from "@/src/modules/customer/customers";
+import {
+  resolveBranchFilter,
+  ownedRowMatchesFilter,
+} from "@/src/shared/lib/branchFilter";
+import { QuotaExceededError } from "@/src/modules/admin/billing/utils/quotaError";
+import { activeLines } from "@/src/modules/customer/customer-plans/utils/activeLines";
+import type { GlobalState } from "@/src/state/globalStore";
 
 interface CustomerInput {
   name: string;
@@ -43,7 +46,7 @@ export interface CustomerSlice {
   setCustomerLines: (id: string, lines: CustomerPlan[]) => void;
   deactivateCustomer: (id: string) => Promise<void>;
   reactivateCustomer: (id: string) => Promise<void>;
-  deleteCustomer: (id: string) => Promise<'hard' | 'soft' | null>;
+  deleteCustomer: (id: string) => Promise<"hard" | "soft" | null>;
   bulkDeleteCustomers: (ids: string[]) => Promise<boolean>;
   clearError: () => void;
   reset: () => void;
@@ -51,7 +54,7 @@ export interface CustomerSlice {
 
 export const createCustomerSlice: StateCreator<
   GlobalState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   CustomerSlice
 > = (set, get) => ({
@@ -63,7 +66,7 @@ export const createCustomerSlice: StateCreator<
   loading: false,
   loadingMore: false,
   error: null,
-  searchQuery: '',
+  searchQuery: "",
   searchToken: 0,
 
   getCustomers: async () => {
@@ -82,11 +85,8 @@ export const createCustomerSlice: StateCreator<
       state.customers.page = 0;
     });
     try {
-      const { customers, hasMore, activeCount } = await customerService.getCustomers(
-        0,
-        query,
-        branchFilter,
-      );
+      const { customers, hasMore, activeCount } =
+        await customerService.getCustomers(0, query, branchFilter);
       if (get().customers.searchToken !== token) return;
       set((state) => {
         state.customers.items = customers;
@@ -106,7 +106,8 @@ export const createCustomerSlice: StateCreator<
   },
 
   fetchMoreCustomers: async () => {
-    const { loadingMore, hasMore, page, searchToken, searchQuery } = get().customers;
+    const { loadingMore, hasMore, page, searchToken, searchQuery } =
+      get().customers;
     if (loadingMore || !hasMore) return;
     const token = searchToken;
     const branchFilter = resolveBranchFilter(get().auth.user);
@@ -273,7 +274,10 @@ export const createCustomerSlice: StateCreator<
         const i = state.customers.items.findIndex((c) => c.id === id);
         if (i !== -1) state.customers.items[i] = updated;
         if (wasActive)
-          state.customers.activeCount = Math.max(0, state.customers.activeCount - 1);
+          state.customers.activeCount = Math.max(
+            0,
+            state.customers.activeCount - 1,
+          );
         state.customers.loading = false;
       });
       if (wasActive) get().billing.bumpActive({ customers: -1, plans: -lines });
@@ -320,11 +324,16 @@ export const createCustomerSlice: StateCreator<
     });
     try {
       const result = await customerService.deleteCustomer(id);
-      if (result.mode === 'hard') {
+      if (result.mode === "hard") {
         set((state) => {
-          state.customers.items = state.customers.items.filter((c) => c.id !== id);
+          state.customers.items = state.customers.items.filter(
+            (c) => c.id !== id,
+          );
           if (wasActive)
-            state.customers.activeCount = Math.max(0, state.customers.activeCount - 1);
+            state.customers.activeCount = Math.max(
+              0,
+              state.customers.activeCount - 1,
+            );
           state.customers.loading = false;
         });
       } else {
@@ -332,7 +341,10 @@ export const createCustomerSlice: StateCreator<
           const i = state.customers.items.findIndex((c) => c.id === id);
           if (i !== -1) state.customers.items[i] = result.customer;
           if (wasActive)
-            state.customers.activeCount = Math.max(0, state.customers.activeCount - 1);
+            state.customers.activeCount = Math.max(
+              0,
+              state.customers.activeCount - 1,
+            );
           state.customers.loading = false;
         });
       }
@@ -407,7 +419,7 @@ export const createCustomerSlice: StateCreator<
       state.customers.activeCount = 0;
       state.customers.page = 0;
       state.customers.hasMore = true;
-      state.customers.searchQuery = '';
+      state.customers.searchQuery = "";
       state.customers.searchToken += 1;
     }),
 });

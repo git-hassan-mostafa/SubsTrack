@@ -6,7 +6,6 @@ import { readFunctionsErrorBody } from "./functionsError";
 import { logException } from "../errorLog/errorLogger";
 import { buildAuditRow, type AuditInput } from "../audit";
 
-
 /**
  * Describes how a row in a given table relates to a branch. There are exactly
  * three semantics in this codebase; declare one per branch-aware table in
@@ -42,11 +41,19 @@ export abstract class BaseRepository {
     if (error && typeof error === "object" && "message" in error) {
       const message = (error as { message: string }).message;
       console.error("[Repository Error]", message);
-      void logException({ source: "repository", message, context: this.constructor.name });
+      void logException({
+        source: "repository",
+        message,
+        context: this.constructor.name,
+      });
       throw new Error(message);
     }
     console.error("[Repository Error]", error);
-    void logException({ source: "repository", message: String(error), context: this.constructor.name });
+    void logException({
+      source: "repository",
+      message: String(error),
+      context: this.constructor.name,
+    });
     throw new Error(i18n.t("errors.unexpected"));
   }
 
@@ -56,7 +63,9 @@ export abstract class BaseRepository {
 
   private async writeAudit(input: AuditInput): Promise<void> {
     try {
-      const owner = input.customerId ? await this.customerAudit(input.customerId) : null;
+      const owner = input.customerId
+        ? await this.customerAudit(input.customerId)
+        : null;
       const row = buildAuditRow(
         owner
           ? {
@@ -72,23 +81,40 @@ export abstract class BaseRepository {
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       console.warn("[audit] failed to record:", message);
-      void logException({ source: "repository", message, context: `audit:${input.table}` });
+      void logException({
+        source: "repository",
+        message,
+        context: `audit:${input.table}`,
+      });
     }
   }
 
   protected async customerAudit(
     customerId: string,
-  ): Promise<{ branchId: string | null; subject: string | null; customerId: string }> {
+  ): Promise<{
+    branchId: string | null;
+    subject: string | null;
+    customerId: string;
+  }> {
     const { data } = await this.db
       .from("customers")
       .select("branch_id, name")
       .eq("id", customerId)
       .maybeSingle();
-    const row = data as { branch_id: string | null; name: string | null } | null;
-    return { branchId: row?.branch_id ?? null, subject: row?.name ?? null, customerId };
+    const row = data as {
+      branch_id: string | null;
+      name: string | null;
+    } | null;
+    return {
+      branchId: row?.branch_id ?? null,
+      subject: row?.name ?? null,
+      customerId,
+    };
   }
 
-  protected async customerSubject(customerId: string | null): Promise<string | null> {
+  protected async customerSubject(
+    customerId: string | null,
+  ): Promise<string | null> {
     if (!customerId) return null;
     return (await this.customerAudit(customerId)).subject;
   }
@@ -109,7 +135,11 @@ export abstract class BaseRepository {
       select = "*",
       branchColumn = "branch_id" as keyof T,
     } = opts;
-    const { data: prior } = await this.db.from(table).select("*").eq("id", id).maybeSingle();
+    const { data: prior } = await this.db
+      .from(table)
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
     const { data, error } = await this.db
       .from(table)
       .update(values)
@@ -126,7 +156,9 @@ export abstract class BaseRepository {
       after,
       branchId:
         opts.audit?.branchId ??
-        (branchColumn ? ((after[branchColumn] as string | null) ?? null) : null),
+        (branchColumn
+          ? ((after[branchColumn] as string | null) ?? null)
+          : null),
       subject: opts.audit?.subject,
     });
     return after;
@@ -148,7 +180,9 @@ export abstract class BaseRepository {
         recordId: row.id,
         action: "delete",
         before: row,
-        branchId: branchColumn ? ((row[branchColumn] as string | null) ?? null) : null,
+        branchId: branchColumn
+          ? ((row[branchColumn] as string | null) ?? null)
+          : null,
       });
     }
   }
@@ -168,7 +202,10 @@ export abstract class BaseRepository {
     ids: string[],
   ): Promise<Set<string>> {
     if (ids.length === 0) return new Set();
-    const { data, error } = await this.db.from(table).select(column).in(column, ids);
+    const { data, error } = await this.db
+      .from(table)
+      .select(column)
+      .in(column, ids);
     if (error) this.handleError(error);
     return new Set(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

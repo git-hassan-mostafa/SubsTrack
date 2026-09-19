@@ -1,21 +1,54 @@
-import type { StoreApi } from 'zustand';
-import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
-import { createAuthSlice, type AuthSlice } from './slices/auth/authSlice';
-import { createBillingSlice, type BillingSlice } from './slices/billing/billingSlice';
-import { createCustomerSlice, type CustomerSlice } from './slices/customers/customerSlice';
-import { createCustomerPlanSlice, type CustomerPlanSlice } from './slices/customer-plans/customerPlanSlice';
-import { createPaymentSlice, type PaymentSlice } from './slices/payments/paymentSlice';
-import { createPlanSlice, type PlanSlice } from './slices/plans/planSlice';
-import { createUserSlice, type UserSlice } from './slices/users/userSlice';
-import { createBranchSlice, type BranchSlice } from './slices/branches/branchSlice';
-import { createCurrencySlice, type CurrencySlice } from './slices/currencies/currencySlice';
-import { createProductSlice, type ProductSlice } from './slices/products/productSlice';
-import { createServiceSlice, type ServiceSlice } from './slices/services/serviceSlice';
-import { createSaleSlice, type SaleSlice } from './slices/sales/saleSlice';
-import { createLedgerSlice, type LedgerSlice } from './slices/ledger/ledgerSlice';
-import { createOptionSlice, type OptionSlice } from './slices/options/optionSlice';
-import { createTenantSettingSlice, type TenantSettingSlice } from './slices/tenantSettings/tenantSettingSlice';
+import type { StoreApi } from "zustand";
+import { create } from "zustand";
+import { immer } from "zustand/middleware/immer";
+import { createAuthSlice, type AuthSlice } from "./slices/auth/authSlice";
+import {
+  createBillingSlice,
+  type BillingSlice,
+} from "./slices/billing/billingSlice";
+import {
+  createCustomerSlice,
+  type CustomerSlice,
+} from "./slices/customers/customerSlice";
+import {
+  createCustomerPlanSlice,
+  type CustomerPlanSlice,
+} from "./slices/customer-plans/customerPlanSlice";
+import {
+  createPaymentSlice,
+  type PaymentSlice,
+} from "./slices/payments/paymentSlice";
+import { createPlanSlice, type PlanSlice } from "./slices/plans/planSlice";
+import { createUserSlice, type UserSlice } from "./slices/users/userSlice";
+import {
+  createBranchSlice,
+  type BranchSlice,
+} from "./slices/branches/branchSlice";
+import {
+  createCurrencySlice,
+  type CurrencySlice,
+} from "./slices/currencies/currencySlice";
+import {
+  createProductSlice,
+  type ProductSlice,
+} from "./slices/products/productSlice";
+import {
+  createServiceSlice,
+  type ServiceSlice,
+} from "./slices/services/serviceSlice";
+import { createSaleSlice, type SaleSlice } from "./slices/sales/saleSlice";
+import {
+  createLedgerSlice,
+  type LedgerSlice,
+} from "./slices/ledger/ledgerSlice";
+import {
+  createOptionSlice,
+  type OptionSlice,
+} from "./slices/options/optionSlice";
+import {
+  createTenantSettingSlice,
+  type TenantSettingSlice,
+} from "./slices/tenantSettings/tenantSettingSlice";
 
 export interface GlobalState {
   auth: AuthSlice;
@@ -35,7 +68,7 @@ export interface GlobalState {
   tenantSettings: TenantSettingSlice;
 }
 
-const STORE_KEY = '__SUBSTRACK_GLOBAL_STORE__';
+const STORE_KEY = "__SUBSTRACK_GLOBAL_STORE__";
 
 const initStore = (): StoreApi<GlobalState> =>
   create<GlobalState>()(

@@ -1,6 +1,6 @@
-import { View } from 'react-native';
-import { Text } from '@/src/shared/components/Text';
-import { Button } from '@/src/shared/components/Button';
+import { View } from "react-native";
+import { Text } from "@/src/shared/components/Text";
+import { Button } from "@/src/shared/components/Button";
 
 interface EmptyStateProps {
   message: string;
@@ -9,17 +9,21 @@ interface EmptyStateProps {
   onAction?: () => void;
 }
 
-export function EmptyState({ message, subMessage, actionLabel, onAction }: EmptyStateProps) {
+export function EmptyState({
+  message,
+  subMessage,
+  actionLabel,
+  onAction,
+}: EmptyStateProps) {
   return (
     <View className="flex-1 items-center justify-center py-16 px-8">
-      <Text
-        fontWeight="SemiBold"
-        className="text-lg text-gray-500 text-center"
-      >
+      <Text fontWeight="SemiBold" className="text-lg text-gray-500 text-center">
         {message}
       </Text>
       {subMessage ? (
-        <Text className="text-sm text-gray-400 text-center mt-2">{subMessage}</Text>
+        <Text className="text-sm text-gray-400 text-center mt-2">
+          {subMessage}
+        </Text>
       ) : null}
       {actionLabel && onAction ? (
         <View className="mt-6">

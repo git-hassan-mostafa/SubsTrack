@@ -1,5 +1,4 @@
-import type { ReceiveBlock, UserRole } from '@/src/core/types';
-
+import type { ReceiveBlock, UserRole } from "@/src/core/types";
 
 /** The parts of a user that decide their place in the chain. */
 export interface WalletActor {
@@ -25,8 +24,9 @@ export type WalletRank =
  * was never enough to decide a handover.
  */
 export function walletRank(u: WalletActor): WalletRank {
-  if (u.role === 'superadmin') return RANK_OWNER;
-  if (u.role === 'admin') return u.branchId === null ? RANK_TENANT_ADMIN : RANK_BRANCH_ADMIN;
+  if (u.role === "superadmin") return RANK_OWNER;
+  if (u.role === "admin")
+    return u.branchId === null ? RANK_TENANT_ADMIN : RANK_BRANCH_ADMIN;
   return RANK_COLLECTOR;
 }
 
@@ -34,16 +34,25 @@ export function walletRank(u: WalletActor): WalletRank {
  * Why `receiver` cannot take `holder`'s cash — null when they can. Checked in
  * order, so the caption names the first real reason.
  */
-export function receiveBlock(receiver: WalletActor, holder: WalletActor): ReceiveBlock {
-  if (receiver.id === holder.id) return 'self';
-  if (walletRank(receiver) <= walletRank(holder)) return 'rank';
-  if (walletRank(receiver) === RANK_BRANCH_ADMIN && holder.branchId !== receiver.branchId) {
-    return 'branch';
+export function receiveBlock(
+  receiver: WalletActor,
+  holder: WalletActor,
+): ReceiveBlock {
+  if (receiver.id === holder.id) return "self";
+  if (walletRank(receiver) <= walletRank(holder)) return "rank";
+  if (
+    walletRank(receiver) === RANK_BRANCH_ADMIN &&
+    holder.branchId !== receiver.branchId
+  ) {
+    return "branch";
   }
   return null;
 }
 
-export function canReceiveFrom(receiver: WalletActor, holder: WalletActor): boolean {
+export function canReceiveFrom(
+  receiver: WalletActor,
+  holder: WalletActor,
+): boolean {
   return receiveBlock(receiver, holder) === null;
 }
 
@@ -62,5 +71,5 @@ export function canCloseOut(u: WalletActor): boolean {
  * the chain (the app stamps remitted_at/remitted_by for that same row).
  */
 export function custodyTargetFor(receiver: WalletActor): string | null {
-  return receiver.role === 'superadmin' ? null : receiver.id;
+  return receiver.role === "superadmin" ? null : receiver.id;
 }

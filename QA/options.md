@@ -33,103 +33,103 @@ A single **global** key/value table `app_options` (NOT tenant-scoped) holds app-
 
 ## 1. SuperAdmin — Options tab navigation
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 1.1 | Tab exists | Open SuperAdmin app | The bottom bar has exactly two tabs — "Tenants" then "Options" (gear icon). There is no Tier Plans tab |
-| 1.2 | Tab renders screen | Tap "Options" | OptionsScreen renders with title "Options" and a `+ Add` action in the header |
-| 1.3 | Seeded row visible | Fresh DB after running `script.sql` | `LiraRate` row is listed showing value `89000` and its description |
-| 1.4 | Refresh on focus | Leave and return to the tab | `fetchOptions` re-runs (RefreshControl spinner on pull-to-refresh) |
-| 1.5 | Empty state | DB with all options deleted | EmptyState "No options yet" with the add hint |
+| #   | Scenario           | Steps                               | Expected result                                                                                        |
+| --- | ------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 1.1 | Tab exists         | Open SuperAdmin app                 | The bottom bar has exactly two tabs — "Tenants" then "Options" (gear icon). There is no Tier Plans tab |
+| 1.2 | Tab renders screen | Tap "Options"                       | OptionsScreen renders with title "Options" and a `+ Add` action in the header                          |
+| 1.3 | Seeded row visible | Fresh DB after running `script.sql` | `LiraRate` row is listed showing value `89000` and its description                                     |
+| 1.4 | Refresh on focus   | Leave and return to the tab         | `fetchOptions` re-runs (RefreshControl spinner on pull-to-refresh)                                     |
+| 1.5 | Empty state        | DB with all options deleted         | EmptyState "No options yet" with the add hint                                                          |
 
 ## 2. SuperAdmin — Create option
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 2.1 | Open create sheet | Tap `+ Add` | Modal "New Option" with editable Key, Value, Description fields |
-| 2.2 | Create valid | Key `SupportPhone`, Value `+961…`, save | Row added to the list (sorted by key), sheet dismisses |
-| 2.3 | Duplicate key | Create a second `LiraRate` | DB unique violation surfaces as an inline ErrorBanner; no row added |
-| 2.4 | Missing key | Leave Key blank, save | ErrorBanner "Key is required"; sheet stays open |
-| 2.5 | Invalid key chars | Key `My Key!`, save | ErrorBanner "Key may only contain letters, numbers, dots, and underscores" |
-| 2.6 | Missing value | Key set, Value blank, save | ErrorBanner "Value is required" |
-| 2.7 | Optional description | Create with description blank | Saves; card shows no description line |
+| #   | Scenario             | Steps                                   | Expected result                                                            |
+| --- | -------------------- | --------------------------------------- | -------------------------------------------------------------------------- |
+| 2.1 | Open create sheet    | Tap `+ Add`                             | Modal "New Option" with editable Key, Value, Description fields            |
+| 2.2 | Create valid         | Key `SupportPhone`, Value `+961…`, save | Row added to the list (sorted by key), sheet dismisses                     |
+| 2.3 | Duplicate key        | Create a second `LiraRate`              | DB unique violation surfaces as an inline ErrorBanner; no row added        |
+| 2.4 | Missing key          | Leave Key blank, save                   | ErrorBanner "Key is required"; sheet stays open                            |
+| 2.5 | Invalid key chars    | Key `My Key!`, save                     | ErrorBanner "Key may only contain letters, numbers, dots, and underscores" |
+| 2.6 | Missing value        | Key set, Value blank, save              | ErrorBanner "Value is required"                                            |
+| 2.7 | Optional description | Create with description blank           | Saves; card shows no description line                                      |
 
 ## 3. SuperAdmin — Update option
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 3.1 | Open edit | Tap an option card | Modal "Edit — <key>" pre-filled |
-| 3.2 | Key read-only | Try to edit the Key field in edit mode | Key field is not editable; hint "The key cannot be changed after creation." shown |
-| 3.3 | Change value | Edit `LiraRate` value `89000` → `90000`, save | Card updates to `90000`; list reflects new value |
-| 3.4 | Change description | Edit description, save | Card description updates |
-| 3.5 | Validation on edit | Clear Value, save | ErrorBanner "Value is required" |
+| #   | Scenario           | Steps                                         | Expected result                                                                   |
+| --- | ------------------ | --------------------------------------------- | --------------------------------------------------------------------------------- |
+| 3.1 | Open edit          | Tap an option card                            | Modal "Edit — <key>" pre-filled                                                   |
+| 3.2 | Key read-only      | Try to edit the Key field in edit mode        | Key field is not editable; hint "The key cannot be changed after creation." shown |
+| 3.3 | Change value       | Edit `LiraRate` value `89000` → `90000`, save | Card updates to `90000`; list reflects new value                                  |
+| 3.4 | Change description | Edit description, save                        | Card description updates                                                          |
+| 3.5 | Validation on edit | Clear Value, save                             | ErrorBanner "Value is required"                                                   |
 
 ## 4. SuperAdmin — Delete option
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 4.1 | Delete confirm | Tap "Delete" on a card | ConfirmDialog "Delete option" appears with the key in the message |
-| 4.2 | Cancel delete | Tap Cancel | Dialog closes; row remains |
-| 4.3 | Confirm delete | Tap Delete in the dialog | Row removed from list; dialog closes |
+| #   | Scenario        | Steps                                           | Expected result                                                                              |
+| --- | --------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 4.1 | Delete confirm  | Tap "Delete" on a card                          | ConfirmDialog "Delete option" appears with the key in the message                            |
+| 4.2 | Cancel delete   | Tap Cancel                                      | Dialog closes; row remains                                                                   |
+| 4.3 | Confirm delete  | Tap Delete in the dialog                        | Row removed from list; dialog closes                                                         |
 | 4.4 | Delete LiraRate | Delete the `LiraRate` row, then create a tenant | New tenant still gets an LBP currency at the `DEFAULT_LIRA_RATE = 89000` fallback (no crash) |
 
 ## 5. Default LBP currency on tenant creation — SuperAdmin path
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 5.1 | New tenant via SuperAdmin | Create a tenant from SuperAdmin's Tenants screen | After creation, the tenant has a `currencies` row: code `LBP`, name `Lebanese Pound`, symbol `ل.ل`, decimals `0`, `rate_per_usd` = current `LiraRate` |
-| 5.2 | Rate reflects current option | Set `LiraRate` = `91000`, then create a tenant | The new tenant's LBP rate = `91000` |
-| 5.3 | Fallback when missing | Delete `LiraRate`, create a tenant | LBP currency created at `89000` |
-| 5.4 | Fallback when invalid | Set `LiraRate` value to `abc` (or `0`), create a tenant | LBP currency created at `89000` (invalid/non-positive ignored) |
-| 5.5 | Rollback cleanliness | Force a failure after branch/currency creation (e.g. duplicate admin username) | Tenant + Default Branch + LBP currency all rolled back (no orphan currency rows) |
-| 5.6 | Default Branch still created | Inspect the new tenant | "Default Branch" row present alongside the LBP currency |
+| #   | Scenario                     | Steps                                                                          | Expected result                                                                                                                                       |
+| --- | ---------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5.1 | New tenant via SuperAdmin    | Create a tenant from SuperAdmin's Tenants screen                               | After creation, the tenant has a `currencies` row: code `LBP`, name `Lebanese Pound`, symbol `ل.ل`, decimals `0`, `rate_per_usd` = current `LiraRate` |
+| 5.2 | Rate reflects current option | Set `LiraRate` = `91000`, then create a tenant                                 | The new tenant's LBP rate = `91000`                                                                                                                   |
+| 5.3 | Fallback when missing        | Delete `LiraRate`, create a tenant                                             | LBP currency created at `89000`                                                                                                                       |
+| 5.4 | Fallback when invalid        | Set `LiraRate` value to `abc` (or `0`), create a tenant                        | LBP currency created at `89000` (invalid/non-positive ignored)                                                                                        |
+| 5.5 | Rollback cleanliness         | Force a failure after branch/currency creation (e.g. duplicate admin username) | Tenant + Default Branch + LBP currency all rolled back (no orphan currency rows)                                                                      |
+| 5.6 | Default Branch still created | Inspect the new tenant                                                         | "Default Branch" row present alongside the LBP currency                                                                                               |
 
 ## 6. Default LBP currency on tenant creation — self-service signup path
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 6.1 | Self-service signup | In SubsTrack, "Create a new organization" → complete both steps | New tenant created and auto-logged in; the tenant has an `LBP` currency seeded from `LiraRate` |
-| 6.2 | LBP visible in app | After signup, open Tenant Settings → Currencies | `LBP` listed — multi-currency is always available, there is no gate |
-| 6.3 | Fallback on signup | Delete `LiraRate`, then self-service sign up | Signup succeeds; LBP seeded at `89000` (a misconfigured option never blocks signup) |
-| 6.4 | Idempotent re-run of script.sql | Re-run `script.sql` after editing `LiraRate` | `INSERT … ON CONFLICT (key) DO NOTHING` preserves the edited value (does not reset to `89000`) |
+| #   | Scenario                        | Steps                                                           | Expected result                                                                                |
+| --- | ------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 6.1 | Self-service signup             | In SubsTrack, "Create a new organization" → complete both steps | New tenant created and auto-logged in; the tenant has an `LBP` currency seeded from `LiraRate` |
+| 6.2 | LBP visible in app              | After signup, open Tenant Settings → Currencies                 | `LBP` listed — multi-currency is always available, there is no gate                            |
+| 6.3 | Fallback on signup              | Delete `LiraRate`, then self-service sign up                    | Signup succeeds; LBP seeded at `89000` (a misconfigured option never blocks signup)            |
+| 6.4 | Idempotent re-run of script.sql | Re-run `script.sql` after editing `LiraRate`                    | `INSERT … ON CONFLICT (key) DO NOTHING` preserves the edited value (does not reset to `89000`) |
 
 ## 7. SubsTrack — read-only options module
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 7.1 | Fetched at bootstrap | Cold-start the app (before logging in) | `optionSlice.items` is populated from `app/_layout.tsx` (so the login screen can read flags); re-primed on login via `primePostAuth` |
-| 7.2 | Persist across logout | Logout | `optionSlice.items` is NOT cleared (options are global, gate pre-auth UI); the login screen still reads the flags |
-| 7.3 | Fetch failure is non-fatal | Simulate the options query failing (e.g. table absent pre-migration) | Login still completes; `optionSlice.error` set but app usable (Promise.all does not reject) |
-| 7.4 | No write path | (Code review) Confirm SubsTrack `OptionRepository` exposes only `findAll`/`findByKey` — no create/update/delete | SubsTrack cannot mutate options |
+| #   | Scenario                   | Steps                                                                                                           | Expected result                                                                                                                      |
+| --- | -------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| 7.1 | Fetched at bootstrap       | Cold-start the app (before logging in)                                                                          | `optionSlice.items` is populated from `app/_layout.tsx` (so the login screen can read flags); re-primed on login via `primePostAuth` |
+| 7.2 | Persist across logout      | Logout                                                                                                          | `optionSlice.items` is NOT cleared (options are global, gate pre-auth UI); the login screen still reads the flags                    |
+| 7.3 | Fetch failure is non-fatal | Simulate the options query failing (e.g. table absent pre-migration)                                            | Login still completes; `optionSlice.error` set but app usable (Promise.all does not reject)                                          |
+| 7.4 | No write path              | (Code review) Confirm SubsTrack `OptionRepository` exposes only `findAll`/`findByKey` — no create/update/delete | SubsTrack cannot mutate options                                                                                                      |
 
 ## 8. RLS / security
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 8.1 | Authenticated read | As a logged-in SubsTrack user, query `app_options` | Rows returned |
-| 8.2 | Anon read allowed | With only the anon key and no session, query `app_options` | Rows returned (RLS grants anon `SELECT`) so pre-auth UI can read flags |
-| 8.3 | Authenticated write blocked | Attempt an insert/update/delete on `app_options` with a normal user JWT | Denied (no write policy; only service role bypasses RLS) |
-| 8.4 | Service role write | SuperAdmin (service key) and the `create-tenant` edge function | Can read + write freely |
+| #   | Scenario                    | Steps                                                                   | Expected result                                                        |
+| --- | --------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 8.1 | Authenticated read          | As a logged-in SubsTrack user, query `app_options`                      | Rows returned                                                          |
+| 8.2 | Anon read allowed           | With only the anon key and no session, query `app_options`              | Rows returned (RLS grants anon `SELECT`) so pre-auth UI can read flags |
+| 8.3 | Authenticated write blocked | Attempt an insert/update/delete on `app_options` with a normal user JWT | Denied (no write policy; only service role bypasses RLS)               |
+| 8.4 | Service role write          | SuperAdmin (service key) and the `create-tenant` edge function          | Can read + write freely                                                |
 
 ## 9. Support number (`SupportWhatsAppNumber`)
 
 Digits, international format. Its only consumer is the **"Send request + WhatsApp"** button on the customer-allowance request sheet — the option is read through `useSupportWhatsAppNumber()`, and a blank/absent value hides that button rather than producing a dead link. Reference: [CustomerRequestSheet.tsx](SubsTrack/src/modules/admin/billing/components/CustomerRequestSheet.tsx), [useOptionSlice.ts](SubsTrack/src/state/hooks/useOptionSlice.ts), [whatsapp.ts](SubsTrack/src/shared/lib/whatsapp.ts). The flow itself is [customer-allowance.md](customer-allowance.md) §3.
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 9.1 | Set (normal case) | `SupportWhatsAppNumber` = a valid number, open Admin → Organization Settings → Request more customers | The sheet shows **Send request** plus the green **Send request + WhatsApp** |
-| 9.2 | Deep-link content | Tap Send request + WhatsApp | The request is saved first, then WhatsApp opens on that number with a message naming the organization and the requested count |
-| 9.3 | Blank value | Set `SupportWhatsAppNumber` to an empty value, relaunch, reopen the sheet | Only **Send request** renders — no broken link |
-| 9.4 | Row absent | Delete the `SupportWhatsAppNumber` row entirely | Same as 9.3; no crash |
-| 9.5 | Edited value takes effect | Change the number in SuperAdmin, relaunch SubsTrack, send a request over WhatsApp | The new number is used |
+| #   | Scenario                  | Steps                                                                                                 | Expected result                                                                                                               |
+| --- | ------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 9.1 | Set (normal case)         | `SupportWhatsAppNumber` = a valid number, open Admin → Organization Settings → Request more customers | The sheet shows **Send request** plus the green **Send request + WhatsApp**                                                   |
+| 9.2 | Deep-link content         | Tap Send request + WhatsApp                                                                           | The request is saved first, then WhatsApp opens on that number with a message naming the organization and the requested count |
+| 9.3 | Blank value               | Set `SupportWhatsAppNumber` to an empty value, relaunch, reopen the sheet                             | Only **Send request** renders — no broken link                                                                                |
+| 9.4 | Row absent                | Delete the `SupportWhatsAppNumber` row entirely                                                       | Same as 9.3; no crash                                                                                                         |
+| 9.5 | Edited value takes effect | Change the number in SuperAdmin, relaunch SubsTrack, send a request over WhatsApp                     | The new number is used                                                                                                        |
 
 ## 10. Self-service signup flag (`AllowSelfServiceSignup`)
 
 Default `true`. Enforced both client (login screen) and server (`create-tenant` edge function). Reference: [LoginScreen.tsx](SubsTrack/src/modules/auth/screens/LoginScreen.tsx), [create-tenant/index.ts](SubsTrack/supabase/functions/create-tenant/index.ts).
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 10.1 | Enabled (default) | `AllowSelfServiceSignup` = `true` (or row absent), open login screen | "or / Create a new organization" divider + button visible; signup flow works |
-| 10.2 | Disabled hides button | Set `AllowSelfServiceSignup` = `false`, cold-start app, open login screen | The divider and "Create a new organization" button are hidden |
-| 10.3 | Server rejects bypass | With flag `false`, call the `create-tenant` edge function directly | Returns `403 { code: 'signup_disabled' }`; no tenant/branch/user/currency rows created |
-| 10.4 | Flag readable pre-auth | Flag `false`, never logged in | Login screen correctly hides signup (options fetched at bootstrap with anon key) |
-| 10.5 | Missing row defaults allowed | Delete `AllowSelfServiceSignup`, open login + call edge function | Signup allowed (button shown, edge function proceeds) — absent option never locks out |
+| #    | Scenario                     | Steps                                                                     | Expected result                                                                        |
+| ---- | ---------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 10.1 | Enabled (default)            | `AllowSelfServiceSignup` = `true` (or row absent), open login screen      | "or / Create a new organization" divider + button visible; signup flow works           |
+| 10.2 | Disabled hides button        | Set `AllowSelfServiceSignup` = `false`, cold-start app, open login screen | The divider and "Create a new organization" button are hidden                          |
+| 10.3 | Server rejects bypass        | With flag `false`, call the `create-tenant` edge function directly        | Returns `403 { code: 'signup_disabled' }`; no tenant/branch/user/currency rows created |
+| 10.4 | Flag readable pre-auth       | Flag `false`, never logged in                                             | Login screen correctly hides signup (options fetched at bootstrap with anon key)       |
+| 10.5 | Missing row defaults allowed | Delete `AllowSelfServiceSignup`, open login + call edge function          | Signup allowed (button shown, edge function proceeds) — absent option never locks out  |

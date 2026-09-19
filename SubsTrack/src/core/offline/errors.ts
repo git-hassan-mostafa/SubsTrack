@@ -1,4 +1,4 @@
-import i18n from '@/src/core/i18n';
+import i18n from "@/src/core/i18n";
 
 /**
  * Thrown by offline repository methods that cannot work without the network
@@ -8,11 +8,11 @@ import i18n from '@/src/core/i18n';
  * — no service/UI change needed.
  */
 export class RequiresConnectionError extends Error {
-  readonly code = 'REQUIRES_CONNECTION';
+  readonly code = "REQUIRES_CONNECTION";
 
   constructor(message?: string) {
-    super(message ?? i18n.t('errors.requires_connection'));
-    this.name = 'RequiresConnectionError';
+    super(message ?? i18n.t("errors.requires_connection"));
+    this.name = "RequiresConnectionError";
   }
 }
 
@@ -23,10 +23,10 @@ export class RequiresConnectionError extends Error {
  * switch and tell the user to sign back into the previous organization and sync first.
  */
 export class OrganizationSwitchBlockedError extends Error {
-  readonly code = 'ORGANIZATION_SWITCH_BLOCKED';
+  readonly code = "ORGANIZATION_SWITCH_BLOCKED";
 
   constructor(message?: string) {
-    super(message ?? i18n.t('errors.organization_switch_blocked'));
-    this.name = 'OrganizationSwitchBlockedError';
+    super(message ?? i18n.t("errors.organization_switch_blocked"));
+    this.name = "OrganizationSwitchBlockedError";
   }
 }

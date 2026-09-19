@@ -5,7 +5,7 @@ export class File {
   create(): void {}
   write(): void {}
   get uri(): string {
-    return 'file://export.csv';
+    return "file://export.csv";
   }
 }
 
@@ -17,6 +17,6 @@ export class Directory {
   create(): void {}
 }
 
-export const Paths = { cache: 'file://cache' };
+export const Paths = { cache: "file://cache" };
 
 export default { File, Directory, Paths };

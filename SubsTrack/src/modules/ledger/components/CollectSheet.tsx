@@ -119,11 +119,17 @@ export function CollectSheet({
   const [singleCurrencyId, setSingleCurrencyId] = useState<string | null>(
     () => singleItem?.currencyId ?? null,
   );
-  const [singleAmount, setSingleAmount] = useState<number | null>(
-    () => (singleItem && !singleItem.openAmount ? singleItem.balance : null),
+  const [singleAmount, setSingleAmount] = useState<number | null>(() =>
+    singleItem && !singleItem.openAmount ? singleItem.balance : null,
   );
 
-  const dirty = useDirtyForm({ amounts, singleAmount, openBill, receivedAt, notes });
+  const dirty = useDirtyForm({
+    amounts,
+    singleAmount,
+    openBill,
+    receivedAt,
+    notes,
+  });
 
   const display = findCurrency(currencies, displayCurrencyId);
   const singleCurrency = findCurrency(currencies, singleCurrencyId);
@@ -161,7 +167,9 @@ export function CollectSheet({
   );
 
   const singleTarget = billedOpenItem ?? singleItem;
-  const singleMax = billedOpenItem ? (openBill ?? 0) : (singleItem?.balance ?? 0);
+  const singleMax = billedOpenItem
+    ? (openBill ?? 0)
+    : (singleItem?.balance ?? 0);
   const singleLines = useMemo<AllocationLine[]>(() => {
     if (!singleTarget) return [];
     const value = singleAmount ?? 0;
@@ -261,7 +269,9 @@ export function CollectSheet({
               label={t("ledger.amount")}
               labelAction={
                 openItem ? null : (
-                  <CollectAllButton onPress={() => setSingleAmount(singleMax)} />
+                  <CollectAllButton
+                    onPress={() => setSingleAmount(singleMax)}
+                  />
                 )
               }
               amount={singleAmount}
@@ -279,7 +289,9 @@ export function CollectSheet({
 
             {singleOverpaying && (
               <ErrorBanner
-                message={t("ledger.cannot_exceed", { amount: money(singleMax) })}
+                message={t("ledger.cannot_exceed", {
+                  amount: money(singleMax),
+                })}
                 onDismiss={() => setSingleAmount(singleMax)}
               />
             )}

@@ -1,7 +1,7 @@
-import type { StateCreator } from 'zustand';
-import type { AppOption } from '@/src/core/types';
-import { optionService } from '@/src/modules/options';
-import type { GlobalState } from '@/src/state/globalStore';
+import type { StateCreator } from "zustand";
+import type { AppOption } from "@/src/core/types";
+import { optionService } from "@/src/modules/options";
+import type { GlobalState } from "@/src/state/globalStore";
 
 export interface OptionSlice {
   items: AppOption[];
@@ -14,7 +14,7 @@ export interface OptionSlice {
 
 export const createOptionSlice: StateCreator<
   GlobalState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   OptionSlice
 > = (set) => ({

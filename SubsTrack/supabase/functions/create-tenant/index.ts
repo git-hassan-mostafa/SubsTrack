@@ -57,31 +57,51 @@ Deno.serve(async (req) => {
 
     // ---- validate input (re-checked here; do not trust the client) ----
     const name = typeof body.name === "string" ? body.name.trim() : "";
-    const tenantCode = typeof body.tenantCode === "string"
-      ? body.tenantCode.trim().toLowerCase()
-      : "";
-    const adminUserName = typeof body.adminUserName === "string"
-      ? body.adminUserName.trim().toLowerCase()
-      : "";
-    const adminFullName = typeof body.adminFullName === "string"
-      ? body.adminFullName.trim()
-      : "";
-    const adminPassword = typeof body.adminPassword === "string"
-      ? body.adminPassword
-      : "";
+    const tenantCode =
+      typeof body.tenantCode === "string"
+        ? body.tenantCode.trim().toLowerCase()
+        : "";
+    const adminUserName =
+      typeof body.adminUserName === "string"
+        ? body.adminUserName.trim().toLowerCase()
+        : "";
+    const adminFullName =
+      typeof body.adminFullName === "string" ? body.adminFullName.trim() : "";
+    const adminPassword =
+      typeof body.adminPassword === "string" ? body.adminPassword : "";
 
-    if (!name) return jsonResponse({ error: "Organization name is required" }, 400);
-    if (!tenantCode) return jsonResponse({ error: "Organization code is required" }, 400);
-    if (!TENANT_CODE_REGEX.test(tenantCode) || tenantCode.length < 2 || tenantCode.length > 32) {
-      return jsonResponse({ error: "Organization code must be 2-32 lowercase letters or digits" }, 400);
+    if (!name)
+      return jsonResponse({ error: "Organization name is required" }, 400);
+    if (!tenantCode)
+      return jsonResponse({ error: "Organization code is required" }, 400);
+    if (
+      !TENANT_CODE_REGEX.test(tenantCode) ||
+      tenantCode.length < 2 ||
+      tenantCode.length > 32
+    ) {
+      return jsonResponse(
+        { error: "Organization code must be 2-32 lowercase letters or digits" },
+        400,
+      );
     }
-    if (!adminUserName) return jsonResponse({ error: "Username is required" }, 400);
+    if (!adminUserName)
+      return jsonResponse({ error: "Username is required" }, 400);
     if (!USERNAME_REGEX.test(adminUserName)) {
-      return jsonResponse({ error: "Username can only contain letters, numbers, dots, and underscores" }, 400);
+      return jsonResponse(
+        {
+          error:
+            "Username can only contain letters, numbers, dots, and underscores",
+        },
+        400,
+      );
     }
-    if (!adminFullName) return jsonResponse({ error: "Full name is required" }, 400);
+    if (!adminFullName)
+      return jsonResponse({ error: "Full name is required" }, 400);
     if (adminPassword.length < 8) {
-      return jsonResponse({ error: "Password must be at least 8 characters" }, 400);
+      return jsonResponse(
+        { error: "Password must be at least 8 characters" },
+        400,
+      );
     }
 
     // ---- gate: self-service signup must be enabled by the SaaS owner ----
@@ -99,7 +119,10 @@ Deno.serve(async (req) => {
       String(signupOption.value).trim().toLowerCase() === "false"
     ) {
       return jsonResponse(
-        { error: "Self-service signup is currently disabled", code: "signup_disabled" },
+        {
+          error: "Self-service signup is currently disabled",
+          code: "signup_disabled",
+        },
         403,
       );
     }
@@ -117,9 +140,10 @@ Deno.serve(async (req) => {
       .eq("key", "LiraRate")
       .maybeSingle();
     const parsedLiraRate = liraOption ? Number(liraOption.value) : NaN;
-    const liraRate = Number.isFinite(parsedLiraRate) && parsedLiraRate > 0
-      ? parsedLiraRate
-      : DEFAULT_LIRA_RATE;
+    const liraRate =
+      Number.isFinite(parsedLiraRate) && parsedLiraRate > 0
+        ? parsedLiraRate
+        : DEFAULT_LIRA_RATE;
 
     const { data: tenantRow, error: tenantErr } = await serviceClient
       .from("tenants")
@@ -133,13 +157,19 @@ Deno.serve(async (req) => {
         const msg = (tenantErr.message ?? "").toLowerCase();
         if (msg.includes("tenant_code")) {
           return jsonResponse(
-            { error: "Organization code already taken", code: "tenant_code_taken" },
+            {
+              error: "Organization code already taken",
+              code: "tenant_code_taken",
+            },
             409,
           );
         }
         if (msg.includes("name")) {
           return jsonResponse(
-            { error: "Organization name already taken", code: "tenant_name_taken" },
+            {
+              error: "Organization name already taken",
+              code: "tenant_name_taken",
+            },
             409,
           );
         }
@@ -157,23 +187,25 @@ Deno.serve(async (req) => {
 
     // ---- 3. auth user ----
     const email = `${adminUserName}@${tenantCode}.com`;
-    const { data: authData, error: authErr } = await serviceClient.auth.admin
-      .createUser({ email, password: adminPassword, email_confirm: true });
+    const { data: authData, error: authErr } =
+      await serviceClient.auth.admin.createUser({
+        email,
+        password: adminPassword,
+        email_confirm: true,
+      });
     if (authErr) throw new Error(authErr.message);
 
     createdAuthUserId = authData.user.id;
 
     // ---- 4. public.users (tenant owner) ----
-    const { error: profileErr } = await serviceClient
-      .from("users")
-      .insert({
-        id: createdAuthUserId,
-        username: adminUserName,
-        full_name: adminFullName,
-        role: "superadmin",
-        tenant_id: createdTenantId,
-        branch_id: null,
-      });
+    const { error: profileErr } = await serviceClient.from("users").insert({
+      id: createdAuthUserId,
+      username: adminUserName,
+      full_name: adminFullName,
+      role: "superadmin",
+      tenant_id: createdTenantId,
+      branch_id: null,
+    });
     if (profileErr) throw new Error(profileErr.message);
 
     // ---- 5. seed the tenant's default Lebanese Pound (LBP) currency ----
@@ -192,10 +224,7 @@ Deno.serve(async (req) => {
       });
     if (currencyErr) throw new Error(currencyErr.message);
 
-    return jsonResponse(
-      { tenantId: createdTenantId, tenantCode },
-      200,
-    );
+    return jsonResponse({ tenantId: createdTenantId, tenantCode }, 200);
   } catch (err) {
     // Cascading rollback — reverse order. Each step swallows its own errors:
     // we already have one failure to report; we don't want a cleanup error

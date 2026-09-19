@@ -1,7 +1,7 @@
-import type { BranchFilter } from '@/src/core/constants';
-import type { CashRow, CustomerDebts, ExpenseItem } from '@/src/core/types';
-import type { ReportPeriod } from '@/src/core/utils/dateRange';
-import type { Entry } from './aggregate';
+import type { BranchFilter } from "@/src/core/constants";
+import type { CashRow, CustomerDebts, ExpenseItem } from "@/src/core/types";
+import type { ReportPeriod } from "@/src/core/utils/dateRange";
+import type { Entry } from "./aggregate";
 
 export interface ReportsFilter {
   period: ReportPeriod;

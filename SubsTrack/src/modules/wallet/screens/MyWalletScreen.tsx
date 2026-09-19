@@ -50,7 +50,9 @@ export function MyWalletScreen() {
     let acted = false;
     await confirm({
       title: t("wallet.close_out_confirm_title"),
-      message: t("wallet.close_out_confirm_message", { count: selected.length }),
+      message: t("wallet.close_out_confirm_message", {
+        count: selected.length,
+      }),
       confirmLabel: t("wallet.close_out"),
       onConfirm: async () => {
         setBusy(true);

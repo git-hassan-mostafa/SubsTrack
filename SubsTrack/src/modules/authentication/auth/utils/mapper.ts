@@ -4,15 +4,15 @@ import { mapDbBranchToBranch } from "@/src/modules/admin/branches";
 import { mapDbTenantToTenant } from "@/src/modules/admin/billing/utils/mapper";
 
 export function mapDbUserToAuthUser(db: DbUser, tenant: DbTenant): AuthUser {
-    return {
-        id: db.id,
-        username: db.username,
-        fullName: db.full_name,
-        role: db.role,
-        active: db.active,
-        tenantId: db.tenant_id,
-        tenant: mapDbTenantToTenant(tenant),
-        branchId: db.branch_id,
-        branch: db.branches ? mapDbBranchToBranch(db.branches) : null,
-    };
+  return {
+    id: db.id,
+    username: db.username,
+    fullName: db.full_name,
+    role: db.role,
+    active: db.active,
+    tenantId: db.tenant_id,
+    tenant: mapDbTenantToTenant(tenant),
+    branchId: db.branch_id,
+    branch: db.branches ? mapDbBranchToBranch(db.branches) : null,
+  };
 }

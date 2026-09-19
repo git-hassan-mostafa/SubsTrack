@@ -15,10 +15,12 @@ function cell(value: string | number | null | undefined): string {
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-export function toCsv(headers: string[], rows: (string | number | null)[][]): string {
+export function toCsv(
+  headers: string[],
+  rows: (string | number | null)[][],
+): string {
   return (
-    "\ufeff" +
-    [headers, ...rows].map((r) => r.map(cell).join(",")).join("\r\n")
+    "\ufeff" + [headers, ...rows].map((r) => r.map(cell).join(",")).join("\r\n")
   );
 }
 

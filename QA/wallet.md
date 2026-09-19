@@ -58,21 +58,21 @@ collector (user)  →  branch admin  →  tenant-wide admin  →  owner (superad
 
 For each row, open Admin → Wallets as the viewer and check both the row's 3-dot menu and the detail sheet.
 
-| #   | Viewer | Holder | Expected |
-| --- | --- | --- | --- |
-| 3.1 | Branch admin Sara (A) | **herself** | "You" chip on the card; no Receive; menu says **"You cannot receive your own cash"** |
-| 3.2 | Branch admin Sara (A) | Collector Ali (A) | Receive allowed |
-| 3.3 | Branch admin Sara (A) | Collector Nour (**B**) | Not receivable — **"They are not in your branch"** (if visible at all; RLS may hide her) |
-| 3.4 | Branch admin Sara (A) | Branch admin Rami (B) | Not receivable — branch/rank block |
-| 3.5 | Branch admin Sara (A) | Collector with **no branch** | Not receivable — **"They are not in your branch"** |
-| 3.6 | Branch admin Sara (A) | Tenant-wide admin Omar | Not receivable — **"Only someone above them can receive this cash"** |
-| 3.7 | Tenant-wide admin Omar | **himself** | "You" chip; no Receive; **Close out all** offered instead |
-| 3.8 | Tenant-wide admin Omar | Branch admin Sara | Receive allowed |
-| 3.9 | Tenant-wide admin Omar | Collector Ali (any branch) | Receive allowed — he may skip the branch admin |
-| 3.10 | Tenant-wide admin Omar | Collector with no branch | Receive allowed |
-| 3.11 | Tenant-wide admin Omar | Tenant-wide admin **Dina** | Not receivable — peers, rank block |
-| 3.12 | Owner (superadmin) | anyone | Receive allowed |
-| 3.13 | Collector Ali | anyone | Admin → Wallets is unreachable (admin tab hidden); My Wallet shows **no** actions at all |
+| #    | Viewer                 | Holder                       | Expected                                                                                 |
+| ---- | ---------------------- | ---------------------------- | ---------------------------------------------------------------------------------------- |
+| 3.1  | Branch admin Sara (A)  | **herself**                  | "You" chip on the card; no Receive; menu says **"You cannot receive your own cash"**     |
+| 3.2  | Branch admin Sara (A)  | Collector Ali (A)            | Receive allowed                                                                          |
+| 3.3  | Branch admin Sara (A)  | Collector Nour (**B**)       | Not receivable — **"They are not in your branch"** (if visible at all; RLS may hide her) |
+| 3.4  | Branch admin Sara (A)  | Branch admin Rami (B)        | Not receivable — branch/rank block                                                       |
+| 3.5  | Branch admin Sara (A)  | Collector with **no branch** | Not receivable — **"They are not in your branch"**                                       |
+| 3.6  | Branch admin Sara (A)  | Tenant-wide admin Omar       | Not receivable — **"Only someone above them can receive this cash"**                     |
+| 3.7  | Tenant-wide admin Omar | **himself**                  | "You" chip; no Receive; **Close out all** offered instead                                |
+| 3.8  | Tenant-wide admin Omar | Branch admin Sara            | Receive allowed                                                                          |
+| 3.9  | Tenant-wide admin Omar | Collector Ali (any branch)   | Receive allowed — he may skip the branch admin                                           |
+| 3.10 | Tenant-wide admin Omar | Collector with no branch     | Receive allowed                                                                          |
+| 3.11 | Tenant-wide admin Omar | Tenant-wide admin **Dina**   | Not receivable — peers, rank block                                                       |
+| 3.12 | Owner (superadmin)     | anyone                       | Receive allowed                                                                          |
+| 3.13 | Collector Ali          | anyone                       | Admin → Wallets is unreachable (admin tab hidden); My Wallet shows **no** actions at all |
 
 ## 4. Leaving the system
 

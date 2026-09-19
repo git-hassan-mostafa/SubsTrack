@@ -1,25 +1,26 @@
-import { Platform } from 'react-native';
-import { BaseRepository } from '@/src/core/utils/BaseRepository';
-import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
-import type { DbSale, DbSaleItem } from '@/src/core/types/db';
-import type { CreateStockMovementPayload } from '@/src/modules/admin/products';
-import { FindSalesOptions } from '../utils/types';
+import { Platform } from "react-native";
+import { BaseRepository } from "@/src/core/utils/BaseRepository";
+import { PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
+import type { DbSale, DbSaleItem } from "@/src/core/types/db";
+import type { CreateStockMovementPayload } from "@/src/modules/admin/products";
+import { FindSalesOptions } from "../utils/types";
 import type {
   CreateSaleItemPayload,
   CreateSalePayload,
   ISaleRepository,
   UpdateSalePayload,
-} from './ISaleRepository';
-import { OfflineSaleRepository } from './SaleRepository.offline';
-import { dayStartIso, nextDayStartIso } from '@/src/core/utils/dateRange';
-import { isReceiptIdTerm, receiptIdTerm } from '@/src/core/utils/receiptId';
-import { sanitizeSearchTerm } from '@/src/core/utils/searchTerm';
+} from "./ISaleRepository";
+import { OfflineSaleRepository } from "./SaleRepository.offline";
+import { dayStartIso, nextDayStartIso } from "@/src/core/utils/dateRange";
+import { isReceiptIdTerm, receiptIdTerm } from "@/src/core/utils/receiptId";
+import { sanitizeSearchTerm } from "@/src/core/utils/searchTerm";
 
-const SALE_SELECT = '*, sale_items(*, products(*), services(*)), customers(*)';
-const SALE_ITEM_SELECT = '*, products(*), services(*)';
-const SALE_SELECT_LEAN = '*, customers(*)';
+const SALE_SELECT = "*, sale_items(*, products(*), services(*)), customers(*)";
+const SALE_ITEM_SELECT = "*, products(*), services(*)";
+const SALE_SELECT_LEAN = "*, customers(*)";
 
-const SALE_TOTALS_SELECT = 'sold_at, total_amount, rate_per_usd_snapshot, customers(name)';
+const SALE_TOTALS_SELECT =
+  "sold_at, total_amount, rate_per_usd_snapshot, customers(name)";
 
 // The frozen summary, the matching customers' ids, and — when the term reads
 // like a receipt number — `receipt_id`, the computed field over the id's tail.
@@ -38,29 +39,33 @@ function applySaleSearch<T extends { or(filters: string): T }>(
   const term = sanitizeSearchTerm(searchQuery);
   if (!term) return query;
   const clauses = [`items_summary.ilike.%${term}%`];
-  if (customerIds.length > 0) clauses.push(`customer_id.in.(${customerIds.join(',')})`);
-  if (isReceiptIdTerm(term)) clauses.push(`receipt_id.ilike.%${receiptIdTerm(term)}%`);
-  return query.or(clauses.join(','));
+  if (customerIds.length > 0)
+    clauses.push(`customer_id.in.(${customerIds.join(",")})`);
+  if (isReceiptIdTerm(term))
+    clauses.push(`receipt_id.ilike.%${receiptIdTerm(term)}%`);
+  return query.or(clauses.join(","));
 }
 
 export class SaleRepository extends BaseRepository implements ISaleRepository {
   private async saleIdsForProduct(productId: string): Promise<string[]> {
     const { data, error } = await this.db
-      .from('sale_items')
-      .select('sale_id')
-      .eq('product_id', productId)
-      .is('voided_at', null);
+      .from("sale_items")
+      .select("sale_id")
+      .eq("product_id", productId)
+      .is("voided_at", null);
     if (error) this.handleError(error);
-    return Array.from(new Set((data ?? []).map((r: { sale_id: string }) => r.sale_id)));
+    return Array.from(
+      new Set((data ?? []).map((r: { sale_id: string }) => r.sale_id)),
+    );
   }
 
   private async customerIdsMatching(searchQuery?: string): Promise<string[]> {
     const term = sanitizeSearchTerm(searchQuery);
     if (!term) return [];
     const { data, error } = await this.db
-      .from('customers')
-      .select('id')
-      .ilike('name', `%${term}%`);
+      .from("customers")
+      .select("id")
+      .ilike("name", `%${term}%`);
     if (error) this.handleError(error);
     return (data ?? []).map((r: { id: string }) => r.id);
   }
@@ -71,24 +76,33 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     const to = from + PAGE_SIZE - 1;
 
     let query = this.db
-      .from('sales')
+      .from("sales")
       .select(SALE_SELECT)
-      .order('sold_at', { ascending: false })
+      .order("sold_at", { ascending: false })
       .range(from, to);
 
-    if (!opts.includeVoided) query = query.is('voided_at', null);
-    if (opts.voidedOnly) query = query.not('voided_at', 'is', null);
+    if (!opts.includeVoided) query = query.is("voided_at", null);
+    if (opts.voidedOnly) query = query.not("voided_at", "is", null);
     if (opts.customerId !== undefined && opts.customerId !== null) {
-      query = query.eq('customer_id', opts.customerId);
+      query = query.eq("customer_id", opts.customerId);
     }
-    if (opts.productId) query = query.in('id', await this.saleIdsForProduct(opts.productId));
+    if (opts.productId)
+      query = query.in("id", await this.saleIdsForProduct(opts.productId));
 
-    if (opts.fromDate) query = query.gte('sold_at', dayStartIso(opts.fromDate));
-    if (opts.toDate) query = query.lt('sold_at', nextDayStartIso(opts.toDate));
+    if (opts.fromDate) query = query.gte("sold_at", dayStartIso(opts.fromDate));
+    if (opts.toDate) query = query.lt("sold_at", nextDayStartIso(opts.toDate));
 
-    query = applySaleSearch(query, opts.searchQuery, await this.customerIdsMatching(opts.searchQuery));
+    query = applySaleSearch(
+      query,
+      opts.searchQuery,
+      await this.customerIdsMatching(opts.searchQuery),
+    );
 
-    query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.sales);
+    query = this.applyBranchFilter(
+      query,
+      opts.branchFilter ?? null,
+      this.BRANCH_SCOPES.sales,
+    );
 
     const { data, error } = await query;
     if (error) this.handleError(error);
@@ -97,11 +111,11 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
 
   async findByCustomer(customerId: string, limit = 20): Promise<DbSale[]> {
     const { data, error } = await this.db
-      .from('sales')
+      .from("sales")
       .select(SALE_SELECT)
-      .eq('customer_id', customerId)
-      .is('voided_at', null)
-      .order('sold_at', { ascending: false })
+      .eq("customer_id", customerId)
+      .is("voided_at", null)
+      .order("sold_at", { ascending: false })
       .limit(limit);
     if (error) this.handleError(error);
     return (data ?? []) as DbSale[];
@@ -109,9 +123,9 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
 
   async findById(id: string): Promise<DbSale | null> {
     const { data, error } = await this.db
-      .from('sales')
+      .from("sales")
       .select(SALE_SELECT)
-      .eq('id', id)
+      .eq("id", id)
       .maybeSingle();
     if (error) this.handleError(error);
     return (data ?? null) as DbSale | null;
@@ -120,7 +134,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
   async create(payload: CreateSalePayload): Promise<DbSale> {
     const { items, movements, charge, ...header } = payload;
     const { data: sale, error } = await this.db
-      .from('sales')
+      .from("sales")
       .insert(header)
       .select(SALE_SELECT_LEAN)
       .single();
@@ -130,42 +144,45 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     const [itemsResult, stockResult, chargeResult] = await Promise.all([
       items.length > 0
         ? this.db
-          .from('sale_items')
-          .insert(items.map((it) => ({ ...it, sale_id: created.id })))
-          .select(SALE_ITEM_SELECT)
+            .from("sale_items")
+            .insert(items.map((it) => ({ ...it, sale_id: created.id })))
+            .select(SALE_ITEM_SELECT)
         : null,
       movements.length > 0
         ? this.db
-          .from('stock_movements')
-          .insert(movements.map((m) => ({ ...m, sale_id: created.id })))
+            .from("stock_movements")
+            .insert(movements.map((m) => ({ ...m, sale_id: created.id })))
         : null,
-      this.db.from('charges').insert({ ...charge, sale_id: created.id }),
+      this.db.from("charges").insert({ ...charge, sale_id: created.id }),
     ]);
     if (itemsResult?.error) this.handleError(itemsResult.error);
     if (stockResult?.error) this.handleError(stockResult.error);
     if (chargeResult.error) this.handleError(chargeResult.error);
 
     this.audit({
-      table: 'sales',
+      table: "sales",
       recordId: created.id,
-      action: 'create',
+      action: "create",
       after: created,
       branchId: created.branch_id,
       subject: created.customers?.name ?? null,
     });
 
-    return { ...created, sale_items: (itemsResult?.data ?? []) as DbSaleItem[] };
+    return {
+      ...created,
+      sale_items: (itemsResult?.data ?? []) as DbSaleItem[],
+    };
   }
 
   async update(id: string, payload: UpdateSalePayload): Promise<DbSale> {
     const { items, movements, actorUserId, charge, ...header } = payload;
     const [priorResult, { data, error }] = await Promise.all([
-      this.db.from('sales').select('*').eq('id', id).maybeSingle(),
+      this.db.from("sales").select("*").eq("id", id).maybeSingle(),
       this.db
-        .from('sales')
+        .from("sales")
         .update(header)
-        .eq('id', id)
-        .is('voided_at', null)
+        .eq("id", id)
+        .is("voided_at", null)
         .select(SALE_SELECT_LEAN)
         .single(),
     ]);
@@ -176,14 +193,18 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     const [lines, , chargeResult] = await Promise.all([
       this.replaceItems(id, items),
       movements ? this.replaceSaleMovements(id, movements, actorUserId) : null,
-      this.db.from('charges').update(charge).eq('sale_id', id).is('voided_at', null),
+      this.db
+        .from("charges")
+        .update(charge)
+        .eq("sale_id", id)
+        .is("voided_at", null),
     ]);
     if (chargeResult.error) this.handleError(chargeResult.error);
 
     this.audit({
-      table: 'sales',
+      table: "sales",
       recordId: id,
-      action: 'update',
+      action: "update",
       before: prior,
       after: updated,
       branchId: updated.branch_id,
@@ -198,11 +219,11 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     items: CreateSaleItemPayload[],
   ): Promise<DbSaleItem[]> {
     const { data: current, error: readError } = await this.db
-      .from('sale_items')
-      .select('id')
-      .eq('sale_id', saleId)
-      .is('voided_at', null)
-      .order('created_at');
+      .from("sale_items")
+      .select("id")
+      .eq("sale_id", saleId)
+      .is("voided_at", null)
+      .order("created_at");
     if (readError) this.handleError(readError);
     const existing = (current ?? []) as { id: string }[];
 
@@ -214,9 +235,9 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
       Promise.all(
         reused.map(async (it, i) => {
           const { data, error } = await this.db
-            .from('sale_items')
+            .from("sale_items")
             .update(it)
-            .eq('id', existing[i].id)
+            .eq("id", existing[i].id)
             .select(SALE_ITEM_SELECT)
             .single();
           if (error) this.handleError(error);
@@ -225,15 +246,18 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
       ),
       added.length > 0
         ? this.db
-          .from('sale_items')
-          .insert(added.map((it) => ({ ...it, sale_id: saleId })))
-          .select(SALE_ITEM_SELECT)
+            .from("sale_items")
+            .insert(added.map((it) => ({ ...it, sale_id: saleId })))
+            .select(SALE_ITEM_SELECT)
         : null,
       dropped.length > 0
         ? this.db
-          .from('sale_items')
-          .update({ voided_at: new Date().toISOString() })
-          .in('id', dropped.map((r) => r.id))
+            .from("sale_items")
+            .update({ voided_at: new Date().toISOString() })
+            .in(
+              "id",
+              dropped.map((r) => r.id),
+            )
         : null,
     ]);
     if (insertResult?.error) this.handleError(insertResult.error);
@@ -244,31 +268,35 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
 
   private async replaceSaleMovements(
     saleId: string,
-    movements: Omit<CreateStockMovementPayload, 'sale_id'>[],
+    movements: Omit<CreateStockMovementPayload, "sale_id">[],
     voidedBy: string | null,
   ): Promise<void> {
     const { error: voidError } = await this.db
-      .from('stock_movements')
+      .from("stock_movements")
       .update({ voided_at: new Date().toISOString(), voided_by: voidedBy })
-      .eq('sale_id', saleId)
-      .is('voided_at', null);
+      .eq("sale_id", saleId)
+      .is("voided_at", null);
     if (voidError) this.handleError(voidError);
     if (movements.length === 0) return;
     const { error } = await this.db
-      .from('stock_movements')
+      .from("stock_movements")
       .insert(movements.map((m) => ({ ...m, sale_id: saleId })));
     if (error) this.handleError(error);
   }
 
-  async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
+  async voidSale(
+    id: string,
+    voidedBy: string,
+    reason: string,
+  ): Promise<DbSale> {
     const now = new Date().toISOString();
     const [priorResult, { data, error }] = await Promise.all([
-      this.db.from('sales').select('*').eq('id', id).maybeSingle(),
+      this.db.from("sales").select("*").eq("id", id).maybeSingle(),
       this.db
-        .from('sales')
+        .from("sales")
         .update({ voided_at: now, voided_by: voidedBy, void_reason: reason })
-        .eq('id', id)
-        .is('voided_at', null)
+        .eq("id", id)
+        .is("voided_at", null)
         .select(SALE_SELECT)
         .single(),
     ]);
@@ -277,24 +305,24 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
 
     const [stockResult, chargeResult] = await Promise.all([
       this.db
-        .from('stock_movements')
+        .from("stock_movements")
         .update({ voided_at: now, voided_by: voidedBy })
-        .eq('sale_id', id)
-        .is('voided_at', null),
+        .eq("sale_id", id)
+        .is("voided_at", null),
       this.db
-        .from('charges')
+        .from("charges")
         .update({ voided_at: now, voided_by: voidedBy, void_reason: reason })
-        .eq('sale_id', id)
-        .is('voided_at', null),
+        .eq("sale_id", id)
+        .is("voided_at", null),
     ]);
     if (stockResult.error) this.handleError(stockResult.error);
     if (chargeResult.error) this.handleError(chargeResult.error);
 
     const voided = data as DbSale;
     this.audit({
-      table: 'sales',
+      table: "sales",
       recordId: id,
-      action: 'void',
+      action: "void",
       before: prior,
       after: voided,
       branchId: voided.branch_id,
@@ -309,12 +337,16 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     branchFilter: BranchFilter = null,
   ): Promise<number> {
     let query = this.db
-      .from('sales')
-      .select('id', { count: 'exact', head: true })
-      .gte('sold_at', startIso)
-      .lt('sold_at', endExclusiveIso)
-      .is('voided_at', null);
-    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.sales);
+      .from("sales")
+      .select("id", { count: "exact", head: true })
+      .gte("sold_at", startIso)
+      .lt("sold_at", endExclusiveIso)
+      .is("voided_at", null);
+    query = this.applyBranchFilter(
+      query,
+      branchFilter,
+      this.BRANCH_SCOPES.sales,
+    );
     const { count, error } = await query;
     if (error) this.handleError(error);
     return count ?? 0;
@@ -324,32 +356,44 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     opts: FindSalesOptions = {},
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
     if (opts.voidedOnly) return [];
-    let query = this.db
-      .from('sales')
-      .select(SALE_TOTALS_SELECT);
+    let query = this.db.from("sales").select(SALE_TOTALS_SELECT);
 
-    if (!opts.includeVoided) query = query.is('voided_at', null);
+    if (!opts.includeVoided) query = query.is("voided_at", null);
     if (opts.customerId !== undefined && opts.customerId !== null) {
-      query = query.eq('customer_id', opts.customerId);
+      query = query.eq("customer_id", opts.customerId);
     }
-    if (opts.productId) query = query.in('id', await this.saleIdsForProduct(opts.productId));
-    if (opts.fromDate) query = query.gte('sold_at', dayStartIso(opts.fromDate));
-    if (opts.toDate) query = query.lt('sold_at', nextDayStartIso(opts.toDate));
-    query = applySaleSearch(query, opts.searchQuery, await this.customerIdsMatching(opts.searchQuery));
-    query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.sales);
+    if (opts.productId)
+      query = query.in("id", await this.saleIdsForProduct(opts.productId));
+    if (opts.fromDate) query = query.gte("sold_at", dayStartIso(opts.fromDate));
+    if (opts.toDate) query = query.lt("sold_at", nextDayStartIso(opts.toDate));
+    query = applySaleSearch(
+      query,
+      opts.searchQuery,
+      await this.customerIdsMatching(opts.searchQuery),
+    );
+    query = this.applyBranchFilter(
+      query,
+      opts.branchFilter ?? null,
+      this.BRANCH_SCOPES.sales,
+    );
 
     const { data, error } = await query;
     if (error) this.handleError(error);
-    return (data ?? []).map((r: { sold_at: string; total_amount: number; rate_per_usd_snapshot: number }) => ({
-      soldAt: r.sold_at,
-      amount: Number(r.total_amount),
-      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
-    }));
+    return (data ?? []).map(
+      (r: {
+        sold_at: string;
+        total_amount: number;
+        rate_per_usd_snapshot: number;
+      }) => ({
+        soldAt: r.sold_at,
+        amount: Number(r.total_amount),
+        ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+      }),
+    );
   }
-
 }
 
 const impl: ISaleRepository =
-  Platform.OS === 'web' ? new SaleRepository() : new OfflineSaleRepository();
+  Platform.OS === "web" ? new SaleRepository() : new OfflineSaleRepository();
 
 export default impl;

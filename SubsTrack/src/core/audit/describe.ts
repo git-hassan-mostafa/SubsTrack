@@ -1,4 +1,4 @@
-import type { AuditTable } from '@/src/core/types';
+import type { AuditTable } from "@/src/core/types";
 
 /**
  * A short, frozen one-liner identifying the touched record — the audit row's
@@ -9,43 +9,46 @@ import type { AuditTable } from '@/src/core/types';
  * another table (the customer behind a payment) are resolved by the UI when it
  * can, because a deleted customer would leave a dangling id here forever.
  */
-export function describeAudit(table: AuditTable, row: Record<string, unknown> | null): string | null {
+export function describeAudit(
+  table: AuditTable,
+  row: Record<string, unknown> | null,
+): string | null {
   if (!row) return null;
   const s = (k: string): string | null => {
     const v = row[k];
-    return v === null || v === undefined || v === '' ? null : String(v);
+    return v === null || v === undefined || v === "" ? null : String(v);
   };
   const join = (...parts: (string | null)[]): string | null => {
     const kept = parts.filter((p): p is string => p !== null);
-    return kept.length > 0 ? kept.join(' · ') : null;
+    return kept.length > 0 ? kept.join(" · ") : null;
   };
 
   switch (table) {
-    case 'charges':
-      return join(s('billing_month'), s('description'), s('amount'));
-    case 'collections':
-      return join(s('received_at'), s('amount'));
-    case 'sales':
-      return join(s('items_summary'), s('total_amount'));
-    case 'customers':
-    case 'plans':
-    case 'products':
-    case 'services':
-    case 'branches':
-    case 'users':
-      return s('name') ?? s('username');
-    case 'currencies':
-      return join(s('code'), s('name'));
-    case 'stock_movements':
-      return join(s('reason'), s('quantity_delta'));
-    case 'customer_plans':
-      return s('start_date');
-    case 'skipped_months':
-      return s('billing_month');
-    case 'tenant_settings':
-      return join(s('key'), s('value'));
-    case 'customer_requests':
-      return join(s('requested_count'), s('status'));
+    case "charges":
+      return join(s("billing_month"), s("description"), s("amount"));
+    case "collections":
+      return join(s("received_at"), s("amount"));
+    case "sales":
+      return join(s("items_summary"), s("total_amount"));
+    case "customers":
+    case "plans":
+    case "products":
+    case "services":
+    case "branches":
+    case "users":
+      return s("name") ?? s("username");
+    case "currencies":
+      return join(s("code"), s("name"));
+    case "stock_movements":
+      return join(s("reason"), s("quantity_delta"));
+    case "customer_plans":
+      return s("start_date");
+    case "skipped_months":
+      return s("billing_month");
+    case "tenant_settings":
+      return join(s("key"), s("value"));
+    case "customer_requests":
+      return join(s("requested_count"), s("status"));
     default:
       return null;
   }

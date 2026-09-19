@@ -1,7 +1,9 @@
-import { TenantSetting } from '@/src/core/types';
-import { DbTenantSetting } from '@/src/core/types/db';
+import { TenantSetting } from "@/src/core/types";
+import { DbTenantSetting } from "@/src/core/types/db";
 
-export function mapDbTenantSettingToTenantSetting(db: DbTenantSetting): TenantSetting {
+export function mapDbTenantSettingToTenantSetting(
+  db: DbTenantSetting,
+): TenantSetting {
   return {
     id: db.id,
     tenantId: db.tenant_id,

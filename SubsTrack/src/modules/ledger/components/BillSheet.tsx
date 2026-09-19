@@ -137,7 +137,12 @@ export function BillSheet({
               >
                 {voided || settled
                   ? money(charge.amount)
-                  : formatPaidFraction(collected, charge.amount, source, source)}
+                  : formatPaidFraction(
+                      collected,
+                      charge.amount,
+                      source,
+                      source,
+                    )}
               </Text>
               {approx ? (
                 <Text className="text-xs text-gray-400">{approx}</Text>

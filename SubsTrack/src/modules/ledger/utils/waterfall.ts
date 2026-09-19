@@ -1,5 +1,4 @@
-import type { AllocationLine, OpenItem } from '@/src/core/types';
-
+import type { AllocationLine, OpenItem } from "@/src/core/types";
 
 /**
  * Order in which money settles bills. FOUR levels, on purpose:

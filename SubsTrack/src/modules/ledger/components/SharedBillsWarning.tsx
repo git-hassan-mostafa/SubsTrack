@@ -1,7 +1,11 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
-import { findCurrency, formatMoney, snapshotCurrency } from "@/src/core/utils/currency";
+import {
+  findCurrency,
+  formatMoney,
+  snapshotCurrency,
+} from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import type { SharedBill } from "../utils/sharedBills";
@@ -37,12 +41,19 @@ export function SharedBillsWarning({ bills }: Props) {
             key={`${bill.chargeId}|${bill.snapshot.currencyId ?? "USD"}`}
             className="flex-row items-center justify-between py-1"
           >
-            <Text className="flex-1 text-sm text-gray-900 me-2" numberOfLines={1}>
+            <Text
+              className="flex-1 text-sm text-gray-900 me-2"
+              numberOfLines={1}
+            >
               {bill.label}
             </Text>
             <Text fontWeight="SemiBold" className="text-sm text-danger">
               {/* Each row prints in ITS hand-over's currency — see SharedBill. */}
-              {formatMoney(bill.amount, snapshotCurrency(bill.snapshot, currencies), display)}
+              {formatMoney(
+                bill.amount,
+                snapshotCurrency(bill.snapshot, currencies),
+                display,
+              )}
             </Text>
           </View>
         ))}

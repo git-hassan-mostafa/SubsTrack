@@ -12,7 +12,9 @@ export class FileTooLargeError extends Error {
 
 /** Filesystem-safe, keeping the period so two exports never collide. */
 export function safeName(name: string): string {
-  return name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "export";
+  return (
+    name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "export"
+  );
 }
 
 function exportsDir(): Directory {

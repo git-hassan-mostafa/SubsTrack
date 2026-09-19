@@ -43,7 +43,7 @@ npm run typecheck              # tsc over the suites + the app types they assert
 
 Jest + Babel over the **money** code: the waterfall, `buildMonthGrid`, the customer badge, the pay/void order rules, `ChargeService` / `CollectionService` / `LedgerService` / `SaleService`, custody, and end-to-end money-conservation invariants. Services run for real against an in-memory ledger (`helpers/fakeLedger.ts`) that follows the two repositories' documented contract; native modules are one-file stubs in `stubs/`. **A stub may fake a platform, never a rule.** The folder carries its **own `tsconfig.json`** — there is none at the repo root, so without it the IDE cannot resolve a single `@/…` import; it aliases `@/*` to `../SubsTrack/*` and includes `nativewind-env.d.ts`, because tsc (unlike Jest) follows the real barrels and one of them re-exports a screen.
 
-**It is a separate npm package on purpose, and must never move into `SubsTrack/`** — that `package.json`'s scripts and dependency tree feed the OTA fingerprint, so a devDependency there silently cuts every installed app off from updates (gotcha #53). It is Jest rather than Vitest for a second reason: this laptop's AV blocks spawning vendored tool binaries, so esbuild cannot run; Babel is pure JS. If `npm test` says *Access is denied*, call `node node_modules/jest/bin/jest.js`.
+**It is a separate npm package on purpose, and must never move into `SubsTrack/`** — that `package.json`'s scripts and dependency tree feed the OTA fingerprint, so a devDependency there silently cuts every installed app off from updates (gotcha #53). It is Jest rather than Vitest for a second reason: this laptop's AV blocks spawning vendored tool binaries, so esbuild cannot run; Babel is pure JS. If `npm test` says _Access is denied_, call `node node_modules/jest/bin/jest.js`.
 
 Case numbering, the invariants and the do-not-delete regression list are in [QA/money-unit-tests.md](QA/money-unit-tests.md). Everything else — screens, the Supabase query layer, the SQLite mirror, RLS — is still verified manually via the running app against `QA/`.
 
@@ -72,4 +72,3 @@ Postgres changes are server-side and unrelated — but run `script.sql` **before
 In-app, `useAppUpdate` + `<UpdateBanner>` (mounted once in `app/(app)/_layout.tsx`) download in the background, re-check on every foreground, and show a "New version ready → Restart" pill. Both no-op on web and in dev builds.
 
 ---
-

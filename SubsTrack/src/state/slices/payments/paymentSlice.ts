@@ -45,7 +45,10 @@ export interface PaymentSlice {
   // No-op unless that hand-over belongs to the customer whose bills are loaded.
   applyCollection: (collection: Collection, sign?: 1 | -1) => void;
   buildGrids: (lines: CustomerPlan[], year: number) => void;
-  syncCustomerStatus: (customerId: string, lines: CustomerPlan[]) => Promise<void>;
+  syncCustomerStatus: (
+    customerId: string,
+    lines: CustomerPlan[],
+  ) => Promise<void>;
   setMonthsSkipped: (
     inputs: SetSkipInput[],
     skipped: boolean,
@@ -80,7 +83,9 @@ export const createPaymentSlice: StateCreator<
 
   fetchCustomerStatuses: async (customers) => {
     if (customers.length === 0) return;
-    const lineIds = customers.flatMap((c) => (c.customerPlans ?? []).map((l) => l.id));
+    const lineIds = customers.flatMap((c) =>
+      (c.customerPlans ?? []).map((l) => l.id),
+    );
     const [billsByLine, skips] = await Promise.all([
       chargeService.getMonthBillsForLines(lineIds),
       skippedMonthService.getActiveSkips(),
@@ -123,7 +128,8 @@ export const createPaymentSlice: StateCreator<
   applyCollection: (collection, sign = 1) => {
     const { billsCustomerId, bills } = get().payments;
     if (!billsCustomerId) return;
-    if (collection.customerId && collection.customerId !== billsCustomerId) return;
+    if (collection.customerId && collection.customerId !== billsCustomerId)
+      return;
     const merged = mergeCollection(bills, collection, sign);
     set((state) => {
       state.payments.bills = merged;
@@ -132,7 +138,13 @@ export const createPaymentSlice: StateCreator<
 
   buildGrids: (lines, year) => {
     const { bills, skips } = get().payments;
-    const derived = buildGridsFor(lines, bills, skips, year, getUnpaidRule(get));
+    const derived = buildGridsFor(
+      lines,
+      bills,
+      skips,
+      year,
+      getUnpaidRule(get),
+    );
     set((state) => {
       state.payments.monthGridsByLine = derived.grids;
       state.payments.uncoveredMonthsByLine = derived.uncoveredMonths;
@@ -173,7 +185,9 @@ export const createPaymentSlice: StateCreator<
         }
       }
       await skippedMonthService.setSkipped(inputs, skipped, tenantId, userId);
-      const skips = await skippedMonthService.getSkipsForCustomer(inputs[0].customerId);
+      const skips = await skippedMonthService.getSkipsForCustomer(
+        inputs[0].customerId,
+      );
       set((state) => {
         state.payments.skips = skips;
         state.payments.loadingSkip = false;
@@ -197,7 +211,11 @@ export const createPaymentSlice: StateCreator<
       );
       if (blockedBy) return { ok: false, blockedBy };
     }
-    const ok = await get().ledger.voidChargeWithPayments(chargeId, voidedBy, reason);
+    const ok = await get().ledger.voidChargeWithPayments(
+      chargeId,
+      voidedBy,
+      reason,
+    );
     return { ok, blockedBy: null };
   },
 

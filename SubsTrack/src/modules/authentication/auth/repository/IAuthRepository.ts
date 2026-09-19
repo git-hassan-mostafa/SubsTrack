@@ -1,6 +1,6 @@
-import type { Session } from '@supabase/supabase-js';
-import { supabase } from '@/src/shared/lib/supabase';
-import type { DbTenant, DbUser } from '@/src/core/types/db';
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/src/shared/lib/supabase";
+import type { DbTenant, DbUser } from "@/src/core/types/db";
 
 export interface IAuthRepository {
   signIn(email: string, password: string): Promise<Session>;

@@ -139,9 +139,7 @@ export function ProductFormSheet({
       />
 
       <BranchPicker
-        label={
-          t("branches.branch_label") + (branchPickerNullable ? "" : " *")
-        }
+        label={t("branches.branch_label") + (branchPickerNullable ? "" : " *")}
         value={form.branchId}
         onChange={(v) => setForm((p) => ({ ...p, branchId: v }))}
         nullable={branchPickerNullable}
@@ -167,7 +165,11 @@ export function ProductFormSheet({
         amount={form.costPrice}
         currencyId={form.costCurrencyId}
         onChange={({ amount, currencyId }) =>
-          setForm((p) => ({ ...p, costPrice: amount, costCurrencyId: currencyId }))
+          setForm((p) => ({
+            ...p,
+            costPrice: amount,
+            costCurrencyId: currencyId,
+          }))
         }
         currencies={currencies}
         placeholder="0.00"

@@ -73,7 +73,10 @@ export function CustomerSalesPanel({ customer }: Props) {
     }
   }, [customer.id, clearSelection]);
 
-  const patch = useMemo(() => saleListPatches(setSales, customer.id), [customer.id]);
+  const patch = useMemo(
+    () => saleListPatches(setSales, customer.id),
+    [customer.id],
+  );
 
   useEffect(() => {
     refresh();

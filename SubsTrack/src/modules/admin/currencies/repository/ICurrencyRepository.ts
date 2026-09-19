@@ -1,4 +1,4 @@
-import type { DbCurrency } from '@/src/core/types/db';
+import type { DbCurrency } from "@/src/core/types/db";
 
 /**
  * The Currency repository contract. Both the Supabase (online/web) class and the
@@ -6,11 +6,16 @@ import type { DbCurrency } from '@/src/core/types/db';
  */
 export interface ICurrencyRepository {
   findAll(): Promise<DbCurrency[]>;
-  create(payload: Omit<DbCurrency, 'id' | 'created_at' | 'updated_at'>): Promise<DbCurrency>;
+  create(
+    payload: Omit<DbCurrency, "id" | "created_at" | "updated_at">,
+  ): Promise<DbCurrency>;
   update(
     id: string,
     payload: Partial<
-      Pick<DbCurrency, 'code' | 'name' | 'symbol' | 'rate_per_usd' | 'decimals' | 'active'>
+      Pick<
+        DbCurrency,
+        "code" | "name" | "symbol" | "rate_per_usd" | "decimals" | "active"
+      >
     >,
   ): Promise<DbCurrency>;
   delete(id: string): Promise<void>;

@@ -1,17 +1,17 @@
-import { TABLE_BY_NAME, type ColType } from './tables';
+import { TABLE_BY_NAME, type ColType } from "./tables";
 
 type RawRow = Record<string, unknown>;
 
 function decodeValue(v: unknown, type: ColType): unknown {
   if (v === null || v === undefined) return null;
   switch (type) {
-    case 'bool':
-      return v === 1 || v === '1' || v === true;
-    case 'int':
-    case 'num':
+    case "bool":
+      return v === 1 || v === "1" || v === true;
+    case "int":
+    case "num":
       return Number(v);
-    case 'json':
-      if (typeof v !== 'string') return v;
+    case "json":
+      if (typeof v !== "string") return v;
       try {
         return JSON.parse(v);
       } catch {
@@ -25,14 +25,14 @@ function decodeValue(v: unknown, type: ColType): unknown {
 function encodeValue(v: unknown, type: ColType): unknown {
   if (v === null || v === undefined) return null;
   switch (type) {
-    case 'bool':
+    case "bool":
       return v ? 1 : 0;
-    case 'num':
+    case "num":
       return String(v);
-    case 'int':
-      return typeof v === 'number' ? v : Number(v);
-    case 'json':
-      return typeof v === 'string' ? v : JSON.stringify(v);
+    case "int":
+      return typeof v === "number" ? v : Number(v);
+    case "json":
+      return typeof v === "string" ? v : JSON.stringify(v);
     default:
       return v;
   }
@@ -43,7 +43,10 @@ function encodeValue(v: unknown, type: ColType): unknown {
  * expect (0/1 → boolean, TEXT-decimal → number). Returns only the spec columns
  * (drops the local-only `_dirty` flag).
  */
-export function decodeRow<T = Record<string, unknown>>(table: string, raw: RawRow): T {
+export function decodeRow<T = Record<string, unknown>>(
+  table: string,
+  raw: RawRow,
+): T {
   const spec = TABLE_BY_NAME[table];
   if (!spec) throw new Error(`[offline] unknown table: ${table}`);
   const out: Record<string, unknown> = {};
@@ -53,7 +56,10 @@ export function decodeRow<T = Record<string, unknown>>(table: string, raw: RawRo
   return out as T;
 }
 
-export function decodeRows<T = Record<string, unknown>>(table: string, rows: RawRow[]): T[] {
+export function decodeRows<T = Record<string, unknown>>(
+  table: string,
+  rows: RawRow[],
+): T[] {
   return rows.map((r) => decodeRow<T>(table, r));
 }
 

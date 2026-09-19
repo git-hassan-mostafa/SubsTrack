@@ -24,7 +24,7 @@ export class AuthRepository implements IAuthRepository {
   async getSession(): Promise<Session | null> {
     const { data, error } = await supabase.auth.getSession();
     if (error) {
-      await supabase.auth.signOut().catch(() => { });
+      await supabase.auth.signOut().catch(() => {});
       return null;
     }
     return data.session;
@@ -78,6 +78,6 @@ export class AuthRepository implements IAuthRepository {
 }
 
 const impl: IAuthRepository =
-  Platform.OS === 'web' ? new AuthRepository() : new OfflineAuthRepository();
+  Platform.OS === "web" ? new AuthRepository() : new OfflineAuthRepository();
 
 export default impl;

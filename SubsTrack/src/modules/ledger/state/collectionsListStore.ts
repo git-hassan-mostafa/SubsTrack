@@ -1,23 +1,32 @@
-import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
-import type { Collection, CollectionListItem, Customer, WalletSource } from '@/src/core/types';
-import { PAGE_SIZE } from '@/src/core/constants';
-import { periodFromPreset, toRange, type ReportPeriod } from '@/src/core/utils/dateRange';
+import { create } from "zustand";
+import { immer } from "zustand/middleware/immer";
+import type {
+  Collection,
+  CollectionListItem,
+  Customer,
+  WalletSource,
+} from "@/src/core/types";
+import { PAGE_SIZE } from "@/src/core/constants";
+import {
+  periodFromPreset,
+  toRange,
+  type ReportPeriod,
+} from "@/src/core/utils/dateRange";
 import type {
   CollectionSortField,
   SortDirection,
-} from '@/src/modules/ledger/repository/ICollectionRepository';
-import { collectionService } from '@/src/modules/ledger';
-import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import { addMonthTotal } from '@/src/shared/lib/monthSections';
-import { getStore } from '@/src/state/globalStore';
-
+} from "@/src/modules/ledger/repository/ICollectionRepository";
+import { collectionService } from "@/src/modules/ledger";
+import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
+import { addMonthTotal } from "@/src/shared/lib/monthSections";
+import { getStore } from "@/src/state/globalStore";
 
 /** Money that still counts, or only the reversals. */
-export type CollectionStatus = 'live' | 'voided';
+export type CollectionStatus = "live" | "voided";
 
 /** This month, newest first — what the screen opens on and clears back to. */
-export const defaultCollectionsPeriod = (): ReportPeriod => periodFromPreset('this_month');
+export const defaultCollectionsPeriod = (): ReportPeriod =>
+  periodFromPreset("this_month");
 
 export interface CollectionsListState {
   items: CollectionListItem[];
@@ -45,7 +54,11 @@ export interface CollectionsListState {
   setSortField: (field: CollectionSortField) => Promise<void>;
   setSortDirection: (direction: SortDirection) => Promise<void>;
   clearFilters: () => Promise<void>;
-  voidCollections: (ids: string[], voidedBy: string, reason: string) => Promise<void>;
+  voidCollections: (
+    ids: string[],
+    voidedBy: string,
+    reason: string,
+  ) => Promise<void>;
   applyVoided: (voided: Collection) => void;
   clearError: () => void;
   reset: () => void;
@@ -68,8 +81,8 @@ function buildOptions(
     kind: state.kind ?? undefined,
     sortField: state.sortField,
     sortDirection: state.sortDirection,
-    includeVoided: state.status !== 'live',
-    voidedOnly: state.status === 'voided',
+    includeVoided: state.status !== "live",
+    voidedOnly: state.status === "voided",
   };
 }
 
@@ -96,8 +109,8 @@ export const useCollectionsListStore = create<CollectionsListState>()(
     period: defaultCollectionsPeriod(),
     kind: null,
     status: null,
-    sortField: 'received_at',
-    sortDirection: 'desc',
+    sortField: "received_at",
+    sortDirection: "desc",
 
     fetchCollections: async () => {
       const token = get().searchToken;
@@ -237,8 +250,8 @@ export const useCollectionsListStore = create<CollectionsListState>()(
         state.period = defaultCollectionsPeriod();
         state.kind = null;
         state.status = null;
-        state.sortField = 'received_at';
-        state.sortDirection = 'desc';
+        state.sortField = "received_at";
+        state.sortDirection = "desc";
         restart(state);
       });
       await get().fetchCollections();
@@ -251,13 +264,19 @@ export const useCollectionsListStore = create<CollectionsListState>()(
         state.error = null;
       });
       try {
-        const voided = await collectionService.voidCollections(ids, voidedBy, reason);
+        const voided = await collectionService.voidCollections(
+          ids,
+          voidedBy,
+          reason,
+        );
         for (const c of voided) get().applyVoided(c);
         set((state) => {
           state.loading = false;
         });
         const global = getStore().getState();
-        void global.ledger.fetchNetByCustomer(resolveBranchFilter(global.auth.user));
+        void global.ledger.fetchNetByCustomer(
+          resolveBranchFilter(global.auth.user),
+        );
       } catch (e) {
         set((state) => {
           state.error = (e as Error).message;
@@ -313,8 +332,8 @@ export const useCollectionsListStore = create<CollectionsListState>()(
         state.period = defaultCollectionsPeriod();
         state.kind = null;
         state.status = null;
-        state.sortField = 'received_at';
-        state.sortDirection = 'desc';
+        state.sortField = "received_at";
+        state.sortDirection = "desc";
       }),
   })),
 );

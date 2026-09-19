@@ -111,7 +111,9 @@ export function PlanLinePriceField({
         <CurrencyInput
           amount={customPrice}
           currencyId={customCurrencyId}
-          onChange={({ amount, currencyId }) => onPriceChange(amount, currencyId)}
+          onChange={({ amount, currencyId }) =>
+            onPriceChange(amount, currencyId)
+          }
           currencies={currencies}
           placeholder={t("payments.enter_amount")}
           editable={!disabled}

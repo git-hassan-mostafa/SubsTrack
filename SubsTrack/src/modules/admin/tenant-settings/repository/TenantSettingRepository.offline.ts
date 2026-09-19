@@ -1,8 +1,8 @@
-import type { DbTenantSetting } from '@/src/core/types/db';
-import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { upsertNaturalKeyDirty } from '@/src/core/offline/db/dml';
-import { deterministicId, nowIso } from '@/src/core/offline/ids';
-import type { ITenantSettingRepository } from './ITenantSettingRepository';
+import type { DbTenantSetting } from "@/src/core/types/db";
+import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
+import { upsertNaturalKeyDirty } from "@/src/core/offline/db/dml";
+import { deterministicId, nowIso } from "@/src/core/offline/ids";
+import type { ITenantSettingRepository } from "./ITenantSettingRepository";
 
 /**
  * SQLite-backed TenantSetting repository. Reads the local mirror; writes mutate
@@ -15,11 +15,15 @@ export class OfflineTenantSettingRepository
   implements ITenantSettingRepository
 {
   async findAll(): Promise<DbTenantSetting[]> {
-    const rows = await this.all('SELECT * FROM tenant_settings ORDER BY key');
-    return this.decodeAll<DbTenantSetting>('tenant_settings', rows);
+    const rows = await this.all("SELECT * FROM tenant_settings ORDER BY key");
+    return this.decodeAll<DbTenantSetting>("tenant_settings", rows);
   }
 
-  async upsert(tenantId: string, key: string, value: string | null): Promise<DbTenantSetting> {
+  async upsert(
+    tenantId: string,
+    key: string,
+    value: string | null,
+  ): Promise<DbTenantSetting> {
     const now = nowIso();
     const row: DbTenantSetting = {
       id: await deterministicId(tenantId, key),
@@ -31,17 +35,17 @@ export class OfflineTenantSettingRepository
     };
     const id = await this.write(async (db) => {
       const before = this.decodeOne<DbTenantSetting>(
-        'tenant_settings',
-        await this.first('SELECT * FROM tenant_settings WHERE tenant_id = ? AND key = ?', [
-          tenantId,
-          key,
-        ]),
+        "tenant_settings",
+        await this.first(
+          "SELECT * FROM tenant_settings WHERE tenant_id = ? AND key = ?",
+          [tenantId, key],
+        ),
       );
-      const stored = await upsertNaturalKeyDirty(db, 'tenant_settings', row);
+      const stored = await upsertNaturalKeyDirty(db, "tenant_settings", row);
       await this.auditIn(db, {
-        table: 'tenant_settings',
+        table: "tenant_settings",
         recordId: stored,
-        action: before ? 'update' : 'create',
+        action: before ? "update" : "create",
         before,
         after: { ...row, id: stored },
       });

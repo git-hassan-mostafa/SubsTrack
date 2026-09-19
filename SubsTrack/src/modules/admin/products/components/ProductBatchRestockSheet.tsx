@@ -19,10 +19,7 @@ import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import { AppTextInput } from "@/src/shared/components/AppTextInput";
 import { useTextField } from "@/src/shared/hooks/useTextField";
 import { useHoldRepeat } from "@/src/shared/hooks/useHoldRepeat";
-import {
-  decimalDigitsOnly,
-  digitsOnly,
-} from "@/src/core/utils/inputText";
+import { decimalDigitsOnly, digitsOnly } from "@/src/core/utils/inputText";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency, Product } from "@/src/core/types";
 import { convert, findCurrency, formatMoney } from "@/src/core/utils/currency";
@@ -43,7 +40,7 @@ function parseCost(text: string | undefined): number | null {
 
 /** "31500.00" → "31500", "0.350" → "0.35" — a tidier starting value. */
 function trimZeros(text: string): string {
-  return text.includes('.') ? text.replace(/\.?0+$/, '') : text;
+  return text.includes(".") ? text.replace(/\.?0+$/, "") : text;
 }
 
 /**
@@ -114,13 +111,18 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
   );
   const hasProducts = activeProducts.length > 0;
 
-  const dirty = useDirtyForm({ lineCount: entries.length, totalUnits, totalCost, note });
+  const dirty = useDirtyForm({
+    lineCount: entries.length,
+    totalUnits,
+    totalCost,
+    note,
+  });
 
   // A product's catalog cost, expressed in the delivery currency and rendered
   // as the text the field starts with (converting can leave float noise, so it
   // is rounded to the target currency's own precision).
   function seedCost(product: Product, target: Currency | null): string {
-    if (product.costPrice == null) return '';
+    if (product.costPrice == null) return "";
     const value = convert(
       product.costPrice,
       findCurrency(currencies, product.costCurrencyId),
@@ -157,7 +159,7 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
       const out: Record<string, string> = {};
       for (const id of Object.keys(prev)) {
         const product = activeProducts.find((p) => p.id === id);
-        out[id] = product ? seedCost(product, target) : '';
+        out[id] = product ? seedCost(product, target) : "";
       }
       return out;
     });

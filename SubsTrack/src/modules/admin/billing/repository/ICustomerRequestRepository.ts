@@ -1,5 +1,5 @@
-import type { DbCustomerRequest } from '@/src/core/types/db';
-import type { QuotaPair } from '../utils/types';
+import type { DbCustomerRequest } from "@/src/core/types/db";
+import type { QuotaPair } from "../utils/types";
 
 export interface CustomerRequestInput {
   tenant_id: string;

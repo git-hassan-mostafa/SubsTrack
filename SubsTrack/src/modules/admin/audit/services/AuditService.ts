@@ -1,7 +1,12 @@
-import type { AuditEntry, AuditFilter, AuditRecordTarget, AuditSource } from '@/src/core/types';
-import repository from '../repository/AuditRepository';
-import { CUSTOMER_HISTORY_TABLES } from '../utils/constants';
-import { mapDbAuditLogToAuditEntry } from '../utils/mapper';
+import type {
+  AuditEntry,
+  AuditFilter,
+  AuditRecordTarget,
+  AuditSource,
+} from "@/src/core/types";
+import repository from "../repository/AuditRepository";
+import { CUSTOMER_HISTORY_TABLES } from "../utils/constants";
+import { mapDbAuditLogToAuditEntry } from "../utils/mapper";
 
 /** Entries plus where they came from — see AuditSource. */
 export interface AuditEntries {
@@ -35,7 +40,10 @@ class AuditService {
     return { entries: rows.map(mapDbAuditLogToAuditEntry), source, hasMore };
   }
 
-  async getRecordHistory(table: string, recordId: string): Promise<AuditEntries> {
+  async getRecordHistory(
+    table: string,
+    recordId: string,
+  ): Promise<AuditEntries> {
     const { rows, source } = await repository.findForRecord(table, recordId);
     return { entries: rows.map(mapDbAuditLogToAuditEntry), source };
   }
@@ -46,7 +54,10 @@ class AuditService {
   }
 
   async getCustomerHistory(customerId: string): Promise<AuditEntries> {
-    const { rows, source } = await repository.findForCustomer(customerId, CUSTOMER_HISTORY_TABLES);
+    const { rows, source } = await repository.findForCustomer(
+      customerId,
+      CUSTOMER_HISTORY_TABLES,
+    );
     return { entries: rows.map(mapDbAuditLogToAuditEntry), source };
   }
 
@@ -54,9 +65,9 @@ class AuditService {
     const groups: AuditDayGroup[] = [];
     for (const entry of entries) {
       const d = new Date(entry.occurredAt);
-      const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+      const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
         d.getDate(),
-      ).padStart(2, '0')}`;
+      ).padStart(2, "0")}`;
       const last = groups[groups.length - 1];
       if (last && last.day === day) last.entries.push(entry);
       else groups.push({ day, entries: [entry] });

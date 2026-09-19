@@ -1,8 +1,8 @@
-import i18n from '@/src/core/i18n';
-import type { Charge, MonthBill, MonthEntry, OpenItem } from '@/src/core/types';
-import type { DbCharge } from '@/src/core/types/db';
-import { receiptId } from '@/src/core/utils/receiptId';
-import { getBlockRangeLabel } from '@/src/modules/customer/customer-payments/utils/blockRangeLabel';
+import i18n from "@/src/core/i18n";
+import type { Charge, MonthBill, MonthEntry, OpenItem } from "@/src/core/types";
+import type { DbCharge } from "@/src/core/types/db";
+import { receiptId } from "@/src/core/utils/receiptId";
+import { getBlockRangeLabel } from "@/src/modules/customer/customer-payments/utils/blockRangeLabel";
 
 /**
  * THE debt rule, in one place.
@@ -18,8 +18,8 @@ import { getBlockRangeLabel } from '@/src/modules/customer/customer-payments/uti
  * empty bill left behind by a voided collection must read the same as a month
  * that was never touched.
  */
-export function isDebtItem(kind: Charge['kind'], paid: number): boolean {
-  return kind !== 'month' || paid > 0;
+export function isDebtItem(kind: Charge["kind"], paid: number): boolean {
+  return kind !== "month" || paid > 0;
 }
 
 /**
@@ -32,12 +32,12 @@ export function openItemFromCharge(
   charge: Charge,
   paid: number,
   label: string,
-  customerName = '',
+  customerName = "",
 ): OpenItem {
   return {
     chargeId: charge.id,
     kind: charge.kind,
-    customerId: charge.customerId ?? '',
+    customerId: charge.customerId ?? "",
     customerName,
     branchId: charge.branchId,
     customerPlanId: charge.customerPlanId,
@@ -84,7 +84,7 @@ export function virtualMonthItem(args: {
 }): OpenItem {
   return {
     chargeId: null,
-    kind: 'month',
+    kind: "month",
     customerId: args.customerId,
     customerName: args.customerName,
     branchId: args.branchId,
@@ -109,19 +109,23 @@ export function virtualMonthItem(args: {
 
 /** "Jan 2026 · Internet" | "#A1B2C3 · Router" | "Installation fee". */
 export function chargeLabel(row: DbCharge): string {
-  if (row.kind === 'month') {
+  if (row.kind === "month") {
     const month = row.billing_month
-      ? getBlockRangeLabel(row.billing_month, row.duration_months, i18n.t.bind(i18n))
-      : '';
+      ? getBlockRangeLabel(
+          row.billing_month,
+          row.duration_months,
+          i18n.t.bind(i18n),
+        )
+      : "";
     const plan = row.customer_plans?.plans?.name;
     return plan ? `${month} · ${plan}` : month;
   }
-  if (row.kind === 'sale') {
-    const summary = row.sales?.items_summary ?? i18n.t('debts.sale');
+  if (row.kind === "sale") {
+    const summary = row.sales?.items_summary ?? i18n.t("debts.sale");
     if (!row.sale_id) return summary;
     return `#${receiptId(row.sale_id)} · ${summary}`;
   }
-  return row.description?.trim() || i18n.t('debts.custom');
+  return row.description?.trim() || i18n.t("debts.custom");
 }
 
 /**
@@ -135,19 +139,28 @@ export function chargeLabel(row: DbCharge): string {
  * staff type becomes the bill.
  */
 export function monthItemFromEntry(args: {
-  entry: Pick<MonthEntry, 'charge' | 'collected' | 'billingMonth'>;
+  entry: Pick<MonthEntry, "charge" | "collected" | "billingMonth">;
   customerId: string;
   customerName: string;
   branchId: string | null;
   customerPlanId: string;
   planId: string | null;
   label: string;
-  price: { amount: number | null; currencyId: string | null; durationMonths: number };
+  price: {
+    amount: number | null;
+    currencyId: string | null;
+    durationMonths: number;
+  };
   ratePerUsd: number;
 }): OpenItem | null {
   const { entry } = args;
   if (entry.charge && entry.collected > 0) {
-    return openItemFromCharge(entry.charge, entry.collected, args.label, args.customerName);
+    return openItemFromCharge(
+      entry.charge,
+      entry.collected,
+      args.label,
+      args.customerName,
+    );
   }
   const priced = args.price.amount !== null && args.price.amount > 0;
   return virtualMonthItem({
@@ -168,6 +181,9 @@ export function monthItemFromEntry(args: {
 }
 
 /** The bill for a month, if one exists — the grid's per-month lookup. */
-export function billForMonth(bills: MonthBill[], billingMonth: string): MonthBill | null {
+export function billForMonth(
+  bills: MonthBill[],
+  billingMonth: string,
+): MonthBill | null {
   return bills.find((b) => b.charge.billingMonth === billingMonth) ?? null;
 }

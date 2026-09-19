@@ -1,20 +1,20 @@
-import type { BranchFilter } from '@/src/core/constants';
-import type { DbExpense } from '@/src/core/types/db';
+import type { BranchFilter } from "@/src/core/constants";
+import type { DbExpense } from "@/src/core/types/db";
 
 /** A hand-typed expense to store. `id`, timestamps and the void fields are
  *  filled in by the repository — an expense is never born voided. */
 export type CreateExpensePayload = Pick<
   DbExpense,
-  | 'tenant_id'
-  | 'branch_id'
-  | 'category'
-  | 'description'
-  | 'amount'
-  | 'currency_id'
-  | 'rate_per_usd_snapshot'
-  | 'recorded_by_user_id'
-  | 'incurred_at'
-  | 'notes'
+  | "tenant_id"
+  | "branch_id"
+  | "category"
+  | "description"
+  | "amount"
+  | "currency_id"
+  | "rate_per_usd_snapshot"
+  | "recorded_by_user_id"
+  | "incurred_at"
+  | "notes"
 >;
 
 /** Just enough of a row to sum it in USD, for the dashboard aggregates. */

@@ -66,7 +66,11 @@ export function useSendInvoice() {
       phone: string | null | undefined;
       customerName: string;
       collection: Collection;
-    }) => openChat(a.phone, buildCollectionInvoiceText(ctx, a.customerName, a.collection)),
+    }) =>
+      openChat(
+        a.phone,
+        buildCollectionInvoiceText(ctx, a.customerName, a.collection),
+      ),
     [ctx, openChat],
   );
 
@@ -89,7 +93,8 @@ export function useSendInvoice() {
       phone: string | null | undefined;
       customerName: string | null;
       sales: Sale[];
-    }) => openChat(a.phone, buildSalesInvoiceText(ctx, a.sales, a.customerName)),
+    }) =>
+      openChat(a.phone, buildSalesInvoiceText(ctx, a.sales, a.customerName)),
     [ctx, openChat],
   );
 

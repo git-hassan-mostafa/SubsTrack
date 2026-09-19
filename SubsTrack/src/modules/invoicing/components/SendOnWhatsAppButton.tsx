@@ -50,7 +50,9 @@ export function SendOnWhatsAppButton({
         )}
       </PressableOpacity>
       {caption ? (
-        <Text className="text-xs text-gray-400 text-center mt-1">{caption}</Text>
+        <Text className="text-xs text-gray-400 text-center mt-1">
+          {caption}
+        </Text>
       ) : null}
     </View>
   );

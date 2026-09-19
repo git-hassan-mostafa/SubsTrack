@@ -125,7 +125,11 @@ function FormSheetBody({
         {subject ? (
           <View className="flex-1 me-3 flex-row items-center gap-2.5">
             <View className="h-9 w-9 items-center justify-center rounded-full bg-indigo-50">
-              <Ionicons name="person-outline" size={18} color={COLORS.primary} />
+              <Ionicons
+                name="person-outline"
+                size={18}
+                color={COLORS.primary}
+              />
             </View>
             <View className="flex-1">
               <Text

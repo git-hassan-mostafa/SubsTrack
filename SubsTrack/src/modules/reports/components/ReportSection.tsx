@@ -1,5 +1,10 @@
 import type { ReactNode } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, View } from "react-native";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  View,
+} from "react-native";
 import { useTranslation } from "react-i18next";
 import { COLORS } from "@/src/shared/constants";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -47,7 +52,11 @@ export function ReportSection({
       className="flex-1"
       contentContainerClassName="pb-24"
       refreshControl={
-        <RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={COLORS.primary} />
+        <RefreshControl
+          refreshing={false}
+          onRefresh={onRefresh}
+          tintColor={COLORS.primary}
+        />
       }
     >
       <ResponsiveContainer>

@@ -1,5 +1,5 @@
-import type { DbCharge } from '@/src/core/types/db';
-import type { CreateChargePayload } from './IChargeRepository';
+import type { DbCharge } from "@/src/core/types/db";
+import type { CreateChargePayload } from "./IChargeRepository";
 
 /**
  * A bill that is no longer owed — and therefore invisible to the grid, the
@@ -50,7 +50,7 @@ export function samePrice(row: DbCharge, next: CreateChargePayload): boolean {
 
 /** The natural key `uq_charges_line_month` owns — null for a sale/manual bill. */
 export function monthBillKey(
-  row: Pick<DbCharge, 'customer_plan_id' | 'billing_month'>,
+  row: Pick<DbCharge, "customer_plan_id" | "billing_month">,
 ): string | null {
   return row.customer_plan_id && row.billing_month
     ? `${row.customer_plan_id}|${row.billing_month}`
@@ -65,14 +65,14 @@ export function patchForIncomingCash(
 ): Partial<DbCharge> {
   const revive = isDeadBill(row) ? revivePatch(next.issued_at) : {};
   const reprice =
-    next.kind === 'month' && paid <= 0 && !samePrice(row, next)
+    next.kind === "month" && paid <= 0 && !samePrice(row, next)
       ? {
-        amount: next.amount,
-        currency_id: next.currency_id,
-        rate_per_usd_snapshot: next.rate_per_usd_snapshot,
-        duration_months: next.duration_months,
-        plan_id: next.plan_id,
-      }
+          amount: next.amount,
+          currency_id: next.currency_id,
+          rate_per_usd_snapshot: next.rate_per_usd_snapshot,
+          duration_months: next.duration_months,
+          plan_id: next.plan_id,
+        }
       : {};
   return { ...revive, ...reprice };
 }
@@ -88,11 +88,12 @@ export function patchForIncomingCash(
  * payload is raised under a fresh id rather than taking that bill's money.
  */
 export function resolveBillTarget(
-  next: Pick<CreateChargePayload, 'customer_plan_id' | 'billing_month'>,
+  next: Pick<CreateChargePayload, "customer_plan_id" | "billing_month">,
   byKey: DbCharge | null | undefined,
   byId: DbCharge | null | undefined,
 ): { reuse: DbCharge } | { idTaken: boolean } {
   const owner = byKey ?? byId;
-  if (owner && monthBillKey(owner) === monthBillKey(next)) return { reuse: owner };
+  if (owner && monthBillKey(owner) === monthBillKey(next))
+    return { reuse: owner };
   return { idTaken: !!owner };
 }

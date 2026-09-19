@@ -46,7 +46,7 @@ There are **no tiers**. Branches, users, plans, products and currencies are unli
 5. **A quota only refuses a write that GROWS it.** A tenant sitting over a limit the owner cut can still remove customers and lines.
 6. **`plan_allowance >= customer_allowance` always** — at the column (`chk_tenants_plan_allowance_floor`), in `lower_allowances()`, in `accept_customer_request()`, in `TenantService.validateBilling`, and in the update sheet, which lifts the line box rather than refusing.
 7. **Exactly one pending request per tenant**, enforced by a partial unique index — not by the UI. One row carries both asks.
-8. **Only the SaaS owner moves the numbers.** A tenant admin can insert, edit and cancel a *request*; they can never raise either allowance, flip a request to `accepted`, or call `accept_customer_request`.
+8. **Only the SaaS owner moves the numbers.** A tenant admin can insert, edit and cancel a _request_; they can never raise either allowance, flip a request to `accepted`, or call `accept_customer_request`.
 9. **Accept is atomic** — one `accept_customer_request()` call marks the request accepted and raises both allowances. Decline is a plain status update and touches nothing else.
 10. **Both allowances ride on the synced tenant row**, so both caps still block with no network. `customer_requests` is **not** mirrored — every request action is online-only, and so is lowering.
 11. **Minimum request is 10 across BOTH halves** (`MIN_CUSTOMER_REQUEST`), whole numbers only. Either half may be 0.
@@ -57,220 +57,220 @@ There are **no tiers**. Branches, users, plans, products and currencies are unli
 
 The card sits at the top of Admin → Organization Settings, above Display currency.
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 1.1 | Card is reachable | Admin tab → Organization Settings | "Customers & billing" card renders first, above Display and Unpaid-months sections |
-| 1.2 | Three rows | Look at the card | Allowed customers, Current customers, Monthly amount — in that order |
-| 1.3 | Allowed customers | Fresh tenant, untouched defaults | Reads `30` |
-| 1.4 | Current customers | Tenant with 12 active + 3 deactivated customers | Reads `12` — inactive ones are not counted |
-| 1.5 | Monthly amount — the headline case | 100 active customers, price `0.15` | `$15.00` |
-| 1.6 | Two-decimal rounding | 7 active customers, price `0.15` | `$1.05` — never `$1.0499999…` or `$1.04` (unit test TC-CA-02) |
-| 1.7 | No customers yet | 0 active customers | `$0.00` |
-| 1.8 | Free tenant | Owner sets price to `0`, 500 customers | `$0.00` |
-| 1.9 | Amount note | Under the amount | The "N customers × $price" note echoes the same two numbers |
-| 1.10 | **Always USD** | Set the tenant display currency to LBP, reopen the card | The monthly amount is still `$` USD — no LBP figure, no "≈" secondary line. Everything else on the screen may be LBP |
-| 1.11 | Price with 4 decimals | Owner sets price `0.1250`, 80 customers | `$10.00`; the note shows the price as stored |
-| 1.12 | Count refreshes after a create | Add a customer, return to the card | Current customers increments by 1 without a manual reload; monthly amount recomputes |
-| 1.13 | Count refreshes after deactivate | Deactivate a customer, return | Current customers decrements; amount drops |
-| 1.14 | Count is tenant-wide | Log in as a **branch** admin of a 3-branch tenant | Current customers shows the TENANT total, not the branch's share — the cap is tenant-wide |
-| 1.15 | Card on focus | Leave the screen and come back | The request state re-reads (`useFocusEffect` → `refreshRequest`); no duplicate spinner |
-| 1.16 | Non-admin | Log in as `user` role | Admin tab hidden; the card is unreachable |
-| 1.17 | RTL | Switch to Arabic | Rows mirror; the amount stays `$15.00` left-to-right and is not mangled |
+| #    | Scenario                           | Steps                                                   | Expected result                                                                                                      |
+| ---- | ---------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 1.1  | Card is reachable                  | Admin tab → Organization Settings                       | "Customers & billing" card renders first, above Display and Unpaid-months sections                                   |
+| 1.2  | Three rows                         | Look at the card                                        | Allowed customers, Current customers, Monthly amount — in that order                                                 |
+| 1.3  | Allowed customers                  | Fresh tenant, untouched defaults                        | Reads `30`                                                                                                           |
+| 1.4  | Current customers                  | Tenant with 12 active + 3 deactivated customers         | Reads `12` — inactive ones are not counted                                                                           |
+| 1.5  | Monthly amount — the headline case | 100 active customers, price `0.15`                      | `$15.00`                                                                                                             |
+| 1.6  | Two-decimal rounding               | 7 active customers, price `0.15`                        | `$1.05` — never `$1.0499999…` or `$1.04` (unit test TC-CA-02)                                                        |
+| 1.7  | No customers yet                   | 0 active customers                                      | `$0.00`                                                                                                              |
+| 1.8  | Free tenant                        | Owner sets price to `0`, 500 customers                  | `$0.00`                                                                                                              |
+| 1.9  | Amount note                        | Under the amount                                        | The "N customers × $price" note echoes the same two numbers                                                          |
+| 1.10 | **Always USD**                     | Set the tenant display currency to LBP, reopen the card | The monthly amount is still `$` USD — no LBP figure, no "≈" secondary line. Everything else on the screen may be LBP |
+| 1.11 | Price with 4 decimals              | Owner sets price `0.1250`, 80 customers                 | `$10.00`; the note shows the price as stored                                                                         |
+| 1.12 | Count refreshes after a create     | Add a customer, return to the card                      | Current customers increments by 1 without a manual reload; monthly amount recomputes                                 |
+| 1.13 | Count refreshes after deactivate   | Deactivate a customer, return                           | Current customers decrements; amount drops                                                                           |
+| 1.14 | Count is tenant-wide               | Log in as a **branch** admin of a 3-branch tenant       | Current customers shows the TENANT total, not the branch's share — the cap is tenant-wide                            |
+| 1.15 | Card on focus                      | Leave the screen and come back                          | The request state re-reads (`useFocusEffect` → `refreshRequest`); no duplicate spinner                               |
+| 1.16 | Non-admin                          | Log in as `user` role                                   | Admin tab hidden; the card is unreachable                                                                            |
+| 1.17 | RTL                                | Switch to Arabic                                        | Rows mirror; the amount stays `$15.00` left-to-right and is not mangled                                              |
 
 ## 2. Requesting more customers — send
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 2.1 | Button present | No pending request | "Request more customers" button at the bottom of the card |
-| 2.2 | Open the sheet | Tap it | Sheet opens with one numeric field, pre-filled `10`, and a hint naming the minimum |
-| 2.3 | Digits only | Type `12a.b3` | Field holds `123` — letters and dots are stripped as typed |
-| 2.4 | Min 10 — below | Type `9` | Inline field error "minimum 10"; **Send request** disabled |
-| 2.5 | Min 10 — at | Type `10` | No error; Send request enabled |
-| 2.6 | Empty field | Clear the field | Send request disabled, no error shown until something is typed |
-| 2.7 | Send succeeds | Type `50`, tap **Send request** | Row inserted `status = 'pending'`, `requested_count = 50`, `requested_by` = the admin's user id; sheet closes; the card flips to the amber pending block |
-| 2.8 | Allowance unchanged | After 2.7, re-read the card | Allowed customers is STILL the old number — a request grants nothing |
-| 2.9 | Field caps length | Type 8 digits | Field stops at 6 characters |
-| 2.10 | Double-tap Send | Tap Send twice fast | One row only; the button is disabled while `saving` |
-| 2.11 | Dirty-form guard | Type `90`, drag the sheet down | "Discard changes?" prompt (see [unsaved-changes.md](unsaved-changes.md)); no row written on discard |
-| 2.12 | Server rejects below 10 | Force an insert of `requested_count = 5` via the API | `chk_customer_requests_total_min` violation — the client-side rule is not the only guard |
+| #    | Scenario                | Steps                                                | Expected result                                                                                                                                          |
+| ---- | ----------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2.1  | Button present          | No pending request                                   | "Request more customers" button at the bottom of the card                                                                                                |
+| 2.2  | Open the sheet          | Tap it                                               | Sheet opens with one numeric field, pre-filled `10`, and a hint naming the minimum                                                                       |
+| 2.3  | Digits only             | Type `12a.b3`                                        | Field holds `123` — letters and dots are stripped as typed                                                                                               |
+| 2.4  | Min 10 — below          | Type `9`                                             | Inline field error "minimum 10"; **Send request** disabled                                                                                               |
+| 2.5  | Min 10 — at             | Type `10`                                            | No error; Send request enabled                                                                                                                           |
+| 2.6  | Empty field             | Clear the field                                      | Send request disabled, no error shown until something is typed                                                                                           |
+| 2.7  | Send succeeds           | Type `50`, tap **Send request**                      | Row inserted `status = 'pending'`, `requested_count = 50`, `requested_by` = the admin's user id; sheet closes; the card flips to the amber pending block |
+| 2.8  | Allowance unchanged     | After 2.7, re-read the card                          | Allowed customers is STILL the old number — a request grants nothing                                                                                     |
+| 2.9  | Field caps length       | Type 8 digits                                        | Field stops at 6 characters                                                                                                                              |
+| 2.10 | Double-tap Send         | Tap Send twice fast                                  | One row only; the button is disabled while `saving`                                                                                                      |
+| 2.11 | Dirty-form guard        | Type `90`, drag the sheet down                       | "Discard changes?" prompt (see [unsaved-changes.md](unsaved-changes.md)); no row written on discard                                                      |
+| 2.12 | Server rejects below 10 | Force an insert of `requested_count = 5` via the API | `chk_customer_requests_total_min` violation — the client-side rule is not the only guard                                                                 |
 
 ## 3. Request buttons — WhatsApp variant
 
 The second button uses the global option `SupportWhatsAppNumber` (see [options.md](options.md)).
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 3.1 | Both buttons shown | `SupportWhatsAppNumber` set, open the sheet | **Send request** and a green **Send request + WhatsApp** below it |
-| 3.2 | WhatsApp variant saves first | Type `100`, tap Send request + WhatsApp | The request row is written FIRST, then WhatsApp opens; sheet closes |
-| 3.3 | Message content | Same action | Prefilled chat to the support number naming the organization and the requested count |
-| 3.4 | Save fails → no WhatsApp | Force the insert to fail (e.g. a pending row already exists) | ErrorBanner in the sheet, sheet stays open, **WhatsApp does not open** |
-| 3.5 | **Blank number hides the button** | Clear `SupportWhatsAppNumber` in SuperAdmin → Options, relaunch, open the sheet | Only **Send request** renders — no dead green button, no broken deep link |
-| 3.6 | Option row missing entirely | Delete the `SupportWhatsAppNumber` row | Same as 3.5 — treated as blank, no crash |
-| 3.7 | WhatsApp not installed | Device without WhatsApp, tap the green button | The request is still saved; the deep link fails gracefully with no crash |
-| 3.8 | Same rule on edit | Pending request → Edit, with the number blank | The edit sheet also shows only one button |
+| #   | Scenario                          | Steps                                                                           | Expected result                                                                      |
+| --- | --------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 3.1 | Both buttons shown                | `SupportWhatsAppNumber` set, open the sheet                                     | **Send request** and a green **Send request + WhatsApp** below it                    |
+| 3.2 | WhatsApp variant saves first      | Type `100`, tap Send request + WhatsApp                                         | The request row is written FIRST, then WhatsApp opens; sheet closes                  |
+| 3.3 | Message content                   | Same action                                                                     | Prefilled chat to the support number naming the organization and the requested count |
+| 3.4 | Save fails → no WhatsApp          | Force the insert to fail (e.g. a pending row already exists)                    | ErrorBanner in the sheet, sheet stays open, **WhatsApp does not open**               |
+| 3.5 | **Blank number hides the button** | Clear `SupportWhatsAppNumber` in SuperAdmin → Options, relaunch, open the sheet | Only **Send request** renders — no dead green button, no broken deep link            |
+| 3.6 | Option row missing entirely       | Delete the `SupportWhatsAppNumber` row                                          | Same as 3.5 — treated as blank, no crash                                             |
+| 3.7 | WhatsApp not installed            | Device without WhatsApp, tap the green button                                   | The request is still saved; the deep link fails gracefully with no crash             |
+| 3.8 | Same rule on edit                 | Pending request → Edit, with the number blank                                   | The edit sheet also shows only one button                                            |
 
 ## 4. Pending request — the amber block
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 4.1 | Block replaces the button | With a pending request | Amber block naming the requested number; the "Request more customers" button is GONE |
-| 4.2 | Two actions | Look at the block | **Edit** and **Cancel** side by side |
-| 4.3 | Edit opens pre-filled | Tap Edit | Sheet title reads Edit; the field holds the current requested count, not `10` |
-| 4.4 | Edit saves | Change `50` → `120`, save | Same row updated, `requested_count = 120`, still `pending`; the block text updates; no second row |
-| 4.5 | Edit still enforces min 10 | Edit to `4` | Field error; save disabled |
-| 4.6 | Cancel asks first | Tap Cancel | A confirmation dialog naming the requested number, with a destructive confirm |
-| 4.7 | Cancel — keep | Dismiss the dialog | Request untouched, still pending, block unchanged |
-| 4.8 | Cancel — confirm | Confirm | Row `status = 'cancelled'`; the block disappears; "Request more customers" returns |
-| 4.9 | Request again after cancel | Tap Request more customers | Allowed — the cancelled row is not pending, so the unique index does not block |
-| 4.10 | **One pending at a time** | With a pending row, force a second insert via the API | `uq_customer_requests_one_pending` unique violation; the UI never offers the path |
-| 4.11 | Buttons disabled while saving | Tap Cancel and watch | Edit and Cancel both disabled during the write |
-| 4.12 | Owner accepts while the sheet is open | Owner accepts in SuperAdmin, then the admin returns to the screen | On focus the card re-reads: block gone, allowance raised |
+| #    | Scenario                              | Steps                                                             | Expected result                                                                                   |
+| ---- | ------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 4.1  | Block replaces the button             | With a pending request                                            | Amber block naming the requested number; the "Request more customers" button is GONE              |
+| 4.2  | Two actions                           | Look at the block                                                 | **Edit** and **Cancel** side by side                                                              |
+| 4.3  | Edit opens pre-filled                 | Tap Edit                                                          | Sheet title reads Edit; the field holds the current requested count, not `10`                     |
+| 4.4  | Edit saves                            | Change `50` → `120`, save                                         | Same row updated, `requested_count = 120`, still `pending`; the block text updates; no second row |
+| 4.5  | Edit still enforces min 10            | Edit to `4`                                                       | Field error; save disabled                                                                        |
+| 4.6  | Cancel asks first                     | Tap Cancel                                                        | A confirmation dialog naming the requested number, with a destructive confirm                     |
+| 4.7  | Cancel — keep                         | Dismiss the dialog                                                | Request untouched, still pending, block unchanged                                                 |
+| 4.8  | Cancel — confirm                      | Confirm                                                           | Row `status = 'cancelled'`; the block disappears; "Request more customers" returns                |
+| 4.9  | Request again after cancel            | Tap Request more customers                                        | Allowed — the cancelled row is not pending, so the unique index does not block                    |
+| 4.10 | **One pending at a time**             | With a pending row, force a second insert via the API             | `uq_customer_requests_one_pending` unique violation; the UI never offers the path                 |
+| 4.11 | Buttons disabled while saving         | Tap Cancel and watch                                              | Edit and Cancel both disabled during the write                                                    |
+| 4.12 | Owner accepts while the sheet is open | Owner accepts in SuperAdmin, then the admin returns to the screen | On focus the card re-reads: block gone, allowance raised                                          |
 
 ## 5. Accept — the owner grants the raise
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 5.1 | Pill on the tenant card | Tenant has a pending request for +50 | SuperAdmin → Tenants: an ORANGE "Requested +50" pill on that tenant's card |
-| 5.2 | Card billing line | Same card | "{allowance} customers · ${price} each" — e.g. "30 customers · $0.15 each" |
-| 5.3 | No request, no pill | Tenant with no pending row | No orange pill; the billing line still shows |
-| 5.4 | Accept block at the top | Open the tenant sheet | An Accept / Decline block ABOVE the name field, showing "Requested +50 customers" and the request date |
-| 5.5 | Grant defaults to the request | Look at the Grant field | Pre-filled with `50` — the requested count |
-| 5.6 | Accept as asked | Tap Accept | Allowance 30 → 80; request `status = 'accepted'`, `granted_count = 50`, `decided_at` set; block disappears |
-| 5.7 | **Grant a DIFFERENT number** | Change Grant to `20`, tap Accept | Allowance 30 → **50**, not 80; `granted_count = 20`, `requested_count` stays `50` |
-| 5.8 | Grant more than asked | Set Grant to `200`, Accept | Allowance rises by 200 — granting above the request is allowed |
-| 5.9 | Grant must be ≥ 1 | Set Grant to `0` or blank | Accept disabled ("Granted customers must be a whole number of 1 or more") |
-| 5.10 | Grant must be whole | Set Grant to `10.5` | Accept disabled |
+| #    | Scenario                               | Steps                                                                            | Expected result                                                                                                                                        |
+| ---- | -------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 5.1  | Pill on the tenant card                | Tenant has a pending request for +50                                             | SuperAdmin → Tenants: an ORANGE "Requested +50" pill on that tenant's card                                                                             |
+| 5.2  | Card billing line                      | Same card                                                                        | "{allowance} customers · ${price} each" — e.g. "30 customers · $0.15 each"                                                                             |
+| 5.3  | No request, no pill                    | Tenant with no pending row                                                       | No orange pill; the billing line still shows                                                                                                           |
+| 5.4  | Accept block at the top                | Open the tenant sheet                                                            | An Accept / Decline block ABOVE the name field, showing "Requested +50 customers" and the request date                                                 |
+| 5.5  | Grant defaults to the request          | Look at the Grant field                                                          | Pre-filled with `50` — the requested count                                                                                                             |
+| 5.6  | Accept as asked                        | Tap Accept                                                                       | Allowance 30 → 80; request `status = 'accepted'`, `granted_count = 50`, `decided_at` set; block disappears                                             |
+| 5.7  | **Grant a DIFFERENT number**           | Change Grant to `20`, tap Accept                                                 | Allowance 30 → **50**, not 80; `granted_count = 20`, `requested_count` stays `50`                                                                      |
+| 5.8  | Grant more than asked                  | Set Grant to `200`, Accept                                                       | Allowance rises by 200 — granting above the request is allowed                                                                                         |
+| 5.9  | Grant must be ≥ 1                      | Set Grant to `0` or blank                                                        | Accept disabled ("Granted customers must be a whole number of 1 or more")                                                                              |
+| 5.10 | Grant must be whole                    | Set Grant to `10.5`                                                              | Accept disabled                                                                                                                                        |
 | 5.11 | **Allowance field follows the accept** | Accept +20, then press **Save** on the same open sheet without touching anything | The tenant keeps the raised allowance — the form's Customer Allowance field was bumped by the grant, so Save does not write the pre-accept number back |
-| 5.12 | Atomicity | Accept, then inspect the DB | Either both the status flip and the raise landed, or neither — they are one `accept_customer_request()` call |
-| 5.13 | Accept a non-pending request | Accept, then call `accept_customer_request` again with the same id | "Request is not pending"; the allowance does **not** rise twice |
-| 5.14 | Card patches, no re-fetch | Watch the tenant list after Accept | The row's allowance updates and the orange pill clears from what the write returned — no full list reload |
-| 5.15 | Tenant sees it | Tenant admin reopens Organization Settings | Allowed customers = the new number; the amber block is gone; creates that were blocked now succeed |
-| 5.16 | Monthly amount after a raise | Raise the allowance only | The monthly amount does NOT change — it bills ACTIVE customers, not the allowance |
+| 5.12 | Atomicity                              | Accept, then inspect the DB                                                      | Either both the status flip and the raise landed, or neither — they are one `accept_customer_request()` call                                           |
+| 5.13 | Accept a non-pending request           | Accept, then call `accept_customer_request` again with the same id               | "Request is not pending"; the allowance does **not** rise twice                                                                                        |
+| 5.14 | Card patches, no re-fetch              | Watch the tenant list after Accept                                               | The row's allowance updates and the orange pill clears from what the write returned — no full list reload                                              |
+| 5.15 | Tenant sees it                         | Tenant admin reopens Organization Settings                                       | Allowed customers = the new number; the amber block is gone; creates that were blocked now succeed                                                     |
+| 5.16 | Monthly amount after a raise           | Raise the allowance only                                                         | The monthly amount does NOT change — it bills ACTIVE customers, not the allowance                                                                      |
 
 ## 6. Decline
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 6.1 | Decline the request | Tenant sheet → Decline | Row `status = 'declined'`, `decided_at` set; `customer_allowance` UNCHANGED; block disappears; pill clears |
-| 6.2 | Decline is a plain update | Inspect the SQL path | A normal `UPDATE`, not `accept_customer_request` — no allowance arithmetic anywhere |
-| 6.3 | Tenant sees the red note | Tenant admin opens Organization Settings | A RED note naming the declined count, with "Request more customers" available beneath it |
-| 6.4 | Request again after a decline | Tap Request more customers | New pending row created — the declined one is not pending |
-| 6.5 | Red note clears | After the new request is sent | The red note is replaced by the amber pending block |
-| 6.6 | Only the latest matters | Tenant with an old accepted row, an old declined row and nothing pending | The card reads the NEWEST row; an old accepted row shows neither amber nor red |
+| #   | Scenario                      | Steps                                                                    | Expected result                                                                                            |
+| --- | ----------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| 6.1 | Decline the request           | Tenant sheet → Decline                                                   | Row `status = 'declined'`, `decided_at` set; `customer_allowance` UNCHANGED; block disappears; pill clears |
+| 6.2 | Decline is a plain update     | Inspect the SQL path                                                     | A normal `UPDATE`, not `accept_customer_request` — no allowance arithmetic anywhere                        |
+| 6.3 | Tenant sees the red note      | Tenant admin opens Organization Settings                                 | A RED note naming the declined count, with "Request more customers" available beneath it                   |
+| 6.4 | Request again after a decline | Tap Request more customers                                               | New pending row created — the declined one is not pending                                                  |
+| 6.5 | Red note clears               | After the new request is sent                                            | The red note is replaced by the amber pending block                                                        |
+| 6.6 | Only the latest matters       | Tenant with an old accepted row, an old declined row and nothing pending | The card reads the NEWEST row; an old accepted row shows neither amber nor red                             |
 
 ## 7. The hard cap on creating customers
 
 Enforced in `CustomerService.createCustomer` via `billingService.assertQuotas(limits, before, after)`, using the **tenant-wide** active count held in the billing slice.
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 7.1 | Under the cap | Allowance 30, 29 active, add a customer | Saved normally; count becomes 30 |
-| 7.2 | **At the cap** | Allowance 30, 30 active, submit the Add Customer form | "Customer limit reached" modal; **no row inserted**; the form stays open behind it |
-| 7.3 | Over the cap | Owner lowers the allowance to 20 while 30 are active, try to add | Blocked the same way — the modal reports 30 of 20 |
-| 7.4 | Allowance at the floor | Owner sets allowance `30`, tenant fills all 30, try to add the 31st | Blocked — `0` is no longer settable, 30 is the product minimum |
-| 7.5 | Deactivating frees a slot | At the cap, deactivate one customer, retry the create | Succeeds — the cap counts active rows only |
-| 7.6 | Reactivating re-fills it | At allowance, reactivate a previously deactivated customer, then try to add a new one | Blocked again |
-| 7.7 | **Tenant-wide admin gets a way out** | Hit the cap as an admin with `branch_id = null` | Modal shows the count vs allowance and a primary button to Organization Settings |
-| 7.8 | That button navigates | Tap it | Modal + form close; Organization Settings opens on the Customers & billing card |
-| 7.9 | **Branch admin gets no button** | Hit the cap as an admin bound to a branch | Modal says "ask your administrator"; **no** navigate button — only Close |
-| 7.10 | Staff role | A `user` role hits the cap | Same "ask your administrator" wording, no button |
-| 7.11 | Close the modal | Tap Close | Modal dismisses, the customer form is still there with the typed values intact; `quotaError` is cleared |
-| 7.12 | Editing is never blocked | At the cap, edit an existing customer | Saves fine — the cap gates creates only |
-| 7.13 | Not an ErrorBanner | Hit the cap | The limit surfaces as the modal, never as a red banner string; `error` stays null (the slice stores a structured `quotaError`) |
-| 7.14 | Cap after a raise | Hit the cap, get the allowance raised, retry | Create succeeds with no relaunch — the slice refreshes on focus |
-| 7.15 | Branch count does not leak | Branch admin with 5 branch customers, tenant total 30, allowance 30 | Blocked — the cap reads the tenant-wide count, never the branch-filtered one |
-| 7.16 | Signup path | Brand-new tenant, immediately add customers | Blocks at 30 — schema defaults apply from day one, with no setup step |
+| #    | Scenario                             | Steps                                                                                 | Expected result                                                                                                                |
+| ---- | ------------------------------------ | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 7.1  | Under the cap                        | Allowance 30, 29 active, add a customer                                               | Saved normally; count becomes 30                                                                                               |
+| 7.2  | **At the cap**                       | Allowance 30, 30 active, submit the Add Customer form                                 | "Customer limit reached" modal; **no row inserted**; the form stays open behind it                                             |
+| 7.3  | Over the cap                         | Owner lowers the allowance to 20 while 30 are active, try to add                      | Blocked the same way — the modal reports 30 of 20                                                                              |
+| 7.4  | Allowance at the floor               | Owner sets allowance `30`, tenant fills all 30, try to add the 31st                   | Blocked — `0` is no longer settable, 30 is the product minimum                                                                 |
+| 7.5  | Deactivating frees a slot            | At the cap, deactivate one customer, retry the create                                 | Succeeds — the cap counts active rows only                                                                                     |
+| 7.6  | Reactivating re-fills it             | At allowance, reactivate a previously deactivated customer, then try to add a new one | Blocked again                                                                                                                  |
+| 7.7  | **Tenant-wide admin gets a way out** | Hit the cap as an admin with `branch_id = null`                                       | Modal shows the count vs allowance and a primary button to Organization Settings                                               |
+| 7.8  | That button navigates                | Tap it                                                                                | Modal + form close; Organization Settings opens on the Customers & billing card                                                |
+| 7.9  | **Branch admin gets no button**      | Hit the cap as an admin bound to a branch                                             | Modal says "ask your administrator"; **no** navigate button — only Close                                                       |
+| 7.10 | Staff role                           | A `user` role hits the cap                                                            | Same "ask your administrator" wording, no button                                                                               |
+| 7.11 | Close the modal                      | Tap Close                                                                             | Modal dismisses, the customer form is still there with the typed values intact; `quotaError` is cleared                        |
+| 7.12 | Editing is never blocked             | At the cap, edit an existing customer                                                 | Saves fine — the cap gates creates only                                                                                        |
+| 7.13 | Not an ErrorBanner                   | Hit the cap                                                                           | The limit surfaces as the modal, never as a red banner string; `error` stays null (the slice stores a structured `quotaError`) |
+| 7.14 | Cap after a raise                    | Hit the cap, get the allowance raised, retry                                          | Create succeeds with no relaunch — the slice refreshes on focus                                                                |
+| 7.15 | Branch count does not leak           | Branch admin with 5 branch customers, tenant total 30, allowance 30                   | Blocked — the cap reads the tenant-wide count, never the branch-filtered one                                                   |
+| 7.16 | Signup path                          | Brand-new tenant, immediately add customers                                           | Blocks at 30 — schema defaults apply from day one, with no setup step                                                          |
 
 ## 8. Offline (native)
 
 `tenants` is mirrored, `customer_requests` is not.
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 8.1 | **The cap still blocks offline** | Sync, go airplane mode, add customers past the allowance | Blocked with the same modal — the allowance rode in on the mirrored tenant row |
-| 8.2 | Card reads offline | Airplane mode → Organization Settings | Allowed customers, Current customers and the monthly amount all render from local data |
-| 8.3 | Request offline | Airplane mode → Request more customers → Send | Offline error banner in the sheet; sheet stays open; **no row written anywhere**, nothing queued |
-| 8.4 | Edit offline | Pending request, airplane mode, Edit → Save | Offline error banner; the request keeps its old count; no half-written row |
-| 8.5 | Cancel offline | Pending request, airplane mode, Cancel → confirm | Offline error banner; the request stays pending |
-| 8.6 | No crash, no half-state | Repeat 8.3–8.5 a few times | No redbox, no duplicate rows once back online, store still consistent |
-| 8.7 | Silent request refresh | Open the card offline | The pending/declined block may simply not render (the read fails quietly) — no scary banner over a read |
-| 8.8 | Back online | Restore network, reopen the screen | The pending block reappears from the server read |
-| 8.9 | Raise arrives by sync | Owner raises the allowance while the device is offline; device syncs | The new allowance lands with the tenant row; creates that were blocked now pass |
-| 8.10 | Not in `PUSH_WAVES` | Inspect the sync engine | `customer_requests` appears in no wave and in no pull list — see [sync-engine.md](sync-engine.md) |
-| 8.11 | Web is unaffected | Repeat 8.3 on web | Web talks to Supabase directly; the request writes normally when the browser is online |
+| #    | Scenario                         | Steps                                                                | Expected result                                                                                         |
+| ---- | -------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 8.1  | **The cap still blocks offline** | Sync, go airplane mode, add customers past the allowance             | Blocked with the same modal — the allowance rode in on the mirrored tenant row                          |
+| 8.2  | Card reads offline               | Airplane mode → Organization Settings                                | Allowed customers, Current customers and the monthly amount all render from local data                  |
+| 8.3  | Request offline                  | Airplane mode → Request more customers → Send                        | Offline error banner in the sheet; sheet stays open; **no row written anywhere**, nothing queued        |
+| 8.4  | Edit offline                     | Pending request, airplane mode, Edit → Save                          | Offline error banner; the request keeps its old count; no half-written row                              |
+| 8.5  | Cancel offline                   | Pending request, airplane mode, Cancel → confirm                     | Offline error banner; the request stays pending                                                         |
+| 8.6  | No crash, no half-state          | Repeat 8.3–8.5 a few times                                           | No redbox, no duplicate rows once back online, store still consistent                                   |
+| 8.7  | Silent request refresh           | Open the card offline                                                | The pending/declined block may simply not render (the read fails quietly) — no scary banner over a read |
+| 8.8  | Back online                      | Restore network, reopen the screen                                   | The pending block reappears from the server read                                                        |
+| 8.9  | Raise arrives by sync            | Owner raises the allowance while the device is offline; device syncs | The new allowance lands with the tenant row; creates that were blocked now pass                         |
+| 8.10 | Not in `PUSH_WAVES`              | Inspect the sync engine                                              | `customer_requests` appears in no wave and in no pull list — see [sync-engine.md](sync-engine.md)       |
+| 8.11 | Web is unaffected                | Repeat 8.3 on web                                                    | Web talks to Supabase directly; the request writes normally when the browser is online                  |
 
 ## 9. SECURITY — a tenant admin cannot pay themselves
 
 **Release blocker.** Run each of these with a real tenant-admin session token (not the service role), e.g. from a REST client or the Supabase JS client in a browser console.
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 9.1 | **Cannot raise their own allowance** | As a tenant admin: `UPDATE tenants SET customer_allowance = 99999 WHERE id = <own tenant>` | **Fails.** No UPDATE policy exists on `tenants`, so RLS refuses it (0 rows / permission denied). The value is unchanged |
-| 9.2 | Trigger is the second lock | Temporarily grant an UPDATE policy on `tenants`, retry 9.1 | Still fails: `trg_tenants_guard_billing` raises *"customer_allowance, plan_allowance and price_per_plan_usd are owner-only"* because the request runs as `authenticated`. **Drop the test policy again afterwards** |
-| 9.3 | Price is locked too | As a tenant admin, try to set `price_per_plan_usd = 0` | Same refusal as 9.1 / 9.2 |
-| 9.4 | Other tenant columns unaffected | Confirm the app never needs to write `tenants` | No app screen writes the tenants table; nothing breaks from it being read-only |
-| 9.5 | **Cannot self-accept a request** | As a tenant admin: `UPDATE customer_requests SET status = 'accepted' WHERE id = <own pending>` | **Fails** — the update policy's `WITH CHECK` allows only `pending` or `cancelled` |
-| 9.6 | Cannot self-grant | Try `UPDATE customer_requests SET granted_count = 500` on their own pending row | Refused by the same `WITH CHECK` |
-| 9.7 | **Cannot call the accept function** | As a tenant admin: `rpc('accept_customer_request', { p_request_id, p_granted: 500 })` | **Fails** with a permission error — `EXECUTE` is revoked from `anon`, `authenticated` and `public` |
-| 9.8 | Anon cannot call it | Same call with only the anon key | Refused |
-| 9.9 | Cannot touch a decided request | Try to edit an `accepted` or `declined` row | Refused — the update policy's `USING` limits it to `status = 'pending'` |
-| 9.10 | Cannot insert a pre-decided request | Insert with `status = 'accepted'` or a non-null `granted_count` / `decided_at` / `decided_by` | Refused by the insert policy's `WITH CHECK` |
-| 9.11 | Staff cannot request | As a `user` role, insert a `customer_requests` row | Refused — the insert policy requires `role IN ('admin','superadmin')` and `active = true` |
-| 9.12 | Deactivated admin cannot request | Set the admin's `users.active = false`, retry | Refused by the same clause |
-| 9.13 | Cross-tenant insert | As tenant A's admin, insert a request with tenant B's `tenant_id` | Refused — `tenant_id = current_tenant_id()` |
-| 9.14 | Cross-tenant read | As tenant A's admin, select tenant B's requests | Zero rows |
-| 9.15 | Every member may read | As a `user` role, select own-tenant requests | Rows returned — the select policy is tenant-wide so the card can render for anyone who reaches it |
-| 9.16 | The owner can still do it all | Repeat 9.1, 9.5 and 9.7 with the SuperAdmin service role | All three succeed — the trigger passes because there is no `auth.uid()` |
+| #    | Scenario                             | Steps                                                                                          | Expected result                                                                                                                                                                                                     |
+| ---- | ------------------------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 9.1  | **Cannot raise their own allowance** | As a tenant admin: `UPDATE tenants SET customer_allowance = 99999 WHERE id = <own tenant>`     | **Fails.** No UPDATE policy exists on `tenants`, so RLS refuses it (0 rows / permission denied). The value is unchanged                                                                                             |
+| 9.2  | Trigger is the second lock           | Temporarily grant an UPDATE policy on `tenants`, retry 9.1                                     | Still fails: `trg_tenants_guard_billing` raises _"customer_allowance, plan_allowance and price_per_plan_usd are owner-only"_ because the request runs as `authenticated`. **Drop the test policy again afterwards** |
+| 9.3  | Price is locked too                  | As a tenant admin, try to set `price_per_plan_usd = 0`                                         | Same refusal as 9.1 / 9.2                                                                                                                                                                                           |
+| 9.4  | Other tenant columns unaffected      | Confirm the app never needs to write `tenants`                                                 | No app screen writes the tenants table; nothing breaks from it being read-only                                                                                                                                      |
+| 9.5  | **Cannot self-accept a request**     | As a tenant admin: `UPDATE customer_requests SET status = 'accepted' WHERE id = <own pending>` | **Fails** — the update policy's `WITH CHECK` allows only `pending` or `cancelled`                                                                                                                                   |
+| 9.6  | Cannot self-grant                    | Try `UPDATE customer_requests SET granted_count = 500` on their own pending row                | Refused by the same `WITH CHECK`                                                                                                                                                                                    |
+| 9.7  | **Cannot call the accept function**  | As a tenant admin: `rpc('accept_customer_request', { p_request_id, p_granted: 500 })`          | **Fails** with a permission error — `EXECUTE` is revoked from `anon`, `authenticated` and `public`                                                                                                                  |
+| 9.8  | Anon cannot call it                  | Same call with only the anon key                                                               | Refused                                                                                                                                                                                                             |
+| 9.9  | Cannot touch a decided request       | Try to edit an `accepted` or `declined` row                                                    | Refused — the update policy's `USING` limits it to `status = 'pending'`                                                                                                                                             |
+| 9.10 | Cannot insert a pre-decided request  | Insert with `status = 'accepted'` or a non-null `granted_count` / `decided_at` / `decided_by`  | Refused by the insert policy's `WITH CHECK`                                                                                                                                                                         |
+| 9.11 | Staff cannot request                 | As a `user` role, insert a `customer_requests` row                                             | Refused — the insert policy requires `role IN ('admin','superadmin')` and `active = true`                                                                                                                           |
+| 9.12 | Deactivated admin cannot request     | Set the admin's `users.active = false`, retry                                                  | Refused by the same clause                                                                                                                                                                                          |
+| 9.13 | Cross-tenant insert                  | As tenant A's admin, insert a request with tenant B's `tenant_id`                              | Refused — `tenant_id = current_tenant_id()`                                                                                                                                                                         |
+| 9.14 | Cross-tenant read                    | As tenant A's admin, select tenant B's requests                                                | Zero rows                                                                                                                                                                                                           |
+| 9.15 | Every member may read                | As a `user` role, select own-tenant requests                                                   | Rows returned — the select policy is tenant-wide so the card can render for anyone who reaches it                                                                                                                   |
+| 9.16 | The owner can still do it all        | Repeat 9.1, 9.5 and 9.7 with the SuperAdmin service role                                       | All three succeed — the trigger passes because there is no `auth.uid()`                                                                                                                                             |
 
 ## 10. SuperAdmin — direct editing, independent of any request
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 10.1 | Fields always present | Open any tenant's sheet, with or without a pending request | **Customer Allowance** and **Price Per Customer (USD)** inputs are always editable |
-| 10.2 | Raise the allowance directly | No pending request; set allowance 30 → 500, Save | Saved; the tenant card's billing line updates; no request row created |
-| 10.3 | Lower the allowance | Set allowance below the tenant's current active count, Save | Allowed — existing customers are untouched, but the tenant can create no more (§7.3) |
-| 10.4 | Change the price | Set price `0.15` → `0.25`, Save | Saved; the tenant's monthly amount recomputes on their next read |
-| 10.5 | Allowance validation | Enter `-1`, `12.5` or `29` | Save disabled / "Customer allowance must be a whole number of 30 or more" |
-| 10.6 | Price validation | Enter a negative price | Refused by validation and by `chk_tenants_price_per_plan` |
-| 10.7 | Below the minimum | Set allowance `29` or `0`, Save | Refused — "Minimum 30 customers" under the field, Save disabled, and `chk_tenants_customer_allowance_min` would refuse it anyway |
-| 10.8 | New tenant defaults | SuperAdmin → + Add Tenant, leave both fields at their placeholders | Tenant created with 30 / 0.15 — the schema DEFAULT, the placeholder and `MIN_CUSTOMER_ALLOWANCE` all agree |
-| 10.8b | Self-service signup | Sign up a brand-new tenant from the SubsTrack app | Allowance is **30**: `create-tenant` omits the column on purpose, so the schema DEFAULT decides it in one place |
-| 10.9 | New tenant with overrides | Set 200 / 0.10 before submitting | Tenant created with those values |
-| 10.10 | Editing name only | Change only the tenant name, Save | Allowance and price come back unchanged (the form sends what it holds) |
-| 10.11 | Two tabs only | Look at the SuperAdmin tab bar | **Tenants** and **Options** — there is no Tier Plans tab |
-| 10.12 | Active toggle unrelated | Deactivate a tenant | Billing numbers are untouched; the tenant simply cannot log in |
+| #     | Scenario                     | Steps                                                              | Expected result                                                                                                                  |
+| ----- | ---------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| 10.1  | Fields always present        | Open any tenant's sheet, with or without a pending request         | **Customer Allowance** and **Price Per Customer (USD)** inputs are always editable                                               |
+| 10.2  | Raise the allowance directly | No pending request; set allowance 30 → 500, Save                   | Saved; the tenant card's billing line updates; no request row created                                                            |
+| 10.3  | Lower the allowance          | Set allowance below the tenant's current active count, Save        | Allowed — existing customers are untouched, but the tenant can create no more (§7.3)                                             |
+| 10.4  | Change the price             | Set price `0.15` → `0.25`, Save                                    | Saved; the tenant's monthly amount recomputes on their next read                                                                 |
+| 10.5  | Allowance validation         | Enter `-1`, `12.5` or `29`                                         | Save disabled / "Customer allowance must be a whole number of 30 or more"                                                        |
+| 10.6  | Price validation             | Enter a negative price                                             | Refused by validation and by `chk_tenants_price_per_plan`                                                                        |
+| 10.7  | Below the minimum            | Set allowance `29` or `0`, Save                                    | Refused — "Minimum 30 customers" under the field, Save disabled, and `chk_tenants_customer_allowance_min` would refuse it anyway |
+| 10.8  | New tenant defaults          | SuperAdmin → + Add Tenant, leave both fields at their placeholders | Tenant created with 30 / 0.15 — the schema DEFAULT, the placeholder and `MIN_CUSTOMER_ALLOWANCE` all agree                       |
+| 10.8b | Self-service signup          | Sign up a brand-new tenant from the SubsTrack app                  | Allowance is **30**: `create-tenant` omits the column on purpose, so the schema DEFAULT decides it in one place                  |
+| 10.9  | New tenant with overrides    | Set 200 / 0.10 before submitting                                   | Tenant created with those values                                                                                                 |
+| 10.10 | Editing name only            | Change only the tenant name, Save                                  | Allowance and price come back unchanged (the form sends what it holds)                                                           |
+| 10.11 | Two tabs only                | Look at the SuperAdmin tab bar                                     | **Tenants** and **Options** — there is no Tier Plans tab                                                                         |
+| 10.12 | Active toggle unrelated      | Deactivate a tenant                                                | Billing numbers are untouched; the tenant simply cannot log in                                                                   |
 
 ## 11. Removals — nothing tier-shaped may come back
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 11.1 | No Subscription entry | Admin tab landing | No "Subscription" row anywhere in the menu |
-| 11.2 | No Subscription route | Deep-link `/(app)/(tabs)/admin/subscription` | Not found — the route is gone, not merely hidden |
-| 11.3 | No upgrade prompts | Hit the customer cap | The "Customer limit reached" modal — never an `UpgradePromptModal`, "View plans" or "Upgrade to Pro" |
-| 11.4 | Branches unlimited | Create 10+ branches | All succeed |
-| 11.5 | Users unlimited | Create 10+ staff users | All succeed |
-| 11.6 | Plans unlimited | Create 20+ plans | All succeed |
-| 11.7 | Products unlimited | Create 20+ products | All succeed |
-| 11.8 | Currencies unlimited | Add several currencies on a brand-new tenant | All succeed; no gate, no prompt |
-| 11.9 | Multi-month always on | Open the Plan form on a fresh tenant | The duration preset row and stepper are visible with no hint about tiers |
-| 11.10 | No admin-menu counts | Look at the Admin menu subtitles | Plain descriptions — no "3 / 5" style counters on any row |
-| 11.11 | No tier tables | Query `tier_plans`, `tenants.tier_id`, `tenants.tier_upgraded_at` | All gone after `script.sql` runs |
-| 11.12 | No `AllowPlanUpgrade` | Read `app_options` | The key is gone (or, if left behind, nothing reads it — no button anywhere is gated by it) |
+| #     | Scenario              | Steps                                                             | Expected result                                                                                      |
+| ----- | --------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 11.1  | No Subscription entry | Admin tab landing                                                 | No "Subscription" row anywhere in the menu                                                           |
+| 11.2  | No Subscription route | Deep-link `/(app)/(tabs)/admin/subscription`                      | Not found — the route is gone, not merely hidden                                                     |
+| 11.3  | No upgrade prompts    | Hit the customer cap                                              | The "Customer limit reached" modal — never an `UpgradePromptModal`, "View plans" or "Upgrade to Pro" |
+| 11.4  | Branches unlimited    | Create 10+ branches                                               | All succeed                                                                                          |
+| 11.5  | Users unlimited       | Create 10+ staff users                                            | All succeed                                                                                          |
+| 11.6  | Plans unlimited       | Create 20+ plans                                                  | All succeed                                                                                          |
+| 11.7  | Products unlimited    | Create 20+ products                                               | All succeed                                                                                          |
+| 11.8  | Currencies unlimited  | Add several currencies on a brand-new tenant                      | All succeed; no gate, no prompt                                                                      |
+| 11.9  | Multi-month always on | Open the Plan form on a fresh tenant                              | The duration preset row and stepper are visible with no hint about tiers                             |
+| 11.10 | No admin-menu counts  | Look at the Admin menu subtitles                                  | Plain descriptions — no "3 / 5" style counters on any row                                            |
+| 11.11 | No tier tables        | Query `tier_plans`, `tenants.tier_id`, `tenants.tier_upgraded_at` | All gone after `script.sql` runs                                                                     |
+| 11.12 | No `AllowPlanUpgrade` | Read `app_options`                                                | The key is gone (or, if left behind, nothing reads it — no button anywhere is gated by it)           |
 
 ## 12. Edge cases / safety
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 12.1 | Idempotent schema | Run `script.sql` twice on a live DB | No error; existing allowances and prices preserved; the partial unique index and trigger exist once |
-| 12.2 | Reset then rebuild | `reset.sql` then `script.sql` | Clean rebuild; new tenants land on 30 / 0.15 |
-| 12.3 | Existing tenants on upgrade | Run the new `script.sql` on a DB whose tenants predate the columns | Every tenant gets `customer_allowance = 30`, `price_per_plan_usd = 0.15`. **A tenant already holding more than 30 customers is now over cap** — the owner must raise it (the commented one-off `GREATEST` statement at the end of the script) |
-| 12.4 | Request cascade | Delete a tenant with requests | Its `customer_requests` rows go with it (`ON DELETE CASCADE`) |
-| 12.5 | Logout resets billing state | Log out | `allowance`, `price`, `activeCustomers` and `request` all reset; next login re-primes them |
-| 12.6 | Tenant switch on one device | Log out of tenant A, log in as tenant B on the same device | B's own allowance and count — never A's leftovers |
-| 12.7 | Audit trail | Send, edit then cancel a request; open Admin → Audit Log | A create entry, an update entry with old→new count, and the cancel recorded as a void — see [audit-log.md](audit-log.md) |
-| 12.8 | Slow network on Accept | Throttle, tap Accept | Button shows a loading state and cannot be double-fired; exactly one raise lands |
-| 12.9 | Accept race | Owner accepts while the admin cancels at the same moment | Whichever lands first wins; the second fails cleanly ("Request is not pending" / no pending row) with no allowance drift |
-| 12.10 | Unit tests green | `cd tests && npm test -- suites/customerAllowance.test.ts` | TC-CA-01…11 all pass — see [money-unit-tests.md](money-unit-tests.md) |
+| #     | Scenario                    | Steps                                                              | Expected result                                                                                                                                                                                                                               |
+| ----- | --------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 12.1  | Idempotent schema           | Run `script.sql` twice on a live DB                                | No error; existing allowances and prices preserved; the partial unique index and trigger exist once                                                                                                                                           |
+| 12.2  | Reset then rebuild          | `reset.sql` then `script.sql`                                      | Clean rebuild; new tenants land on 30 / 0.15                                                                                                                                                                                                  |
+| 12.3  | Existing tenants on upgrade | Run the new `script.sql` on a DB whose tenants predate the columns | Every tenant gets `customer_allowance = 30`, `price_per_plan_usd = 0.15`. **A tenant already holding more than 30 customers is now over cap** — the owner must raise it (the commented one-off `GREATEST` statement at the end of the script) |
+| 12.4  | Request cascade             | Delete a tenant with requests                                      | Its `customer_requests` rows go with it (`ON DELETE CASCADE`)                                                                                                                                                                                 |
+| 12.5  | Logout resets billing state | Log out                                                            | `allowance`, `price`, `activeCustomers` and `request` all reset; next login re-primes them                                                                                                                                                    |
+| 12.6  | Tenant switch on one device | Log out of tenant A, log in as tenant B on the same device         | B's own allowance and count — never A's leftovers                                                                                                                                                                                             |
+| 12.7  | Audit trail                 | Send, edit then cancel a request; open Admin → Audit Log           | A create entry, an update entry with old→new count, and the cancel recorded as a void — see [audit-log.md](audit-log.md)                                                                                                                      |
+| 12.8  | Slow network on Accept      | Throttle, tap Accept                                               | Button shows a loading state and cannot be double-fired; exactly one raise lands                                                                                                                                                              |
+| 12.9  | Accept race                 | Owner accepts while the admin cancels at the same moment           | Whichever lands first wins; the second fails cleanly ("Request is not pending" / no pending row) with no allowance drift                                                                                                                      |
+| 12.10 | Unit tests green            | `cd tests && npm test -- suites/customerAllowance.test.ts`         | TC-CA-01…11 all pass — see [money-unit-tests.md](money-unit-tests.md)                                                                                                                                                                         |
 
 ## 13. Update customer number — one door, both directions
 
@@ -280,41 +280,41 @@ Enforced in `CustomerService.createCustomer` via `billingService.assertQuotas(li
 
 **A decrease has TWO floors and the HIGHER one binds:** the product minimum of **30** (`MIN_CUSTOMER_ALLOWANCE`, mirrored by `chk_tenants_customer_allowance_min` and by the RPC) and the tenant's **active customer count**, re-counted server-side. 30 is also the allowance every tenant is created with, from SuperAdmin and from self-service signup alike.
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 13.1 | Two fields, one number | Allowance 100. Open the sheet | Total reads `100`, Change is **empty** (not `+0`), Save disabled |
-| 13.2 | Total drives Change (up) | Type `120` in the total | Change shows **`+20` in green**; the button reads "Send request" |
-| 13.3 | Total drives Change (down) | Type `80` in the total | Change shows **`-20` in red**; the button reads "Lower limit" |
-| 13.4 | Change drives Total (up) | Type `20` in the change field | Total becomes `120` |
-| 13.5 | Change drives Total (down) | Type `-20` in the change field | Total becomes `80` |
-| 13.6 | Plus / minus steppers | Tap **+** three times, then **−** once | Total `103`, change `+3` then `+2`; both fields stay in step |
-| 13.7 | Back to the start | Move the number away and back to `100` | Change empties, Save goes disabled — a no-op change is not saveable |
-| 13.8 | Typing is never eaten | Type `120` quickly, then `95` | Every keystroke lands; the caret never jumps (both fields go through `useTextField`) |
-| 13.9 | Minus cannot reach the total | Try to type `-5` in the **total** field | Refused — only the change field takes a sign |
-| 13.10 | Floor blocks the cut | 40 active, allowance 60 → total `39` | Field turns red, amber "Deactivate 1 customers" panel, Save disabled |
-| 13.11 | Cut to exactly the active count | 40 active → total `40` | Allowed and saved instantly |
-| 13.12 | Minimum on a raise | Allowance 100 → total `105` (change `+5`) | "Please request at least 10 more customers"; Save disabled |
-| 13.13 | Raise at the minimum | Total `110` (change `+10`) | Allowed; a pending request for **10** is created |
-| 13.14 | Raise sends a request, not a change | Save a `+20` | The allowance is **unchanged**; the amber pending block appears on the card |
-| 13.15 | WhatsApp only on a raise | Compare a `+20` and a `-20` | "Send request + WhatsApp" shows only for the raise (and only when a support number is set) |
-| 13.16 | Lowering confirms first | Enter `-20`, Save, then Cancel the dialog | Nothing is written |
-| 13.17 | Stepper stops at the minimum | Hold **−** past 30 | Total stops at `30`; the minus button greys out |
-| 13.18 | Monthly amount does not move | Lower 60 → 45 with 40 active | Still `40 × price` — billing follows **active customers**, never the limit |
-| 13.19 | Survives a restart | Lower the limit, force-quit, reopen | The new limit is still shown (`auth.user.tenant` is patched too) |
-| 13.20 | Offline | Turn the network off, try to lower | `RequiresConnectionError` in the sheet's `ErrorBanner`; nothing changes |
-| 13.21 | Server has the last word | Let another device add customers so the local count is stale, then cut to the stale floor | The RPC refuses and the sheet shows "deactivate first" built from the **server's** count |
-| 13.22 | Edit request uses the SAME sheet | With a request pending, tap **Edit request** | The same two-field sheet opens, titled **Edit request**, showing the number already asked for; the update button is hidden while a request is pending |
-| 13.30 | Edit request is raise-only | In the edit sheet, press **−** below the current allowance | The minus stops at the allowance — there is no lowering path while a request is pending |
-| 13.31 | Edit keeps the 10 minimum | Edit a pending request down to `+5` | "You can request at least 10 more customers"; Save disabled |
-| 13.32 | Editing saves a request, not a change | Edit `+20` to `+35`, Save | The pending row now reads 35; the allowance itself is untouched |
-| 13.23 | Guard still holds | As a tenant admin, `UPDATE tenants SET customer_allowance = 999` | Refused by `trg_tenants_guard_billing` — the RPC is the only door, and it only goes down |
-| 13.24 | Usage bar colours | Watch the card's bar at 50%, 85% and 100% | Indigo, amber from 80%, red at or over the limit |
-| 13.25 | Unit tests green | `cd tests && npm test -- suites/customerAllowance.test.ts` | TC-CA-01…11, TC-CD-01…07 and TC-CS-01…03 all pass |
-| 13.26 | Typed below the minimum | 0 active, allowance 100 → total `29` | "The customer limit cannot go below 30"; Save disabled |
-| 13.27 | Cut to exactly the minimum | 0 active, allowance 100 → total `30` | Allowed and saved |
-| 13.28 | Active count outranks the minimum | 45 active → total `30` | The **floor** message wins: it asks to deactivate 15, rather than naming the 30 minimum |
-| 13.29 | Server refuses too | Call the RPC directly with `29` | RAISEs "The customer limit cannot go below 30" — the UI is not the only guard |
-| 13.33 | **The guard does not refuse its own RPC** | Against a REAL database, as a tenant admin, lower both limits from the sheet | Saves. `trg_tenants_guard_billing` tests the request’s ROLE, and `lower_allowances()` is SECURITY DEFINER so it runs as the function owner. When the guard tested `auth.uid()` instead, every save died on *"customer_allowance, plan_allowance and price_per_plan_usd are owner-only"* — the JWT survives the definer swap |
+| #     | Scenario                                  | Steps                                                                                     | Expected result                                                                                                                                                                                                                                                                                                             |
+| ----- | ----------------------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 13.1  | Two fields, one number                    | Allowance 100. Open the sheet                                                             | Total reads `100`, Change is **empty** (not `+0`), Save disabled                                                                                                                                                                                                                                                            |
+| 13.2  | Total drives Change (up)                  | Type `120` in the total                                                                   | Change shows **`+20` in green**; the button reads "Send request"                                                                                                                                                                                                                                                            |
+| 13.3  | Total drives Change (down)                | Type `80` in the total                                                                    | Change shows **`-20` in red**; the button reads "Lower limit"                                                                                                                                                                                                                                                               |
+| 13.4  | Change drives Total (up)                  | Type `20` in the change field                                                             | Total becomes `120`                                                                                                                                                                                                                                                                                                         |
+| 13.5  | Change drives Total (down)                | Type `-20` in the change field                                                            | Total becomes `80`                                                                                                                                                                                                                                                                                                          |
+| 13.6  | Plus / minus steppers                     | Tap **+** three times, then **−** once                                                    | Total `103`, change `+3` then `+2`; both fields stay in step                                                                                                                                                                                                                                                                |
+| 13.7  | Back to the start                         | Move the number away and back to `100`                                                    | Change empties, Save goes disabled — a no-op change is not saveable                                                                                                                                                                                                                                                         |
+| 13.8  | Typing is never eaten                     | Type `120` quickly, then `95`                                                             | Every keystroke lands; the caret never jumps (both fields go through `useTextField`)                                                                                                                                                                                                                                        |
+| 13.9  | Minus cannot reach the total              | Try to type `-5` in the **total** field                                                   | Refused — only the change field takes a sign                                                                                                                                                                                                                                                                                |
+| 13.10 | Floor blocks the cut                      | 40 active, allowance 60 → total `39`                                                      | Field turns red, amber "Deactivate 1 customers" panel, Save disabled                                                                                                                                                                                                                                                        |
+| 13.11 | Cut to exactly the active count           | 40 active → total `40`                                                                    | Allowed and saved instantly                                                                                                                                                                                                                                                                                                 |
+| 13.12 | Minimum on a raise                        | Allowance 100 → total `105` (change `+5`)                                                 | "Please request at least 10 more customers"; Save disabled                                                                                                                                                                                                                                                                  |
+| 13.13 | Raise at the minimum                      | Total `110` (change `+10`)                                                                | Allowed; a pending request for **10** is created                                                                                                                                                                                                                                                                            |
+| 13.14 | Raise sends a request, not a change       | Save a `+20`                                                                              | The allowance is **unchanged**; the amber pending block appears on the card                                                                                                                                                                                                                                                 |
+| 13.15 | WhatsApp only on a raise                  | Compare a `+20` and a `-20`                                                               | "Send request + WhatsApp" shows only for the raise (and only when a support number is set)                                                                                                                                                                                                                                  |
+| 13.16 | Lowering confirms first                   | Enter `-20`, Save, then Cancel the dialog                                                 | Nothing is written                                                                                                                                                                                                                                                                                                          |
+| 13.17 | Stepper stops at the minimum              | Hold **−** past 30                                                                        | Total stops at `30`; the minus button greys out                                                                                                                                                                                                                                                                             |
+| 13.18 | Monthly amount does not move              | Lower 60 → 45 with 40 active                                                              | Still `40 × price` — billing follows **active customers**, never the limit                                                                                                                                                                                                                                                  |
+| 13.19 | Survives a restart                        | Lower the limit, force-quit, reopen                                                       | The new limit is still shown (`auth.user.tenant` is patched too)                                                                                                                                                                                                                                                            |
+| 13.20 | Offline                                   | Turn the network off, try to lower                                                        | `RequiresConnectionError` in the sheet's `ErrorBanner`; nothing changes                                                                                                                                                                                                                                                     |
+| 13.21 | Server has the last word                  | Let another device add customers so the local count is stale, then cut to the stale floor | The RPC refuses and the sheet shows "deactivate first" built from the **server's** count                                                                                                                                                                                                                                    |
+| 13.22 | Edit request uses the SAME sheet          | With a request pending, tap **Edit request**                                              | The same two-field sheet opens, titled **Edit request**, showing the number already asked for; the update button is hidden while a request is pending                                                                                                                                                                       |
+| 13.30 | Edit request is raise-only                | In the edit sheet, press **−** below the current allowance                                | The minus stops at the allowance — there is no lowering path while a request is pending                                                                                                                                                                                                                                     |
+| 13.31 | Edit keeps the 10 minimum                 | Edit a pending request down to `+5`                                                       | "You can request at least 10 more customers"; Save disabled                                                                                                                                                                                                                                                                 |
+| 13.32 | Editing saves a request, not a change     | Edit `+20` to `+35`, Save                                                                 | The pending row now reads 35; the allowance itself is untouched                                                                                                                                                                                                                                                             |
+| 13.23 | Guard still holds                         | As a tenant admin, `UPDATE tenants SET customer_allowance = 999`                          | Refused by `trg_tenants_guard_billing` — the RPC is the only door, and it only goes down                                                                                                                                                                                                                                    |
+| 13.24 | Usage bar colours                         | Watch the card's bar at 50%, 85% and 100%                                                 | Indigo, amber from 80%, red at or over the limit                                                                                                                                                                                                                                                                            |
+| 13.25 | Unit tests green                          | `cd tests && npm test -- suites/customerAllowance.test.ts`                                | TC-CA-01…11, TC-CD-01…07 and TC-CS-01…03 all pass                                                                                                                                                                                                                                                                           |
+| 13.26 | Typed below the minimum                   | 0 active, allowance 100 → total `29`                                                      | "The customer limit cannot go below 30"; Save disabled                                                                                                                                                                                                                                                                      |
+| 13.27 | Cut to exactly the minimum                | 0 active, allowance 100 → total `30`                                                      | Allowed and saved                                                                                                                                                                                                                                                                                                           |
+| 13.28 | Active count outranks the minimum         | 45 active → total `30`                                                                    | The **floor** message wins: it asks to deactivate 15, rather than naming the 30 minimum                                                                                                                                                                                                                                     |
+| 13.29 | Server refuses too                        | Call the RPC directly with `29`                                                           | RAISEs "The customer limit cannot go below 30" — the UI is not the only guard                                                                                                                                                                                                                                               |
+| 13.33 | **The guard does not refuse its own RPC** | Against a REAL database, as a tenant admin, lower both limits from the sheet              | Saves. `trg_tenants_guard_billing` tests the request’s ROLE, and `lower_allowances()` is SECURITY DEFINER so it runs as the function owner. When the guard tested `auth.uid()` instead, every save died on _"customer_allowance, plan_allowance and price_per_plan_usd are owner-only"_ — the JWT survives the definer swap |
 
 ---
 
@@ -322,53 +322,53 @@ Enforced in `CustomerService.createCustomer` via `billingService.assertQuotas(li
 
 The second limit, and the one the bill is counted on. Enforced in `CustomerPlanService.syncLines` and — for lines drafted alongside a new customer — in `CustomerService.createCustomer`, both through `billingService.assertQuotas`.
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 14.1 | Under the cap | Line limit 30, 29 active lines, add one line to an existing customer | Saved normally; the line bar reads 30 / 30 |
-| 14.2 | **At the cap** | Line limit 30, 30 active lines, add a line | "Service line limit reached" modal; **no line inserted**; the form stays open behind it |
-| 14.3 | A batch that would cross | Limit 30, 28 active, add 3 lines to one customer in one save | Blocked — the whole save is refused, not two-of-three; nothing is written |
-| 14.4 | A batch that exactly fits | Limit 30, 27 active, add 3 lines in one save | All three saved |
-| 14.5 | **Removals net against additions** | Limit 30, 30 active; on one customer remove 2 lines and add 2 in the same save | Saved — the net change is 0, so the cap never bites |
-| 14.6 | Removing while over cap | Owner cuts the line limit to 20 while 30 are active; remove a line | Succeeds — a quota only refuses a write that grows it |
-| 14.7 | Adding while over cap | Same state, add a line | Blocked with 30 of 20 |
-| 14.8 | Reactivating a cancelled line counts | At the cap, reactivate a previously cancelled line | Blocked — a reactivated line is an added line |
-| 14.9 | **A new customer's drafted lines are counted first** | Limit 30, 29 active lines, 20 of 30 customers; add a NEW customer with 2 lines | Blocked, and **no customer row is created** — check the customer list and the customer bar afterwards |
-| 14.10 | Customer cap reported first | Both caps full, add a new customer with lines | The modal names the **customer** limit, not the line one |
-| 14.11 | Deactivating a customer frees its lines | Customer with 3 active lines, deactivate them | The line bar drops by 3 with no line row edited; the monthly amount drops too |
-| 14.12 | Reactivating puts them back | Reactivate that customer | The line bar climbs by 3 again |
-| 14.13 | Deleting a customer frees its lines | Hard-delete (no payments) and soft-delete (has payments) a customer with 2 lines | Both drop the line bar by 2 |
-| 14.14 | Bulk delete | Select 3 customers holding 5 lines between them, bulk delete | Customer bar −3, line bar −5 |
-| 14.15 | A line on an inactive customer is not billed | Tenant with 10 lines, 4 of them on deactivated customers | The bar and the monthly amount both count 6 |
-| 14.16 | Count is tenant-wide | Branch admin of a 3-branch tenant | The line bar shows the TENANT total, not the branch's share |
-| 14.17 | Editing a line is never blocked | At the cap, change an existing line's plan or start date | Saves fine — the cap gates growth only |
-| 14.18 | Branch admin gets no button | Hit the line cap as an admin bound to a branch | Modal says "ask your administrator"; no navigate button |
-| 14.19 | Not an ErrorBanner | Hit the line cap | The limit surfaces as the modal, never as a red banner; `customerPlans.error` stays null |
-| 14.20 | Offline (native) | Go offline, hit the line cap | Still blocked — the limit is on the synced tenant row and the count comes from the mirror |
-| 14.21 | Two offline devices race | Both offline at 29 of 30 lines, each adds one, then sync | Both land; the tenant sits at 31 of 30 — advisory, like the oversell guard. No row is lost |
+| #     | Scenario                                             | Steps                                                                            | Expected result                                                                                       |
+| ----- | ---------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| 14.1  | Under the cap                                        | Line limit 30, 29 active lines, add one line to an existing customer             | Saved normally; the line bar reads 30 / 30                                                            |
+| 14.2  | **At the cap**                                       | Line limit 30, 30 active lines, add a line                                       | "Service line limit reached" modal; **no line inserted**; the form stays open behind it               |
+| 14.3  | A batch that would cross                             | Limit 30, 28 active, add 3 lines to one customer in one save                     | Blocked — the whole save is refused, not two-of-three; nothing is written                             |
+| 14.4  | A batch that exactly fits                            | Limit 30, 27 active, add 3 lines in one save                                     | All three saved                                                                                       |
+| 14.5  | **Removals net against additions**                   | Limit 30, 30 active; on one customer remove 2 lines and add 2 in the same save   | Saved — the net change is 0, so the cap never bites                                                   |
+| 14.6  | Removing while over cap                              | Owner cuts the line limit to 20 while 30 are active; remove a line               | Succeeds — a quota only refuses a write that grows it                                                 |
+| 14.7  | Adding while over cap                                | Same state, add a line                                                           | Blocked with 30 of 20                                                                                 |
+| 14.8  | Reactivating a cancelled line counts                 | At the cap, reactivate a previously cancelled line                               | Blocked — a reactivated line is an added line                                                         |
+| 14.9  | **A new customer's drafted lines are counted first** | Limit 30, 29 active lines, 20 of 30 customers; add a NEW customer with 2 lines   | Blocked, and **no customer row is created** — check the customer list and the customer bar afterwards |
+| 14.10 | Customer cap reported first                          | Both caps full, add a new customer with lines                                    | The modal names the **customer** limit, not the line one                                              |
+| 14.11 | Deactivating a customer frees its lines              | Customer with 3 active lines, deactivate them                                    | The line bar drops by 3 with no line row edited; the monthly amount drops too                         |
+| 14.12 | Reactivating puts them back                          | Reactivate that customer                                                         | The line bar climbs by 3 again                                                                        |
+| 14.13 | Deleting a customer frees its lines                  | Hard-delete (no payments) and soft-delete (has payments) a customer with 2 lines | Both drop the line bar by 2                                                                           |
+| 14.14 | Bulk delete                                          | Select 3 customers holding 5 lines between them, bulk delete                     | Customer bar −3, line bar −5                                                                          |
+| 14.15 | A line on an inactive customer is not billed         | Tenant with 10 lines, 4 of them on deactivated customers                         | The bar and the monthly amount both count 6                                                           |
+| 14.16 | Count is tenant-wide                                 | Branch admin of a 3-branch tenant                                                | The line bar shows the TENANT total, not the branch's share                                           |
+| 14.17 | Editing a line is never blocked                      | At the cap, change an existing line's plan or start date                         | Saves fine — the cap gates growth only                                                                |
+| 14.18 | Branch admin gets no button                          | Hit the line cap as an admin bound to a branch                                   | Modal says "ask your administrator"; no navigate button                                               |
+| 14.19 | Not an ErrorBanner                                   | Hit the line cap                                                                 | The limit surfaces as the modal, never as a red banner; `customerPlans.error` stays null              |
+| 14.20 | Offline (native)                                     | Go offline, hit the line cap                                                     | Still blocked — the limit is on the synced tenant row and the count comes from the mirror             |
+| 14.21 | Two offline devices race                             | Both offline at 29 of 30 lines, each adds one, then sync                         | Both land; the tenant sits at 31 of 30 — advisory, like the oversell guard. No row is lost            |
 
 ---
 
 ## 15. The service-line limit in the settings card and sheet
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 15.1 | Two bars | Open Organization Settings | Customer bar first, service-line bar under it, then the monthly amount |
-| 15.2 | Line bar tones | Drive lines to 79%, 80%, 100% of the limit | Indigo, amber, red — same thresholds as the customer bar |
-| 15.3 | Monthly amount follows LINES | 100 active lines across 40 customers, price 0.15 | `$15.00` — not `$6.00` |
-| 15.4 | Amount note | Under the amount | Reads "N active × $price per service line" |
-| 15.5 | Both fields in the sheet | Open "Update your limits" | Allowed customers and Allowed service lines, each with its own Change box and steppers |
-| 15.6 | **Raising customers lifts lines** | Limits 30 / 30, type 50 in the customer box | The line box moves to 50 too, with no error shown |
-| 15.7 | Lines cannot go under customers | Limits 50 / 80, type 40 in the line box | The field floors at 50; Save is not offered below it |
-| 15.8 | Lower one limit only | Limits 50 / 80 with 40 / 60 active, cut lines to 70 and leave customers | Confirm names both new numbers; applies at once |
-| 15.9 | **Raise and cut together is refused** | Raise customers, cut lines, in one save | "Raise or lower, not both at once"; Save disabled |
-| 15.10 | Ask for lines only | Limits 30 / 30, leave customers, ask +20 lines | Request sends — the 10 minimum binds the total, not each half |
-| 15.11 | Ask for both | +5 customers and +5 lines | Request sends; the pending block reads "5 more customers and 5 more service lines" |
-| 15.12 | Ask below the total minimum | +4 customers and +5 lines | Refused — 9 is under 10 |
-| 15.13 | Line floor on a cut | 60 active lines, try to cut the line limit to 50 | Amber "Cancel 10 service lines first"; Save disabled; the server would refuse it too |
-| 15.14 | Server wins | Another device adds lines between load and Save, then cut to just under the new count | The RPC refuses with the coded message; the sheet shows the same typed floor error, not raw SQL |
-| 15.15 | Edit a pending request | Pending +5 / +5, tap Edit request | Both boxes open on limit + what was asked; each floor is that limit's current value; Save routes to editRequest |
-| 15.16 | SuperAdmin grants | Accept with 5 customers and 0 lines | Both allowances patch in the card; the line one is lifted to at least the new customer one |
-| 15.17 | SuperAdmin grant of 0 / 0 | Leave both grant fields empty or zero | Accept is disabled |
-| 15.18 | SuperAdmin line field floor | In the tenant form, set the line allowance under the customer allowance | Inline error; Save disabled |
-| 15.19 | WhatsApp wording | Send request + WhatsApp for +5 / +5 | The message names both halves in one sentence |
-| 15.20 | RTL | Switch to Arabic and reopen the sheet | Both field pairs mirror; the numbers stay left-to-right |
+| #     | Scenario                              | Steps                                                                                 | Expected result                                                                                                 |
+| ----- | ------------------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 15.1  | Two bars                              | Open Organization Settings                                                            | Customer bar first, service-line bar under it, then the monthly amount                                          |
+| 15.2  | Line bar tones                        | Drive lines to 79%, 80%, 100% of the limit                                            | Indigo, amber, red — same thresholds as the customer bar                                                        |
+| 15.3  | Monthly amount follows LINES          | 100 active lines across 40 customers, price 0.15                                      | `$15.00` — not `$6.00`                                                                                          |
+| 15.4  | Amount note                           | Under the amount                                                                      | Reads "N active × $price per service line"                                                                      |
+| 15.5  | Both fields in the sheet              | Open "Update your limits"                                                             | Allowed customers and Allowed service lines, each with its own Change box and steppers                          |
+| 15.6  | **Raising customers lifts lines**     | Limits 30 / 30, type 50 in the customer box                                           | The line box moves to 50 too, with no error shown                                                               |
+| 15.7  | Lines cannot go under customers       | Limits 50 / 80, type 40 in the line box                                               | The field floors at 50; Save is not offered below it                                                            |
+| 15.8  | Lower one limit only                  | Limits 50 / 80 with 40 / 60 active, cut lines to 70 and leave customers               | Confirm names both new numbers; applies at once                                                                 |
+| 15.9  | **Raise and cut together is refused** | Raise customers, cut lines, in one save                                               | "Raise or lower, not both at once"; Save disabled                                                               |
+| 15.10 | Ask for lines only                    | Limits 30 / 30, leave customers, ask +20 lines                                        | Request sends — the 10 minimum binds the total, not each half                                                   |
+| 15.11 | Ask for both                          | +5 customers and +5 lines                                                             | Request sends; the pending block reads "5 more customers and 5 more service lines"                              |
+| 15.12 | Ask below the total minimum           | +4 customers and +5 lines                                                             | Refused — 9 is under 10                                                                                         |
+| 15.13 | Line floor on a cut                   | 60 active lines, try to cut the line limit to 50                                      | Amber "Cancel 10 service lines first"; Save disabled; the server would refuse it too                            |
+| 15.14 | Server wins                           | Another device adds lines between load and Save, then cut to just under the new count | The RPC refuses with the coded message; the sheet shows the same typed floor error, not raw SQL                 |
+| 15.15 | Edit a pending request                | Pending +5 / +5, tap Edit request                                                     | Both boxes open on limit + what was asked; each floor is that limit's current value; Save routes to editRequest |
+| 15.16 | SuperAdmin grants                     | Accept with 5 customers and 0 lines                                                   | Both allowances patch in the card; the line one is lifted to at least the new customer one                      |
+| 15.17 | SuperAdmin grant of 0 / 0             | Leave both grant fields empty or zero                                                 | Accept is disabled                                                                                              |
+| 15.18 | SuperAdmin line field floor           | In the tenant form, set the line allowance under the customer allowance               | Inline error; Save disabled                                                                                     |
+| 15.19 | WhatsApp wording                      | Send request + WhatsApp for +5 / +5                                                   | The message names both halves in one sentence                                                                   |
+| 15.20 | RTL                                   | Switch to Arabic and reopen the sheet                                                 | Both field pairs mirror; the numbers stay left-to-right                                                         |

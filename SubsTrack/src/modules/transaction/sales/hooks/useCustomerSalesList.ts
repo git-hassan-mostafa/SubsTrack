@@ -94,7 +94,11 @@ export function useCustomerSalesList(
   const patch = useMemo<SalePatches>(() => {
     const base = saleListPatches(setItems, customerId);
     if (!search) return base;
-    return { ...base, created: () => void refresh(), updated: () => void refresh() };
+    return {
+      ...base,
+      created: () => void refresh(),
+      updated: () => void refresh(),
+    };
   }, [customerId, search, refresh]);
 
   return {

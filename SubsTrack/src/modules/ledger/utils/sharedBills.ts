@@ -1,5 +1,5 @@
-import type { Collection, CollectionItem } from '@/src/core/types';
-import { getBlockRangeLabel } from '@/src/modules/customer/customer-payments/utils/blockRangeLabel';
+import type { Collection, CollectionItem } from "@/src/core/types";
+import { getBlockRangeLabel } from "@/src/modules/customer/customer-payments/utils/blockRangeLabel";
 
 /** One other bill a hand-over settled, ready to print in a void warning. */
 export interface SharedBill {
@@ -21,14 +21,14 @@ type Translate = (key: string, opts?: Record<string, unknown>) => string;
  */
 function billLabel(item: CollectionItem, t: Translate): string {
   const charge = item.charge;
-  if (!charge) return t('ledger.shared_bill_fallback');
-  if (charge.kind === 'month') {
+  if (!charge) return t("ledger.shared_bill_fallback");
+  if (charge.kind === "month") {
     return charge.billingMonth
       ? getBlockRangeLabel(charge.billingMonth, charge.durationMonths, t)
-      : t('ledger.shared_bill_fallback');
+      : t("ledger.shared_bill_fallback");
   }
-  if (charge.kind === 'sale') return t('debts.sale');
-  return charge.description?.trim() || t('debts.custom');
+  if (charge.kind === "sale") return t("debts.sale");
+  return charge.description?.trim() || t("debts.custom");
 }
 
 /**
@@ -43,7 +43,7 @@ function billLabel(item: CollectionItem, t: Translate): string {
  * they already expect, so listing it would bury the surprise.
  */
 export function sharedBillsOf(
-  collection: Pick<Collection, 'items' | 'currencyId' | 'ratePerUsdSnapshot'>,
+  collection: Pick<Collection, "items" | "currencyId" | "ratePerUsdSnapshot">,
   exceptChargeId: string | null,
   t: Translate,
 ): SharedBill[] {
@@ -62,14 +62,17 @@ export function sharedBillsOf(
 
 /** The same across MANY hand-overs — a bill void undoes each one whole. */
 export function sharedBillsAcross(
-  collections: Pick<Collection, 'items' | 'currencyId' | 'ratePerUsdSnapshot'>[],
+  collections: Pick<
+    Collection,
+    "items" | "currencyId" | "ratePerUsdSnapshot"
+  >[],
   exceptChargeId: string | null,
   t: Translate,
 ): SharedBill[] {
   const merged = new Map<string, SharedBill>();
   for (const collection of collections) {
     for (const bill of sharedBillsOf(collection, exceptChargeId, t)) {
-      const key = `${bill.chargeId}|${bill.snapshot.currencyId ?? 'USD'}`;
+      const key = `${bill.chargeId}|${bill.snapshot.currencyId ?? "USD"}`;
       const seen = merged.get(key);
       if (seen) seen.amount += bill.amount;
       else merged.set(key, { ...bill });

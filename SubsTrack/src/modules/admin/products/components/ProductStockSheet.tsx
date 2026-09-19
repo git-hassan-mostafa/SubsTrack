@@ -93,8 +93,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   const loadHistory = useCallback(async () => {
     try {
       setHistory(await productService.getMovements(product.id));
-    } catch {
-    }
+    } catch {}
   }, [product.id]);
 
   useEffect(() => {

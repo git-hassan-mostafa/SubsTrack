@@ -16,7 +16,7 @@ export interface DbCustomerRequest {
   granted_count: number | null;
   requested_plans: number | null;
   granted_plans: number | null;
-  status: 'pending' | 'accepted' | 'declined' | 'cancelled';
+  status: "pending" | "accepted" | "declined" | "cancelled";
   requested_by: string | null;
   decided_by: string | null;
   decided_at: string | null;
@@ -51,7 +51,7 @@ export interface DbUser {
   username: string;
   full_name: string;
   phone_number: string | null;
-  role: 'superadmin' | 'admin' | 'user';
+  role: "superadmin" | "admin" | "user";
   active: boolean;
   tenant_id: string;
   branch_id: string | null;
@@ -195,9 +195,9 @@ export interface DbStockMovement {
   updated_at: string;
 }
 
-export type DbStockReason = 'initial' | 'restock' | 'adjustment' | 'sale';
+export type DbStockReason = "initial" | "restock" | "adjustment" | "sale";
 
-export type DbSaleLineType = 'product' | 'service';
+export type DbSaleLineType = "product" | "service";
 
 // One line of a sale (sale_items table) — a product or a service.
 export interface DbSaleItem {
@@ -217,14 +217,13 @@ export interface DbSaleItem {
   services?: DbService | null;
 }
 
-
 // One bill: a subscription month, a sale, or a hand-typed fee.
 export interface DbCharge {
   id: string;
   tenant_id: string;
   branch_id: string | null;
   customer_id: string | null;
-  kind: 'month' | 'sale' | 'manual';
+  kind: "month" | "sale" | "manual";
   customer_plan_id: string | null;
   billing_month: string | null;
   duration_months: number;
@@ -264,7 +263,7 @@ export interface DbCollection {
   received_at: string;
   received_by_user_id: string | null;
   notes: string | null;
-  kind: 'month' | 'sale' | 'manual' | 'mixed' | null;
+  kind: "month" | "sale" | "manual" | "mixed" | null;
   created_at: string;
   updated_at: string;
   voided_at: string | null;
@@ -345,7 +344,7 @@ export interface DbTenantSetting {
 
 // 'void' / 'restore' are updates too, kept distinct so the trail can be filtered
 // by what a staff member actually did.
-export type DbAuditAction = 'create' | 'update' | 'delete' | 'void' | 'restore';
+export type DbAuditAction = "create" | "update" | "delete" | "void" | "restore";
 
 // One entry in the append-only audit trail. Built by the app next to each change
 // (never by a DB trigger — see sql scripts/script.sql → AUDIT LOGS). `before_data`

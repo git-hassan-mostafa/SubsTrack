@@ -1,8 +1,8 @@
-import type { StateCreator } from 'zustand';
-import type { Plan } from '@/src/core/types';
-import { planService } from '@/src/modules/admin/plans';
-import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import type { GlobalState } from '@/src/state/globalStore';
+import type { StateCreator } from "zustand";
+import type { Plan } from "@/src/core/types";
+import { planService } from "@/src/modules/admin/plans";
+import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
+import type { GlobalState } from "@/src/state/globalStore";
 
 interface PlanInput {
   name: string;
@@ -30,7 +30,7 @@ export interface PlanSlice {
 
 export const createPlanSlice: StateCreator<
   GlobalState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   PlanSlice
 > = (set, get) => ({

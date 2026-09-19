@@ -27,12 +27,14 @@ export function saleTitle(id: string, itemsSummary: string): string {
  */
 export function isReceiptIdTerm(term: string): boolean {
   const bare = receiptIdTerm(term);
-  return bare.length > 0
-    && bare.length <= RECEIPT_ID_LENGTH
-    && /^[0-9a-f]+$/.test(bare);
+  return (
+    bare.length > 0 &&
+    bare.length <= RECEIPT_ID_LENGTH &&
+    /^[0-9a-f]+$/.test(bare)
+  );
 }
 
 /** The bare id characters a receipt-number search matches against. */
 export function receiptIdTerm(term: string): string {
-  return term.trim().replace(/^#/, '').toLowerCase();
+  return term.trim().replace(/^#/, "").toLowerCase();
 }

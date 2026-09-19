@@ -148,7 +148,9 @@ export function WalletsScreen() {
       message: closing
         ? t("wallet.close_out_all_confirm_message")
         : t("wallet.receive_all_confirm_message", { name: wallet.holderName }),
-      confirmLabel: closing ? t("wallet.close_out_all") : t("wallet.receive_all"),
+      confirmLabel: closing
+        ? t("wallet.close_out_all")
+        : t("wallet.receive_all"),
       onConfirm: async () => {
         if (fromSheet) setBusy(true);
         else setActingId(wallet.holderUserId);

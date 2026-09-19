@@ -10,10 +10,11 @@ const WHATSAPP_GREEN = "#25D366";
  */
 export type WhatsAppComboVariant = "pay" | "report";
 
-const BASE_ICON: Record<WhatsAppComboVariant, keyof typeof Ionicons.glyphMap> = {
-  pay: "flash-outline",
-  report: "receipt-outline",
-};
+const BASE_ICON: Record<WhatsAppComboVariant, keyof typeof Ionicons.glyphMap> =
+  {
+    pay: "flash-outline",
+    report: "receipt-outline",
+  };
 
 interface Props {
   variant: WhatsAppComboVariant;

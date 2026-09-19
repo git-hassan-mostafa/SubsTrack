@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from "react-native";
 
 interface EmptyStateProps {
   message: string;
@@ -15,7 +15,18 @@ export function EmptyState({ message, subMessage }: EmptyStateProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  message: { fontSize: 16, fontWeight: '600', color: '#374151', textAlign: 'center', marginBottom: 8 },
-  subMessage: { fontSize: 14, color: '#9ca3af', textAlign: 'center' },
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+  },
+  message: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#374151",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  subMessage: { fontSize: 14, color: "#9ca3af", textAlign: "center" },
 });

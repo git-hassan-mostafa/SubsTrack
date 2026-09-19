@@ -8,7 +8,14 @@ import { mapDbCustomerToCustomer } from "../utils/mapper";
 
 type CustomerInput = Pick<
   Customer,
-  "name" | "phoneNumber" | "address" | "area" | "notes" | "locationUrl" | "branchId" | "isRegular"
+  | "name"
+  | "phoneNumber"
+  | "address"
+  | "area"
+  | "notes"
+  | "locationUrl"
+  | "branchId"
+  | "isRegular"
 >;
 
 class CustomerService {
@@ -88,14 +95,16 @@ class CustomerService {
     return mapDbCustomerToCustomer(row);
   }
 
-  async deleteCustomer(id: string): Promise<{ mode: 'hard' } | { mode: 'soft'; customer: Customer }> {
+  async deleteCustomer(
+    id: string,
+  ): Promise<{ mode: "hard" } | { mode: "soft"; customer: Customer }> {
     const paymentCount = await repository.countPayments(id);
     if (paymentCount === 0) {
       await repository.delete(id);
-      return { mode: 'hard' };
+      return { mode: "hard" };
     }
     const row = await repository.deactivate(id);
-    return { mode: 'soft', customer: mapDbCustomerToCustomer(row) };
+    return { mode: "soft", customer: mapDbCustomerToCustomer(row) };
   }
 
   async reactivateCustomer(id: string): Promise<Customer> {
@@ -118,11 +127,12 @@ class CustomerService {
   }
 
   private validateInput(data: CustomerInput): void {
-    if (!data.name.trim()) throw new Error(i18n.t("errors.customer_name_required"));
+    if (!data.name.trim())
+      throw new Error(i18n.t("errors.customer_name_required"));
     if (!data.branchId) {
       throw new Error(i18n.t("errors.customer_needs_branch"));
     }
   }
 }
 
-export default new CustomerService()
+export default new CustomerService();

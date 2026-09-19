@@ -1,4 +1,4 @@
-import type { BranchFilter } from '@/src/core/constants';
+import type { BranchFilter } from "@/src/core/constants";
 import type {
   Currency,
   Customer,
@@ -8,13 +8,13 @@ import type {
   OpenItem,
   SkippedMonth,
   UnpaidStartRule,
-} from '@/src/core/types';
-import { resolveLinePrice } from '@/src/modules/customer/customer-plans/utils/linePrice';
-import { findCurrency } from '@/src/core/utils/currency';
-import paymentService from '@/src/modules/customer/customer-payments/services/PaymentService';
-import { chargeService } from './ChargeService';
-import { virtualMonthItem } from '../utils/openItems';
-import { keyOf, sortByDue } from '../utils/waterfall';
+} from "@/src/core/types";
+import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
+import { findCurrency } from "@/src/core/utils/currency";
+import paymentService from "@/src/modules/customer/customer-payments/services/PaymentService";
+import { chargeService } from "./ChargeService";
+import { virtualMonthItem } from "../utils/openItems";
+import { keyOf, sortByDue } from "../utils/waterfall";
 
 /**
  * The one place that answers "what does this customer owe?".
@@ -49,7 +49,7 @@ class LedgerService {
 
     const billed = new Set(
       stored
-        .filter((i) => i.kind === 'month' && i.paid > 0)
+        .filter((i) => i.kind === "month" && i.paid > 0)
         .map((i) => `${i.customerPlanId}:${i.billingMonth}`),
     );
     const virtual = this.virtualUnpaidMonths({
@@ -63,10 +63,12 @@ class LedgerService {
       today: args.today ?? new Date(),
     });
 
-    const revalued = new Set(virtual.map((i) => `${i.customerPlanId}:${i.billingMonth}`));
+    const revalued = new Set(
+      virtual.map((i) => `${i.customerPlanId}:${i.billingMonth}`),
+    );
     const kept = stored.filter(
       (i) =>
-        i.kind !== 'month' ||
+        i.kind !== "month" ||
         i.paid > 0 ||
         !revalued.has(`${i.customerPlanId}:${i.billingMonth}`),
     );
@@ -98,16 +100,24 @@ class LedgerService {
 
     for (const line of activeLines) {
       const price = resolveLinePrice(line);
-      if (!price.isFixed || price.amount === null || price.amount <= 0) continue;
-      const ratePerUsd = findCurrency(currencies, price.currencyId)?.ratePerUsd ?? 1;
+      if (!price.isFixed || price.amount === null || price.amount <= 0)
+        continue;
+      const ratePerUsd =
+        findCurrency(currencies, price.currencyId)?.ratePerUsd ?? 1;
 
       const bills = billsByLine.get(line.id) ?? [];
       const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
       const startYear = new Date(line.startDate).getFullYear();
 
       for (let year = startYear; year <= today.getFullYear(); year++) {
-        for (const entry of paymentService.buildMonthGrid(line, bills, lineSkips, year, unpaidRule)) {
-          if (entry.status !== 'unpaid') continue;
+        for (const entry of paymentService.buildMonthGrid(
+          line,
+          bills,
+          lineSkips,
+          year,
+          unpaidRule,
+        )) {
+          if (entry.status !== "unpaid") continue;
           if (alreadyBilled.has(`${line.id}:${entry.billingMonth}`)) continue;
           out.push(
             virtualMonthItem({
@@ -118,7 +128,7 @@ class LedgerService {
               billingMonth: entry.billingMonth,
               durationMonths: price.durationMonths,
               planId: line.planId,
-              label: `${entry.label} ${entry.year}${line.plan?.name ? ` · ${line.plan.name}` : ''}`,
+              label: `${entry.label} ${entry.year}${line.plan?.name ? ` · ${line.plan.name}` : ""}`,
               amount: price.amount,
               currencyId: price.currencyId,
               ratePerUsdSnapshot: ratePerUsd,
@@ -136,7 +146,9 @@ class LedgerService {
     return chargeService.buildDebtsView(open);
   }
 
-  getMonthBillsForLines(customerPlanIds: string[]): Promise<Map<string, MonthBill[]>> {
+  getMonthBillsForLines(
+    customerPlanIds: string[],
+  ): Promise<Map<string, MonthBill[]>> {
     return chargeService.getMonthBillsForLines(customerPlanIds);
   }
 

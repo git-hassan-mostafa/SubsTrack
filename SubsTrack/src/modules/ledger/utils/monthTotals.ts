@@ -1,4 +1,4 @@
-import { localMonthKey } from '@/src/core/utils/date';
+import { localMonthKey } from "@/src/core/utils/date";
 
 /**
  * "YYYY-MM" → USD, over rows that each froze their own rate.
@@ -8,7 +8,11 @@ import { localMonthKey } from '@/src/core/utils/date';
  * today's rate, or last year's totals would move every time a rate is edited.
  */
 export function sumByMonth(
-  rows: { received_at: string; amount: number; rate_per_usd_snapshot: number }[],
+  rows: {
+    received_at: string;
+    amount: number;
+    rate_per_usd_snapshot: number;
+  }[],
 ): Record<string, number> {
   const totals: Record<string, number> = {};
   for (const row of rows) {

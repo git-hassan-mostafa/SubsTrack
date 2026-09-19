@@ -16,11 +16,14 @@ function noCommas(s: string): string {
   return s.replace(/,/g, "");
 }
 
-export function formatDate(iso: string, options: Intl.DateTimeFormatOptions = {
-  month: "numeric",
-  day: "numeric",
-  year: "numeric",
-}): string {
+export function formatDate(
+  iso: string,
+  options: Intl.DateTimeFormatOptions = {
+    month: "numeric",
+    day: "numeric",
+    year: "numeric",
+  },
+): string {
   return noCommas(new Date(iso).toLocaleDateString(DATE_LOCALE, options));
 }
 
@@ -32,7 +35,7 @@ export function formatDateTime(iso: string): string {
       year: "numeric",
       hour: "numeric",
       minute: "2-digit",
-    })
+    }),
   );
 }
 
@@ -46,7 +49,7 @@ export function formatDateTimeShort(iso: string): string {
       ...(thisYear ? {} : { year: "numeric" }),
       hour: "numeric",
       minute: "2-digit",
-    })
+    }),
   );
 }
 
@@ -66,7 +69,11 @@ export function getTodayDateString(): string {
 // valid day, e.g. Mar 31 → Feb 28). Used for the payments list default range.
 export function getDateMonthsAgoString(months: number): string {
   const now = new Date();
-  const target = new Date(now.getFullYear(), now.getMonth() - months, now.getDate());
+  const target = new Date(
+    now.getFullYear(),
+    now.getMonth() - months,
+    now.getDate(),
+  );
   const y = target.getFullYear();
   const m = String(target.getMonth() + 1).padStart(2, "0");
   const d = String(target.getDate()).padStart(2, "0");

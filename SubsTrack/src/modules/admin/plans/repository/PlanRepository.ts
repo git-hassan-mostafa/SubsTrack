@@ -1,42 +1,56 @@
-import { Platform } from 'react-native';
-import { BaseRepository } from '@/src/core/utils/BaseRepository';
-import type { BranchFilter } from '@/src/core/constants';
-import type { DbPlan } from '@/src/core/types/db';
-import type { IPlanRepository } from './IPlanRepository';
-import { OfflinePlanRepository } from './PlanRepository.offline';
+import { Platform } from "react-native";
+import { BaseRepository } from "@/src/core/utils/BaseRepository";
+import type { BranchFilter } from "@/src/core/constants";
+import type { DbPlan } from "@/src/core/types/db";
+import type { IPlanRepository } from "./IPlanRepository";
+import { OfflinePlanRepository } from "./PlanRepository.offline";
 
 export class PlanRepository extends BaseRepository implements IPlanRepository {
   async findAll(branchFilter: BranchFilter = null): Promise<DbPlan[]> {
-    let query = this.db
-      .from('plans')
-      .select('*')
-      .order('name');
-    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.plans);
+    let query = this.db.from("plans").select("*").order("name");
+    query = this.applyBranchFilter(
+      query,
+      branchFilter,
+      this.BRANCH_SCOPES.plans,
+    );
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbPlan[];
   }
 
-  async create(payload: Omit<DbPlan, 'id' | 'created_at'>): Promise<DbPlan> {
+  async create(payload: Omit<DbPlan, "id" | "created_at">): Promise<DbPlan> {
     const { data, error } = await this.db
-      .from('plans')
+      .from("plans")
       .insert(payload)
       .select()
       .single();
     if (error) this.handleError(error);
     const created = data as DbPlan;
     this.audit({
-      table: 'plans',
+      table: "plans",
       recordId: created.id,
-      action: 'create',
+      action: "create",
       after: created,
       branchId: created.branch_id,
     });
     return created;
   }
 
-  async update(id: string, payload: Partial<Pick<DbPlan, 'name' | 'price' | 'is_custom_price' | 'duration_months' | 'currency_id' | 'branch_id'>>): Promise<DbPlan> {
-    return this.auditedUpdate<DbPlan>('plans', id, payload);
+  async update(
+    id: string,
+    payload: Partial<
+      Pick<
+        DbPlan,
+        | "name"
+        | "price"
+        | "is_custom_price"
+        | "duration_months"
+        | "currency_id"
+        | "branch_id"
+      >
+    >,
+  ): Promise<DbPlan> {
+    return this.auditedUpdate<DbPlan>("plans", id, payload);
   }
 
   async delete(id: string): Promise<void> {
@@ -44,14 +58,18 @@ export class PlanRepository extends BaseRepository implements IPlanRepository {
   }
 
   async deleteMany(ids: string[]): Promise<void> {
-    await this.auditedDelete<DbPlan>('plans', ids);
+    await this.auditedDelete<DbPlan>("plans", ids);
   }
 
   async countAll(branchFilter: BranchFilter = null): Promise<number> {
     let query = this.db
-      .from('plans')
-      .select('id', { count: 'exact', head: true });
-    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.plans);
+      .from("plans")
+      .select("id", { count: "exact", head: true });
+    query = this.applyBranchFilter(
+      query,
+      branchFilter,
+      this.BRANCH_SCOPES.plans,
+    );
     const { count, error } = await query;
     if (error) this.handleError(error);
     return count ?? 0;
@@ -59,6 +77,6 @@ export class PlanRepository extends BaseRepository implements IPlanRepository {
 }
 
 const impl: IPlanRepository =
-  Platform.OS === 'web' ? new PlanRepository() : new OfflinePlanRepository();
+  Platform.OS === "web" ? new PlanRepository() : new OfflinePlanRepository();
 
 export default impl;

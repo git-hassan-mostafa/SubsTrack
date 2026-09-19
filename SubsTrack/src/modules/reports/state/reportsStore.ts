@@ -1,26 +1,30 @@
-import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
-import type { UnpaidStartRule } from '@/src/core/types';
+import { create } from "zustand";
+import { immer } from "zustand/middleware/immer";
+import type { UnpaidStartRule } from "@/src/core/types";
 import {
   periodFromPreset,
   type PeriodPreset,
   type ReportPeriod,
-} from '@/src/core/utils/dateRange';
-import reportsService from '@/src/modules/reports/services/ReportsService';
-import type { DebtsReport, MoneyReport } from '@/src/modules/reports/utils/types';
-import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import tenantSettingService from '@/src/modules/admin/tenant-settings/services/TenantSettingService';
-import { TENANT_SETTING_KEYS } from '@/src/modules/admin/tenant-settings/utils/constants';
-import { getStore } from '@/src/state/globalStore';
+} from "@/src/core/utils/dateRange";
+import reportsService from "@/src/modules/reports/services/ReportsService";
+import type {
+  DebtsReport,
+  MoneyReport,
+} from "@/src/modules/reports/utils/types";
+import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
+import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
+import { TENANT_SETTING_KEYS } from "@/src/modules/admin/tenant-settings/utils/constants";
+import { getStore } from "@/src/state/globalStore";
 
-
-export type ReportSection = 'money' | 'debts';
+export type ReportSection = "money" | "debts";
 
 const getUnpaidRule = (): UnpaidStartRule =>
   tenantSettingService.parseUnpaidStartRule(
     getStore()
       .getState()
-      .tenantSettings.items.find((s) => s.key === TENANT_SETTING_KEYS.unpaidStartRule)?.value,
+      .tenantSettings.items.find(
+        (s) => s.key === TENANT_SETTING_KEYS.unpaidStartRule,
+      )?.value,
   );
 
 export interface ReportsState {
@@ -42,8 +46,8 @@ export interface ReportsState {
 
 export const useReportsStore = create<ReportsState>()(
   immer((set, get) => ({
-    period: periodFromPreset('this_month'),
-    section: 'money',
+    period: periodFromPreset("this_month"),
+    section: "money",
     money: null,
     debts: null,
     loading: false,
@@ -61,7 +65,7 @@ export const useReportsStore = create<ReportsState>()(
       });
       try {
         const filter = { period, branchFilter };
-        if (section === 'money') {
+        if (section === "money") {
           const money = await reportsService.getMoneyReport(filter);
           if (get().token !== token) return;
           set((state) => {
@@ -69,7 +73,10 @@ export const useReportsStore = create<ReportsState>()(
             state.loading = false;
           });
         } else {
-          const debts = await reportsService.getDebtsReport(filter, getUnpaidRule());
+          const debts = await reportsService.getDebtsReport(
+            filter,
+            getUnpaidRule(),
+          );
           if (get().token !== token) return;
           set((state) => {
             state.debts = debts;
@@ -103,7 +110,8 @@ export const useReportsStore = create<ReportsState>()(
         state.section = section;
       });
       const { money, debts } = get();
-      if ((section === 'money' && money) || (section === 'debts' && debts)) return;
+      if ((section === "money" && money) || (section === "debts" && debts))
+        return;
       await get().fetchSection();
     },
 
@@ -122,8 +130,8 @@ export const useReportsStore = create<ReportsState>()(
 
     reset: () =>
       set((state) => {
-        state.period = periodFromPreset('this_month');
-        state.section = 'money';
+        state.period = periodFromPreset("this_month");
+        state.section = "money";
         state.money = null;
         state.debts = null;
         state.loading = false;

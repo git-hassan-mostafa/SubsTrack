@@ -255,98 +255,97 @@ export function ProductListScreen() {
       />
 
       <ResponsiveContainer className="flex-1">
-      {/* Search stays mounted while selecting so its space remains and the list
+        {/* Search stays mounted while selecting so its space remains and the list
           never jumps; the selection toolbar (with the select-all checkbox) is
           overlaid on the header instead. */}
-      <SelectionOverlaySlot selecting={selectionActive}>
-        <View className="px-4 pt-4 flex-row items-center gap-x-2">
-          <View className="flex-1">
-            <SearchTextBox
-              searchText={searchText}
-              setSearchText={setSearchText}
-            />
-          </View>
-          {/* Restock several products in one save — the same sheet the
+        <SelectionOverlaySlot selecting={selectionActive}>
+          <View className="px-4 pt-4 flex-row items-center gap-x-2">
+            <View className="flex-1">
+              <SearchTextBox
+                searchText={searchText}
+                setSearchText={setSearchText}
+              />
+            </View>
+            {/* Restock several products in one save — the same sheet the
               quick-actions menu opens. */}
-          <PressableOpacity
-            onPress={() => setBatchRestockOpen(true)}
-            className="flex-row items-center justify-center h-9 px-3 rounded-xl bg-emerald-50"
-            accessibilityLabel={t("products.batch_restock_title")}
-          >
-            <Ionicons name="cube-outline" size={16} color={COLORS.success} />
-            <Text
-              fontWeight="SemiBold"
-              className="ms-1.5 text-xs text-success"
+            <PressableOpacity
+              onPress={() => setBatchRestockOpen(true)}
+              className="flex-row items-center justify-center h-9 px-3 rounded-xl bg-emerald-50"
+              accessibilityLabel={t("products.batch_restock_title")}
             >
-              {t("products.batch_restock_action")}
-            </Text>
-          </PressableOpacity>
-        </View>
-      </SelectionOverlaySlot>
-      {error ? (
-        <View className="px-4 pt-4">
-          <ErrorBanner message={error} onDismiss={clearError} />
-        </View>
-      ) : null}
-      {exportError ? (
-        <View className="px-4 pt-4">
-          <ErrorBanner message={exportError} onDismiss={clearExportError} />
-        </View>
-      ) : null}
+              <Ionicons name="cube-outline" size={16} color={COLORS.success} />
+              <Text
+                fontWeight="SemiBold"
+                className="ms-1.5 text-xs text-success"
+              >
+                {t("products.batch_restock_action")}
+              </Text>
+            </PressableOpacity>
+          </View>
+        </SelectionOverlaySlot>
+        {error ? (
+          <View className="px-4 pt-4">
+            <ErrorBanner message={error} onDismiss={clearError} />
+          </View>
+        ) : null}
+        {exportError ? (
+          <View className="px-4 pt-4">
+            <ErrorBanner message={exportError} onDismiss={clearExportError} />
+          </View>
+        ) : null}
 
-      {loading && products.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color={COLORS.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(p) => p.id}
-          contentContainerStyle={{
-            padding: 16,
-            paddingBottom: 96,
-            flexGrow: 1,
-          }}
-          refreshControl={
-            <RefreshControl
-              refreshing={loading}
-              onRefresh={() => {
-                clearSelection();
-                fetchProducts();
-              }}
-              tintColor={COLORS.primary}
-            />
-          }
-          renderItem={({ item }) => (
-            <ProductCard
-              product={item}
-              onEdit={openEdit}
-              onMenu={setMenuItem}
-              selectionMode={selectionActive}
-              selected={selectedIds.has(item.id)}
-              onToggleSelect={(p) => toggleSelect(p.id)}
-              onEnterSelection={(p) => enterSelection(p.id)}
-            />
-          )}
-          ListEmptyComponent={
-            <EmptyState
-              message={t("products.no_products")}
-              subMessage={t("products.no_products_hint")}
-              actionLabel={
-                !debouncedSearch
-                  ? t("products.create_first_product")
-                  : undefined
-              }
-              onAction={!debouncedSearch ? openCreate : undefined}
-            />
-          }
-        />
-      )}
+        {loading && products.length === 0 ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator color={COLORS.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={filtered}
+            keyExtractor={(p) => p.id}
+            contentContainerStyle={{
+              padding: 16,
+              paddingBottom: 96,
+              flexGrow: 1,
+            }}
+            refreshControl={
+              <RefreshControl
+                refreshing={loading}
+                onRefresh={() => {
+                  clearSelection();
+                  fetchProducts();
+                }}
+                tintColor={COLORS.primary}
+              />
+            }
+            renderItem={({ item }) => (
+              <ProductCard
+                product={item}
+                onEdit={openEdit}
+                onMenu={setMenuItem}
+                selectionMode={selectionActive}
+                selected={selectedIds.has(item.id)}
+                onToggleSelect={(p) => toggleSelect(p.id)}
+                onEnterSelection={(p) => enterSelection(p.id)}
+              />
+            )}
+            ListEmptyComponent={
+              <EmptyState
+                message={t("products.no_products")}
+                subMessage={t("products.no_products_hint")}
+                actionLabel={
+                  !debouncedSearch
+                    ? t("products.create_first_product")
+                    : undefined
+                }
+                onAction={!debouncedSearch ? openCreate : undefined}
+              />
+            }
+          />
+        )}
 
-      {!selectionActive && (
-        <FAB onPress={openCreate} accessibilityLabel={t("common.add")} />
-      )}
-
+        {!selectionActive && (
+          <FAB onPress={openCreate} accessibilityLabel={t("common.add")} />
+        )}
       </ResponsiveContainer>
 
       {formVisible && (

@@ -1,17 +1,20 @@
-import type { BranchFilter } from '@/src/core/constants';
-import type { UserWallet, UserWalletDetail, WalletItem } from '@/src/core/types';
-import i18n from '@/src/core/i18n';
-import { collectionService } from '@/src/modules/ledger';
-import { userService } from '@/src/modules/admin/users';
+import type { BranchFilter } from "@/src/core/constants";
+import type {
+  UserWallet,
+  UserWalletDetail,
+  WalletItem,
+} from "@/src/core/types";
+import i18n from "@/src/core/i18n";
+import { collectionService } from "@/src/modules/ledger";
+import { userService } from "@/src/modules/admin/users";
 import {
   canCloseOut,
   canReceiveFrom,
   custodyTargetFor,
   receiveBlock,
   type WalletActor,
-} from '../utils/custody';
-import { groupByCurrency, sumUsd } from '@/src/core/utils/currency';
-
+} from "../utils/custody";
+import { groupByCurrency, sumUsd } from "@/src/core/utils/currency";
 
 /** One holder, resolved from the user list — what the chain rules need. */
 type HolderInfo = WalletActor & { fullName: string; active: boolean };
@@ -52,9 +55,12 @@ class WalletService {
       this.holderMap(),
     ]);
     this.nameCollectors(items, holders);
-    const holder = holders.get(holderUserId) ?? this.unknownHolder(holderUserId);
+    const holder =
+      holders.get(holderUserId) ?? this.unknownHolder(holderUserId);
     const wallet = this.foldWallet(holder, viewer, items);
-    const sorted = [...items].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    const sorted = [...items].sort((a, b) =>
+      a.date < b.date ? 1 : a.date > b.date ? -1 : 0,
+    );
     return { ...wallet, items: sorted };
   }
 
@@ -64,7 +70,12 @@ class WalletService {
     viewer: WalletActor,
   ): Promise<void> {
     await this.assertCanReceive(holderUserId, viewer);
-    await this.moveCustody(ids, holderUserId, custodyTargetFor(viewer), viewer.id);
+    await this.moveCustody(
+      ids,
+      holderUserId,
+      custodyTargetFor(viewer),
+      viewer.id,
+    );
   }
 
   async receiveAllFrom(
@@ -87,7 +98,10 @@ class WalletService {
     await this.moveCustody(ids, viewer.id, null, viewer.id);
   }
 
-  async closeOutAll(viewer: WalletActor, branchFilter: BranchFilter = null): Promise<void> {
+  async closeOutAll(
+    viewer: WalletActor,
+    branchFilter: BranchFilter = null,
+  ): Promise<void> {
     this.assertCanCloseOut(viewer);
     const items = await this.collectItems(branchFilter, viewer.id);
     await this.moveCustody(
@@ -98,14 +112,18 @@ class WalletService {
     );
   }
 
-
   private async moveCustody(
     ids: string[],
     fromUserId: string,
     toUserId: string | null,
     actorUserId: string,
   ): Promise<void> {
-    await collectionService.transferCustody(ids, fromUserId, toUserId, actorUserId);
+    await collectionService.transferCustody(
+      ids,
+      fromUserId,
+      toUserId,
+      actorUserId,
+    );
   }
 
   private async collectItems(
@@ -124,7 +142,7 @@ class WalletService {
         holderUserId: c.heldByUserId,
         customerId: c.customerId,
         customerName: c.customerName,
-        label: c.itemLabels.filter(Boolean).join(', ') || null,
+        label: c.itemLabels.filter(Boolean).join(", ") || null,
         amount: c.amount,
         currencyId: c.currencyId,
         ratePerUsdSnapshot: c.ratePerUsdSnapshot,
@@ -134,14 +152,21 @@ class WalletService {
     return items;
   }
 
-  private nameCollectors(items: WalletItem[], holders: Map<string, HolderInfo>): void {
+  private nameCollectors(
+    items: WalletItem[],
+    holders: Map<string, HolderInfo>,
+  ): void {
     for (const it of items) {
       if (it.collectorUserId === it.holderUserId) continue;
       it.collectorName = holders.get(it.collectorUserId)?.fullName ?? null;
     }
   }
 
-  private foldWallet(holder: HolderInfo, viewer: WalletActor, items: WalletItem[]): UserWallet {
+  private foldWallet(
+    holder: HolderInfo,
+    viewer: WalletActor,
+    items: WalletItem[],
+  ): UserWallet {
     const byCurrency = groupByCurrency(items);
     const totalUsd = sumUsd(items);
     const isSelf = holder.id === viewer.id;
@@ -176,22 +201,25 @@ class WalletService {
   private unknownHolder(id: string): HolderInfo {
     return {
       id,
-      role: 'superadmin',
+      role: "superadmin",
       branchId: null,
-      fullName: i18n.t('wallet.unknown_collector'),
+      fullName: i18n.t("wallet.unknown_collector"),
       active: false,
     };
   }
 
-  private async assertCanReceive(holderUserId: string, viewer: WalletActor): Promise<void> {
+  private async assertCanReceive(
+    holderUserId: string,
+    viewer: WalletActor,
+  ): Promise<void> {
     const holder = (await this.holderMap()).get(holderUserId);
     if (!holder || !canReceiveFrom(viewer, holder)) {
-      throw new Error(i18n.t('errors.forbidden'));
+      throw new Error(i18n.t("errors.forbidden"));
     }
   }
 
   private assertCanCloseOut(viewer: WalletActor): void {
-    if (!canCloseOut(viewer)) throw new Error(i18n.t('errors.forbidden'));
+    if (!canCloseOut(viewer)) throw new Error(i18n.t("errors.forbidden"));
   }
 }
 

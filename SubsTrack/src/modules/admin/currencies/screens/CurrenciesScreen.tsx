@@ -250,75 +250,74 @@ export function CurrenciesScreen() {
       />
 
       <ResponsiveContainer className="flex-1">
-      {error ? (
-        <View className="px-4 pt-4">
-          <ErrorBanner message={error} onDismiss={clearError} />
-        </View>
-      ) : null}
+        {error ? (
+          <View className="px-4 pt-4">
+            <ErrorBanner message={error} onDismiss={clearError} />
+          </View>
+        ) : null}
 
-      {exportError ? (
-        <View className="px-4 pt-4">
-          <ErrorBanner message={exportError} onDismiss={clearExportError} />
-        </View>
-      ) : null}
+        {exportError ? (
+          <View className="px-4 pt-4">
+            <ErrorBanner message={exportError} onDismiss={clearExportError} />
+          </View>
+        ) : null}
 
-      {loading && currencies.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color={COLORS.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={currencies}
-          keyExtractor={(c) => c.id}
-          contentContainerStyle={{
-            padding: 16,
-            paddingBottom: 96,
-            flexGrow: 1,
-          }}
-          refreshControl={
-            <RefreshControl
-              refreshing={loading}
-              onRefresh={() => {
-                clearSelection();
-                fetchCurrencies();
-              }}
-              tintColor={COLORS.primary}
-            />
-          }
-          ListHeaderComponent={
-            <SelectionOverlaySlot selecting={selectionActive}>
-              <UsdBaseCard />
-            </SelectionOverlaySlot>
-          }
-          renderItem={({ item }) => (
-            <CurrencyCard
-              currency={item}
-              onEdit={openEdit}
-              onMenu={setMenuCurrency}
-              selectionMode={selectionActive}
-              selected={selectedIds.has(item.id)}
-              onToggleSelect={(c) => toggleSelect(c.id)}
-              onEnterSelection={(c) => enterSelection(c.id)}
-            />
-          )}
-          ListEmptyComponent={
-            <EmptyState
-              message={t("tenant_settings.no_currencies")}
-              subMessage={t("tenant_settings.no_currencies_hint")}
-              actionLabel={t("tenant_settings.add_currency")}
-              onAction={openCreate}
-            />
-          }
-        />
-      )}
+        {loading && currencies.length === 0 ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator color={COLORS.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={currencies}
+            keyExtractor={(c) => c.id}
+            contentContainerStyle={{
+              padding: 16,
+              paddingBottom: 96,
+              flexGrow: 1,
+            }}
+            refreshControl={
+              <RefreshControl
+                refreshing={loading}
+                onRefresh={() => {
+                  clearSelection();
+                  fetchCurrencies();
+                }}
+                tintColor={COLORS.primary}
+              />
+            }
+            ListHeaderComponent={
+              <SelectionOverlaySlot selecting={selectionActive}>
+                <UsdBaseCard />
+              </SelectionOverlaySlot>
+            }
+            renderItem={({ item }) => (
+              <CurrencyCard
+                currency={item}
+                onEdit={openEdit}
+                onMenu={setMenuCurrency}
+                selectionMode={selectionActive}
+                selected={selectedIds.has(item.id)}
+                onToggleSelect={(c) => toggleSelect(c.id)}
+                onEnterSelection={(c) => enterSelection(c.id)}
+              />
+            )}
+            ListEmptyComponent={
+              <EmptyState
+                message={t("tenant_settings.no_currencies")}
+                subMessage={t("tenant_settings.no_currencies_hint")}
+                actionLabel={t("tenant_settings.add_currency")}
+                onAction={openCreate}
+              />
+            }
+          />
+        )}
 
-      {!selectionActive && (
-        <FAB
-          onPress={openCreate}
-          accessibilityLabel={t("tenant_settings.add_currency")}
-        />
-      )}
-
+        {!selectionActive && (
+          <FAB
+            onPress={openCreate}
+            accessibilityLabel={t("tenant_settings.add_currency")}
+          />
+        )}
       </ResponsiveContainer>
 
       {formVisible && (

@@ -1,17 +1,16 @@
-import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
-
+import { create } from "zustand";
+import { immer } from "zustand/middleware/immer";
 
 // The global "quick add" sheets the PageHeader 3-dot menu can launch on any
 // screen. Each maps to a standalone form sheet hosted by QuickActionSheets.
 export type QuickActionSheet =
-  | 'customer'
-  | 'sale'
-  | 'customDebt'
-  | 'collect'
-  | 'expense'
-  | 'collectionsHistory'
-  | 'batchRestock';
+  | "customer"
+  | "sale"
+  | "customDebt"
+  | "collect"
+  | "expense"
+  | "collectionsHistory"
+  | "batchRestock";
 
 export interface UiState {
   openSheet: QuickActionSheet | null;

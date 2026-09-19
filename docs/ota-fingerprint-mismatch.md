@@ -14,14 +14,14 @@ The usual reason on Windows is **line endings**. `eas.json` and `.gitignore` are
 
 Confirmed example from this project — same commit, same branch, only line endings differ:
 
-| file state              | platform | fingerprint                                |
-| ----------------------- | -------- | ------------------------------------------ |
-| both LF                 | android  | `a01ebec361f1c698653eb2475cc83840eb49ef89` ← the builds' runtime |
-| `eas.json` CRLF         | android  | `3c28bbf166ff6934db1d651ba46c49af78bfc6da` |
-| `.gitignore` CRLF       | android  | `78da758cce4ee64589ca2fec19cc943152d2ada0` |
-| both CRLF               | android  | `1d23cca2549c65af385ad7a8d92210638a98f24b` |
-| both LF                 | ios      | `9c83feac01d2c82d0a59dd0228f99c26fd646751` |
-| `eas.json` CRLF         | ios      | `0e60a0175c9810391802d8415942509398f6c4c2` |
+| file state        | platform | fingerprint                                                      |
+| ----------------- | -------- | ---------------------------------------------------------------- |
+| both LF           | android  | `a01ebec361f1c698653eb2475cc83840eb49ef89` ← the builds' runtime |
+| `eas.json` CRLF   | android  | `3c28bbf166ff6934db1d651ba46c49af78bfc6da`                       |
+| `.gitignore` CRLF | android  | `78da758cce4ee64589ca2fec19cc943152d2ada0`                       |
+| both CRLF         | android  | `1d23cca2549c65af385ad7a8d92210638a98f24b`                       |
+| both LF           | ios      | `9c83feac01d2c82d0a59dd0228f99c26fd646751`                       |
+| `eas.json` CRLF   | ios      | `0e60a0175c9810391802d8415942509398f6c4c2`                       |
 
 > `eas update` publishes **all platforms** by default, which is why one publish can create
 > two runtime rows (android + ios) in the Expo dashboard.
