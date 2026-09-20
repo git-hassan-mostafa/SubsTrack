@@ -79,7 +79,7 @@ export function CardAmount({
   return (
     <Text
       fontWeight="Bold"
-      className={`text-base ${AMOUNT_TONE_CLASSES[tone]} ${className}`}
+      className={`text-sm ${AMOUNT_TONE_CLASSES[tone]} ${className}`}
       numberOfLines={numberOfLines}
     >
       {children}
