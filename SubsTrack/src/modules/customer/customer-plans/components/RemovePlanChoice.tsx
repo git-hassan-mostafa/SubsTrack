@@ -9,10 +9,7 @@ interface Props {
   onChange: (hardDelete: boolean) => void;
 }
 
-// The "delete permanently" checkbox shown inside the remove-plan confirm dialog.
-// Unchecked (default) = soft-cancel the line, keeping its payments. Checked =
-// permanently delete the line and all its payments (cannot be undone). Owns its
-// own state; the dialog only resolves to a boolean (confirm / cancel).
+// Unchecked = soft-cancel keeping payments; checked = hard delete, no undo.
 export function RemovePlanChoice({ onChange }: Props) {
   const { t } = useTranslation();
   const [checked, setChecked] = useState(false);
@@ -26,14 +23,14 @@ export function RemovePlanChoice({ onChange }: Props) {
   return (
     <PressableOpacity
       onPress={toggle}
-      className="flex-row items-start rounded-xl border border-gray-200 bg-gray-50 p-3"
+      className="flex-row items-start rounded-xl border border-red-200 bg-red-50 p-3"
     >
-      <Checkbox checked={checked} size={22} />
+      <Checkbox checked={checked} size={22} tone="danger" />
       <View className="flex-1 ms-3">
-        <Text fontWeight="SemiBold" className="text-sm text-gray-900">
+        <Text fontWeight="SemiBold" className="text-sm text-red-600">
           {t("subscriptions.delete_permanently_label")}
         </Text>
-        <Text className="text-xs text-gray-500 mt-0.5">
+        <Text className="text-xs text-red-500 mt-0.5">
           {t("subscriptions.delete_permanently_hint")}
         </Text>
       </View>

@@ -105,6 +105,7 @@ export function CustomerPlansEditor({
 
   const [initialRows] = useState(() => rows);
   const [autoCleared, setAutoCleared] = useState<string[]>([]);
+  const [removingKey, setRemovingKey] = useState<string | null>(null);
 
   const plansDirty =
     removed.length > 0 ||
@@ -205,10 +206,7 @@ export function CustomerPlansEditor({
 
   const activeCount = rows.filter((r) => r.status === "active").length;
 
-  // Removes an active row. A new (unsaved) row just drops. A saved line with
-  // payments opens the confirm dialog whose choice (keep months vs delete
-  // permanently) rides on a ref; "keep" soft-cancels (row stays as cancelled),
-  // "delete" hard-deletes (row drops). A saved line with no payments hard-deletes.
+  // Only a saved line WITH payments asks; the rest drop straight out.
   async function removeRow(key: string) {
     if (activeCount <= 1) return;
     const target = rows.find((r) => r.key === key);
@@ -220,7 +218,14 @@ export function CustomerPlansEditor({
     }
 
     const id = target.id;
-    const paid = await hasPayments(id);
+    if (removingKey) return;
+    setRemovingKey(key);
+    let paid: boolean;
+    try {
+      paid = await hasPayments(id);
+    } finally {
+      setRemovingKey(null);
+    }
     if (paid) {
       const hardRef = { current: false };
       const ok = await confirm({
@@ -299,6 +304,7 @@ export function CustomerPlansEditor({
           dateLocked={row.id != null && lockedLineIds.includes(row.id)}
           showHeader={multiple}
           canRemove={activeCount > 1}
+          removing={removingKey === row.key}
           onPlanChange={(v) => setRowPlan(row.key, v)}
           onStartDateChange={(v) => setRowStartDate(row.key, v)}
           onPriceChange={(amount, currencyId) =>

@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
@@ -31,6 +31,7 @@ interface Props {
   dateLocked: boolean;
   showHeader: boolean;
   canRemove: boolean;
+  removing: boolean;
   onPlanChange: (planId: string | null) => void;
   onStartDateChange: (date: string) => void;
   onPriceChange: (amount: number | null, currencyId: string | null) => void;
@@ -49,6 +50,7 @@ export function PlanLineCard({
   dateLocked,
   showHeader,
   canRemove,
+  removing,
   onPlanChange,
   onStartDateChange,
   onPriceChange,
@@ -99,11 +101,20 @@ export function PlanLineCard({
           ) : canRemove ? (
             <PressableOpacity
               onPress={onRemove}
+              disabled={removing}
               accessibilityLabel={t("subscriptions.remove_plan")}
               hitSlop={8}
-              className="p-1 -me-1"
+              className="w-[25px] h-[25px] items-center justify-center -me-1"
             >
-              <Ionicons name="trash-outline" size={17} color={COLORS.danger} />
+              {removing ? (
+                <ActivityIndicator size="small" color={COLORS.danger} />
+              ) : (
+                <Ionicons
+                  name="trash-outline"
+                  size={17}
+                  color={COLORS.danger}
+                />
+              )}
             </PressableOpacity>
           ) : null}
         </View>
