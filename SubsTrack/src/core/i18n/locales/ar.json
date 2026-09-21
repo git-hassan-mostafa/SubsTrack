@@ -985,7 +985,20 @@
     "scope_written_off": "المشطوب",
     "no_written_off": "لا يوجد دين مشطوب لهذا العميل.",
     "custom": "مخصص",
-    "sale": "مبيع"
+    "sale": "مبيع",
+    "all_debts_title": "كل الديون",
+    "all_debts_search_hint": "ابحث بالعميل أو الفاتورة...",
+    "n_bills": "فاتورة واحدة",
+    "n_bills_plural": "{{count}} فواتير",
+    "status_late": "متأخرة",
+    "status_not_late": "غير متأخرة بعد",
+    "status_partial": "مسدّدة جزئياً",
+    "sort_oldest": "الأقدم استحقاقاً أولاً",
+    "sort_newest": "الأحدث استحقاقاً أولاً",
+    "sort_largest": "الأكبر مبلغاً",
+    "sort_smallest": "الأصغر مبلغاً",
+    "no_written_off_any": "لا توجد ديون معدومة.",
+    "filter_by_scope": "العرض"
   },
   "expenses": {
     "title": "المصاريف",

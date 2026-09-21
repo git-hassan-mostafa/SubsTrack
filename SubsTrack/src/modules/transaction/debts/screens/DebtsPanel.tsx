@@ -6,10 +6,12 @@ import {
   View,
 } from "react-native";
 import { useTranslation } from "react-i18next";
+import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Text } from "@/src/shared/components/Text";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { FAB } from "@/src/shared/components/FAB";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
@@ -30,6 +32,7 @@ import { useDebtRowActions } from "../hooks/useDebtRowActions";
 import { DebtorCard } from "../components/DebtorCard";
 import { DebtorDetailSheet } from "../components/DebtorDetailSheet";
 import { CustomDebtFormSheet } from "../components/CustomDebtFormSheet";
+import { AllDebtsSheet } from "../components/AllDebtsSheet";
 
 interface Props {
   onOpenSale?: (saleId: string) => Promise<void> | void;
@@ -77,6 +80,7 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
   const debouncedDebtorSearch = useDebounce(debtorSearch);
   const [openDebtorId, setOpenDebtorId] = useState<string | null>(null);
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
+  const [allDebtsOpen, setAllDebtsOpen] = useState(false);
   const [menuDebtor, setMenuDebtor] = useState<CustomerDebts | null>(null);
 
   useEffect(() => {
@@ -102,20 +106,39 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
   return (
     <View className="flex-1">
       <ResponsiveContainer className="flex-1">
-        <View className="px-4 pt-3">
-          <Text
-            fontWeight="Bold"
-            accessibilityLabel={t("debts.total_outstanding")}
-            className="text-2xl text-gray-900"
-            numberOfLines={1}
-          >
-            {totalLabel}
-          </Text>
-          <Text className="text-xs text-gray-500 mt-0.5">
-            {t("ledger.owed_by_n_customers", {
-              count: view?.summary.customerCount ?? 0,
-            })}
-          </Text>
+        <View className="px-4 pt-3 flex-row items-center justify-between">
+          <View className="flex-1 pe-2">
+            <Text
+              fontWeight="Bold"
+              accessibilityLabel={t("debts.total_outstanding")}
+              className="text-2xl text-gray-900"
+              numberOfLines={1}
+            >
+              {totalLabel}
+            </Text>
+            <Text className="text-xs text-gray-500 mt-0.5">
+              {t("ledger.owed_by_n_customers", {
+                count: view?.summary.customerCount ?? 0,
+              })}
+            </Text>
+          </View>
+
+          <View className="flex-row items-center gap-2">
+            <PressableOpacity
+              onPress={() => setAllDebtsOpen(true)}
+              accessibilityLabel={t("debts.all_debts_title")}
+              className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center"
+            >
+              <Ionicons name="list-outline" size={18} color={COLORS.gray600} />
+            </PressableOpacity>
+            <PressableOpacity
+              disabled
+              accessibilityLabel={t("debts.history_title")}
+              className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center opacity-40"
+            >
+              <Ionicons name="time-outline" size={18} color={COLORS.gray600} />
+            </PressableOpacity>
+          </View>
         </View>
 
         {/* Search — by customer name. */}
@@ -242,6 +265,22 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
 
       {customDebtOpen && (
         <CustomDebtFormSheet onDismiss={() => setCustomDebtOpen(false)} />
+      )}
+
+      {allDebtsOpen && (
+        <AllDebtsSheet
+          view={view}
+          onDismiss={() => setAllDebtsOpen(false)}
+          onCollectItem={(item) =>
+            collectSheet.openOne(item.customerName, item)
+          }
+          onEditItem={editItem}
+          onVoidItem={voidItem}
+          onWriteOff={writeOffItem}
+          onRevertWriteOff={revertWriteOffItem}
+          onOpenItem={openBill.openOwed}
+          openingItemKey={openBill.loadingId}
+        />
       )}
 
       {editSheet}

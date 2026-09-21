@@ -985,7 +985,20 @@
     "scope_written_off": "Written off",
     "no_written_off": "Nothing written off for this customer.",
     "custom": "Custom",
-    "sale": "Sale"
+    "sale": "Sale",
+    "all_debts_title": "All debts",
+    "all_debts_search_hint": "Search by customer or bill...",
+    "n_bills": "{{count}} bill",
+    "n_bills_plural": "{{count}} bills",
+    "status_late": "Late",
+    "status_not_late": "Not late yet",
+    "status_partial": "Partly paid",
+    "sort_oldest": "Oldest due first",
+    "sort_newest": "Newest due first",
+    "sort_largest": "Largest amount",
+    "sort_smallest": "Smallest amount",
+    "no_written_off_any": "Nothing has been written off.",
+    "filter_by_scope": "Show"
   },
   "expenses": {
     "title": "Expenses",
