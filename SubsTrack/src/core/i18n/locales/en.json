@@ -1340,6 +1340,7 @@
   "ledger": {
     "collect_money": "Collect money",
     "collect_all": "Collect all",
+    "collect_all_caption": "Pay off everything this customer owes",
     "collect_part": "Collect part",
     "collect_rest": "Collect the rest",
     "collect_remaining": "Collect {{amount}}",

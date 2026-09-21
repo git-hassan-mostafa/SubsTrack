@@ -136,15 +136,10 @@ export function CustomerSalesPanel({ customer }: Props) {
             </Text>
             <PressableOpacity
               onPress={() => setFormOpen(true)}
-              className="flex-row items-center bg-emerald-50 rounded-full px-3 py-1.5"
+              accessibilityLabel={t("sales.record_button")}
+              className="w-8 h-8 rounded-full bg-emerald-50 items-center justify-center"
             >
-              <Ionicons name="add" size={14} color={COLORS.success} />
-              <Text
-                fontWeight="SemiBold"
-                className="text-xs text-emerald-700 ms-1"
-              >
-                {t("sales.record_button")}
-              </Text>
+              <Ionicons name="add" size={18} color={COLORS.success} />
             </PressableOpacity>
           </View>
         )}

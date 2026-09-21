@@ -1340,6 +1340,7 @@
   "ledger": {
     "collect_money": "تحصيل مبلغ",
     "collect_all": "تحصيل الكل",
+    "collect_all_caption": "تسديد كل ما على هذا العميل",
     "collect_part": "تحصيل جزء",
     "collect_rest": "تحصيل الباقي",
     "collect_remaining": "تحصيل {{amount}}",

@@ -134,6 +134,14 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
         onDismiss={() => setMenuOpen(false)}
         actions={[
           {
+            key: "collect-all",
+            group: "money",
+            label: t("ledger.collect_all"),
+            caption: t("ledger.collect_all_caption"),
+            icon: "cash-outline",
+            onPress: () => collectSheet.open(customer.id, customer.name, items),
+          },
+          {
             key: "write-off-all",
             group: "danger",
             label: t("ledger.write_off_all"),
