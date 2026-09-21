@@ -8,6 +8,7 @@ jest.mock("@/src/modules/ledger/repository/CollectionRepository", () => ({
 }));
 
 import { chargeService } from "@/src/modules/ledger/services/ChargeService";
+import { chargeStatusOf } from "@/src/modules/ledger/utils/billState";
 import { fakeChargeRepository, store } from "../helpers/fakeLedger";
 
 // TC-CH-* — raising, correcting, voiding and writing off a BILL. Money is never
@@ -326,6 +327,113 @@ describe("writeOffMany (give up on everything one customer owes)", () => {
   });
 });
 
+describe("revertWriteOff (changing your mind about a loss)", () => {
+  it("TC-CH-39c clears all three write-off columns", async () => {
+    const chg = store.seedCharge({
+      amount: 20,
+      written_off_at: "2026-02-01T00:00:00.000Z",
+      written_off_by: "user-1",
+      write_off_reason: "gone",
+    });
+    await chargeService.revertWriteOff(chg.id);
+    const row = store.charge(chg.id)!;
+    expect(row.written_off_at).toBeNull();
+    expect(row.written_off_by).toBeNull();
+    expect(row.write_off_reason).toBeNull();
+  });
+
+  it("TC-CH-39d leaves the money already collected alone", async () => {
+    const chg = store.seedCharge({
+      amount: 20,
+      written_off_at: "2026-02-01T00:00:00.000Z",
+    });
+    store.seedCollection(chg.id, 5);
+    await chargeService.revertWriteOff(chg.id);
+    expect((await balanceOf(chg.id)).paid).toBe(5);
+  });
+
+  it("TC-CH-39e refuses a bill that was never written off", async () => {
+    const chg = store.seedCharge({ amount: 20 });
+    await expect(chargeService.revertWriteOff(chg.id)).rejects.toThrow(
+      /errors\.charge_not_written_off/,
+    );
+  });
+
+  it("TC-CH-39f refuses a VOIDED bill — a void is not a write-off", async () => {
+    const chg = store.seedCharge({
+      amount: 20,
+      voided_at: "2026-02-01T00:00:00.000Z",
+      written_off_at: "2026-02-01T00:00:00.000Z",
+    });
+    await expect(chargeService.revertWriteOff(chg.id)).rejects.toThrow(
+      /errors\.charge_voided/,
+    );
+  });
+
+  it("TC-CH-39g the bill is owed again, and stops counting as a loss", async () => {
+    const chg = store.seedCharge({
+      amount: 20,
+      written_off_at: "2026-02-10T00:00:00.000Z",
+    });
+    await chargeService.revertWriteOff(chg.id);
+    const owed = await chargeService.getOpenCharges({});
+    expect(owed.map((i) => i.chargeId)).toContain(chg.id);
+    const lost = await chargeService.writtenOffUsdInRange(
+      "1970-01-01T00:00:00.000Z",
+      "2999-01-01T00:00:00.000Z",
+      null,
+    );
+    expect(lost).toBe(0);
+  });
+});
+
+describe("reading each side of the write-off line", () => {
+  it("TC-CH-39h the default read hides a written-off bill", async () => {
+    const live = store.seedCharge({ amount: 20 });
+    store.seedCharge({
+      amount: 30,
+      written_off_at: "2026-02-01T00:00:00.000Z",
+    });
+    const owed = await chargeService.getOpenCharges({});
+    expect(owed.map((i) => i.chargeId)).toEqual([live.id]);
+  });
+
+  it("TC-CH-39i the written-off scope returns ONLY those bills", async () => {
+    store.seedCharge({ amount: 20 });
+    const lost = store.seedCharge({
+      amount: 30,
+      written_off_at: "2026-02-01T00:00:00.000Z",
+    });
+    const written = await chargeService.getOpenCharges({
+      writeOffScope: "written_off",
+    });
+    expect(written.map((i) => i.chargeId)).toEqual([lost.id]);
+  });
+
+  it("TC-CH-39j a VOIDED bill is in neither scope", async () => {
+    store.seedCharge({
+      amount: 20,
+      voided_at: "2026-02-01T00:00:00.000Z",
+      written_off_at: "2026-02-01T00:00:00.000Z",
+    });
+    await expect(chargeService.getOpenCharges({})).resolves.toEqual([]);
+    await expect(
+      chargeService.getOpenCharges({ writeOffScope: "written_off" }),
+    ).resolves.toEqual([]);
+  });
+
+  it("TC-CH-39k a fully-collected written-off bill is not listed either", async () => {
+    const chg = store.seedCharge({
+      amount: 20,
+      written_off_at: "2026-02-01T00:00:00.000Z",
+    });
+    store.seedCollection(chg.id, 20);
+    await expect(
+      chargeService.getOpenCharges({ writeOffScope: "written_off" }),
+    ).resolves.toEqual([]);
+  });
+});
+
 describe("updateManualCharge", () => {
   it("TC-CH-40 refuses a non-positive amount", async () => {
     const chg = store.seedCharge({ kind: "manual", amount: 20 });
@@ -438,5 +546,33 @@ describe("updateManualCharge", () => {
       ratePerUsdSnapshot: 90000,
     });
     expect(updated.currencyId).toBe("cur-lbp");
+  });
+});
+
+describe("chargeStatusOf (what a bill's state IS, in one place)", () => {
+  const at = (over: Partial<Parameters<typeof chargeStatusOf>[0]> = {}) =>
+    chargeStatusOf({
+      voided: false,
+      writtenOff: false,
+      amount: 20,
+      collected: 0,
+      ...over,
+    });
+
+  it("TC-CH-39l a void outranks everything, including collected money", () => {
+    expect(at({ voided: true, writtenOff: true, collected: 20 })).toBe("void");
+  });
+
+  it("TC-CH-39m a write-off outranks every LIVE state", () => {
+    expect(at({ writtenOff: true })).toBe("written_off");
+    expect(at({ writtenOff: true, collected: 5 })).toBe("written_off");
+    expect(at({ writtenOff: true, collected: 20 })).toBe("written_off");
+  });
+
+  it("TC-CH-39n money decides the rest", () => {
+    expect(at()).toBe("open");
+    expect(at({ collected: 5 })).toBe("partial");
+    expect(at({ collected: 20 })).toBe("settled");
+    expect(at({ collected: 25 })).toBe("settled");
   });
 });

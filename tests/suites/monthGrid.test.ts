@@ -297,3 +297,54 @@ describe("buildMonthGrid: purity", () => {
     expect(bills).toEqual(snapshot);
   });
 });
+
+describe("buildMonthGrid: a WRITTEN-OFF month bill", () => {
+  beforeEach(() => freezeToday(2026, 6, 15));
+  afterEach(unfreeze);
+
+  const writtenOff = (month: string, collected: number) =>
+    bill(month, collected, { writtenOffAt: "2026-06-01T00:00:00.000Z" });
+
+  it("TC-MG-42 an UNCOLLECTED written-off month still reads unpaid", () => {
+    const grid = paymentService.buildMonthGrid(
+      L,
+      [writtenOff("2026-02-01", 0)],
+      [],
+      2026,
+    );
+    expect(at(grid, 2).status).toBe("unpaid");
+  });
+
+  it("TC-MG-43 a PART-PAID written-off month still reads paid — money outranks the write-off", () => {
+    const grid = paymentService.buildMonthGrid(
+      L,
+      [writtenOff("2026-02-01", 5)],
+      [],
+      2026,
+    );
+    expect(at(grid, 2).status).toBe("paid");
+    expect(at(grid, 2).balance).toBeGreaterThan(0);
+  });
+
+  it("TC-MG-44 the cell carries the CHARGE either way, so the bill sheet is reachable", () => {
+    for (const collected of [0, 5]) {
+      const grid = paymentService.buildMonthGrid(
+        L,
+        [writtenOff("2026-02-01", collected)],
+        [],
+        2026,
+      );
+      expect(at(grid, 2).charge?.writtenOffAt).not.toBeNull();
+    }
+  });
+
+  it("TC-MG-45 a write-off invents no MonthStatus of its own", () => {
+    const grid = paymentService.buildMonthGrid(
+      L,
+      [writtenOff("2026-02-01", 0)],
+      [],
+      2026,
+    );
+    expect(statuses(grid)).not.toContain("written_off");
+  });
+});

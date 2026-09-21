@@ -14,14 +14,13 @@ import {
 import { COLORS } from "@/src/shared/constants";
 import type { Customer, Sale } from "@/src/core/types";
 import saleService from "../services/SaleService";
+import { useOwedChanged } from "@/src/modules/ledger";
 import { useSaleActions } from "../hooks/useSaleActions";
 import { saleListPatches } from "../utils/saleListPatch";
 import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { SaleCard } from "./SaleCard";
 import { SaleFormSheet } from "./SaleFormSheet";
 import { SaleDetailSheet } from "./SaleDetailSheet";
-import { useAuth } from "@/src/modules/authentication/auth";
-import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
 
 const PREVIEW_LIMIT = 5;
 
@@ -35,16 +34,13 @@ interface Props {
 // customer-scoped view never collides with the global Sales tab's list state.
 export function CustomerSalesPanel({ customer }: Props) {
   const { t } = useTranslation();
-  const { user } = useAuth();
   const router = useRouter();
-  const voidSaleGlobal = useSaleSlice((s) => s.voidSale);
   const [sales, setSales] = useState<Sale[]>([]);
   const [serverHasMore, setServerHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [activeSale, setActiveSale] = useState<Sale | null>(null);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
-  const [voidLoading, setVoidLoading] = useState(false);
   const selection = useSelection();
   const {
     active: selectionActive,
@@ -81,18 +77,7 @@ export function CustomerSalesPanel({ customer }: Props) {
   useEffect(() => {
     refresh();
   }, [refresh]);
-
-  async function handleVoid(reason: string) {
-    if (!activeSale || !user) return;
-    setVoidLoading(true);
-    try {
-      await voidSaleGlobal(activeSale.id, user.id, reason);
-      setActiveSale(null);
-      await refresh();
-    } finally {
-      setVoidLoading(false);
-    }
-  }
+  useOwedChanged(refresh);
 
   // The receipt closes as the form opens — two stacked full sheets are a maze.
   function openEdit(sale: Sale) {
@@ -206,9 +191,8 @@ export function CustomerSalesPanel({ customer }: Props) {
       <SaleDetailSheet
         sale={activeSale}
         onDismiss={() => setActiveSale(null)}
-        onVoid={handleVoid}
+        onVoided={() => void refresh()}
         onEdit={openEdit}
-        voidLoading={voidLoading}
         onChanged={patch.paymentVoided}
       />
 

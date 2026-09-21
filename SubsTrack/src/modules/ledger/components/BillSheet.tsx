@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Text } from "@/src/shared/components/Text";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import type { ActionMenuItem } from "@/src/shared/components/ActionMenu";
 import { Button } from "@/src/shared/components/Button";
@@ -22,6 +21,8 @@ import { useUserNames } from "@/src/shared/hooks/useUserNames";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import { COLORS } from "@/src/shared/constants";
+import { billLook, chargeStatusOf } from "../utils/billState";
+import { BillHero } from "./BillHero";
 import { BillPaymentsList } from "./BillPaymentsList";
 import { BillHistorySheet } from "./BillHistorySheet";
 
@@ -34,8 +35,11 @@ interface Props {
   recipient?: { name: string; phone: string | null } | null;
   onCollect?: (charge: Charge) => void;
   onVoidBill?: (charge: Charge) => Promise<boolean>;
+  onWriteOff?: (charge: Charge, balance: number) => void;
+  onRevertWriteOff?: (charge: Charge, balance: number) => Promise<void>;
   onChanged?: (voided: Collection) => void;
 }
+
 
 export function BillSheet({
   visible,
@@ -46,6 +50,8 @@ export function BillSheet({
   recipient,
   onCollect,
   onVoidBill,
+  onWriteOff,
+  onRevertWriteOff,
   onChanged,
 }: Props) {
   const { t } = useTranslation();
@@ -78,9 +84,16 @@ export function BillSheet({
   const money = (v: number) => formatMoney(v, source, source);
 
   const voided = charge.voidedAt !== null;
+  const writtenOff = !voided && charge.writtenOffAt !== null;
   const balance = charge.amount - collected;
   const settled = !voided && balance <= 0;
-  const partial = !voided && collected > 0 && balance > 0;
+  const status = chargeStatusOf({
+    voided,
+    writtenOff,
+    amount: charge.amount,
+    collected,
+  });
+  const state = billLook(status);
   const approx = formatMoneyPair(charge.amount, source, display).approx;
   const monthLabel =
     charge.kind === "month" && charge.billingMonth
@@ -92,6 +105,12 @@ export function BillSheet({
     if (await onVoidBill(charge)) onDismiss();
   }
 
+  async function handleRevertWriteOff() {
+    if (!onRevertWriteOff || !charge) return;
+    await onRevertWriteOff(charge, charge.amount - collected);
+    onDismiss();
+  }
+
   const menuActions: ActionMenuItem[] = [];
   if (isAdmin) {
     menuActions.push({
@@ -100,6 +119,26 @@ export function BillSheet({
       label: t("audit.history"),
       icon: "time-outline",
       onPress: () => setHistoryOpen(true),
+    });
+  }
+  if (onRevertWriteOff && writtenOff) {
+    menuActions.push({
+      key: "revert_write_off",
+      group: "manage",
+      label: t("ledger.revert_write_off"),
+      icon: "arrow-undo-outline",
+      caption: t("ledger.revert_write_off_caption"),
+      onPress: () => void handleRevertWriteOff(),
+    });
+  }
+  if (onWriteOff && !voided && !writtenOff) {
+    menuActions.push({
+      key: "write_off",
+      group: "danger",
+      label: t("ledger.write_off"),
+      icon: "remove-circle-outline",
+      caption: t("ledger.write_off_caption"),
+      onPress: () => onWriteOff(charge, balance),
     });
   }
   if (onVoidBill && !voided) {
@@ -128,59 +167,24 @@ export function BillSheet({
           </View>
         ) : (
           <View className="gap-5">
-            <View className="items-center gap-1 py-2">
-              <Text
-                fontWeight="Bold"
-                className={`text-3xl ${
-                  voided ? "text-gray-400 line-through" : "text-gray-900"
-                }`}
-              >
-                {voided || settled
+            <BillHero
+              state={state}
+              amount={
+                voided || settled
                   ? money(charge.amount)
-                  : formatPaidFraction(
-                      collected,
-                      charge.amount,
-                      source,
-                      source,
-                    )}
-              </Text>
-              {approx ? (
-                <Text className="text-xs text-gray-400">{approx}</Text>
-              ) : null}
-              {!voided && !settled && (
-                <Text className="text-sm text-gray-600">
-                  {t("ledger.remaining")} {money(balance)}
-                </Text>
-              )}
-              <View
-                className={`mt-1 rounded-full px-3 py-1 ${
-                  settled
-                    ? "bg-emerald-50"
-                    : partial
-                      ? "bg-amber-50"
-                      : "bg-red-50"
-                }`}
-              >
-                <Text
-                  fontWeight="SemiBold"
-                  className={`text-xs ${
-                    settled
-                      ? "text-emerald-700"
-                      : partial
-                        ? "text-amber-700"
-                        : "text-red-700"
-                  }`}
-                >
-                  {voided
-                    ? t("ledger.voided")
-                    : settled
-                      ? t("ledger.settled")
-                      : partial
-                        ? t("ledger.partial")
-                        : t("ledger.open")}
-                </Text>
-              </View>
-            </View>
+                  : formatPaidFraction(collected, charge.amount, source, source)
+              }
+              approx={approx}
+              note={
+                writtenOff
+                  ? collected > 0
+                    ? t("ledger.written_off_kept", { amount: money(collected) })
+                    : null
+                  : voided || settled
+                    ? null
+                    : `${t("ledger.remaining")} ${money(balance)}`
+              }
+            />
 
             <InfoRows
               rows={[
@@ -213,6 +217,20 @@ export function BillSheet({
                   label: t("ledger.void_reason_label"),
                   value: charge.voidReason,
                 },
+                {
+                  label: t("ledger.written_off_at"),
+                  value: charge.writtenOffAt
+                    ? formatDateTime(charge.writtenOffAt)
+                    : null,
+                },
+                {
+                  label: t("ledger.written_off_by"),
+                  value: userName(charge.writtenOffBy),
+                },
+                {
+                  label: t("ledger.write_off_reason_label"),
+                  value: charge.writeOffReason,
+                },
               ]}
             />
           </View>
@@ -234,7 +252,7 @@ export function BillSheet({
             onLoadingChange={handleLoading}
           />
 
-          {!voided && !settled && onCollect && (
+          {!voided && !writtenOff && !settled && onCollect && (
             <Button
               label={t("ledger.collect_remaining", { amount: money(balance) })}
               onPress={() => onCollect(charge)}

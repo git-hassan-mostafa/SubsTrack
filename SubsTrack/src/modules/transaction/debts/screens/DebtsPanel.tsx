@@ -61,7 +61,14 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
   );
 
   const collectSheet = useCollectSheet();
-  const { voidItem, writeOffItem, writeOffDebtor, editItem, editSheet } =
+  const {
+    voidItem,
+    writeOffItem,
+    revertWriteOffItem,
+    writeOffDebtor,
+    editItem,
+    editSheet,
+  } =
     useDebtRowActions();
   const openBill = useOpenBill({ onOpenSale });
   useOwedChanged(refresh);
@@ -226,6 +233,7 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
           onEditItem={editItem}
           onVoidItem={voidItem}
           onWriteOff={writeOffItem}
+          onRevertWriteOff={revertWriteOffItem}
           onWriteOffAll={writeOffDebtor}
           onOpenItem={openBill.openOwed}
           openingItemKey={openBill.loadingId}

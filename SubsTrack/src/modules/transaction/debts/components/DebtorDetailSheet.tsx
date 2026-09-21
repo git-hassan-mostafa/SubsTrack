@@ -16,6 +16,11 @@ import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
+import {
+  useWrittenOffDebts,
+  type DebtScope,
+} from "../hooks/useWrittenOffDebts";
+import { DebtScopeFilter } from "./DebtScopeFilter";
 import { DebtList } from "./DebtList";
 import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
 
@@ -27,6 +32,7 @@ interface Props {
   onEditItem?: (item: OpenItem) => void;
   onVoidItem?: (item: OpenItem) => void;
   onWriteOff?: (item: OpenItem) => void;
+  onRevertWriteOff?: (item: OpenItem) => void;
   onWriteOffAll?: (debtor: CustomerDebts) => void;
   onOpenItem?: (item: OpenItem) => void;
   openingItemKey?: string | null;
@@ -48,6 +54,7 @@ export function DebtorDetailSheet({
   onEditItem,
   onVoidItem,
   onWriteOff,
+  onRevertWriteOff,
   onWriteOffAll,
   onOpenItem,
   openingItemKey,
@@ -59,7 +66,15 @@ export function DebtorDetailSheet({
 
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scope, setScope] = useState<DebtScope>("live");
   const bodyReady = useAfterFirstFrame();
+
+  const showingWrittenOff = scope === "written_off";
+  const writtenOff = useWrittenOffDebts(
+    debtor.customerId,
+    debtor.customerName,
+    showingWrittenOff,
+  );
 
   const owed = [...debtor.items, ...debtor.unpaidMonths];
   const totalUsd = debtor.debtUsd + debtor.unpaidMonthsUsd;
@@ -130,26 +145,46 @@ export function DebtorDetailSheet({
           >
             {bodyReady ? (
               <>
-                <View className="mb-4">
-                  <Button
-                    label={t("ledger.collect_amount", {
-                      amount: formatMoney(totalUsd, null, target),
-                    })}
-                    onPress={() => onCollectAll(owed)}
-                    disabled={owed.length === 0}
-                  />
-                </View>
-                <DebtList
-                  items={debtor.items}
-                  unpaidMonths={debtor.unpaidMonths}
-                  newestFirst
-                  onCollect={onCollectItem}
-                  onEditItem={onEditItem}
-                  onVoidItem={onVoidItem}
-                  onWriteOff={onWriteOff}
-                  onOpenItem={onOpenItem}
-                  openingItemKey={openingItemKey}
+                <DebtScopeFilter
+                  value={scope}
+                  onChange={setScope}
+                  className="mb-4"
                 />
+
+                {showingWrittenOff ? (
+                  <DebtList
+                    items={writtenOff.items}
+                    loading={writtenOff.loading}
+                    newestFirst
+                    emptyMessage={t("debts.no_written_off")}
+                    onRevertWriteOff={onRevertWriteOff}
+                    onOpenItem={onOpenItem}
+                    openingItemKey={openingItemKey}
+                  />
+                ) : (
+                  <>
+                    <View className="mb-4">
+                      <Button
+                        label={t("ledger.collect_amount", {
+                          amount: formatMoney(totalUsd, null, target),
+                        })}
+                        onPress={() => onCollectAll(owed)}
+                        disabled={owed.length === 0}
+                      />
+                    </View>
+                    <DebtList
+                      items={debtor.items}
+                      unpaidMonths={debtor.unpaidMonths}
+                      newestFirst
+                      onCollect={onCollectItem}
+                      onEditItem={onEditItem}
+                      onVoidItem={onVoidItem}
+                      onWriteOff={onWriteOff}
+                      onOpenItem={onOpenItem}
+                      openingItemKey={openingItemKey}
+                    />
+                  </>
+                )}
               </>
             ) : null}
           </BottomSheetScrollView>

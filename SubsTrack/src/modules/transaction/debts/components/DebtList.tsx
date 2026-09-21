@@ -15,6 +15,7 @@ interface Props {
   onEditItem?: (item: OpenItem) => void;
   onVoidItem?: (item: OpenItem) => void;
   onWriteOff?: (item: OpenItem) => void;
+  onRevertWriteOff?: (item: OpenItem) => void;
   onOpenItem?: (item: OpenItem) => void;
   openingItemKey?: string | null;
   newestFirst?: boolean;
@@ -51,6 +52,7 @@ export function DebtList({
   onEditItem,
   onVoidItem,
   onWriteOff,
+  onRevertWriteOff,
   onOpenItem,
   openingItemKey,
   newestFirst = false,
@@ -89,6 +91,7 @@ export function DebtList({
           onEdit={onEditItem}
           onVoid={onVoidItem}
           onWriteOff={onWriteOff}
+          onRevertWriteOff={onRevertWriteOff}
           onOpen={onOpenItem}
           loading={openingItemKey === rowKey(item)}
         />

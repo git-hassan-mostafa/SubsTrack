@@ -70,6 +70,22 @@ export function applyCollectionToSales(
   });
 }
 
+/**
+ * Stamp a bill's write-off onto the sale that owns it, so the card's chip and
+ * its greyed amount follow the write without the list re-reading.
+ */
+export function applyWriteOffToSales(
+  items: Sale[],
+  chargeId: string,
+  writtenOffAt: string | null,
+): Sale[] {
+  return items.map((s) =>
+    s.chargeId === chargeId && s.charge
+      ? { ...s, charge: { ...s.charge, writtenOffAt } }
+      : s,
+  );
+}
+
 /** A sale's value in USD — what a month section header sums. */
 export function saleUsd(sale: Sale): number {
   return sale.totalAmount / sale.ratePerUsdSnapshot;
@@ -86,6 +102,7 @@ export interface SalePatches {
   updated: (sale: Sale) => void;
   collected: (collection: Collection) => void;
   paymentVoided: (collection: Collection) => void;
+  writeOffChanged: (chargeId: string, writtenOffAt: string | null) => void;
 }
 
 /**
@@ -107,5 +124,7 @@ export function saleListPatches(
       setItems((prev) => applyCollectionToSales(prev, collection)),
     paymentVoided: (collection) =>
       setItems((prev) => applyCollectionToSales(prev, collection, -1)),
+    writeOffChanged: (chargeId, writtenOffAt) =>
+      setItems((prev) => applyWriteOffToSales(prev, chargeId, writtenOffAt)),
   };
 }

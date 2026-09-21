@@ -30,11 +30,10 @@ import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
 import { useCustomerSalesList } from "../hooks/useCustomerSalesList";
 import type { SaleVoidResult } from "../utils/types";
+import { useOwedChanged } from "@/src/modules/ledger";
 import { useSaleActions } from "../hooks/useSaleActions";
 import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
-import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
-import { useAuth } from "@/src/modules/authentication/auth";
 
 // Full-page list of every sale for a single customer. Reachable from the
 // "Show all" button on CustomerSalesPanel. Mirrors SalesListScreen (search +
@@ -42,7 +41,6 @@ import { useAuth } from "@/src/modules/authentication/auth";
 // from useCustomerSalesList instead of the global sales slice.
 export function CustomerSalesListScreen() {
   const { t } = useTranslation();
-  const { user } = useAuth();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
@@ -50,7 +48,6 @@ export function CustomerSalesListScreen() {
   const customer = useCustomerSlice(
     (s) => s.items.find((c) => c.id === id) ?? null,
   );
-  const voidSaleGlobal = useSaleSlice((s) => s.voidSale);
 
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
@@ -69,7 +66,6 @@ export function CustomerSalesListScreen() {
   const [formOpen, setFormOpen] = useState(false);
   const [activeSale, setActiveSale] = useState<Sale | null>(null);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
-  const [voidLoading, setVoidLoading] = useState(false);
   const selection = useSelection();
   const {
     active: selectionActive,
@@ -80,6 +76,7 @@ export function CustomerSalesListScreen() {
     clear: clearSelection,
   } = selection;
   useSelectionBackHandler(selectionActive, clearSelection);
+  useOwedChanged(refresh);
   const [bulkNotice, setBulkNotice] = useState<string | null>(null);
 
   const saleActions = useSaleActions({
@@ -92,18 +89,6 @@ export function CustomerSalesListScreen() {
   useEffect(() => {
     if (id && !customer) void getCustomer(id);
   }, [id, customer, getCustomer]);
-
-  async function handleVoid(reason: string) {
-    if (!activeSale || !user) return;
-    setVoidLoading(true);
-    try {
-      await voidSaleGlobal(activeSale.id, user.id, reason);
-      setActiveSale(null);
-      await refresh();
-    } finally {
-      setVoidLoading(false);
-    }
-  }
 
   // The receipt closes as the form opens — two stacked full sheets are a maze.
   function openEdit(sale: Sale) {
@@ -272,9 +257,8 @@ export function CustomerSalesListScreen() {
       <SaleDetailSheet
         sale={activeSale}
         onDismiss={() => setActiveSale(null)}
-        onVoid={handleVoid}
+        onVoided={handleVoided}
         onEdit={openEdit}
-        voidLoading={voidLoading}
         onChanged={patch.paymentVoided}
       />
 

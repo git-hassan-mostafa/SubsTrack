@@ -19,6 +19,11 @@ import {
   useOwedChanged,
 } from "@/src/modules/ledger";
 import { useDebtRowActions } from "../hooks/useDebtRowActions";
+import {
+  useWrittenOffDebts,
+  type DebtScope,
+} from "../hooks/useWrittenOffDebts";
+import { DebtScopeFilter } from "./DebtScopeFilter";
 import { DebtList } from "./DebtList";
 import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
 
@@ -44,7 +49,15 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
   const [loading, setLoading] = useState(true);
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scope, setScope] = useState<DebtScope>("live");
   const tokenRef = useRef(0);
+
+  const showingWrittenOff = scope === "written_off";
+  const writtenOff = useWrittenOffDebts(
+    customer.id,
+    customer.name,
+    showingWrittenOff,
+  );
 
   const refresh = useCallback(async () => {
     const token = ++tokenRef.current;
@@ -65,8 +78,14 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
   }, [customer.id, customer.name]);
 
   const collectSheet = useCollectSheet();
-  const { voidItem, writeOffItem, writeOffAll, editItem, editSheet } =
-    useDebtRowActions();
+  const {
+    voidItem,
+    writeOffItem,
+    revertWriteOffItem,
+    writeOffAll,
+    editItem,
+    editSheet,
+  } = useDebtRowActions();
   const openBill = useOpenBill({ onOpenSale });
 
   useFocusEffect(
@@ -117,16 +136,29 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
         </View>
       </View>
 
-      <DebtList
-        items={items}
-        loading={loading}
-        onCollect={(item) => collectSheet.openOne(customer.name, item)}
-        onEditItem={editItem}
-        onVoidItem={voidItem}
-        onWriteOff={writeOffItem}
-        onOpenItem={openBill.openOwed}
-        openingItemKey={openBill.loadingId}
-      />
+      <DebtScopeFilter value={scope} onChange={setScope} className="mb-3" />
+
+      {showingWrittenOff ? (
+        <DebtList
+          items={writtenOff.items}
+          loading={writtenOff.loading}
+          emptyMessage={t("debts.no_written_off")}
+          onRevertWriteOff={revertWriteOffItem}
+          onOpenItem={openBill.openOwed}
+          openingItemKey={openBill.loadingId}
+        />
+      ) : (
+        <DebtList
+          items={items}
+          loading={loading}
+          onCollect={(item) => collectSheet.openOne(customer.name, item)}
+          onEditItem={editItem}
+          onVoidItem={voidItem}
+          onWriteOff={writeOffItem}
+          onOpenItem={openBill.openOwed}
+          openingItemKey={openBill.loadingId}
+        />
+      )}
 
       <ActionMenu
         visible={menuOpen}

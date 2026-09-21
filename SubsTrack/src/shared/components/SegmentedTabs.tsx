@@ -1,5 +1,6 @@
 import { View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
+import { COLORS } from "@/src/shared/constants";
 import { PressableOpacity } from "./PressableOpacity";
 
 export interface Segment<T extends string> {
@@ -35,7 +36,8 @@ export function SegmentedTabs<T extends string>({
           >
             <Text
               fontWeight={active ? "SemiBold" : undefined}
-              className={`text-sm ${active ? "text-gray-900" : "text-gray-500"}`}
+              className="text-sm"
+              style={{ color: active ? COLORS.gray900 : COLORS.gray500 }}
               numberOfLines={1}
             >
               {seg.label}

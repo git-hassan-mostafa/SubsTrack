@@ -100,6 +100,7 @@ export interface LedgerSlice {
     writtenOffBy: string,
     reason: string | null,
   ) => Promise<boolean>;
+  revertWriteOff: (id: string) => Promise<boolean>;
 
   markOwedChanged: () => void;
 
@@ -306,6 +307,10 @@ export const createLedgerSlice: StateCreator<
       const result = await run("loading", () =>
         chargeService.writeOff(id, writtenOffBy, reason),
       );
+      if (result !== null) {
+        get().sales.applyWriteOff(result.id, result.writtenOffAt);
+        get().ledger.clearOwed();
+      }
       return result !== null;
     },
 
@@ -313,7 +318,23 @@ export const createLedgerSlice: StateCreator<
       const result = await run("loading", () =>
         chargeService.writeOffMany(ids, writtenOffBy, reason),
       );
-      if (result !== null) get().ledger.clearOwed();
+      if (result !== null) {
+        for (const charge of result) {
+          get().sales.applyWriteOff(charge.id, charge.writtenOffAt);
+        }
+        get().ledger.clearOwed();
+      }
+      return result !== null;
+    },
+
+    revertWriteOff: async (id) => {
+      const result = await run("loading", () =>
+        chargeService.revertWriteOff(id),
+      );
+      if (result !== null) {
+        get().sales.applyWriteOff(result.id, null);
+        get().ledger.clearOwed();
+      }
       return result !== null;
     },
 

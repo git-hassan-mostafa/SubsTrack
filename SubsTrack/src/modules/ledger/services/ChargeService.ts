@@ -10,6 +10,7 @@ import type {
 import { deterministicId, newId, nowIso } from "@/src/core/offline/ids";
 import { daysLate } from "@/src/core/utils/date";
 import repository from "../repository/ChargeRepository";
+import type { WriteOffScope } from "../repository/IChargeRepository";
 import collectionRepository from "../repository/CollectionRepository";
 import { mapDbChargeToCharge } from "../utils/mapper";
 import {
@@ -83,6 +84,7 @@ class ChargeService {
     customerId?: string;
     customerIds?: string[];
     branchFilter?: BranchFilter;
+    writeOffScope?: WriteOffScope;
   }): Promise<OpenItem[]> {
     const open = await repository.findOpenWithPaid(opts);
     return open.map(({ charge, paid }) =>
@@ -293,6 +295,17 @@ class ChargeService {
       reason,
     );
     return rows.map(mapDbChargeToCharge);
+  }
+
+  // Refuses a LIVE bill rather than no-opping: nothing was given up to undo.
+  async revertWriteOff(id: string): Promise<Charge> {
+    const charge = await repository.findById(id);
+    if (!charge) throw new Error(i18n.t("errors.charge_not_found"));
+    if (charge.voided_at) throw new Error(i18n.t("errors.charge_voided"));
+    if (!charge.written_off_at)
+      throw new Error(i18n.t("errors.charge_not_written_off"));
+    const row = await repository.revertWriteOff(id);
+    return mapDbChargeToCharge(row);
   }
 
   async writtenOffUsdInRange(

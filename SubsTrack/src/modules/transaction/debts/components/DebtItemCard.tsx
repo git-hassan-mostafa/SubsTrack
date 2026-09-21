@@ -33,6 +33,7 @@ interface Props {
   onEdit?: (item: OpenItem) => void;
   onVoid?: (item: OpenItem) => void;
   onWriteOff?: (item: OpenItem) => void;
+  onRevertWriteOff?: (item: OpenItem) => void;
   onOpen?: (item: OpenItem) => void;
   hideCustomerName?: boolean;
   loading?: boolean;
@@ -57,6 +58,7 @@ export function DebtItemCard({
   onEdit,
   onVoid,
   onWriteOff,
+  onRevertWriteOff,
   onOpen,
   hideCustomerName,
   loading = false,
@@ -76,6 +78,7 @@ export function DebtItemCard({
       : null;
   const late = daysLate(item.dueDate);
   const writtenOff = item.charge?.writtenOffAt != null;
+  const dead = muted || writtenOff;
 
   const titlesCustomer = !hideCustomerName || item.kind === "manual";
   const subtitle = titlesCustomer ? item.label : null;
@@ -83,7 +86,7 @@ export function DebtItemCard({
   const handleOpen = onOpen && item.chargeId ? () => onOpen(item) : undefined;
 
   const actions: ActionMenuItem[] = [];
-  if (onCollect) {
+  if (onCollect && !writtenOff) {
     actions.push({
       key: "collect",
       group: "money",
@@ -92,6 +95,19 @@ export function DebtItemCard({
       onPress: () => {
         setMenuOpen(false);
         onCollect(item);
+      },
+    });
+  }
+  if (onRevertWriteOff && writtenOff && item.chargeId) {
+    actions.push({
+      key: "revert_write_off",
+      group: "manage",
+      label: t("ledger.revert_write_off"),
+      icon: "arrow-undo-outline",
+      caption: t("ledger.revert_write_off_caption"),
+      onPress: () => {
+        setMenuOpen(false);
+        onRevertWriteOff(item);
       },
     });
   }
@@ -107,7 +123,7 @@ export function DebtItemCard({
       },
     });
   }
-  if (onWriteOff && item.chargeId) {
+  if (onWriteOff && item.chargeId && !writtenOff) {
     actions.push({
       key: "write_off",
       group: "danger",
@@ -137,9 +153,9 @@ export function DebtItemCard({
   return (
     <EntityCard
       icon={KIND_ICON[item.kind]}
-      iconColor={muted ? COLORS.gray500 : COLORS.danger}
-      iconBgClassName={muted ? "bg-gray-100" : "bg-red-50"}
-      dimmed={muted}
+      iconColor={dead ? COLORS.gray500 : COLORS.danger}
+      iconBgClassName={dead ? "bg-gray-100" : "bg-red-50"}
+      dimmed={dead}
       onPress={handleOpen}
       onMenu={actions.length > 0 ? () => setMenuOpen(true) : undefined}
       reserveMenuSpace

@@ -47,11 +47,15 @@ export interface DbChargeWithPaid {
   paid: number;
 }
 
+/** Which side of the write-off line a read wants; absent means live bills. */
+export type WriteOffScope = "live" | "written_off";
+
 export interface FindChargesOptions {
   customerId?: string;
   customerIds?: string[];
   branchFilter?: BranchFilter;
   kinds?: DbCharge["kind"][];
+  writeOffScope?: WriteOffScope;
 }
 
 export interface IChargeRepository {
@@ -81,6 +85,7 @@ export interface IChargeRepository {
     writtenOffBy: string,
     reason: string | null,
   ): Promise<DbCharge[]>;
+  revertWriteOff(id: string): Promise<DbCharge>;
 
   writtenOffInRange(
     startIso: string,

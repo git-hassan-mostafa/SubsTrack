@@ -37,6 +37,21 @@ export function revivePatch(issuedAt: string) {
   } as const;
 }
 
+/**
+ * Undoing a write-off, and ONLY that — the deliberate half of `revivePatch`.
+ *
+ * `issued_at` stays put and `voided_at` is untouched: nothing was re-raised and
+ * nothing said the bill was a mistake, a decision to give up on it is simply
+ * withdrawn. The bill goes back to owing exactly what it owed before.
+ */
+export function writeOffRevertPatch() {
+  return {
+    written_off_at: null,
+    written_off_by: null,
+    write_off_reason: null,
+  } as const;
+}
+
 /** Nothing about the price moved, so an empty bill needs no re-pricing. */
 export function samePrice(row: DbCharge, next: CreateChargePayload): boolean {
   return (

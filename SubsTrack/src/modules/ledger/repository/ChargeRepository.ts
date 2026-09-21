@@ -9,6 +9,7 @@ import type {
   IChargeRepository,
   UpdateChargePayload,
 } from "./IChargeRepository";
+import { writeOffRevertPatch } from "./chargeRevive";
 import { OfflineChargeRepository } from "./ChargeRepository.offline";
 
 const CHARGE_SELECT = "*, customers(*), customer_plans(*, plans(*)), sales(*)";
@@ -116,11 +117,12 @@ export class ChargeRepository
   async findOpenWithPaid(
     opts: FindChargesOptions,
   ): Promise<DbChargeWithPaid[]> {
-    let query = this.db
-      .from("charge_balances")
-      .select("id, paid")
-      .is("written_off_at", null)
-      .gt("balance", 0);
+    let query = this.db.from("charge_balances").select("id, paid");
+    query =
+      opts.writeOffScope === "written_off"
+        ? query.not("written_off_at", "is", null)
+        : query.is("written_off_at", null);
+    query = query.gt("balance", 0);
     if (opts.customerId) query = query.eq("customer_id", opts.customerId);
     if (opts.customerIds?.length)
       query = query.in("customer_id", opts.customerIds);
@@ -261,6 +263,10 @@ export class ChargeRepository
       });
     }
     return written;
+  }
+
+  async revertWriteOff(id: string): Promise<DbCharge> {
+    return this.patch(id, writeOffRevertPatch(), "update");
   }
 
   private async patch(

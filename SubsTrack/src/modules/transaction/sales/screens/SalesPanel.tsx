@@ -49,7 +49,6 @@ import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
 import type { SaleStatus } from "@/src/state/slices/sales/saleSlice";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
-import { useAuth } from "@/src/modules/authentication/auth";
 
 interface Props {
   filterRowRef?: RefObject<ScrollView | null>;
@@ -60,7 +59,6 @@ interface Props {
 // provides the SafeAreaView, title, and the segmented tab switcher.
 export function SalesPanel({ filterRowRef }: Props = {}) {
   const { t } = useTranslation();
-  const { user } = useAuth();
   const sales = useSaleSlice((s) => s.items);
   const monthlyTotals = useSaleSlice((s) => s.monthlyTotals);
   const loading = useSaleSlice((s) => s.loading);
@@ -80,7 +78,6 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
   const status = useSaleSlice((s) => s.status);
   const setStatus = useSaleSlice((s) => s.setStatus);
   const clearFilters = useSaleSlice((s) => s.clearFilters);
-  const voidSale = useSaleSlice((s) => s.voidSale);
   const clearError = useSaleSlice((s) => s.clearError);
 
   const products = useProductSlice((s) => s.items);
@@ -96,7 +93,6 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
   const [formOpen, setFormOpen] = useState(false);
   const [activeSale, setActiveSale] = useState<Sale | null>(null);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
-  const [voidLoading, setVoidLoading] = useState(false);
   const selection = useSelection();
   const {
     active: selectionActive,
@@ -155,17 +151,6 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
   useEffect(() => {
     setSearchQuery(debouncedSearch);
   }, [debouncedSearch, setSearchQuery]);
-
-  async function handleVoid(reason: string) {
-    if (!activeSale || !user) return;
-    setVoidLoading(true);
-    try {
-      await voidSale(activeSale.id, user.id, reason);
-      setActiveSale(null);
-    } finally {
-      setVoidLoading(false);
-    }
-  }
 
   // The receipt closes as the form opens — two stacked full sheets are a maze.
   function openEdit(sale: Sale) {
@@ -410,9 +395,8 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
       <SaleDetailSheet
         sale={activeSale}
         onDismiss={() => setActiveSale(null)}
-        onVoid={handleVoid}
+        onVoided={handleVoided}
         onEdit={openEdit}
-        voidLoading={voidLoading}
       />
 
       {saleActions.sheets}

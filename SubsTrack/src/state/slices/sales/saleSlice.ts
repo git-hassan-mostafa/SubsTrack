@@ -4,6 +4,7 @@ import { PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
 import {
   addSale,
   applyCollectionToSales,
+  applyWriteOffToSales,
   applyVoidedSales,
   cartUnits,
   replaceSale,
@@ -67,6 +68,7 @@ export interface SaleSlice {
     collection: Pick<Collection, "items">,
     sign?: 1 | -1,
   ) => void;
+  applyWriteOff: (chargeId: string, writtenOffAt: string | null) => void;
   clearError: () => void;
   reset: () => void;
 }
@@ -418,6 +420,15 @@ export const createSaleSlice: StateCreator<
         state.sales.items,
         collection,
         sign,
+      );
+    }),
+
+  applyWriteOff: (chargeId, writtenOffAt) =>
+    set((state) => {
+      state.sales.items = applyWriteOffToSales(
+        state.sales.items,
+        chargeId,
+        writtenOffAt,
       );
     }),
 

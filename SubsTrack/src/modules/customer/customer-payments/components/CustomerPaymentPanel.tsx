@@ -22,6 +22,7 @@ import {
 import { InlineSelectionToolbar } from "@/src/shared/components/InlineSelectionToolbar";
 import type {
   AuditRecordTarget,
+  Charge,
   Collection,
   Customer,
   CustomerPlan,
@@ -59,12 +60,15 @@ import {
   BillSheet,
   chargeService,
   CollectSheet,
-  collectionService,
   monthItemFromEntry,
-  SharedBillsWarning,
-  sharedBillsAcross,
+  useOwedChanged,
+  useWriteOffActions,
+  VoidConfirmDialog,
 } from "@/src/modules/ledger";
-import type { CollectGroupSubmit, SharedBill } from "@/src/modules/ledger";
+import type {
+  CollectGroupSubmit,
+  WriteOffTarget,
+} from "@/src/modules/ledger";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -112,6 +116,7 @@ export function CustomerPaymentPanel({
   const router = useRouter();
   const { quickPay } = useLocalSearchParams<{ quickPay?: string }>();
   const { user, isAdmin } = useAuth();
+  const writeOffActions = useWriteOffActions();
   const bills = usePaymentSlice((s) => s.bills);
   const skips = usePaymentSlice((s) => s.skips);
   const monthGridsByLine = usePaymentSlice((s) => s.monthGridsByLine);
@@ -150,6 +155,7 @@ export function CustomerPaymentPanel({
   const [menuEntry, setMenuEntry] = useState<MonthEntry | null>(null);
   const [busyMonth, setBusyMonth] = useState<string | null>(null);
   const [billEntry, setBillEntry] = useState<MonthEntry | null>(null);
+  const [voidEntry, setVoidEntry] = useState<MonthEntry | null>(null);
   const [history, setHistory] = useState<{
     chargeId: string | null;
     targets: AuditRecordTarget[];
@@ -220,6 +226,11 @@ export function CustomerPaymentPanel({
   useEffect(() => {
     if (lines.length > 0) void fetchBills(customer.id);
   }, [customer.id, lines.length, fetchBills, refreshToken]);
+
+  const reloadBills = useCallback(() => {
+    if (lines.length > 0) void fetchBills(customer.id);
+  }, [customer.id, lines.length, fetchBills]);
+  useOwedChanged(reloadBills);
 
   useEffect(() => {
     if (lines.length > 0 && billsReady) buildGrids(lines, year);
@@ -392,6 +403,14 @@ export function CustomerPaymentPanel({
     [itemsForEntries, t],
   );
 
+  // A written-off month is "unpaid" by the grid's money rule, yet HAS a bill.
+  function hasViewableBill(entry: MonthEntry): boolean {
+    return (
+      !!entry.charge &&
+      (entry.status === "paid" || entry.charge.writtenOffAt !== null)
+    );
+  }
+
   function handleCellPress(entry: MonthEntry) {
     if (entry.status === "before_start") {
       void confirm({
@@ -408,7 +427,7 @@ export function CustomerPaymentPanel({
       return;
     }
 
-    if (entry.status === "paid" && entry.charge) {
+    if (hasViewableBill(entry)) {
       setBillEntry(entry);
       return;
     }
@@ -588,7 +607,7 @@ export function CustomerPaymentPanel({
    * BILL is the write, so a multi-month block is judged by every month it covers
    * (months inside the same write never block each other).
    */
-  async function voidBill(entry: MonthEntry): Promise<boolean> {
+  function voidBill(entry: MonthEntry): boolean {
     const charge = entry.charge;
     if (!user || !charge) return false;
     const blocker = voidOrderBlocker(
@@ -601,45 +620,50 @@ export function CustomerPaymentPanel({
       showVoidOrderBlocked(blocker);
       return false;
     }
-    let shared: SharedBill[] = [];
+    setVoidEntry(entry);
+    return true;
+  }
+
+  async function confirmVoidBill(reason: string) {
+    const entry = voidEntry;
+    const charge = entry?.charge;
+    if (!user || !entry || !charge) return;
     setBusyMonth(entry.billingMonth);
     try {
-      const payments = await collectionService.getPaymentsForCharge(charge.id);
-      shared = sharedBillsAcross(
-        payments.filter((p) => p.voidedAt === null),
-        charge.id,
-        t,
-      );
-    } catch {
+      const result = await voidMonthBill(charge.id, user.id, reason || null);
+      if (result.blockedBy) {
+        setVoidEntry(null);
+        showVoidOrderBlocked(result.blockedBy);
+        return;
+      }
+      if (!result.ok) return;
+      await fetchBills(customer.id);
+      setVoidEntry(null);
     } finally {
       setBusyMonth(null);
     }
-    let voided = false;
-    let blockedAfterVoid: string | null = null;
-    await confirm({
-      title: t("ledger.void_month_title"),
-      message: t("ledger.void_month_message", { month: monthLabelOf(entry) }),
-      confirmLabel: t("ledger.void_month"),
-      destructive: true,
-      content:
-        shared.length > 0
-          ? () => <SharedBillsWarning bills={shared} />
-          : undefined,
-      onConfirm: async () => {
-        setBusyMonth(entry.billingMonth);
-        try {
-          const result = await voidMonthBill(charge.id, user.id, null);
-          blockedAfterVoid = result.blockedBy ?? null;
-          if (blockedAfterVoid || !result.ok) return;
-          await fetchBills(customer.id);
-          voided = true;
-        } finally {
-          setBusyMonth(null);
-        }
-      },
-    });
-    if (blockedAfterVoid) showVoidOrderBlocked(blockedAfterVoid);
-    return voided;
+  }
+
+  // No re-read here: both writes go through the ledger slice, which announces
+  // `owedVersion`, and this panel re-reads its bills on that.
+  function writeOffBill(charge: Charge, balance: number): Promise<void> {
+    return writeOffActions.writeOff(writeOffTargetOf(charge, balance));
+  }
+
+  function revertWriteOffBill(
+    charge: Charge,
+    balance: number,
+  ): Promise<void> {
+    return writeOffActions.revert(writeOffTargetOf(charge, balance));
+  }
+
+  function writeOffTargetOf(charge: Charge, balance: number): WriteOffTarget {
+    return {
+      chargeId: charge.id,
+      balance,
+      currencyId: charge.currencyId,
+      customerName: customer.name,
+    };
   }
 
   // A custom-price line qualifies too — it opens the sheet instead of charging.
@@ -789,7 +813,7 @@ export function CustomerPaymentPanel({
         onPress: () => setSkipRequest({ entries: [entry], mode: "unskip" }),
       });
     }
-    if (entry.status === "paid" && entry.charge) {
+    if (hasViewableBill(entry)) {
       items.push({
         key: "bill",
         group: "open",
@@ -797,7 +821,7 @@ export function CustomerPaymentPanel({
         icon: "receipt-outline",
         onPress: () => setBillEntry(entry),
       });
-      if (entry.balance > 0) {
+      if (entry.balance > 0 && entry.charge?.writtenOffAt == null) {
         items.push({
           key: "collect-remaining",
           group: "money",
@@ -1225,9 +1249,29 @@ export function CustomerPaymentPanel({
           }}
           onVoidBill={async () => {
             const entry = billEntry;
-            return entry ? await voidBill(entry) : false;
+            return entry ? voidBill(entry) : false;
           }}
+          onWriteOff={(charge, balance) => {
+            setBillEntry(null);
+            void writeOffBill(charge, balance);
+          }}
+          onRevertWriteOff={revertWriteOffBill}
           onDismiss={() => setBillEntry(null)}
+        />
+      )}
+
+      {voidEntry?.charge && (
+        <VoidConfirmDialog
+          chargeIds={[voidEntry.charge.id]}
+          title={t("ledger.void_month_title")}
+          message={t("ledger.void_month_message", {
+            month: monthLabelOf(voidEntry),
+          })}
+          confirmLabel={t("ledger.void_month")}
+          error={paymentsError}
+          onClearError={clearPaymentError}
+          onConfirm={confirmVoidBill}
+          onDismiss={() => setVoidEntry(null)}
         />
       )}
 

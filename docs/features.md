@@ -1030,6 +1030,25 @@ because a write-off gives up on the remainder and does not un-collect what was
 already handed over. "No longer owed" is decided in one place,
 `ChargeRepository.find`. Gotcha #115.
 
+**A written-off bill stays REACHABLE, and the write-off can be undone.** Giving
+up on a debt hides it from the debts total, never from the debtor. Every debts
+surface reads through one scope — `FindChargesOptions.writeOffScope`, `'live'`
+by default — so the debtor sheet and the customer's Transactions panel carry
+**Owed now / Written off** pill tabs (`PillTabs`, the customer list's own filter
+control), always present and defaulting to "Owed now". The written-off tab lists
+those bills greyed out with the orange chip, and its read fires only when that
+tab is picked, so the default scope costs no query. They are a SEPARATE read
+and are never folded into `DebtsView`, which is what keeps the debtor total, the Debts
+headline and the customer badge meaning "still expected". A written-off row
+offers neither **Collect** nor **Write off** — only **Undo write-off**
+(`ChargeService.revertWriteOff` → `writeOffRevertPatch()`), which clears the
+three write-off columns and nothing else, leaving `issued_at` and any collected
+money exactly where they are. That is deliberately NOT a revive: a revive
+happens when cash lands on a dead bill and re-stamps `issued_at`, which is also
+how the audit trail tells the two apart ("undid the write-off on …" vs
+"re-opened …"). A sale whose bill is written off wears the same chip on its card
+and receipt, and its amount goes grey rather than red. Gotcha #152.
+
 ### One currency per hand-over
 
 A collection carries one currency, and it must equal the currency of every
@@ -2099,6 +2118,25 @@ would answer 0), and `charge_balances` now excludes **only** voided bills,
 because a write-off gives up on the remainder and does not un-collect what was
 already handed over. "No longer owed" is decided in one place,
 `ChargeRepository.find`. Gotcha #115.
+
+**A written-off bill stays REACHABLE, and the write-off can be undone.** Giving
+up on a debt hides it from the debts total, never from the debtor. Every debts
+surface reads through one scope — `FindChargesOptions.writeOffScope`, `'live'`
+by default — so the debtor sheet and the customer's Transactions panel carry
+**Owed now / Written off** pill tabs (`PillTabs`, the customer list's own filter
+control), always present and defaulting to "Owed now". The written-off tab lists
+those bills greyed out with the orange chip, and its read fires only when that
+tab is picked, so the default scope costs no query. They are a SEPARATE read
+and are never folded into `DebtsView`, which is what keeps the debtor total, the Debts
+headline and the customer badge meaning "still expected". A written-off row
+offers neither **Collect** nor **Write off** — only **Undo write-off**
+(`ChargeService.revertWriteOff` → `writeOffRevertPatch()`), which clears the
+three write-off columns and nothing else, leaving `issued_at` and any collected
+money exactly where they are. That is deliberately NOT a revive: a revive
+happens when cash lands on a dead bill and re-stamps `issued_at`, which is also
+how the audit trail tells the two apart ("undid the write-off on …" vs
+"re-opened …"). A sale whose bill is written off wears the same chip on its card
+and receipt, and its amount goes grey rather than red. Gotcha #152.
 
 ### One currency per hand-over
 
@@ -3156,6 +3194,25 @@ because a write-off gives up on the remainder and does not un-collect what was
 already handed over. "No longer owed" is decided in one place,
 `ChargeRepository.find`. Gotcha #115.
 
+**A written-off bill stays REACHABLE, and the write-off can be undone.** Giving
+up on a debt hides it from the debts total, never from the debtor. Every debts
+surface reads through one scope — `FindChargesOptions.writeOffScope`, `'live'`
+by default — so the debtor sheet and the customer's Transactions panel carry
+**Owed now / Written off** pill tabs (`PillTabs`, the customer list's own filter
+control), always present and defaulting to "Owed now". The written-off tab lists
+those bills greyed out with the orange chip, and its read fires only when that
+tab is picked, so the default scope costs no query. They are a SEPARATE read
+and are never folded into `DebtsView`, which is what keeps the debtor total, the Debts
+headline and the customer badge meaning "still expected". A written-off row
+offers neither **Collect** nor **Write off** — only **Undo write-off**
+(`ChargeService.revertWriteOff` → `writeOffRevertPatch()`), which clears the
+three write-off columns and nothing else, leaving `issued_at` and any collected
+money exactly where they are. That is deliberately NOT a revive: a revive
+happens when cash lands on a dead bill and re-stamps `issued_at`, which is also
+how the audit trail tells the two apart ("undid the write-off on …" vs
+"re-opened …"). A sale whose bill is written off wears the same chip on its card
+and receipt, and its amount goes grey rather than red. Gotcha #152.
+
 ### One currency per hand-over
 
 A collection carries one currency, and it must equal the currency of every
@@ -4225,6 +4282,25 @@ would answer 0), and `charge_balances` now excludes **only** voided bills,
 because a write-off gives up on the remainder and does not un-collect what was
 already handed over. "No longer owed" is decided in one place,
 `ChargeRepository.find`. Gotcha #115.
+
+**A written-off bill stays REACHABLE, and the write-off can be undone.** Giving
+up on a debt hides it from the debts total, never from the debtor. Every debts
+surface reads through one scope — `FindChargesOptions.writeOffScope`, `'live'`
+by default — so the debtor sheet and the customer's Transactions panel carry
+**Owed now / Written off** pill tabs (`PillTabs`, the customer list's own filter
+control), always present and defaulting to "Owed now". The written-off tab lists
+those bills greyed out with the orange chip, and its read fires only when that
+tab is picked, so the default scope costs no query. They are a SEPARATE read
+and are never folded into `DebtsView`, which is what keeps the debtor total, the Debts
+headline and the customer badge meaning "still expected". A written-off row
+offers neither **Collect** nor **Write off** — only **Undo write-off**
+(`ChargeService.revertWriteOff` → `writeOffRevertPatch()`), which clears the
+three write-off columns and nothing else, leaving `issued_at` and any collected
+money exactly where they are. That is deliberately NOT a revive: a revive
+happens when cash lands on a dead bill and re-stamps `issued_at`, which is also
+how the audit trail tells the two apart ("undid the write-off on …" vs
+"re-opened …"). A sale whose bill is written off wears the same chip on its card
+and receipt, and its amount goes grey rather than red. Gotcha #152.
 
 ### One currency per hand-over
 

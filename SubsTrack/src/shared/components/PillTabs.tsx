@@ -1,6 +1,7 @@
 import { ScrollView } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { COLORS } from "@/src/shared/constants";
 
 export interface PillTab<T extends string> {
   key: T;
@@ -46,7 +47,8 @@ export function PillTabs<T extends string>({
           >
             <Text
               fontWeight="SemiBold"
-              className={`text-xs ${active ? "text-white" : "text-gray-600"}`}
+              className="text-xs"
+              style={{ color: active ? COLORS.white : COLORS.gray600 }}
             >
               {tab.label}
             </Text>

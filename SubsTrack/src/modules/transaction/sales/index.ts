@@ -8,6 +8,7 @@ export type {
 export {
   addSale,
   applyCollectionToSales,
+  applyWriteOffToSales,
   applyVoidedSales,
   removeSales,
   replaceSale,

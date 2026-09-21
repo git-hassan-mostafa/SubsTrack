@@ -219,8 +219,13 @@ export const fakeChargeRepository = {
   async findOpenWithPaid(
     opts: FindChargesOptions,
   ): Promise<DbChargeWithPaid[]> {
+    const wantsWrittenOff = opts.writeOffScope === "written_off";
     return charges
-      .filter((c) => c.voided_at === null && c.written_off_at === null)
+      .filter(
+        (c) =>
+          c.voided_at === null &&
+          (c.written_off_at !== null) === wantsWrittenOff,
+      )
       .filter((c) =>
         opts.customerId ? c.customer_id === opts.customerId : true,
       )
@@ -283,6 +288,16 @@ export const fakeChargeRepository = {
       written_off_at: new Date().toISOString(),
       written_off_by: by,
       write_off_reason: reason,
+    });
+    return hydrateCharge(row);
+  },
+  async revertWriteOff(id: string): Promise<DbCharge> {
+    const row = charges.find((c) => c.id === id)!;
+    Object.assign(row, {
+      written_off_at: null,
+      written_off_by: null,
+      write_off_reason: null,
+      updated_at: new Date().toISOString(),
     });
     return hydrateCharge(row);
   },

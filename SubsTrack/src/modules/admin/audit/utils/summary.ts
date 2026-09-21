@@ -94,6 +94,11 @@ function changeOf(entry: AuditEntry, field: string): AuditChange | undefined {
   return entry.changes.find((c) => c.field === field);
 }
 
+/** A death mark that was LIFTED — the half of a diff a revive and an undo share. */
+function wasCleared(change: AuditChange | undefined): boolean {
+  return !!change && isBlank(change.after) && !isBlank(change.before);
+}
+
 /** The record's noun, named by its `kind` where the table has kinds. */
 function recordType(entry: AuditEntry, ctx: AuditFieldContext): string {
   const kind = recordKind(entry);
@@ -212,9 +217,10 @@ function specialSentence(
 
   // Money on a dead bill clears BOTH death marks and re-stamps issued_at
   // (reviveTargetBill) — a diff of that reads as a void, the exact opposite.
+  const reRaised = !!changeOf(entry, "issued_at");
   const revived =
-    (unvoided && isBlank(unvoided.after) && !isBlank(unvoided.before)) ||
-    (writeOff && isBlank(writeOff.after) && !isBlank(writeOff.before));
+    wasCleared(unvoided) ||
+    (wasCleared(writeOff) && (reRaised || wasCleared(unvoided)));
   if (revived) return t("audit.summary.special.revived", { actor, record });
 
   if (writeOff) {

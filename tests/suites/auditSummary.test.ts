@@ -435,6 +435,31 @@ describe("buildAuditSummary", () => {
     expect(sentence(e)).toContain("re-opened the September 2026 bill");
   });
 
+  it("TC-AS-30b UNDOING a write-off says so — no money arrived, so it is not a re-open", () => {
+    const e = entry({
+      table: "charges",
+      subject: "Donald Trump",
+      changes: [change("written_off_at", "2026-08-20T10:00:00.000Z", null)],
+      context: { kind: "month", billing_month: "2026-09-01" },
+    });
+    expect(sentence(e)).toBe(
+      "Super Admin undid the write-off on the September 2026 bill for Donald Trump",
+    );
+  });
+
+  it("TC-AS-30c a void cleared ALONGSIDE a write-off is still a re-open", () => {
+    const e = entry({
+      table: "charges",
+      subject: "Donald Trump",
+      changes: [
+        change("voided_at", "2026-08-20T10:00:00.000Z", null),
+        change("written_off_at", "2026-08-20T10:00:00.000Z", null),
+      ],
+      context: { kind: "month", billing_month: "2026-09-01" },
+    });
+    expect(sentence(e)).toContain("re-opened the September 2026 bill");
+  });
+
   it("TC-AS-31 a real void is still a void, not a re-open", () => {
     const e = entry({
       table: "charges",

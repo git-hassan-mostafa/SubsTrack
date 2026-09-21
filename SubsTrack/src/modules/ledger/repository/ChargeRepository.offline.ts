@@ -17,6 +17,7 @@ import type {
   IChargeRepository,
   UpdateChargePayload,
 } from "./IChargeRepository";
+import { writeOffRevertPatch } from "./chargeRevive";
 
 const PAID_SUM = `COALESCE(SUM(CASE WHEN co.id IS NOT NULL AND co.voided_at IS NULL
                      THEN CAST(i.amount AS REAL) ELSE 0 END), 0)`;
@@ -147,11 +148,12 @@ export class OfflineChargeRepository
     sql: string;
     params: unknown[];
   } {
+    const writeOff =
+      opts.writeOffScope === "written_off"
+        ? "c.written_off_at IS NOT NULL"
+        : "c.written_off_at IS NULL";
     const parts: { clause: string; params: unknown[] }[] = [
-      {
-        clause: "c.voided_at IS NULL AND c.written_off_at IS NULL",
-        params: [],
-      },
+      { clause: `c.voided_at IS NULL AND ${writeOff}`, params: [] },
     ];
     if (opts.customerId)
       parts.push({ clause: "c.customer_id = ?", params: [opts.customerId] });
@@ -338,6 +340,10 @@ export class OfflineChargeRepository
       }
     });
     return live.map((p) => ({ ...p, ...changes }) as DbCharge);
+  }
+
+  async revertWriteOff(id: string): Promise<DbCharge> {
+    return this.patch(id, { ...writeOffRevertPatch() }, "update");
   }
 
   private async patch(

@@ -48,6 +48,7 @@ export function SaleCard({
   const source = snapshotCurrency(sale, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
   const voided = sale.voidedAt !== null;
+  const writtenOff = !voided && sale.charge?.writtenOffAt != null;
   const fullyPaid = sale.amountPaid >= sale.totalAmount;
   const totalLabel = fullyPaid
     ? formatMoney(sale.totalAmount, source, target)
@@ -68,8 +69,19 @@ export function SaleCard({
         onEnterSelection ? () => onEnterSelection(sale) : undefined
       }
     >
-      <View className="flex-1 me-2">
-        <CardTitle numberOfLines={1}>#{receiptId(sale.id)}</CardTitle>
+      <View className="flex-1">
+        <View className="flex-row items-start justify-between gap-2">
+          <CardTitle className="flex-1" numberOfLines={1}>
+            #{receiptId(sale.id)}
+          </CardTitle>
+          <CardAmount
+            tone={
+              voided || writtenOff ? "muted" : fullyPaid ? "default" : "danger"
+            }
+          >
+            {totalLabel}
+          </CardAmount>
+        </View>
         <CardSubtitle className="mt-0.5" numberOfLines={1}>
           {sale.itemsSummary}
         </CardSubtitle>
@@ -78,7 +90,7 @@ export function SaleCard({
           {" · "}
           {formatDate(sale.soldAt)}
         </CardMeta>
-        {voided || sale.items.length === 0 ? (
+        {voided || writtenOff || sale.items.length === 0 ? (
           <CardChips>
             {voided ? (
               <Chip
@@ -89,17 +101,15 @@ export function SaleCard({
                 }
                 tone="red"
               />
-            ) : (
+            ) : null}
+            {writtenOff ? (
+              <Chip text={t("ledger.written_off")} tone="orange" />
+            ) : null}
+            {!voided && sale.items.length === 0 ? (
               <Chip text={t("sales.no_items_chip")} tone="violet" />
-            )}
+            ) : null}
           </CardChips>
         ) : null}
-      </View>
-
-      <View className="items-end">
-        <CardAmount tone={voided ? "muted" : fullyPaid ? "default" : "danger"}>
-          {totalLabel}
-        </CardAmount>
       </View>
     </EntityCard>
   );

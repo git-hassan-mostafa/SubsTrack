@@ -308,6 +308,11 @@ second payment had nowhere to go):
   but lost. **Either leaves a dead bill that still owns its month** (gotcha #115),
   so a write **revives before it collects** — `reviveTargetBill(s)` clears all six
   void/write-off columns unconditionally whenever money arrives.
+  **A written-off bill stays REACHABLE and the write-off is undoable** (gotcha
+  #152): reads take a `writeOffScope` (`'live'` default), written-off bills are a
+  SEPARATE per-customer read that never enters `DebtsView` or any total, and
+  `ChargeService.revertWriteOff` clears only the three write-off columns — not a
+  revive, so the trail says "undid the write-off", not "re-opened".
 - Reading what is owed is **ONE query**: `ChargeRepository.findOpenWithPaid`
   (gotcha #118). A write **returns what it WROTE** (gotcha #119).
 - **Two void doors, saying different things** (gotcha #109): voiding a **payment**
