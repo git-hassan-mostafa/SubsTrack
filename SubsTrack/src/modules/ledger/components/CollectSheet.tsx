@@ -289,8 +289,8 @@ export function CollectSheet({
 
             {singleOverpaying && (
               <ErrorBanner
-                message={t("ledger.cannot_exceed", {
-                  amount: money(singleMax),
+                message={t("ledger.over_by_single", {
+                  max: money(singleMax),
                 })}
                 onDismiss={() => setSingleAmount(singleMax)}
               />

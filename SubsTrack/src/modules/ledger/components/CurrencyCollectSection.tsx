@@ -90,7 +90,12 @@ export function CurrencyCollectSection({
 
       {plan.leftover > 0 && (
         <Text className="mt-3 text-xs text-amber-700">
-          {t("ledger.cannot_exceed", { amount: money(plan.owed) })}
+          {plan.skippedCount > 0
+            ? t("ledger.over_by_skipped", {
+                count: plan.skippedCount,
+                max: money(plan.payable),
+              })
+            : t("ledger.over_by", { max: money(plan.payable) })}
         </Text>
       )}
     </View>

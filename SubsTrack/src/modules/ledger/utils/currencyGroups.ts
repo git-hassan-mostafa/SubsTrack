@@ -15,6 +15,8 @@ export interface CurrencyPlan extends CurrencyGroup {
   amount: number | null;
   lines: AllocationLine[];
   leftover: number;
+  payable: number;
+  skippedCount: number;
 }
 
 /**
@@ -69,7 +71,14 @@ export function planCollection(
     const amount = amounts.get(groupKey(group)) ?? null;
     const included = group.items.filter((i) => !excluded.has(keyOf(i)));
     const { lines, leftover } = allocate(amount ?? 0, included);
-    return { ...group, amount, lines, leftover };
+    return {
+      ...group,
+      amount,
+      lines,
+      leftover,
+      payable: totalOwed(included),
+      skippedCount: group.items.length - included.length,
+    };
   });
 }
 
