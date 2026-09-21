@@ -71,8 +71,7 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
     writeOffDebtor,
     editItem,
     editSheet,
-  } =
-    useDebtRowActions();
+  } = useDebtRowActions();
   const openBill = useOpenBill({ onOpenSale });
   useOwedChanged(refresh);
 

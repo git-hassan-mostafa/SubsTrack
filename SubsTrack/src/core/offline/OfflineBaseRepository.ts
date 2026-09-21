@@ -192,9 +192,7 @@ export abstract class OfflineBaseRepository {
     return this.db.getFirstAsync<T>(sql, params as never[]);
   }
 
-  protected async customerAudit(
-    customerId: string,
-  ): Promise<{
+  protected async customerAudit(customerId: string): Promise<{
     branchId: string | null;
     subject: string | null;
     customerId: string;

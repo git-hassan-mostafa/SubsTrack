@@ -64,7 +64,9 @@ describe("all-debts: flattening", () => {
     const v = view([
       debtor({
         items: [openItem({ chargeId: "debt" })],
-        unpaidMonths: [openItem({ chargeId: null, billingMonth: "2026-02-01" })],
+        unpaidMonths: [
+          openItem({ chargeId: null, billingMonth: "2026-02-01" }),
+        ],
       }),
     ]);
     expect(keys(flattenDebts(v))).toEqual(["debt"]);
@@ -101,9 +103,9 @@ describe("all-debts: filtering", () => {
   ]);
 
   it("TC-AD-04 filters by kind", () => {
-    expect(keys(selectAllDebts(rows, filters({ kind: "sale" }), TODAY))).toEqual(
-      ["s"],
-    );
+    expect(
+      keys(selectAllDebts(rows, filters({ kind: "sale" }), TODAY)),
+    ).toEqual(["s"]);
   });
 
   it("TC-AD-05 search matches the customer name", () => {
@@ -135,9 +137,9 @@ describe("all-debts: status", () => {
   const v = view([debtor({ items: [late, future, part] })]);
 
   it("TC-AD-08 'late' keeps only bills past their due date", () => {
-    expect(keys(selectAllDebts(v, filters({ status: "late" }), TODAY))).toEqual([
-      "late",
-    ]);
+    expect(keys(selectAllDebts(v, filters({ status: "late" }), TODAY))).toEqual(
+      ["late"],
+    );
   });
 
   it("TC-AD-09 'not late yet' is the exact complement", () => {
@@ -159,17 +161,15 @@ describe("all-debts: sorting", () => {
   const v = view([debtor({ items: [feb, jan] })]);
 
   it("TC-AD-11 oldest-first is the waterfall's own order", () => {
-    expect(keys(selectAllDebts(v, filters({ sort: "oldest" }), TODAY))).toEqual([
-      "jan",
-      "feb",
-    ]);
+    expect(keys(selectAllDebts(v, filters({ sort: "oldest" }), TODAY))).toEqual(
+      ["jan", "feb"],
+    );
   });
 
   it("TC-AD-12 newest-first is its exact reverse", () => {
-    expect(keys(selectAllDebts(v, filters({ sort: "newest" }), TODAY))).toEqual([
-      "feb",
-      "jan",
-    ]);
+    expect(keys(selectAllDebts(v, filters({ sort: "newest" }), TODAY))).toEqual(
+      ["feb", "jan"],
+    );
   });
 
   it("TC-AD-13 largest/smallest sort on the USD balance", () => {
@@ -196,7 +196,11 @@ describe("all-debts: sorting", () => {
       amount: 900_000,
       ratePerUsdSnapshot: 90_000,
     });
-    const usd = openItem({ chargeId: "usd", amount: 50, ratePerUsdSnapshot: 1 });
+    const usd = openItem({
+      chargeId: "usd",
+      amount: 50,
+      ratePerUsdSnapshot: 1,
+    });
     const mixed = view([debtor({ items: [lbp, usd] })]);
     expect(
       keys(selectAllDebts(mixed, filters({ sort: "largest" }), TODAY)),
@@ -218,7 +222,9 @@ describe("all-debts: the written-off scope shares one rule set", () => {
 
   it("TC-AD-21 and the same search and sort", () => {
     expect(
-      keys(filterAndSortDebts(writtenOff, filters({ search: "receipt" }), TODAY)),
+      keys(
+        filterAndSortDebts(writtenOff, filters({ search: "receipt" }), TODAY),
+      ),
     ).toEqual(["w1"]);
     expect(
       keys(filterAndSortDebts(writtenOff, filters({ sort: "newest" }), TODAY)),

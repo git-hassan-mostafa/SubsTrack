@@ -397,9 +397,7 @@ export class OfflineCollectionRepository
     return after;
   }
 
-  private async forAudit(
-    id: string,
-  ): Promise<{
+  private async forAudit(id: string): Promise<{
     row: DbCollection;
     subject: string | null;
     planId: string | null;

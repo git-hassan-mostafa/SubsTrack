@@ -17,7 +17,9 @@ describe("applyWriteOffToSales", () => {
   });
   it("clears it on a revert", () => {
     const on = applyWriteOffToSales([sale()], "c1", "2026-09-01T00:00:00Z");
-    expect(applyWriteOffToSales(on, "c1", null)[0].charge!.writtenOffAt).toBeNull();
+    expect(
+      applyWriteOffToSales(on, "c1", null)[0].charge!.writtenOffAt,
+    ).toBeNull();
   });
   it("leaves other sales untouched", () => {
     const out = applyWriteOffToSales([sale()], "other", "2026-09-01T00:00:00Z");

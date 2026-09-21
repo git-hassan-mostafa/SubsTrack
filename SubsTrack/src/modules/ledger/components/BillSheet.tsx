@@ -40,7 +40,6 @@ interface Props {
   onChanged?: (voided: Collection) => void;
 }
 
-
 export function BillSheet({
   visible,
   onDismiss,

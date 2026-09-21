@@ -65,10 +65,7 @@ import {
   useWriteOffActions,
   VoidConfirmDialog,
 } from "@/src/modules/ledger";
-import type {
-  CollectGroupSubmit,
-  WriteOffTarget,
-} from "@/src/modules/ledger";
+import type { CollectGroupSubmit, WriteOffTarget } from "@/src/modules/ledger";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -650,10 +647,7 @@ export function CustomerPaymentPanel({
     return writeOffActions.writeOff(writeOffTargetOf(charge, balance));
   }
 
-  function revertWriteOffBill(
-    charge: Charge,
-    balance: number,
-  ): Promise<void> {
+  function revertWriteOffBill(charge: Charge, balance: number): Promise<void> {
     return writeOffActions.revert(writeOffTargetOf(charge, balance));
   }
 

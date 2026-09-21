@@ -42,9 +42,7 @@ export function BillHero({ state, amount, approx, caption, note }: Props) {
       {caption ? (
         <Text className="mt-1 text-sm text-gray-400">{caption}</Text>
       ) : null}
-      {note ? (
-        <Text className="mt-1 text-sm text-gray-600">{note}</Text>
-      ) : null}
+      {note ? <Text className="mt-1 text-sm text-gray-600">{note}</Text> : null}
       <View className={`mt-2 rounded-full px-3 py-1 ${state.bg}`}>
         <Text fontWeight="SemiBold" className={`text-xs ${state.text}`}>
           {t(state.labelKey)}

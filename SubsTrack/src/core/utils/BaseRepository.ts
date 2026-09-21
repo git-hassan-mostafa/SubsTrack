@@ -89,9 +89,7 @@ export abstract class BaseRepository {
     }
   }
 
-  protected async customerAudit(
-    customerId: string,
-  ): Promise<{
+  protected async customerAudit(customerId: string): Promise<{
     branchId: string | null;
     subject: string | null;
     customerId: string;
