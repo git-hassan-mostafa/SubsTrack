@@ -33,6 +33,7 @@ interface AppBottomSheetProps {
   variant?: BottomSheetVariant;
   scrollable?: boolean;
   dirty?: boolean;
+  dismissOnBackdropPress?: boolean;
 }
 
 const LIST_SNAP_RATIO = 0.7;
@@ -56,6 +57,7 @@ export function AppBottomSheet({
   variant = "auto",
   scrollable = false,
   dirty = false,
+  dismissOnBackdropPress = true,
 }: AppBottomSheetProps) {
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
@@ -122,11 +124,11 @@ export function AppBottomSheet({
         {...props}
         appearsOnIndex={0}
         disappearsOnIndex={-1}
-        pressBehavior={dirty ? 0 : "close"}
-        onPress={dirty ? guardedDismiss : undefined}
+        pressBehavior={dismissOnBackdropPress && !dirty ? "close" : "none"}
+        onPress={dismissOnBackdropPress && dirty ? guardedDismiss : undefined}
       />
     ),
-    [dirty, guardedDismiss],
+    [dirty, dismissOnBackdropPress, guardedDismiss],
   );
 
   const containerStyle: ViewStyle | undefined =

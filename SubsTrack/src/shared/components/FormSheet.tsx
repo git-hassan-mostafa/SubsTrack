@@ -56,6 +56,7 @@ export function FormSheet({
       onDismiss={onDismiss}
       variant="full"
       dirty={dirty}
+      dismissOnBackdropPress={false}
     >
       {(dismiss) => (
         <FormSheetBody

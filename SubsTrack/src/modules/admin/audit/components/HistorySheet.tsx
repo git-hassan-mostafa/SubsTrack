@@ -36,7 +36,12 @@ export function HistorySheet({
   const { isAdmin } = useAuth();
 
   return (
-    <AppBottomSheet visible onDismiss={onDismiss} variant="full">
+    <AppBottomSheet
+      visible
+      onDismiss={onDismiss}
+      variant="full"
+      dismissOnBackdropPress={false}
+    >
       <ResponsiveContainer className="flex-1">
         <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
           <View className="flex-1 pe-2">
