@@ -108,8 +108,8 @@ export const useDebtHistoryStore = create<DebtHistoryState>()(
     },
 
     fetchMoreHistory: async () => {
-      const { loadingMore, hasMore, page, searchToken } = get();
-      if (loadingMore || !hasMore) return;
+      const { loading, loadingMore, hasMore, page, searchToken } = get();
+      if (loading || loadingMore || !hasMore) return;
       set((state) => {
         state.loadingMore = true;
       });

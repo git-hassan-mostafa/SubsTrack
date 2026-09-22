@@ -144,8 +144,8 @@ export const useCollectionsListStore = create<CollectionsListState>()(
     },
 
     fetchMoreCollections: async () => {
-      const { loadingMore, hasMore, page, searchToken } = get();
-      if (loadingMore || !hasMore) return;
+      const { loading, loadingMore, hasMore, page, searchToken } = get();
+      if (loading || loadingMore || !hasMore) return;
       const branchFilter = resolveBranchFilter(getStore().getState().auth.user);
       set((state) => {
         state.loadingMore = true;
@@ -291,11 +291,11 @@ export const useCollectionsListStore = create<CollectionsListState>()(
         state.items = state.items.map((c) =>
           c.id === voided.id
             ? {
-                ...c,
-                voidedAt: voided.voidedAt,
-                voidedBy: voided.voidedBy,
-                voidReason: voided.voidReason,
-              }
+              ...c,
+              voidedAt: voided.voidedAt,
+              voidedBy: voided.voidedBy,
+              voidReason: voided.voidReason,
+            }
             : c,
         );
         if (before && !before.voidedAt) {

@@ -6,6 +6,7 @@ import {
   SectionList,
   View,
 } from "react-native";
+import { BottomSheetSectionList } from "@gorhom/bottom-sheet";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
@@ -57,6 +58,7 @@ import { collectionService } from "../services/CollectionService";
 
 interface Props {
   onOpenSale?: (saleId: string) => Promise<void> | void;
+  inSheet?: boolean;
 }
 
 /**
@@ -67,7 +69,7 @@ interface Props {
  * left to merge. Tapping a row opens what it settled: the bill itself, or the
  * split sheet when one hand-over closed several.
  */
-export function CollectionsPanel({ onOpenSale }: Props = {}) {
+export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const items = useCollectionsListStore((s) => s.items);
@@ -192,6 +194,16 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
     sortField !== "received_at" ||
     sortDirection !== "desc" ||
     period.preset !== "this_month";
+
+  // A plain RN list inside a Gorhom sheet never learns where it is scrolled —
+  // the sheet owns the scroll container — so it reports "at the end" from the
+  // first frame and pages itself to the bottom without anyone scrolling.
+  // Cast because the two lists' generics do not unify; the props below are
+  // identical for both, so the rows stay typed through `sections`.
+  const List = (inSheet ? BottomSheetSectionList : SectionList) as typeof SectionList<
+    CollectionListItem,
+    (typeof sections)[number]
+  >;
 
   const selected = items.filter((c) => selectedIds.has(c.id));
 
@@ -382,7 +394,7 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
             <ActivityIndicator color={COLORS.primary} />
           </View>
         ) : (
-          <SectionList
+          <List
             sections={sections}
             keyExtractor={(c) => c.id}
             stickySectionHeadersEnabled={false}

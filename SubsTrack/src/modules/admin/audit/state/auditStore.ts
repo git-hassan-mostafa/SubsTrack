@@ -128,8 +128,8 @@ export const useAuditStore = create<AuditState>()(
       },
 
       fetchMoreEntries: async () => {
-        const { loadingMore, hasMore, page, searchToken } = get();
-        if (loadingMore || !hasMore) return;
+        const { loading, loadingMore, hasMore, page, searchToken } = get();
+        if (loading || loadingMore || !hasMore) return;
         const branchFilter = resolveBranchFilter(
           getStore().getState().auth.user,
         );

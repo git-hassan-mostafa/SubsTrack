@@ -159,8 +159,8 @@ export const createSaleSlice: StateCreator<
   },
 
   fetchMoreSales: async () => {
-    const { loadingMore, hasMore, page, searchToken } = get().sales;
-    if (loadingMore || !hasMore) return;
+    const { loading, loadingMore, hasMore, page, searchToken } = get().sales;
+    if (loading || loadingMore || !hasMore) return;
     const token = searchToken;
     const branchFilter = resolveBranchFilter(get().auth.user);
     set((state) => {

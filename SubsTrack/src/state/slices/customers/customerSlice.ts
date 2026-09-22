@@ -106,9 +106,9 @@ export const createCustomerSlice: StateCreator<
   },
 
   fetchMoreCustomers: async () => {
-    const { loadingMore, hasMore, page, searchToken, searchQuery } =
+    const { loading, loadingMore, hasMore, page, searchToken, searchQuery } =
       get().customers;
-    if (loadingMore || !hasMore) return;
+    if (loading || loadingMore || !hasMore) return;
     const token = searchToken;
     const branchFilter = resolveBranchFilter(get().auth.user);
     set((state) => {
