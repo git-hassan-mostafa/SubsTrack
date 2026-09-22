@@ -4,7 +4,12 @@ import {
   rowsPerStatement,
 } from "@/src/core/offline/backup/tableOrder";
 import { validateBackup } from "@/src/core/offline/backup/validate";
-import type { BackupRow, BackupSession } from "@/src/core/offline/backup/types";
+import {
+  BACKUP_FORMAT,
+  BACKUP_VERSION,
+  type BackupRow,
+  type BackupSession,
+} from "@/src/core/offline/backup/types";
 
 const TENANT = "t-1";
 const USER = "u-1";
@@ -69,8 +74,8 @@ describe("TC-BK-08 batched INSERTs stay under the bound-parameter ceiling", () =
 describe("TC-BK-09 a streamed export parses back into the same rows", () => {
   function streamedFile(tables: Record<string, BackupRow[]>): string {
     const header = {
-      format: "substrack-local-backup",
-      version: 1,
+      format: BACKUP_FORMAT,
+      version: BACKUP_VERSION,
       exportedAt: "2026-09-18T10:00:00.000Z",
       app: { version: "1.0.0", runtimeVersion: null },
       tenant: { id: TENANT, code: "ACME", name: "Acme" },
