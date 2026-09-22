@@ -68,7 +68,7 @@ export interface GlobalState {
   tenantSettings: TenantSettingSlice;
 }
 
-const STORE_KEY = "__SUBSTRACK_GLOBAL_STORE__";
+const STORE_KEY = "__SIJIL_GLOBAL_STORE__";
 
 const initStore = (): StoreApi<GlobalState> =>
   create<GlobalState>()(

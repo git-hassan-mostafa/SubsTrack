@@ -678,7 +678,7 @@ export interface UserWalletDetail extends UserWallet {
 }
 
 // Global app-wide key/value config (NOT tenant-scoped). Managed by the SaaS
-// owner in the SuperAdmin "Options" page; READ-ONLY in SubsTrack.
+// owner in the SuperAdmin "Options" page; READ-ONLY in Sijil.
 // e.g. key 'LiraRate' = default USD→LBP rate seeded onto new tenants.
 export interface AppOption {
   id: string;

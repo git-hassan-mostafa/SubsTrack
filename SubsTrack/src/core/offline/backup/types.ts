@@ -1,4 +1,4 @@
-export const BACKUP_FORMAT = "substrack-local-backup";
+export const BACKUP_FORMAT = "sijil-local-backup";
 export const BACKUP_VERSION = 1;
 
 export type BackupRow = Record<string, string | number | boolean | null>;

@@ -55,7 +55,7 @@
     "unknown": "Unknown"
   },
   "auth": {
-    "title": "SubsTrack",
+    "title": "Sijil",
     "subtitle": "Sign in to your organization",
     "welcome_back": "Welcome back",
     "welcome_description": "Sign in to your organization to start collecting.",
@@ -571,7 +571,7 @@
     "developer_import_done": "Import complete ({{rows}} rows)",
     "developer_import_failed": "Import failed. Nothing was changed.",
     "developer_import_invalid_json": "That file is not valid JSON.",
-    "developer_import_wrong_format": "That file is not a SubsTrack backup.",
+    "developer_import_wrong_format": "That file is not a Sijil backup.",
     "developer_import_newer_version": "That backup was made by a newer version of the app. Update first.",
     "developer_import_too_large": "That file is too large to open safely.",
     "developer_import_missing_table": "The backup is incomplete — the table \"{{table}}\" is missing.",
@@ -609,7 +609,7 @@
   "tenant_inactive": {
     "title": "Organization Deactivated",
     "message": "Your organization's account has been deactivated. Please contact the service owner to resolve this.",
-    "contact_hint": "If you believe this is a mistake, reach out to your SubsTrack administrator."
+    "contact_hint": "If you believe this is a mistake, reach out to your Sijil administrator."
   },
   "date_picker": {
     "day": "Day",
@@ -1535,7 +1535,7 @@
     "request_min_error": "You can request at least {{min}} more in total.",
     "send_request": "Send request",
     "send_request_whatsapp": "Send request + WhatsApp",
-    "whatsapp_request_message": "Hello, {{org}} would like {{ask}} on SubsTrack.",
+    "whatsapp_request_message": "Hello, {{org}} would like {{ask}} on Sijil.",
     "pending_title": "Request pending",
     "pending_body": "You asked for {{ask}}. Your limits will change once it is approved.",
     "edit_request": "Edit request",

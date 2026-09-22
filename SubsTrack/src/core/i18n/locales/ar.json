@@ -55,7 +55,7 @@
     "unknown": "غير معروف"
   },
   "auth": {
-    "title": "SubsTrack",
+    "title": "Sijil",
     "subtitle": "سجّل الدخول إلى مؤسستك",
     "welcome_back": "مرحباً بك مجدداً",
     "welcome_description": "سجّل الدخول إلى مؤسستك لبدء التحصيل.",
@@ -571,7 +571,7 @@
     "developer_import_done": "تم الاستيراد بنجاح ({{rows}} صف)",
     "developer_import_failed": "فشل الاستيراد. لم يتغيّر أي شيء.",
     "developer_import_invalid_json": "هذا الملف ليس بصيغة JSON صالحة.",
-    "developer_import_wrong_format": "هذا الملف ليس نسخة احتياطية من SubsTrack.",
+    "developer_import_wrong_format": "هذا الملف ليس نسخة احتياطية من Sijil.",
     "developer_import_newer_version": "هذه النسخة الاحتياطية أُنشئت بإصدار أحدث من التطبيق. حدّث التطبيق أولًا.",
     "developer_import_too_large": "هذا الملف كبير جدًا ولا يمكن فتحه بأمان.",
     "developer_import_missing_table": "النسخة الاحتياطية ناقصة — الجدول \"{{table}}\" غير موجود.",
@@ -609,7 +609,7 @@
   "tenant_inactive": {
     "title": "المنظمة موقوفة",
     "message": "تم تعطيل حساب مؤسستك. يرجى التواصل مع مالك الخدمة لحل هذه المشكلة.",
-    "contact_hint": "إذا كنت تعتقد أن هذا خطأ، تواصل مع مسؤول SubsTrack."
+    "contact_hint": "إذا كنت تعتقد أن هذا خطأ، تواصل مع مسؤول Sijil."
   },
   "date_picker": {
     "day": "يوم",
@@ -1535,7 +1535,7 @@
     "request_min_error": "يمكنك طلب {{min}} إضافة على الأقل إجمالاً.",
     "send_request": "إرسال الطلب",
     "send_request_whatsapp": "إرسال الطلب + واتساب",
-    "whatsapp_request_message": "مرحباً، {{org}} يرغب في {{ask}} على SubsTrack.",
+    "whatsapp_request_message": "مرحباً، {{org}} يرغب في {{ask}} على Sijil.",
     "pending_title": "طلب قيد الانتظار",
     "pending_body": "لقد طلبت {{ask}}. ستتغير حدودك بعد الموافقة.",
     "edit_request": "تعديل الطلب",

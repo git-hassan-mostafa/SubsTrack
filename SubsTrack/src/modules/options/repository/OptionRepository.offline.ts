@@ -4,7 +4,7 @@ import type { IOptionRepository } from "./IOptionRepository";
 
 /**
  * SQLite-backed Option repository. Reads from the local mirror only. app_options
- * is a global read-only cache filled by the sync engine's pull — SubsTrack never
+ * is a global read-only cache filled by the sync engine's pull — Sijil never
  * writes options (that is the SuperAdmin app's responsibility, service role).
  * Returns the same `DbAppOption` shapes as the Supabase repository.
  */

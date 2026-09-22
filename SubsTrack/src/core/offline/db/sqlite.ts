@@ -3,7 +3,7 @@ import { IS_OFFLINE_CAPABLE } from "../platform";
 import { applySchema } from "./applySchema";
 import { withDbLock } from "../dbLock";
 
-const DB_NAME = "substrack.db";
+const DB_NAME = "sijil.db";
 
 let _db: SQLite.SQLiteDatabase | null = null;
 let _initPromise: Promise<void> | null = null;

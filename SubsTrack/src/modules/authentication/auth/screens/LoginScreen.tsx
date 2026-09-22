@@ -65,7 +65,7 @@ export function LoginScreen() {
                 <Text className="text-white text-xl">📅</Text>
               </View>
               <Text fontWeight="Bold" className="text-xl text-gray-900">
-                SubsTrack
+                Sijil
               </Text>
             </View>
 

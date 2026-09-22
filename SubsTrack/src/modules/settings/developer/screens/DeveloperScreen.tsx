@@ -167,7 +167,7 @@ export function DeveloperScreen() {
 
       flashMessage(t("settings.developer_export_running"));
       const file = newExportFile(
-        `substrack-${session.tenantCode}-${stamp()}`,
+        `sijil-${session.tenantCode}-${stamp()}`,
         "json",
       );
       const writer = openWriter(file);
