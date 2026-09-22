@@ -89,3 +89,19 @@ END $$;
 --    Dropped by exact signature, never CASCADE.
 DROP FUNCTION IF EXISTS accept_customer_request(UUID, INT);
 DROP FUNCTION IF EXISTS lower_customer_allowance(INT);
+
+
+-- ---------------------------------------------------------------------------
+-- 2026-09-22 — charge_balances gains `down_paid`
+-- ---------------------------------------------------------------------------
+-- CREATE OR REPLACE VIEW may append a column only to a view it can re-create
+-- with the SAME leading column list; appending to a view the database already
+-- holds still fails with "cannot change name of view column". So the view is
+-- dropped first and script.sql re-creates it with the new column.
+--
+-- Safe to run repeatedly: script.sql immediately re-creates the view, and it
+-- runs AFTER this file. Nothing reads the view in between.
+--
+-- A fresh database never needs this — script.sql builds the view with the
+-- column already on it.
+DROP VIEW IF EXISTS charge_balances;

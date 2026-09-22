@@ -1503,6 +1503,9 @@ CREATE INDEX IF NOT EXISTS idx_collection_items_collection_id
 -- write-off gives up on the REMAINDER, it does not un-collect what was already
 -- handed over, and hiding the row made real money read as 0 (gotcha #115).
 -- "No longer owed" is decided by ChargeRepository.find(), not by this view.
+-- `down_paid` is the ONE column here that is not a plain charges column: it is
+-- what the bill took on the day it was raised, so "did this leave the customer
+-- owing?" is `down_paid < amount` — the question the debt history is built on.
 -- ============================================================
 
 -- The CASE is load-bearing: `p.voided_at IS NULL` sits in the LEFT JOIN's ON
@@ -1527,7 +1530,41 @@ CREATE OR REPLACE VIEW charge_balances WITH (security_invoker = true) AS
            c.customer_plan_id,
            c.kind,
            c.due_date,
-           c.written_off_at
+           c.written_off_at,
+           -- What was handed over WHEN THE BILL WAS RAISED: the earliest live
+           -- hand-over on it, which for a sale is the down payment written in
+           -- the same operation as the bill. `down_paid` is 0 (never NULL) when
+           -- nothing ever arrived, so `down_paid < amount` is a total test and
+           -- needs no IS NULL branch. This is what lets the debt history ask
+           -- "did this bill leave the customer owing?" in the WHERE rather than
+           -- by downloading every bill and inspecting its payments.
+           COALESCE((
+               SELECT SUM(i2.amount)
+                 FROM collection_items i2
+                 JOIN collections p2 ON p2.id = i2.collection_id
+                WHERE i2.charge_id = c.id
+                  AND p2.voided_at IS NULL
+                  AND p2.received_at = (
+                      SELECT MIN(p3.received_at)
+                        FROM collection_items i3
+                        JOIN collections p3 ON p3.id = i3.collection_id
+                       WHERE i3.charge_id = c.id AND p3.voided_at IS NULL)
+           ), 0) AS down_paid,
+           -- The same fact as a boolean, because PostgREST can only compare a
+           -- column to a LITERAL — `down_paid < amount` is unfilterable from the
+           -- client, so the comparison is made here and filtered as `is.true`.
+           (COALESCE((
+               SELECT SUM(i2.amount)
+                 FROM collection_items i2
+                 JOIN collections p2 ON p2.id = i2.collection_id
+                WHERE i2.charge_id = c.id
+                  AND p2.voided_at IS NULL
+                  AND p2.received_at = (
+                      SELECT MIN(p3.received_at)
+                        FROM collection_items i3
+                        JOIN collections p3 ON p3.id = i3.collection_id
+                       WHERE i3.charge_id = c.id AND p3.voided_at IS NULL)
+           ), 0) < c.amount) AS became_debt
     FROM charges c
     LEFT JOIN collection_items i ON i.charge_id = c.id
     LEFT JOIN collections p ON p.id = i.collection_id AND p.voided_at IS NULL

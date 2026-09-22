@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Ionicons } from "@expo/vector-icons";
 import {
   CardAmount,
   CardChips,
@@ -16,7 +15,8 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
-import type { ChargeKind, OpenItem } from "@/src/core/types";
+import type { OpenItem } from "@/src/core/types";
+import { KIND_ICON } from "../utils/kindIcon";
 import {
   findCurrency,
   formatMoneyPair,
@@ -39,12 +39,6 @@ interface Props {
   loading?: boolean;
   muted?: boolean;
 }
-
-const KIND_ICON: Record<ChargeKind, keyof typeof Ionicons.glyphMap> = {
-  month: "calendar-outline",
-  sale: "receipt-outline",
-  manual: "document-text-outline",
-};
 
 /**
  * ONE bill that still owes money — the debts twin of `CollectionCard`.

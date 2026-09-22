@@ -483,6 +483,19 @@ export interface OpenItem {
   charge?: Charge | null;
 }
 
+// A PAST bill that left the customer owing, and what became of it.
+//
+// `downPaid` is what the bill took on the day it was RAISED — for a sale, the
+// cash handed over while the receipt was being written. It is always less than
+// `amount`, because a bill settled on the spot never became a debt and never
+// reaches this list. `settledAt` is when money last arrived, so it is null while
+// anything is still owed; neither is stored, both are derived from live
+// collections.
+export interface DebtHistoryItem extends OpenItem {
+  downPaid: number;
+  settledAt: string | null;
+}
+
 // One proposed line of a collection, before it is saved. The collect sheet
 // renders these as its split preview and lets staff untick one to steer the
 // money to the next item.

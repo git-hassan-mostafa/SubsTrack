@@ -3,6 +3,7 @@ import i18n from "@/src/core/i18n";
 import type {
   Charge,
   CustomerDebts,
+  DebtHistoryItem,
   DebtsView,
   MonthBill,
   OpenItem,
@@ -10,7 +11,10 @@ import type {
 import { deterministicId, newId, nowIso } from "@/src/core/offline/ids";
 import { daysLate } from "@/src/core/utils/date";
 import repository from "../repository/ChargeRepository";
-import type { WriteOffScope } from "../repository/IChargeRepository";
+import type {
+  FindChargeHistoryOptions,
+  WriteOffScope,
+} from "../repository/IChargeRepository";
 import collectionRepository from "../repository/CollectionRepository";
 import { mapDbChargeToCharge } from "../utils/mapper";
 import {
@@ -95,6 +99,57 @@ class ChargeService {
         charge.customers?.name ?? "",
       ),
     );
+  }
+
+  // One page of PAST bills, each carrying what became of it. Settle dates are
+  // resolved for the page only, so the extra read stays bounded however far back
+  // the list is scrolled.
+  async getChargeHistory(
+    opts: FindChargeHistoryOptions,
+  ): Promise<DebtHistoryItem[]> {
+    const page = await repository.findHistory(opts);
+    if (page.length === 0) return [];
+    const settled = await this.settleDates(
+      page.map(({ charge }) => charge.id),
+    );
+    return page.map(({ charge, paid, downPaid }) => {
+      const item = openItemFromCharge(
+        mapDbChargeToCharge(charge),
+        paid,
+        chargeLabel(charge),
+        charge.customers?.name ?? "",
+      );
+      return {
+        ...item,
+        downPaid,
+        settledAt: item.balance <= 0 ? (settled.get(charge.id) ?? null) : null,
+      };
+    });
+  }
+
+  // When each bill last took money. Voided hand-overs are excluded by the read,
+  // so a bill whose only payment was voided comes back absent — the same thing
+  // it reads as everywhere else (gotcha #106).
+  private async settleDates(
+    chargeIds: string[],
+  ): Promise<Map<string, string>> {
+    const settled = new Map<string, string>();
+    const items = await collectionRepository.findItemsForCharges(chargeIds);
+    if (items.length === 0) return settled;
+    const receivedAt = new Map(
+      (
+        await collectionRepository.findByIds([
+          ...new Set(items.map((i) => i.collection_id)),
+        ])
+      ).map((c) => [c.id, c.received_at]),
+    );
+    for (const item of items) {
+      const at = receivedAt.get(item.collection_id);
+      if (!at) continue;
+      const known = settled.get(item.charge_id);
+      if (!known || at.localeCompare(known) > 0) settled.set(item.charge_id, at);
+    }
+    return settled;
   }
 
   buildDebtsView(open: OpenItem[]): DebtsView {

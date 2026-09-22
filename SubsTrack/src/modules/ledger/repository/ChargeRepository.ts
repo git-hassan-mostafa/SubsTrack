@@ -1,10 +1,12 @@
 import { Platform } from "react-native";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import type { BranchFilter } from "@/src/core/constants";
+import { PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
 import type { DbCharge, DbChargeBalance } from "@/src/core/types/db";
 import type {
   CreateChargePayload,
+  DbChargeHistoryRow,
   DbChargeWithPaid,
+  FindChargeHistoryOptions,
   FindChargesOptions,
   IChargeRepository,
   UpdateChargePayload,
@@ -143,6 +145,63 @@ export class ChargeRepository
     return open
       .filter((o) => byId.has(o.id))
       .map((o) => ({ charge: byId.get(o.id)!, paid: Number(o.paid) }));
+  }
+
+  // The debts read without its `balance > 0` gate — see gotcha #118. `id` is the
+  // second sort key because the view carries no `created_at` to break a tie on,
+  // and an unstable order would repeat or skip rows between pages.
+  async findHistory(
+    opts: FindChargeHistoryOptions,
+  ): Promise<DbChargeHistoryRow[]> {
+    const limit = opts.limit ?? PAGE_SIZE;
+    const offset = opts.offset ?? 0;
+    const ascending = opts.sortDirection === "asc";
+    let query = this.db.from("charge_balances").select("id, paid, down_paid");
+    // The list IS "bills that left the customer owing", so this is the
+    // definition of the read, never a filter the caller may turn off.
+    query = query.is("became_debt", true);
+    if (opts.writeOffScope === "written_off")
+      query = query.not("written_off_at", "is", null);
+    else if (opts.writeOffScope !== "any")
+      query = query.is("written_off_at", null);
+    if (opts.balanceScope === "settled") query = query.lte("balance", 0);
+    else if (opts.balanceScope === "partial")
+      query = query.gt("balance", 0).gt("paid", 0);
+    else if (opts.balanceScope === "unpaid")
+      query = query.gt("balance", 0).eq("paid", 0);
+    if (opts.fromDate) query = query.gte("due_date", opts.fromDate);
+    if (opts.toDate) query = query.lte("due_date", opts.toDate);
+    if (opts.customerId) query = query.eq("customer_id", opts.customerId);
+    if (opts.customerIds?.length)
+      query = query.in("customer_id", opts.customerIds);
+    if (opts.kinds?.length) query = query.in("kind", opts.kinds);
+    query = this.applyBranchFilter(
+      query,
+      opts.branchFilter ?? null,
+      this.BRANCH_SCOPES.charges,
+    );
+    const { data, error } = await query
+      .order(opts.sortField ?? "due_date", { ascending })
+      .order("id", { ascending })
+      .range(offset, offset + limit - 1);
+    if (error) this.handleError(error);
+    const page = (data ?? []) as {
+      id: string;
+      paid: number;
+      down_paid: number;
+    }[];
+    if (page.length === 0) return [];
+
+    const byId = new Map(
+      (await this.findByIds(page.map((o) => o.id))).map((r) => [r.id, r]),
+    );
+    return page
+      .filter((o) => byId.has(o.id))
+      .map((o) => ({
+        charge: byId.get(o.id)!,
+        paid: Number(o.paid),
+        downPaid: Number(o.down_paid),
+      }));
   }
 
   async balances(chargeIds: string[]): Promise<DbChargeBalance[]> {

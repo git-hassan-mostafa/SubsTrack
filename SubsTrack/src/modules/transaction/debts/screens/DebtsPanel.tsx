@@ -33,6 +33,7 @@ import { DebtorCard } from "../components/DebtorCard";
 import { DebtorDetailSheet } from "../components/DebtorDetailSheet";
 import { CustomDebtFormSheet } from "../components/CustomDebtFormSheet";
 import { AllDebtsSheet } from "../components/AllDebtsSheet";
+import { DebtHistorySheet } from "../components/DebtHistorySheet";
 
 interface Props {
   onOpenSale?: (saleId: string) => Promise<void> | void;
@@ -80,6 +81,7 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
   const [openDebtorId, setOpenDebtorId] = useState<string | null>(null);
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
   const [allDebtsOpen, setAllDebtsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [menuDebtor, setMenuDebtor] = useState<CustomerDebts | null>(null);
 
   useEffect(() => {
@@ -131,9 +133,9 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
               <Ionicons name="list-outline" size={18} color={COLORS.gray600} />
             </PressableOpacity>
             <PressableOpacity
-              disabled
+              onPress={() => setHistoryOpen(true)}
               accessibilityLabel={t("debts.history_title")}
-              className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center opacity-40"
+              className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center"
             >
               <Ionicons name="time-outline" size={18} color={COLORS.gray600} />
             </PressableOpacity>
@@ -277,6 +279,14 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
           onVoidItem={voidItem}
           onWriteOff={writeOffItem}
           onRevertWriteOff={revertWriteOffItem}
+          onOpenItem={openBill.openOwed}
+          openingItemKey={openBill.loadingId}
+        />
+      )}
+
+      {historyOpen && (
+        <DebtHistorySheet
+          onDismiss={() => setHistoryOpen(false)}
           onOpenItem={openBill.openOwed}
           openingItemKey={openBill.loadingId}
         />

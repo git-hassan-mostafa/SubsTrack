@@ -1,4 +1,4 @@
-import type { BranchFilter } from "@/src/core/constants";
+import { OFFLINE_PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
 import type {
   DbCharge,
   DbChargeBalance,
@@ -12,7 +12,9 @@ import { insertDirty, updateDirty } from "@/src/core/offline/db/dml";
 import { nowIso } from "@/src/core/offline/ids";
 import type {
   CreateChargePayload,
+  DbChargeHistoryRow,
   DbChargeWithPaid,
+  FindChargeHistoryOptions,
   FindChargesOptions,
   IChargeRepository,
   UpdateChargePayload,
@@ -23,6 +25,20 @@ const PAID_SUM = `COALESCE(SUM(CASE WHEN co.id IS NOT NULL AND co.voided_at IS N
                      THEN CAST(i.amount AS REAL) ELSE 0 END), 0)`;
 const PAID_JOIN = `LEFT JOIN collection_items i ON i.charge_id = c.id
    LEFT JOIN collections co ON co.id = i.collection_id`;
+
+// The mirror's twin of the view's `down_paid` — what the bill took on the day it
+// was raised. Correlated rather than joined so it survives the outer GROUP BY.
+const DOWN_PAID = `COALESCE((
+     SELECT SUM(CAST(i2.amount AS REAL))
+       FROM collection_items i2
+       JOIN collections p2 ON p2.id = i2.collection_id
+      WHERE i2.charge_id = c.id AND p2.voided_at IS NULL
+        AND p2.received_at = (
+            SELECT MIN(p3.received_at)
+              FROM collection_items i3
+              JOIN collections p3 ON p3.id = i3.collection_id
+             WHERE i3.charge_id = c.id AND p3.voided_at IS NULL)
+   ), 0)`;
 
 /**
  * SQLite-backed bills. Reproduces
@@ -150,10 +166,12 @@ export class OfflineChargeRepository
   } {
     const writeOff =
       opts.writeOffScope === "written_off"
-        ? "c.written_off_at IS NOT NULL"
-        : "c.written_off_at IS NULL";
+        ? " AND c.written_off_at IS NOT NULL"
+        : opts.writeOffScope === "any"
+          ? ""
+          : " AND c.written_off_at IS NULL";
     const parts: { clause: string; params: unknown[] }[] = [
-      { clause: `c.voided_at IS NULL AND ${writeOff}`, params: [] },
+      { clause: `c.voided_at IS NULL${writeOff}`, params: [] },
     ];
     if (opts.customerId)
       parts.push({ clause: "c.customer_id = ?", params: [opts.customerId] });
@@ -197,6 +215,59 @@ export class OfflineChargeRepository
     const open = this.withPaid(rows);
     const hydrated = await this.hydrate(open.map((o) => o.charge));
     return hydrated.map((charge, i) => ({ charge, paid: open[i].paid }));
+  }
+
+  // The same GROUP BY as the debts read, without its `> 0` gate. `id` breaks the
+  // sort tie so paging cannot repeat or skip a row (mirrors the online order).
+  async findHistory(
+    opts: FindChargeHistoryOptions,
+  ): Promise<DbChargeHistoryRow[]> {
+    const where = this.owedWhere(opts);
+    const params = [...where.params];
+    const dateParts: string[] = [];
+    if (opts.fromDate) {
+      dateParts.push("AND c.due_date >= ?");
+      params.push(opts.fromDate);
+    }
+    if (opts.toDate) {
+      dateParts.push("AND c.due_date <= ?");
+      params.push(opts.toDate);
+    }
+    const owed = "CAST(amount AS REAL) - __paid > 0";
+    const balance =
+      opts.balanceScope === "settled"
+        ? "WHERE CAST(amount AS REAL) - __paid <= 0"
+        : opts.balanceScope === "partial"
+          ? `WHERE ${owed} AND __paid > 0`
+          : opts.balanceScope === "unpaid"
+            ? `WHERE ${owed} AND __paid = 0`
+            : "";
+    const dir = opts.sortDirection === "asc" ? "ASC" : "DESC";
+    const sortCol = opts.sortField === "amount" ? "CAST(amount AS REAL)" : "due_date";
+    params.push(opts.limit ?? OFFLINE_PAGE_SIZE, opts.offset ?? 0);
+    // `__down_paid < amount` IS the list — a bill settled the moment it was
+    // raised never became a debt, so it is excluded here rather than filtered
+    // out afterwards, which would shorten a page and strand the paging.
+    const became = `${balance ? "AND" : "WHERE"} __down_paid < CAST(amount AS REAL)`;
+    const rows = await this.all<Record<string, unknown>>(
+      `SELECT * FROM (
+         SELECT c.*, ${PAID_SUM} AS __paid, ${DOWN_PAID} AS __down_paid
+           FROM charges c ${PAID_JOIN}
+          ${where.sql} ${dateParts.join(" ")}
+          GROUP BY c.id
+       )
+        ${balance} ${became}
+        ORDER BY ${sortCol} ${dir}, id ${dir}
+        LIMIT ? OFFSET ?`,
+      params,
+    );
+    const page = this.withPaid(rows);
+    const hydrated = await this.hydrate(page.map((o) => o.charge));
+    return hydrated.map((charge, i) => ({
+      charge,
+      paid: page[i].paid,
+      downPaid: Number(rows[i].__down_paid ?? 0),
+    }));
   }
 
   private withPaid(rows: Record<string, unknown>[]): DbChargeWithPaid[] {

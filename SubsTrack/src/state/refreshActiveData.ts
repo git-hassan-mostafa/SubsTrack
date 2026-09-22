@@ -1,6 +1,7 @@
 import { useAuditStore } from "@/src/modules/admin/audit/state/auditStore";
 import { useDashboardStore } from "@/src/modules/dashboard/state/dashboardStore";
 import { useCollectionsListStore } from "@/src/modules/ledger/state/collectionsListStore";
+import { useDebtHistoryStore } from "@/src/modules/transaction/debts/state/debtHistoryStore";
 import { useExpenseStore } from "@/src/modules/transaction/expenses/state/expenseStore";
 import { useWalletStore } from "@/src/modules/wallet/state/walletStore";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
@@ -24,6 +25,8 @@ export function refreshActiveData(): void {
     void s.ledger.fetchDebts(resolveBranchFilter(s.auth.user));
   const collections = useCollectionsListStore.getState();
   if (collections.items.length) void collections.fetchCollections();
+  const debtHistory = useDebtHistoryStore.getState();
+  if (debtHistory.items.length) void debtHistory.fetchHistory();
   const expenses = useExpenseStore.getState();
   if (expenses.items.length) void expenses.fetchExpenses();
   const wallet = useWalletStore.getState();
