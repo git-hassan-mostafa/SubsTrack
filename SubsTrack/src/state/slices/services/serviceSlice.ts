@@ -6,6 +6,7 @@ import {
 } from "@/src/modules/admin/service-catalog";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import type { GlobalState } from "@/src/state/globalStore";
+import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";
 
 /**
  * The service price list. The products slice minus every stock action.
@@ -49,6 +50,7 @@ export const createServiceSlice: StateCreator<
   },
 
   fetchServices: async () => {
+    const epoch = currentDataEpoch();
     set((state) => {
       state.services.loading = true;
       state.services.error = null;
@@ -56,12 +58,14 @@ export const createServiceSlice: StateCreator<
     try {
       const branchFilter = resolveBranchFilter(get().auth.user);
       const items = await serviceCatalogService.getServices(branchFilter);
+      if (isStaleEpoch(epoch)) return;
       set((state) => {
         state.services.items = items;
         state.services.loaded = true;
         state.services.loading = false;
       });
     } catch (e) {
+      if (isStaleEpoch(epoch)) return;
       set((state) => {
         state.services.error = (e as Error).message;
         state.services.loading = false;

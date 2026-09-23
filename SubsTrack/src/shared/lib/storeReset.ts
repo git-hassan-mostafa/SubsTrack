@@ -6,14 +6,19 @@ import { useDebtHistoryStore } from "@/src/modules/transaction/debts/state/debtH
 import { useExpenseStore } from "@/src/modules/transaction/expenses/state/expenseStore";
 import { useWalletStore } from "@/src/modules/wallet/state/walletStore";
 import { getStore } from "@/src/state/globalStore";
+import { bumpDataEpoch } from "./dataEpoch";
 
+/** Every store holding TENANT data — app_options is global, see gotcha #156. */
 export function resetAllDomainStores() {
+  bumpDataEpoch();
   const state = getStore().getState();
+  state.billing.reset();
   state.currencies.reset();
   state.branches.reset();
   state.plans.reset();
   state.users.reset();
   state.customers.reset();
+  state.customerPlans.reset();
   state.payments.reset();
   state.products.reset();
   state.services.reset();

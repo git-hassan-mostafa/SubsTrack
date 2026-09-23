@@ -25,12 +25,13 @@ export {
   upsertNaturalKeyDirty,
   markDeleted,
 } from "./db/dml";
-export { getDb, isOfflineDbReady } from "./db/sqlite";
+export { getDb, isOfflineDbReady, wipeOfflineData } from "./db/sqlite";
 export { TABLES, TABLE_BY_NAME } from "./db/tables";
 export type { TableSpec } from "./db/tables";
 export { countUnsyncedWrites, writeBackup } from "./backup/dump";
 export { restoreBackup, RestoreBlockedError } from "./backup/restore";
-export { validateBackup, scopeKeyOf } from "./backup/validate";
+export { validateBackup } from "./backup/validate";
+export { BRANCH_SCOPE_ALL, roleScopeOf, scopeKeyOf } from "./scope";
 export { BACKUP_TABLE_ORDER } from "./backup/tableOrder";
 export type {
   BackupCheck,

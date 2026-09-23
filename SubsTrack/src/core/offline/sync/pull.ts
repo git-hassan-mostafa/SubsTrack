@@ -15,6 +15,15 @@ import { mapWithLimit, NETWORK_CONCURRENCY } from "./parallel";
 
 const PAGE = 1000;
 const ID_BATCH = 200;
+const PULL_OVERLAP_MS = 5 * 60 * 1000;
+
+/** What a pull ASKS for — deliberately behind the cursor, see gotcha #160. */
+export function pullFloor(cursor: string | null): string | null {
+  if (!cursor) return null;
+  const at = Date.parse(cursor);
+  if (Number.isNaN(at)) return null;
+  return new Date(at - PULL_OVERLAP_MS).toISOString();
+}
 
 type ServerRow = Record<string, unknown>;
 
@@ -55,7 +64,7 @@ async function mergePage(
 async function pullTable(
   db: SQLiteDatabase,
   table: string,
-  startedAt: string | null,
+  since: string | null,
 ): Promise<TableResult> {
   const spec = TABLE_BY_NAME[table];
   const windowStart = spec?.pullDays ? isoDaysAgo(spec.pullDays) : null;
@@ -69,7 +78,7 @@ async function pullTable(
         .order("updated_at", { ascending: true })
         .order("id", { ascending: true })
         .range(offset, offset + PAGE - 1);
-      if (startedAt) q = q.gt("updated_at", startedAt);
+      if (since) q = q.gt("updated_at", since);
       if (windowStart) q = q.gte("occurred_at", windowStart);
 
       const { data, error } = await q;
@@ -92,19 +101,14 @@ async function pullTable(
   }
 }
 
-/**
- * Pull rows the server changed since our last pull and merge them into the
- * mirror. "Latest updated_at wins": we only fetch rows newer than `last_pulled_at`
- * and we never overwrite a row that still has an un-pushed local edit. Then
- * reconcile hard deletes for the low-volume tables. Returns `true` only when the
- * whole cycle (every table + delete reconcile) succeeded.
- */
+/** `true` only when EVERY table AND the delete reconcile succeeded. */
 export async function pullChanges(): Promise<boolean> {
   const db = getDb();
   const startedAt = await getMeta(db, META_LAST_PULLED_AT);
+  const floor = pullFloor(startedAt);
   const tables = SYNC_TABLES.filter((t) => !TABLE_BY_NAME[t]?.pushOnly);
   const results = await mapWithLimit(tables, NETWORK_CONCURRENCY, (t) =>
-    pullTable(db, t, startedAt),
+    pullTable(db, t, floor),
   );
 
   let complete = true;

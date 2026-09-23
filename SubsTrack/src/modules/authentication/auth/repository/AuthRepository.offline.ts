@@ -20,13 +20,7 @@ import {
 import type { IAuthRepository } from "./IAuthRepository";
 import { AuthRepository } from "./AuthRepository";
 
-/**
- * Read-through cache over the online AuthRepository. Auth itself is online-only
- * (signIn / getTenantByCode). getSession/getUserProfile/getTenant serve the
- * cache when offline so the app boots offline. On the first online login they
- * cache the profile + tenant and block on an initial full pull so downstream
- * offline reads (currencies, branches, customers…) find data.
- */
+/** Read-through cache over the online repo — see docs/offline.md, #154/#159. */
 export class OfflineAuthRepository
   extends OfflineBaseRepository
   implements IAuthRepository
@@ -52,10 +46,11 @@ export class OfflineAuthRepository
   async getUserProfile(userId: string): Promise<DbUser | null> {
     if (await isOnline()) {
       const profile = await this.online.getUserProfile(userId);
-      if (!profile) return profile;
+      if (!profile || !profile.active) return profile;
       const scope = await ensureTenantScope(
         profile.tenant_id,
         profile.branch_id,
+        profile.role,
       );
       if (scope.blockedByPending) throw new OrganizationSwitchBlockedError();
       // Empty AFTER scoping — so a tenant switch (which just wiped) counts as empty

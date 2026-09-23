@@ -44,6 +44,16 @@ export class FakeDb {
     return this.tables.get(table) ?? [];
   }
 
+  /** Every table that currently holds rows. */
+  names(): string[] {
+    return [...this.tables.keys()];
+  }
+
+  /** Drop one table's rows, the way `DELETE FROM <t>;` does. */
+  clear(table: string): void {
+    this.tables.set(table, []);
+  }
+
   private table(name: string): Row[] {
     let t = this.tables.get(name);
     if (!t) this.tables.set(name, (t = []));
@@ -108,6 +118,7 @@ export class FakeDb {
       rows = rows.filter((r) => wanted.has(keyOf(key, r)));
     }
 
+    const counted = /^\s*SELECT\s+COUNT\(\*\)\s+AS\s+(\w+)/i.exec(sql);
     const eq = [...sql.matchAll(/(\w+) = \?/g)].map((m) => m[1]);
     const positional = eq.filter((c) => c !== "_dirty");
     if (positional.length > 0 && !tuple && !/id IN \(/i.test(sql)) {
@@ -115,6 +126,7 @@ export class FakeDb {
         positional.every((c, i) => String(r[c]) === String(args[i])),
       );
     }
+    if (counted) return [{ [counted[1]]: rows.length }] as T[];
     return rows.map((r) => ({ ...r })) as T[];
   }
 

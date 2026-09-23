@@ -1,6 +1,7 @@
 import type { StateCreator } from "zustand";
 import type { AuthUser } from "@/src/core/types";
 import { authService } from "@/src/modules/authentication/auth";
+import { reconcileBranchPref } from "@/src/shared/lib/branchFilter";
 import type { GlobalState } from "@/src/state/globalStore";
 
 export interface AuthSlice {
@@ -18,15 +19,15 @@ export interface AuthSlice {
   clearError: () => void;
 }
 
-// After a successful auth (login or session restore), prime supporting slices
-// in parallel so all downstream pickers/formatters have data ready.
+// Branches first and alone — the branch filter is reconciled off them (#157).
 async function primePostAuth(
   get: () => GlobalState,
   user: AuthUser,
 ): Promise<void> {
+  await get().branches.fetchBranches();
+  reconcileBranchPref(get().branches.items);
   await Promise.all([
     get().currencies.fetchCurrencies(),
-    get().branches.fetchBranches(),
     get().billing.init(user.tenantId),
     get().options.fetchOptions(),
     get().tenantSettings.fetchSettings(),
@@ -86,7 +87,6 @@ export const createAuthSlice: StateCreator<
     try {
       await authService.logout();
     } catch {}
-    get().billing.reset();
     set((state) => {
       state.auth.user = null;
       state.auth.tenantActive = true;

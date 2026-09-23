@@ -604,7 +604,14 @@
     "developer_resync_running": "جارٍ إعادة سحب كل البيانات…",
     "developer_resync_done": "اكتملت إعادة السحب",
     "developer_resync_offline": "لا يوجد اتصال",
-    "developer_resync_failed": "فشلت إعادة السحب"
+    "developer_resync_failed": "فشلت إعادة السحب",
+    "developer_wipe": "مسح البيانات المحلية",
+    "developer_wipe_title": "مسح البيانات المحلية؟",
+    "developer_wipe_message": "يحذف كل ما هو مخزَّن على هذا الجهاز ثم ينزّله من جديد من الخادم. لا يتغيّر شيء على الخادم.",
+    "developer_wipe_unsynced": "يوجد {{count}} تغيير على هذا الجهاز لم يصل إلى الخادم وسيُفقَد. هل تريد المسح رغم ذلك؟",
+    "developer_wipe_confirm": "امسح وأعد التنزيل",
+    "developer_wipe_done": "تم مسح البيانات المحلية وإعادة تنزيلها",
+    "developer_wipe_offline": "تم مسح البيانات المحلية — اتصل بالإنترنت لإعادة التنزيل"
   },
   "tenant_inactive": {
     "title": "المنظمة موقوفة",

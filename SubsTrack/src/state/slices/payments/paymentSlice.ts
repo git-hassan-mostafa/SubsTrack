@@ -14,6 +14,7 @@ import {
   type SetSkipInput,
 } from "@/src/modules/customer/customer-payments";
 import { chargeService } from "@/src/modules/ledger";
+import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";
 import type { GlobalState } from "@/src/state/globalStore";
 import { buildGridsFor } from "./utils/buildGrids";
 import { groupMonthsByLine } from "./utils/groupMonthsByLine";
@@ -83,6 +84,7 @@ export const createPaymentSlice: StateCreator<
 
   fetchCustomerStatuses: async (customers) => {
     if (customers.length === 0) return;
+    const epoch = currentDataEpoch();
     const lineIds = customers.flatMap((c) =>
       (c.customerPlans ?? []).map((l) => l.id),
     );
@@ -90,6 +92,7 @@ export const createPaymentSlice: StateCreator<
       chargeService.getMonthBillsForLines(lineIds),
       skippedMonthService.getActiveSkips(),
     ]);
+    if (isStaleEpoch(epoch)) return;
     const bills = [...billsByLine.values()].flat();
     set((state) => {
       state.payments.customerStatuses = paymentService.getCustomerStatuses(
@@ -102,6 +105,7 @@ export const createPaymentSlice: StateCreator<
   },
 
   fetchBills: async (customerId) => {
+    const epoch = currentDataEpoch();
     set((state) => {
       state.payments.loading = true;
       state.payments.error = null;
@@ -111,6 +115,7 @@ export const createPaymentSlice: StateCreator<
         chargeService.getMonthBillsForCustomer(customerId),
         skippedMonthService.getSkipsForCustomer(customerId),
       ]);
+      if (isStaleEpoch(epoch)) return;
       set((state) => {
         state.payments.bills = bills;
         state.payments.skips = skips;

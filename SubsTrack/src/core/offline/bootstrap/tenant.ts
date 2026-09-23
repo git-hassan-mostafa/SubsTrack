@@ -1,11 +1,14 @@
 import type { SQLiteDatabase } from "expo-sqlite";
+import type { UserRole } from "@/src/core/types";
 import { getDb, wipeOfflineData } from "../db/sqlite";
+import { roleScopeOf, scopeKeyOf } from "../scope";
 import { TABLES } from "../db/tables";
 import {
   getMeta,
   setMeta,
   META_ACTIVE_TENANT,
   META_ACTIVE_BRANCH_SCOPE,
+  META_ACTIVE_ROLE_SCOPE,
 } from "../sync";
 
 export interface TenantScopeResult {
@@ -13,20 +16,7 @@ export interface TenantScopeResult {
   blockedByPending: boolean;
 }
 
-export const BRANCH_SCOPE_TENANT_WIDE = "__all__";
-
-/** Normalize a user's branch_id into the branch-scope key stored in sync_meta. */
-export function branchScopeKey(branchId: string | null): string {
-  return branchId ?? BRANCH_SCOPE_TENANT_WIDE;
-}
-
-/**
- * Any local change not yet pushed: a `_dirty` row in any tenant table, or a
- * logged hard delete. `appendOnly` log tables (audit_logs, exception_logs) are
- * excluded — they are not the user's money, and refusing a login because a crash
- * log or an audit entry is still queued is the wrong trade. Logout already calls
- * flushPendingWrites(), so in the normal flow they are pushed before any wipe.
- */
+/** Un-pushed money only — `appendOnly` logs never block a login (#154). */
 export async function hasUnsyncedWrites(db: SQLiteDatabase): Promise<boolean> {
   const del = await db.getFirstAsync<{ n: number }>(
     "SELECT COUNT(*) AS n FROM pending_deletes",
@@ -42,41 +32,40 @@ export async function hasUnsyncedWrites(db: SQLiteDatabase): Promise<boolean> {
   return false;
 }
 
-/**
- * Ensure the local DB belongs to `tenantId` AND to the logging-in user's branch
- * scope. RLS returns a different row set for a tenant-wide admin (all branches)
- * than for a branch-scoped user (their branch only), so switching between them —
- * even within the same tenant — must re-scope the mirror, or a branch user's
- * partial pull / reconcile would silently drop the other branches' rows (and a
- * later tenant-wide login would never re-pull them, the cursor having moved on).
- *
- * On a different tenant OR a different branch scope, wipe all local data (a full
- * re-pull repopulates). Safety guard: refuse the wipe while un-pushed writes
- * remain so money is never lost — the caller surfaces `blockedByPending` and
- * keeps the prior data until it syncs.
- */
+/** Wipe unless tenant + branch + role all match — see gotcha #154. */
 export async function ensureTenantScope(
   tenantId: string,
   branchId: string | null,
+  role: UserRole,
 ): Promise<TenantScopeResult> {
   const db = getDb();
   const current = await getMeta(db, META_ACTIVE_TENANT);
   const currentScope = await getMeta(db, META_ACTIVE_BRANCH_SCOPE);
-  const scope = branchScopeKey(branchId);
+  const currentRole = await getMeta(db, META_ACTIVE_ROLE_SCOPE);
+  const scope = scopeKeyOf(branchId);
+  const roleScope = roleScopeOf(role);
 
-  if (current === tenantId && currentScope === scope) {
+  const write = async () => {
+    await setMeta(db, META_ACTIVE_TENANT, tenantId);
+    await setMeta(db, META_ACTIVE_BRANCH_SCOPE, scope);
+    await setMeta(db, META_ACTIVE_ROLE_SCOPE, roleScope);
+  };
+
+  const roleMatches = currentRole === null || currentRole === roleScope;
+  if (current === tenantId && currentScope === scope && roleMatches) {
+    if (currentRole === null) {
+      await setMeta(db, META_ACTIVE_ROLE_SCOPE, roleScope);
+    }
     return { wiped: false, blockedByPending: false };
   }
   if (!current) {
-    await setMeta(db, META_ACTIVE_TENANT, tenantId);
-    await setMeta(db, META_ACTIVE_BRANCH_SCOPE, scope);
+    await write();
     return { wiped: false, blockedByPending: false };
   }
   if (await hasUnsyncedWrites(db)) {
     return { wiped: false, blockedByPending: true };
   }
   await wipeOfflineData();
-  await setMeta(db, META_ACTIVE_TENANT, tenantId);
-  await setMeta(db, META_ACTIVE_BRANCH_SCOPE, scope);
+  await write();
   return { wiped: true, blockedByPending: false };
 }

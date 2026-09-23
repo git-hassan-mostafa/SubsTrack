@@ -8,6 +8,7 @@ interface UiPrefState {
   setLastUsedCurrencyId: (id: string | null) => void;
   currentBranchId: BranchFilter;
   setCurrentBranchId: (id: BranchFilter) => void;
+  reset: () => void;
 }
 
 export const useUiPrefStore = create<UiPrefState>()(
@@ -17,6 +18,7 @@ export const useUiPrefStore = create<UiPrefState>()(
       setLastUsedCurrencyId: (id) => set({ lastUsedCurrencyId: id }),
       currentBranchId: null,
       setCurrentBranchId: (id) => set({ currentBranchId: id }),
+      reset: () => set({ lastUsedCurrencyId: null, currentBranchId: null }),
     }),
     {
       name: STORAGE_KEYS.UI_PREF_STORE,

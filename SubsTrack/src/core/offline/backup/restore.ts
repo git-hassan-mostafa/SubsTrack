@@ -5,11 +5,12 @@ import { TABLE_BY_NAME } from "../db/tables";
 import { hasUnsyncedWrites } from "../bootstrap/tenant";
 import {
   META_ACTIVE_BRANCH_SCOPE,
+  META_ACTIVE_ROLE_SCOPE,
   META_ACTIVE_TENANT,
   setMeta,
 } from "../sync/meta";
 import { BACKUP_TABLE_ORDER, rowsPerStatement } from "./tableOrder";
-import { scopeKeyOf } from "./validate";
+import { roleScopeOf, scopeKeyOf } from "../scope";
 import type {
   BackupRow,
   BackupSession,
@@ -95,6 +96,7 @@ export async function restoreBackup(
 
       await setMeta(db, META_ACTIVE_TENANT, session.tenantId);
       await setMeta(db, META_ACTIVE_BRANCH_SCOPE, scopeKeyOf(session.branchId));
+      await setMeta(db, META_ACTIVE_ROLE_SCOPE, roleScopeOf(session.role));
       await db.execAsync(
         "DELETE FROM sync_meta WHERE key IN ('last_pulled_at', 'last_sync_at');",
       );

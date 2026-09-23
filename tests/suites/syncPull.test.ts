@@ -26,7 +26,11 @@ jest.mock("@/src/core/offline/dbLock", () => ({
   withDbLock: <T,>(fn: () => Promise<T>) => fn(),
 }));
 
-import { pruneWindowedTables, pullChanges } from "@/src/core/offline/sync/pull";
+import {
+  pruneWindowedTables,
+  pullChanges,
+  pullFloor,
+} from "@/src/core/offline/sync/pull";
 import { AUDIT_LOCAL_DAYS } from "@/src/core/offline/db/tables";
 import { getMeta, META_LAST_PULLED_AT } from "@/src/core/offline/sync/meta";
 
@@ -103,7 +107,7 @@ describe("TC-SY-50..55 — the shared cursor only advances on a COMPLETE cycle",
     await expect(pullChanges()).resolves.toBe(false);
   });
 
-  it("TC-SY-53 asks only for rows newer than the cursor", async () => {
+  it("TC-SY-53 asks from a floor a few minutes BEHIND the cursor", async () => {
     mockDb = new FakeDb({
       sync_meta: [{ key: "last_pulled_at", value: "2026-02-01T00:00:00.000Z" }],
     });
@@ -112,7 +116,33 @@ describe("TC-SY-50..55 — the shared cursor only advances on a COMPLETE cycle",
     await pullChanges();
 
     const plans = mockServer.selects.find((s) => s.table === "plans");
-    expect(plans?.gt).toEqual(["updated_at", "2026-02-01T00:00:00.000Z"]);
+    expect(plans?.gt).toEqual(["updated_at", "2026-01-31T23:55:00.000Z"]);
+  });
+
+  it("TC-SY-53b recovers a row stamped before the cursor but committed after", async () => {
+    mockDb = new FakeDb({
+      sync_meta: [{ key: "last_pulled_at", value: "2026-02-01T00:00:00.000Z" }],
+    });
+    mockServer.setRows("plans", [serverRow("p1", "2026-01-31T23:57:00.000Z")]);
+    keepAll();
+
+    await pullChanges();
+
+    expect(mockDb.rows("plans").map((r) => r.id)).toEqual(["p1"]);
+    expect(await cursor()).toBe("2026-02-01T00:00:00.000Z");
+  });
+
+  it("TC-SY-53c never drags the cursor backwards onto the floor", async () => {
+    mockDb = new FakeDb({
+      sync_meta: [{ key: "last_pulled_at", value: "2026-02-01T00:00:00.000Z" }],
+    });
+    mockServer.setRows("plans", [serverRow("p1", "2026-01-31T23:58:00.000Z")]);
+    keepAll();
+
+    await pullChanges();
+    await pullChanges();
+
+    expect(await cursor()).toBe("2026-02-01T00:00:00.000Z");
   });
 
   it("TC-SY-54 a first-ever pull sends no cursor filter at all", async () => {
@@ -132,6 +162,22 @@ describe("TC-SY-50..55 — the shared cursor only advances on a COMPLETE cycle",
     await pullChanges();
 
     expect(await cursor()).toBe("2026-02-01T00:00:00.000Z");
+  });
+});
+
+describe("TC-SY-55b — the overlap floor itself", () => {
+  it("TC-SY-55b subtracts the overlap from a real cursor", () => {
+    expect(pullFloor("2026-02-01T00:00:00.000Z")).toBe(
+      "2026-01-31T23:55:00.000Z",
+    );
+  });
+
+  it("TC-SY-55c asks for everything when there is no cursor", () => {
+    expect(pullFloor(null)).toBeNull();
+  });
+
+  it("TC-SY-55d asks for everything rather than filter on a junk cursor", () => {
+    expect(pullFloor("not-a-date")).toBeNull();
   });
 });
 

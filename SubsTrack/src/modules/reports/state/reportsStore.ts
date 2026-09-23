@@ -136,6 +136,7 @@ export const useReportsStore = create<ReportsState>()(
         state.debts = null;
         state.loading = false;
         state.error = null;
+        state.token += 1;
       }),
   })),
 );

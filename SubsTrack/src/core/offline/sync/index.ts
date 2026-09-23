@@ -11,6 +11,7 @@ export {
 export {
   getMeta,
   META_ACTIVE_BRANCH_SCOPE,
+  META_ACTIVE_ROLE_SCOPE,
   META_ACTIVE_TENANT,
   setMeta,
 } from "./meta";

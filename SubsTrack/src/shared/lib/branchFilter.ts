@@ -1,9 +1,25 @@
-import type { AuthUser } from "@/src/core/types";
+import type { AuthUser, Branch } from "@/src/core/types";
 import {
   type BranchFilter,
   BRANCH_FILTER_UNASSIGNED,
 } from "@/src/core/constants";
 import { useUiPrefStore } from "./uiPrefStore";
+
+/** Can the branch selector still offer this stored filter? See gotcha #157. */
+export function isPickableBranchFilter(
+  filter: BranchFilter,
+  branches: Branch[],
+): boolean {
+  if (filter === null || filter === BRANCH_FILTER_UNASSIGNED) return true;
+  return branches.some((b) => b.id === filter && b.active);
+}
+
+/** Drop a branch preference the freshly loaded branch list cannot explain. */
+export function reconcileBranchPref(branches: Branch[]): void {
+  const store = useUiPrefStore.getState();
+  if (isPickableBranchFilter(store.currentBranchId, branches)) return;
+  store.setCurrentBranchId(null);
+}
 
 /**
  * Resolves the BranchFilter to apply to queries for the calling user.

@@ -12,9 +12,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+
+/** Spelled out, not defaulted, so sign-out can clear it by hand (#158). */
+export const AUTH_STORAGE_KEY = `sb-${projectRef}-auth-token`;
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: supabaseStorage,
+    storageKey: AUTH_STORAGE_KEY,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

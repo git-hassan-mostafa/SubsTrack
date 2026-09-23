@@ -1,4 +1,5 @@
 import { TABLES, TABLE_BY_NAME } from "../db/tables";
+import { scopeKeyOf } from "../scope";
 import {
   BACKUP_FORMAT,
   BACKUP_VERSION,
@@ -16,13 +17,6 @@ const NATURAL_KEYS: Record<string, string[]> = {
   skipped_months: ["customer_plan_id", "billing_month"],
   collection_items: ["collection_id", "charge_id"],
 };
-
-export const BRANCH_SCOPE_ALL = "__all__";
-
-/** The branch-scope key a session's `branch_id` maps to, matching sync_meta. */
-export function scopeKeyOf(branchId: string | null): string {
-  return branchId ?? BRANCH_SCOPE_ALL;
-}
 
 function fail(
   code: BackupProblemCode,

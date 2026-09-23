@@ -24,6 +24,7 @@ import { skippedMonthService } from "@/src/modules/customer/customer-payments";
 import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
 import { TENANT_SETTING_KEYS } from "@/src/modules/admin/tenant-settings/utils/constants";
 import type { GlobalState } from "@/src/state/globalStore";
+import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";
 
 const getUnpaidRule = (get: () => GlobalState) =>
   tenantSettingService.parseUnpaidStartRule(
@@ -157,18 +158,21 @@ export const createLedgerSlice: StateCreator<
     error: null,
 
     fetchDebts: async (branchFilter) => {
+      const epoch = currentDataEpoch();
       set((state) => {
         state.ledger.loading = true;
         state.ledger.error = null;
       });
       try {
         const debts = await ledgerService.getDebtsView(branchFilter);
+        if (isStaleEpoch(epoch)) return;
         set((state) => {
           state.ledger.debts = debts;
           state.ledger.netByCustomer = netMap(debts);
           state.ledger.loading = false;
         });
       } catch (e) {
+        if (isStaleEpoch(epoch)) return;
         set((state) => {
           state.ledger.error = e instanceof Error ? e.message : String(e);
           state.ledger.loading = false;
@@ -177,8 +181,10 @@ export const createLedgerSlice: StateCreator<
     },
 
     fetchNetByCustomer: async (branchFilter = null) => {
+      const epoch = currentDataEpoch();
       try {
         const debts = await ledgerService.getDebtsView(branchFilter);
+        if (isStaleEpoch(epoch)) return;
         set((state) => {
           state.ledger.netByCustomer = netMap(debts);
         });
@@ -186,6 +192,7 @@ export const createLedgerSlice: StateCreator<
     },
 
     fetchOwed: async (customer, lines, currencies) => {
+      const epoch = currentDataEpoch();
       set((state) => {
         state.ledger.loadingOwed = true;
         state.ledger.error = null;
@@ -201,11 +208,13 @@ export const createLedgerSlice: StateCreator<
           unpaidRule: getUnpaidRule(get),
           currencies,
         });
+        if (isStaleEpoch(epoch)) return;
         set((state) => {
           state.ledger.owed = owed;
           state.ledger.loadingOwed = false;
         });
       } catch (e) {
+        if (isStaleEpoch(epoch)) return;
         set((state) => {
           state.ledger.error = e instanceof Error ? e.message : String(e);
           state.ledger.loadingOwed = false;
@@ -220,17 +229,20 @@ export const createLedgerSlice: StateCreator<
     },
 
     fetchCollections: async (opts) => {
+      const epoch = currentDataEpoch();
       set((state) => {
         state.ledger.loading = true;
         state.ledger.error = null;
       });
       try {
         const collections = await collectionService.getHistory(opts);
+        if (isStaleEpoch(epoch)) return;
         set((state) => {
           state.ledger.collections = collections;
           state.ledger.loading = false;
         });
       } catch (e) {
+        if (isStaleEpoch(epoch)) return;
         set((state) => {
           state.ledger.error = e instanceof Error ? e.message : String(e);
           state.ledger.loading = false;

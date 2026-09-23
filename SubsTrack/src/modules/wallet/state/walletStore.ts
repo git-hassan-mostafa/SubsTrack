@@ -5,6 +5,7 @@ import walletService from "@/src/modules/wallet/services/WalletService";
 import type { WalletActor } from "@/src/modules/wallet/utils/custody";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import { getStore } from "@/src/state/globalStore";
+import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";
 
 // The signed-in user as the chain sees them. Role + branch decide every wallet
 // permission, so they travel together into the service (never re-derived there).
@@ -73,6 +74,7 @@ export const useWalletStore = create<WalletState>()(
       fetchWallets: async () => {
         const user = viewer();
         if (!user) return;
+        const epoch = currentDataEpoch();
         set((s) => {
           s.loading = true;
           s.error = null;
@@ -82,11 +84,13 @@ export const useWalletStore = create<WalletState>()(
             actorOf(user),
             resolveBranchFilter(user),
           );
+          if (isStaleEpoch(epoch)) return;
           set((s) => {
             s.items = items;
             s.loading = false;
           });
         } catch (e) {
+          if (isStaleEpoch(epoch)) return;
           set((s) => {
             s.error = e instanceof Error ? e.message : String(e);
             s.loading = false;

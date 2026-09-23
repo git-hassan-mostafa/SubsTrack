@@ -1,3 +1,5 @@
+import type { UserRole } from "@/src/core/types";
+
 export const BACKUP_FORMAT = "sijil-local-backup";
 export const BACKUP_VERSION = 1;
 
@@ -24,6 +26,7 @@ export interface BackupSession {
   userId: string;
   username: string;
   branchId: string | null;
+  role: UserRole;
 }
 
 export type BackupProblemCode =

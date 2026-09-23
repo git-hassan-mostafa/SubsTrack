@@ -21,6 +21,7 @@ const session: BackupSession = {
   userId: USER,
   username: "hassan",
   branchId: null,
+  role: "admin",
 };
 
 // Which table each child's foreign keys point at, as the server enforces them.

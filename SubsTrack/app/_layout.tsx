@@ -1,11 +1,7 @@
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
-import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
-import { useDashboardStore } from "@/src/modules/dashboard/state/dashboardStore";
 import { initI18n } from "@/src/core/i18n";
-import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
-import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
-import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import { useOptionSlice } from "@/src/state/hooks/useOptionSlice";
+import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
 import { ErrorBoundary } from "@/src/shared/components/ErrorBoundary";
 import { LoadingScreen } from "@/src/shared/components/LoadingScreen";
 import { Slot, useRouter, useSegments } from "expo-router";
@@ -36,11 +32,6 @@ export default function RootLayout() {
   const loading = useAuthSlice((s) => s.loading);
   const restoreSession = useAuthSlice((s) => s.restoreSession);
   const fetchOptions = useOptionSlice((s) => s.fetchOptions);
-  const resetPlans = usePlanSlice((s) => s.reset);
-  const resetUsers = useUserSlice((s) => s.reset);
-  const resetCustomers = useCustomerSlice((s) => s.reset);
-  const resetPayments = usePaymentSlice((s) => s.reset);
-  const resetDashboard = useDashboardStore((s) => s.reset);
   const segments = useSegments();
   const router = useRouter();
 
@@ -71,11 +62,7 @@ export default function RootLayout() {
     if (!i18nReady || loading) return;
     const inAuth = segments[0] === "(auth)";
     if (!user && !inAuth) {
-      resetPlans();
-      resetUsers();
-      resetCustomers();
-      resetPayments();
-      resetDashboard();
+      resetAllDomainStores();
       router.replace("/(auth)/login");
     } else if (user && inAuth) {
       const isAdmin = user.role === "admin" || user.role === "superadmin";
@@ -83,18 +70,7 @@ export default function RootLayout() {
         isAdmin ? "/(app)/(tabs)/home" : "/(app)/(tabs)/customers",
       );
     }
-  }, [
-    user,
-    loading,
-    segments,
-    router,
-    i18nReady,
-    resetPlans,
-    resetUsers,
-    resetCustomers,
-    resetPayments,
-    resetDashboard,
-  ]);
+  }, [user, loading, segments, router, i18nReady]);
 
   if (!i18nReady || loading || !fontsReady) return <LoadingScreen />;
 

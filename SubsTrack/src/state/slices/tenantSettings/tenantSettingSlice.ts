@@ -2,6 +2,7 @@ import type { StateCreator } from "zustand";
 import type { TenantSetting, UnpaidStartRule } from "@/src/core/types";
 import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
 import type { GlobalState } from "@/src/state/globalStore";
+import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";
 
 export interface TenantSettingSlice {
   items: TenantSetting[];
@@ -62,18 +63,21 @@ export const createTenantSettingSlice: StateCreator<
     error: null,
 
     fetchSettings: async () => {
+      const epoch = currentDataEpoch();
       set((state) => {
         state.tenantSettings.loading = true;
         state.tenantSettings.error = null;
       });
       try {
         const items = await tenantSettingService.getSettings();
+        if (isStaleEpoch(epoch)) return;
         set((state) => {
           state.tenantSettings.items = items;
           state.tenantSettings.loaded = true;
           state.tenantSettings.loading = false;
         });
       } catch (e) {
+        if (isStaleEpoch(epoch)) return;
         set((state) => {
           state.tenantSettings.error = (e as Error).message;
           state.tenantSettings.loading = false;

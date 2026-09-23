@@ -38,6 +38,7 @@ import {
   syncNow,
   TABLES,
   validateBackup,
+  wipeOfflineData,
   writeBackup,
 } from "@/src/core/offline";
 import type {
@@ -83,7 +84,7 @@ export function DeveloperScreen() {
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState<
-    "export" | "import" | "resync" | "sync" | null
+    "export" | "import" | "resync" | "sync" | "wipe" | null
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [needsSync, setNeedsSync] = useState(false);
@@ -141,6 +142,7 @@ export function DeveloperScreen() {
       userId: current.id,
       username: current.username,
       branchId: current.branchId,
+      role: current.role,
     };
   }
 
@@ -397,6 +399,35 @@ export function DeveloperScreen() {
     }
   }
 
+  // the only escape from a mirror holding a row the server will never accept
+  async function handleWipe() {
+    const unsynced = await countUnsyncedWrites();
+    const ok = await confirm({
+      title: t("settings.developer_wipe_title"),
+      message: unsynced
+        ? t("settings.developer_wipe_unsynced", { count: unsynced })
+        : t("settings.developer_wipe_message"),
+      confirmLabel: t("settings.developer_wipe_confirm"),
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusy("wipe");
+    try {
+      await wipeOfflineData();
+      resetAllDomainStores();
+      const { offline } = await syncNow();
+      await refreshCounts();
+      await refreshActiveData();
+      flashMessage(
+        offline
+          ? t("settings.developer_wipe_offline")
+          : t("settings.developer_wipe_done"),
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
   if (selectedTable) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
@@ -463,6 +494,17 @@ export function DeveloperScreen() {
               label={t("settings.developer_resync")}
               onPress={() => void handleResync()}
               loading={busy === "resync"}
+              disabled={busy !== null}
+              variant="ghost"
+              fullWidth
+            />
+          </View>
+
+          <View className="mx-4 mb-3">
+            <Button
+              label={t("settings.developer_wipe")}
+              onPress={() => void handleWipe()}
+              loading={busy === "wipe"}
               disabled={busy !== null}
               variant="ghost"
               fullWidth

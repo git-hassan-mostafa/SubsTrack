@@ -604,7 +604,14 @@
     "developer_resync_running": "Re-pulling all data…",
     "developer_resync_done": "Re-pull complete",
     "developer_resync_offline": "No connection",
-    "developer_resync_failed": "Re-pull failed"
+    "developer_resync_failed": "Re-pull failed",
+    "developer_wipe": "Clear local data",
+    "developer_wipe_title": "Clear local data?",
+    "developer_wipe_message": "Deletes everything stored on this device and downloads it again from the server. Nothing on the server changes.",
+    "developer_wipe_unsynced": "{{count}} change(s) on this device have not reached the server yet and will be LOST. Clear anyway?",
+    "developer_wipe_confirm": "Clear and re-download",
+    "developer_wipe_done": "Local data cleared and re-downloaded",
+    "developer_wipe_offline": "Local data cleared — connect to re-download"
   },
   "tenant_inactive": {
     "title": "Organization Deactivated",

@@ -11,6 +11,7 @@ import type {
 import customerService from "@/src/modules/customer/customers/services/CustomerService";
 import customerPlanService from "@/src/modules/customer/customer-plans/services/CustomerPlanService";
 import type { GlobalState } from "@/src/state/globalStore";
+import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";
 
 const NO_QUOTA: QuotaPair = { customers: 0, plans: 0 };
 
@@ -81,11 +82,13 @@ export const createBillingSlice: StateCreator<
   },
 
   refreshCounts: async () => {
+    const epoch = currentDataEpoch();
     try {
       const [customers, plans] = await Promise.all([
         customerService.countActive(null),
         customerPlanService.countActive(),
       ]);
+      if (isStaleEpoch(epoch)) return;
       set((state) => {
         state.billing.active = { customers, plans };
       });
@@ -97,8 +100,10 @@ export const createBillingSlice: StateCreator<
   // Offline this throws RequiresConnectionError; the card keeps showing the
   // local limits and counts rather than surfacing a scary banner.
   refreshRequest: async (tenantId) => {
+    const epoch = currentDataEpoch();
     try {
       const request = await billingService.getLatestRequest(tenantId);
+      if (isStaleEpoch(epoch)) return;
       set((state) => {
         state.billing.request = request;
       });

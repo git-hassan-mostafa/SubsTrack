@@ -19,6 +19,7 @@ const session: BackupSession = {
   userId: USER,
   username: "hassan",
   branchId: null,
+  role: "admin",
 };
 
 function emptyTables(): Record<string, BackupRow[]> {

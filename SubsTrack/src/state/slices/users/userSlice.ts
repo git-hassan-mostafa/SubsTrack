@@ -3,6 +3,7 @@ import type { AppUser, UserRole } from "@/src/core/types";
 import { userService } from "@/src/modules/admin/users";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import type { GlobalState } from "@/src/state/globalStore";
+import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";
 
 interface UserCreateInput {
   username: string;
@@ -84,6 +85,7 @@ export const createUserSlice: StateCreator<
     },
 
     fetchUsers: async () => {
+      const epoch = currentDataEpoch();
       set((state) => {
         state.users.loading = true;
         state.users.error = null;
@@ -91,12 +93,14 @@ export const createUserSlice: StateCreator<
       try {
         const branchFilter = resolveBranchFilter(get().auth.user);
         const items = await userService.getUsers(branchFilter);
+        if (isStaleEpoch(epoch)) return;
         set((state) => {
           state.users.items = items;
           state.users.loaded = true;
           state.users.loading = false;
         });
       } catch (e) {
+        if (isStaleEpoch(epoch)) return;
         set((state) => {
           state.users.error = (e as Error).message;
           state.users.loading = false;

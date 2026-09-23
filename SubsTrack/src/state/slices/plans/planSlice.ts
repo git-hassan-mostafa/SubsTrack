@@ -3,6 +3,7 @@ import type { Plan } from "@/src/core/types";
 import { planService } from "@/src/modules/admin/plans";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import type { GlobalState } from "@/src/state/globalStore";
+import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";
 
 interface PlanInput {
   name: string;
@@ -46,6 +47,7 @@ export const createPlanSlice: StateCreator<
   },
 
   fetchPlans: async () => {
+    const epoch = currentDataEpoch();
     set((state) => {
       state.plans.loading = true;
       state.plans.error = null;
@@ -53,12 +55,14 @@ export const createPlanSlice: StateCreator<
     try {
       const branchFilter = resolveBranchFilter(get().auth.user);
       const items = await planService.getPlans(branchFilter);
+      if (isStaleEpoch(epoch)) return;
       set((state) => {
         state.plans.items = items;
         state.plans.loaded = true;
         state.plans.loading = false;
       });
     } catch (e) {
+      if (isStaleEpoch(epoch)) return;
       set((state) => {
         state.plans.error = (e as Error).message;
         state.plans.loading = false;

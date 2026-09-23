@@ -1,6 +1,7 @@
 import type { Session } from "@supabase/supabase-js";
 import { Platform } from "react-native";
-import { supabase } from "@/src/shared/lib/supabase";
+import { AUTH_STORAGE_KEY, supabase } from "@/src/shared/lib/supabase";
+import { supabaseStorage } from "@/src/shared/lib/storage";
 import type { DbTenant, DbUser } from "@/src/core/types/db";
 import type { IAuthRepository } from "./IAuthRepository";
 import { OfflineAuthRepository } from "./AuthRepository.offline";
@@ -16,15 +17,21 @@ export class AuthRepository implements IAuthRepository {
     return data.session;
   }
 
+  /** Local scope + hand-clear fallback: an offline logout must stick (#158). */
   async signOut(): Promise<void> {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw new Error(error.message);
+    const { error } = await supabase.auth.signOut({ scope: "local" });
+    if (!error) return;
+    console.warn(
+      "[auth] remote sign-out failed, clearing locally:",
+      error.message,
+    );
+    await supabaseStorage.removeItem(AUTH_STORAGE_KEY);
   }
 
   async getSession(): Promise<Session | null> {
     const { data, error } = await supabase.auth.getSession();
     if (error) {
-      await supabase.auth.signOut().catch(() => {});
+      await this.signOut().catch(() => {});
       return null;
     }
     return data.session;

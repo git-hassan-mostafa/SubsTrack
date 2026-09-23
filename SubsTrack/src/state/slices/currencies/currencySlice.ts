@@ -5,6 +5,7 @@ import {
   type CurrencyInput,
 } from "@/src/modules/admin/currencies";
 import type { GlobalState } from "@/src/state/globalStore";
+import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";
 
 export interface CurrencySlice {
   items: Currency[];
@@ -40,18 +41,21 @@ export const createCurrencySlice: StateCreator<
   },
 
   fetchCurrencies: async () => {
+    const epoch = currentDataEpoch();
     set((state) => {
       state.currencies.loading = true;
       state.currencies.error = null;
     });
     try {
       const items = await currencyService.getCurrencies();
+      if (isStaleEpoch(epoch)) return;
       set((state) => {
         state.currencies.items = items;
         state.currencies.loaded = true;
         state.currencies.loading = false;
       });
     } catch (e) {
+      if (isStaleEpoch(epoch)) return;
       set((state) => {
         state.currencies.error = (e as Error).message;
         state.currencies.loading = false;

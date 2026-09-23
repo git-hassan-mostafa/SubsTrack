@@ -2,6 +2,7 @@ import type { StateCreator } from "zustand";
 import type { Branch } from "@/src/core/types";
 import { branchService, type BranchInput } from "@/src/modules/admin/branches";
 import type { GlobalState } from "@/src/state/globalStore";
+import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";
 
 export interface BranchSlice {
   items: Branch[];
@@ -37,18 +38,21 @@ export const createBranchSlice: StateCreator<
   },
 
   fetchBranches: async () => {
+    const epoch = currentDataEpoch();
     set((state) => {
       state.branches.loading = true;
       state.branches.error = null;
     });
     try {
       const items = await branchService.getBranches();
+      if (isStaleEpoch(epoch)) return;
       set((state) => {
         state.branches.items = items;
         state.branches.loaded = true;
         state.branches.loading = false;
       });
     } catch (e) {
+      if (isStaleEpoch(epoch)) return;
       set((state) => {
         state.branches.error = (e as Error).message;
         state.branches.loading = false;

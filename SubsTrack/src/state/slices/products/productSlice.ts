@@ -7,6 +7,7 @@ import {
 } from "@/src/modules/admin/products";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import type { GlobalState } from "@/src/state/globalStore";
+import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";
 
 export interface ProductSlice {
   items: Product[];
@@ -73,6 +74,7 @@ export const createProductSlice: StateCreator<
     await get().products.fetchProducts();
   },
   fetchProducts: async () => {
+    const epoch = currentDataEpoch();
     set((state) => {
       state.products.loading = true;
       state.products.error = null;
@@ -80,12 +82,14 @@ export const createProductSlice: StateCreator<
     try {
       const branchFilter = resolveBranchFilter(get().auth.user);
       const items = await productService.getProducts(branchFilter);
+      if (isStaleEpoch(epoch)) return;
       set((state) => {
         state.products.items = items;
         state.products.loaded = true;
         state.products.loading = false;
       });
     } catch (e) {
+      if (isStaleEpoch(epoch)) return;
       set((state) => {
         state.products.error = (e as Error).message;
         state.products.loading = false;

@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from "expo-sqlite";
 
 export const META_ACTIVE_TENANT = "active_tenant_id";
 export const META_ACTIVE_BRANCH_SCOPE = "active_branch_scope";
+export const META_ACTIVE_ROLE_SCOPE = "active_role_scope";
 export const META_LAST_PULLED_AT = "last_pulled_at";
 export const META_LAST_SYNC_AT = "last_sync_at";
 

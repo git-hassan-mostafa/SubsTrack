@@ -6,6 +6,7 @@ import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
 import { TENANT_SETTING_KEYS } from "@/src/modules/admin/tenant-settings/utils/constants";
 import { getStore } from "@/src/state/globalStore";
+import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";
 
 export interface DashboardState {
   metrics: DashboardMetrics | null;
@@ -23,6 +24,7 @@ export const useDashboardStore = create<DashboardState>()(
     error: null,
 
     fetchMetrics: async () => {
+      const epoch = currentDataEpoch();
       set((state) => {
         state.loading = true;
         state.error = null;
@@ -47,11 +49,13 @@ export const useDashboardStore = create<DashboardState>()(
           viewer,
           unpaidRule,
         );
+        if (isStaleEpoch(epoch)) return;
         set((state) => {
           state.metrics = metrics;
           state.loading = false;
         });
       } catch (e) {
+        if (isStaleEpoch(epoch)) return;
         set((state) => {
           state.error = (e as Error).message;
           state.loading = false;

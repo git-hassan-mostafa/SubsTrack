@@ -17,8 +17,7 @@ import {
   type SupportedLanguage,
 } from "@/src/core/i18n/languageStore";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
-import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
+import { endSession } from "@/src/shared/lib/session";
 import { IS_OFFLINE_CAPABLE, syncNow } from "@/src/core/offline";
 import { useSyncStatus } from "@/src/shared/hooks/useSyncStatus";
 import { refreshActiveData } from "@/src/state/refreshActiveData";
@@ -78,7 +77,6 @@ export function SettingsScreen() {
   const router = useRouter();
   const { user, isAdmin } = useAuth();
   const { language, setLanguage } = useLanguageStore();
-  const logout = useAuthSlice((s) => s.logout);
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
   const { syncing } = useSyncStatus();
   const [syncResult, setSyncResult] = useState<
@@ -128,10 +126,7 @@ export function SettingsScreen() {
       message: t("settings.logout_confirm"),
       confirmLabel: t("settings.logout"),
       destructive: true,
-      onConfirm: async () => {
-        await logout();
-        resetAllDomainStores();
-      },
+      onConfirm: endSession,
     });
   }
   return (
