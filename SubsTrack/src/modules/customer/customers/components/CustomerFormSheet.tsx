@@ -23,6 +23,8 @@ import { useActiveBranches } from "@/src/modules/admin/branches";
 import { QuotaReachedModal } from "@/src/modules/admin/billing";
 import { useBillingSlice } from "@/src/state/hooks/useBillingSlice";
 import { LocationField } from "@/src/shared/components/LocationField";
+import { PortalAccessField } from "@/src/shared/components/PortalAccessField";
+import { useCustomerPortalUrl } from "@/src/state/hooks/useOptionSlice";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 
 interface Props {
@@ -39,6 +41,8 @@ type FormState = {
   locationUrl: string;
   branchId: string | null;
   isRegular: boolean;
+  portalEnabled: boolean;
+  portalPassword: string;
 };
 
 export function CustomerFormSheet({ customer, onDismiss }: Props) {
@@ -56,6 +60,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
   const getPlans = usePlanSlice((s) => s.getPlans);
   const { currentBranchId } = useUiPrefStore();
   const activeBranches = useActiveBranches();
+  const portalBaseUrl = useCustomerPortalUrl();
 
   // For a new customer: default branch is the user's own branch (if scoped),
   // otherwise the currently-selected branch in the header (unless that's "All"
@@ -82,6 +87,8 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
     locationUrl: customer?.locationUrl ?? "",
     branchId: defaultBranchId,
     isRegular: customer?.isRegular ?? true,
+    portalEnabled: customer?.portalEnabled ?? false,
+    portalPassword: customer?.portalPassword ?? "",
   });
 
   const plansEditor = useRef<CustomerPlansEditorHandle>(null);
@@ -109,6 +116,8 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
         locationUrl: form.locationUrl || null,
         branchId: form.branchId,
         isRegular: form.isRegular,
+        portalEnabled: form.portalEnabled,
+        portalPassword: form.portalPassword || null,
       };
       const finalLines = plansEditor.current?.getLines() ?? [];
       const removed = plansEditor.current?.getRemoved() ?? [];
@@ -241,6 +250,19 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
             }
           />
         </View>
+
+        <PortalAccessField
+          customerId={customer?.id ?? null}
+          portalBaseUrl={portalBaseUrl}
+          enabled={form.portalEnabled}
+          password={form.portalPassword}
+          onEnabledChange={(v) =>
+            setForm((prev) => ({ ...prev, portalEnabled: v }))
+          }
+          onPasswordChange={(v) =>
+            setForm((prev) => ({ ...prev, portalPassword: v }))
+          }
+        />
 
         <Button
           label={customer ? t("common.save_changes") : t("customers.add_title")}

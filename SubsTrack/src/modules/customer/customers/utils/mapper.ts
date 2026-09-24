@@ -1,6 +1,6 @@
 import { Customer } from "@/src/core/types";
-import { mapDbCustomerPlanToCustomerPlan } from "@/src/modules/customer/customer-plans";
-import { DbCustomerWithLines } from "..";
+import { mapDbCustomerPlanToCustomerPlan } from "@/src/modules/customer/customer-plans/utils/mapper";
+import type { DbCustomerWithLines } from "../utils/types";
 
 export function mapDbCustomerToCustomer(db: DbCustomerWithLines): Customer {
   return {
@@ -16,6 +16,8 @@ export function mapDbCustomerToCustomer(db: DbCustomerWithLines): Customer {
     branchId: db.branch_id,
     tenantId: db.tenant_id,
     cancelledAt: db.cancelled_at,
+    portalPassword: db.portal_password,
+    portalEnabled: db.portal_enabled,
     createdAt: db.created_at,
     updatedAt: db.updated_at,
     customerPlans: (db.customer_plans ?? []).map(

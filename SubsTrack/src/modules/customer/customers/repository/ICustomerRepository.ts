@@ -29,6 +29,8 @@ export type CreateCustomerPayload = Pick<
   | "active"
   | "is_regular"
   | "cancelled_at"
+  | "portal_password"
+  | "portal_enabled"
 >;
 
 export interface ICustomerRepository {
@@ -53,6 +55,8 @@ export interface ICustomerRepository {
         | "location_url"
         | "branch_id"
         | "is_regular"
+        | "portal_password"
+        | "portal_enabled"
       >
     >,
   ): Promise<CustomerWithLines>;

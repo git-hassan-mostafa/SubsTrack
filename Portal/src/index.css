@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* A phone browser that is zoomed out must never shrink the text further. */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Colour is never the only signal on screen, so a black-and-white print stays
+   readable: the grid keeps its borders and every cell keeps its word. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

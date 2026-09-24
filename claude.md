@@ -166,9 +166,22 @@ lists, assign plans, record monthly payments. Paid vs overdue is shown through a
 payments are.**
 
 Two Expo apps: `SubsTrack/` (tenant-facing; admin + user roles) and `SuperAdmin/`
-(internal, for the SaaS owner: tenants + global options). Also in the workspace:
-`sql scripts/` (`script.sql` schema+RLS, `reset.sql` teardown), `new-features.md`
-(backlog), `Design/`, `QA/`, `tests/` (Jest, money rules).
+(internal, for the SaaS owner: tenants + global options). Plus `Portal/` — the
+READ-ONLY customer portal, a plain React + Vite + Tailwind web app (NOT Expo): a
+customer opens `{CustomerPortalUrl}/{customer id}`, types the password staff set
+on the customer form, and sees their own months, bills, payments and purchases.
+It writes nothing, holds no Supabase client, and **imports SubsTrack's own pure
+logic** (`buildMonthGrid`, `mergeOwed`, `resolveLinePrice`, the waterfall, the
+mappers, `currency.ts`) across a `@/*` alias with three stubs — the same seam
+`tests/` uses. Its one read is the public `customer-portal` edge function, which
+is the ONLY thing that can scope a read to a single customer. Also in the
+workspace: `sql scripts/` (`script.sql` schema+RLS, `reset.sql` teardown),
+`new-features.md` (backlog), `Design/`, `QA/`, `tests/` (Jest, money rules).
+
+**Nothing may be added to `SubsTrack/package.json`** for the portal — its
+`scripts` and dependency tree feed the OTA fingerprint (gotcha #53). The portal
+is its own root-level package, and the edge-function deploy script lives in
+`Portal/package.json`.
 
 **Stack**: RN 0.81.5 + Expo SDK 54 · Expo Router 6 (file-based, typed routes) ·
 Zustand 5.0.12 + immer · NativeWind 4.2.3 · Supabase (PostgreSQL + RLS + Auth) ·

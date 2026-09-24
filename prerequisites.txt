@@ -1,4 +1,200 @@
-run sql script from ./script.sql
-add auth hook custom_access_token_hook
-deploy all supabase functions.
-Authentication > Sessions > Refresh token reuse interval = 30
+PREREQUISITES — everything that must be in place before the project runs
+========================================================================
+
+Do these in order. A step that is skipped usually does NOT fail loudly at
+launch; it fails later, on one specific screen, and looks like a code bug.
+
+
+1. SUPABASE PROJECT
+-------------------
+Create the project. Copy these three values from
+Dashboard > Project Settings > API — they are used everywhere below:
+
+  - Project URL          https://<ref>.supabase.co
+  - anon / public key
+  - service_role key     (secret — never ships in an app bundle)
+
+
+2. DATABASE
+-----------
+Run in THIS order:
+
+  a) sql scripts/migration.sql   EXISTING databases ONLY.
+                                 Skip it entirely on a brand-new project —
+                                 it drops and rewrites things a fresh
+                                 database does not have.
+  b) sql scripts/script.sql      ALWAYS. It is the full schema and is
+                                 re-runnable: it builds a fresh database
+                                 and brings a live one up to date.
+
+Order matters: several entries in migration.sql clear the way for a
+constraint or a function signature that script.sql then declares.
+
+Do not hand-write SQL anywhere else. sql scripts/ holds only these two plus
+reset.sql (teardown).
+
+
+3. AUTH HOOK  (without this, every logged-in user sees an empty app)
+--------------------------------------------------------------------
+script.sql creates public.custom_access_token_hook, but creating it is not
+enough — it must be switched on:
+
+  Dashboard > Authentication > Hooks
+    > "Customize access token (JWT) claims"  ->  public.custom_access_token_hook
+
+This is what puts tenant_id into the JWT. Every RLS policy reads
+current_tenant_id() from that claim, so until the hook is enabled every
+query returns zero rows and the app looks broken rather than unconfigured.
+
+
+4. AUTH SETTINGS
+----------------
+  Dashboard > Authentication > Sessions
+    > Refresh token reuse interval = 30
+
+  The app is offline-first and a phone can resume a session after a long
+  gap; a shorter interval logs collectors out mid-round.
+
+
+5. EDGE FUNCTION SECRETS
+------------------------
+  Dashboard > Project Settings > Edge Functions > Secrets
+
+  SERVICE_ROLE_KEY     the service_role key from step 1
+  ANON_KEY             the anon key from step 1
+  PORTAL_JWT_SECRET    a long random string, generated once
+
+  Generate the portal secret with:
+      node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
+
+  Notes:
+  - SUPABASE_URL is injected automatically. Do not create it — Supabase
+    refuses any secret name starting with SUPABASE_, which is why the
+    other two carry no prefix.
+  - Names must match EXACTLY. A trailing space makes a different variable.
+  - Changing PORTAL_JWT_SECRET later signs out every portal customer,
+    because their saved tokens were signed with the old value. Set once.
+  - A missing PORTAL_JWT_SECRET stays invisible until the first CORRECT
+    portal password: wrong passwords answer normally, because the secret
+    is only read when a token is signed.
+
+
+6. EDGE FUNCTIONS
+-----------------
+Deploy all five (from inside SubsTrack/):
+
+  supabase functions deploy create-user
+  supabase functions deploy delete-user
+  supabase functions deploy update-user-password
+  supabase functions deploy create-tenant     --no-verify-jwt
+  supabase functions deploy customer-portal   --no-verify-jwt
+
+  create-tenant and customer-portal are PUBLIC — they are called with no
+  session at all (signup, and a customer who has no Supabase account).
+  The other three require a staff JWT.
+
+  --no-verify-jwt does NOT mean "no key needed". Supabase's gateway still
+  answers 401 UNAUTHORIZED_NO_AUTH_HEADER to any call carrying neither
+  apikey nor Authorization; verify_jwt only decides whether the token's
+  claims get checked. Every client therefore sends the anon key.
+
+  Edge functions do NOT travel over OTA. Deploy them BEFORE publishing an
+  app update that depends on them.
+
+
+7. APP ENVIRONMENT FILES
+------------------------
+Each app needs its own .env (none are committed):
+
+  SubsTrack/.env
+      EXPO_PUBLIC_SUPABASE_URL=<project url>
+      EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon key>
+
+  SuperAdmin/.env
+      EXPO_PUBLIC_SUPABASE_URL=<project url>
+      EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon key>
+      EXPO_PUBLIC_SUPABASE_SERVICE_KEY=<service_role key>
+
+      SuperAdmin is the internal SaaS-owner tool and holds the service
+      key on purpose. Never install it on a customer's device.
+
+  Portal/.env
+      VITE_PORTAL_FUNCTION_URL=<project url>/functions/v1/customer-portal
+      VITE_SUPABASE_ANON_KEY=<anon key>
+
+      A build missing either one sends NO request at all.
+      On Vercel a .env file is not uploaded — set both under
+      Project > Settings > Environment Variables, then redeploy.
+
+
+8. CUSTOMER PORTAL
+------------------
+  a) Build and publish it:
+        cd Portal
+        npm install --ignore-scripts      (--ignore-scripts is required on
+                                           this laptop; plain npm install
+                                           dies on a postinstall)
+        npm run build                     -> dist/
+     Publish dist/ to its own subdomain. vercel.json carries the SPA
+     rewrite, which the portal needs because the URL path IS the customer
+     id.
+
+  b) SuperAdmin > Options > CustomerPortalUrl = that subdomain,
+     with NO trailing slash.
+
+     Until this is set, the Customer portal block does not appear on the
+     customer form at all — there is no link to hand out.
+
+  The link is {CustomerPortalUrl}/{customer id}. It carries no secret of
+  its own; the password staff set on the customer form is what gates it,
+  and switching the portal off is what revokes a link that leaked.
+
+
+9. GLOBAL OPTIONS  (SuperAdmin > Options)
+-----------------------------------------
+script.sql seeds these; review them before going live:
+
+  LiraRate                 USD -> LBP rate seeded onto each new tenant
+  AllowSelfServiceSignup   'false' hides "Create organization" on the login
+                           screen AND makes create-tenant reject signups
+  SupportWhatsAppNumber    owner's number, digits only, international
+                           format (e.g. 9613123456) — used by the
+                           "request more customers" flow
+  CustomerPortalUrl        step 8b
+
+
+10. RUNNING THE APPS
+--------------------
+  npm install            in SubsTrack/ and SuperAdmin/ (uses package-lock.json)
+  npx expo run:android   or run:ios
+
+  A custom dev client is REQUIRED — the app redboxes in Expo Go, because
+  react-native-keyboard-controller is a native module.
+
+  Rebuild only when something NATIVE changed. JS-only changes ship with
+  npm run ota-prod.
+
+
+11. TESTS  (optional, but this is how money rules are verified)
+--------------------------------------------------------------
+  cd tests
+  npm install --ignore-scripts
+  npm test
+  # if it says "Access is denied": node node_modules/jest/bin/jest.js
+
+
+LAUNCH CHECK
+============
+  [ ] Sign up a new organization            -> create-tenant works, and the
+                                               JWT hook is on
+  [ ] Log in, open a customer               -> rows appear (empty = hook off)
+  [ ] Create a staff user                   -> create-user works
+  [ ] Collect a payment                     -> month flips to paid
+  [ ] Switch a customer's portal on, copy
+      the link, open it, enter the password -> the portal opens
+  [ ] Compare the portal's month grid with
+      the app's, cell for cell              -> identical
+
+Full portal test plan: QA/customer-portal.md
+Edge function detail:  docs/edge-functions.md
+Build and OTA detail:  docs/build-and-release.md

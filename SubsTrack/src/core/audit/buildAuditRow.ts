@@ -22,7 +22,12 @@ export interface AuditInput {
   customerId?: string | null;
 }
 
-const IGNORED_FIELDS = new Set(["updated_at", "balance"]);
+// Without portal_password here, a customer's own History sheet prints it.
+const IGNORED_FIELDS = new Set([
+  "updated_at",
+  "balance",
+  "portal_password",
+]);
 
 // Identity columns carried into after_data even when unchanged — see gotcha #132.
 const CONTEXT_FIELDS: Partial<Record<AuditTable, string[]>> = {

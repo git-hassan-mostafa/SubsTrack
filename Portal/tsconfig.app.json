@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "esnext",
+    "types": ["vite/client"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    /* Off: SubsTrack does not use it, and its sources compile through this
+       config. Turning it on here would mean rewriting app files to satisfy a
+       portal-only setting. */
+    "verbatimModuleSyntax": false,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+
+    /* Matches SubsTrack, whose sources are compiled through this config. */
+    "strict": true,
+
+    /* Linting */
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Mirrors vite.config.ts - the two must always agree. */
+    "paths": {
+      "@/src/core/i18n": ["./stubs/i18n.ts"],
+      "@/src/shared/lib/supabase": ["./stubs/supabase-client.ts"],
+      "react-native": ["./stubs/react-native.ts"],
+      "@/*": ["../SubsTrack/*"]
+    }
+  },
+  "include": ["src", "stubs"]
+}

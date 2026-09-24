@@ -90,7 +90,8 @@ ALTER TABLE app_options ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL
 INSERT INTO app_options (key, value, description) VALUES
     ('LiraRate', '89000', 'Default USD→LBP exchange rate (LBP per 1 USD) seeded onto each new tenant''s Lebanese Pound currency.'),
     ('AllowSelfServiceSignup', 'true', 'When ''false'', the login screen hides the "Create organization" button and the create-tenant Edge Function rejects new signups.'),
-    ('SupportWhatsAppNumber', '', 'Owner WhatsApp number in international format (digits only, e.g. 9613123456). Used by the "request more customers" flow in Organization Settings.')
+    ('SupportWhatsAppNumber', '', 'Owner WhatsApp number in international format (digits only, e.g. 9613123456). Used by the "request more customers" flow in Organization Settings.'),
+    ('CustomerPortalUrl', '', 'Base URL of the customer portal web app, no trailing slash (e.g. https://portal.example.com). The app builds a customer''s link as {this}/{customers.id}. Blank hides the portal fields in the customer form.')
 ON CONFLICT (key) DO NOTHING;
 
 -- ============================================================
@@ -463,6 +464,17 @@ ALTER TABLE customers ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
+-- Customer portal (the read-only web view a customer opens themselves).
+-- The link carries no secret of its own: it is {CustomerPortalUrl}/{customers.id},
+-- built at runtime, so there is no code column to store and none to rotate.
+-- Access is gated by portal_password alone, which is why portal_enabled is the
+-- off switch. The password is PLAIN TEXT on purpose - staff must read it back to
+-- a customer who forgot it, and must be able to set it with no connection. It is
+-- therefore kept out of the audit trail (IGNORED_FIELDS in
+-- src/core/audit/buildAuditRow.ts) and is never returned by the portal endpoint.
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS portal_password TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS portal_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
 
 DO $$ BEGIN
@@ -478,6 +490,15 @@ DO $$ BEGIN
                 (active = FALSE AND cancelled_at IS NOT NULL)
             );
     END IF;
+
+    -- the portal cannot be switched on without a password to gate it
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'customers'::regclass AND conname = 'chk_customer_portal_consistency'
+    ) THEN
+        ALTER TABLE customers ADD CONSTRAINT chk_customer_portal_consistency
+            CHECK (portal_enabled = FALSE OR portal_password IS NOT NULL);
+    END IF;
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_customers_tenant_id
@@ -488,6 +509,33 @@ CREATE INDEX IF NOT EXISTS idx_customers_active
 
 CREATE INDEX IF NOT EXISTS idx_customers_branch_id
     ON customers (branch_id);
+
+-- ============================================================
+-- CUSTOMER PORTAL LOCKOUTS
+-- Brute-force guard for the public `customer-portal` Edge Function. The portal
+-- link is the customer's id and the password is human-chosen (so it is short),
+-- which makes throttling the only real control on that endpoint.
+--
+-- Deliberately NOT tenant-scoped and NOT mirrored: it is written by the service
+-- role on every failed login, so putting it in the sync engine would push a
+-- counter around the network and let an offline device clobber a live lockout.
+-- It is absent from src/core/offline/db/tables.ts and from PUSH_WAVES on purpose.
+--
+-- RLS is enabled with NO POLICY AT ALL — the "absence of a policy = service_role
+-- only" idiom already used by app_options writes and the audit trail.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS customer_portal_lockouts ();
+
+-- ---- Columns --------------------------------------------------------------
+
+ALTER TABLE customer_portal_lockouts ADD COLUMN IF NOT EXISTS customer_id UUID PRIMARY KEY
+    CONSTRAINT fk_customer_portal_lockouts_customer REFERENCES customers(id) ON DELETE CASCADE;
+ALTER TABLE customer_portal_lockouts ADD COLUMN IF NOT EXISTS failed_count INT NOT NULL DEFAULT 0
+    CONSTRAINT chk_customer_portal_lockouts_count CHECK (failed_count >= 0);
+ALTER TABLE customer_portal_lockouts ADD COLUMN IF NOT EXISTS first_failed_at TIMESTAMPTZ;
+ALTER TABLE customer_portal_lockouts ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
+ALTER TABLE customer_portal_lockouts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 -- ============================================================
 -- CUSTOMER PLANS (service lines)
@@ -1859,6 +1907,8 @@ ALTER TABLE users      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plans      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customer_plans ENABLE ROW LEVEL SECURITY;
+-- No policy follows for this one: service_role only. See its table comment.
+ALTER TABLE customer_portal_lockouts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE services   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales      ENABLE ROW LEVEL SECURITY;

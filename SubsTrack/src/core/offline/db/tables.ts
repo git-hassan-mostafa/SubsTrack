@@ -105,6 +105,8 @@ export const TABLES: TableSpec[] = [
       branch_id: "text",
       tenant_id: "text",
       cancelled_at: "text",
+      portal_password: "text",
+      portal_enabled: "bool",
       created_at: "text",
       updated_at: "text",
     },

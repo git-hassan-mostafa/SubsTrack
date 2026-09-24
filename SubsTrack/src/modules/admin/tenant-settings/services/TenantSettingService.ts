@@ -1,9 +1,12 @@
 import type { TenantSetting, UnpaidStartRule } from "@/src/core/types";
 import repository from "../repository/TenantSettingRepository";
 import { mapDbTenantSettingToTenantSetting } from "../utils/mapper";
-import { TENANT_SETTING_KEYS } from "../utils/constants";
+import {
+  DEFAULT_UNPAID_START_RULE,
+  TENANT_SETTING_KEYS,
+} from "../utils/constants";
 
-export const DEFAULT_UNPAID_START_RULE: UnpaidStartRule = "month_start";
+export { DEFAULT_UNPAID_START_RULE };
 
 const UNPAID_START_RULES: UnpaidStartRule[] = [
   "month_start",

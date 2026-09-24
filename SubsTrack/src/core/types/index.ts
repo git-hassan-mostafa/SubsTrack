@@ -117,6 +117,8 @@ export interface Customer {
   branchId: string | null;
   tenantId: string;
   cancelledAt: string | null;
+  portalPassword: string | null;
+  portalEnabled: boolean;
   createdAt: string;
   updatedAt: string;
   customerPlans?: CustomerPlan[];

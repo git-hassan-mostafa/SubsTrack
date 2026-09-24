@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { View } from "react-native";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useTranslation } from "react-i18next";
@@ -5,12 +6,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { confirm } from "@/src/shared/lib/confirm";
+import { copyText } from "@/src/shared/lib/clipboard";
 import { openLocation } from "@/src/shared/lib/maps";
 import type { Customer } from "@/src/core/types";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
+import { buildPortalLink } from "@/src/core/utils/portalLink";
+import { isolate } from "@/src/core/utils/bidi";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
+import { useCustomerPortalUrl } from "@/src/state/hooks/useOptionSlice";
 
 interface CustomerDetailsCardProps {
   customer: Customer;
@@ -27,6 +32,22 @@ export function CustomerDetailsCard({
   const branch = useBranchSlice(
     (state) => state.items.find((b) => b.id === customer.branchId) ?? null,
   );
+  const portalBaseUrl = useCustomerPortalUrl();
+  const [copied, setCopied] = useState(false);
+
+  // Only when the portal is actually switched on: a link to a portal that
+  // refuses every password is worse than no link at all.
+  const portalLink = customer.portalEnabled
+    ? buildPortalLink(portalBaseUrl, customer.id)
+    : null;
+
+  async function handleCopyPortalLink() {
+    if (!portalLink) return;
+    if (await copyText(portalLink)) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
 
   async function handleToggleActive() {
     await confirm({
@@ -167,6 +188,45 @@ export function CustomerDetailsCard({
 
         {/* No "Started" row — a start date belongs to a service line, and the
             payment panel shows each line's own grid from its own start. */}
+
+        {portalLink ? (
+          <PressableOpacity
+            onPress={() => void handleCopyPortalLink()}
+            className="px-4 py-3.5 border-b border-gray-100"
+          >
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center gap-3">
+                <Ionicons
+                  name="globe-outline"
+                  size={16}
+                  color={COLORS.gray400}
+                />
+                <Text className="text-sm text-gray-500">
+                  {t("customers.portal_link_label")}
+                </Text>
+              </View>
+              <View className="flex-row items-center gap-1.5">
+                <Ionicons
+                  name={copied ? "checkmark-circle" : "copy-outline"}
+                  size={16}
+                  color={copied ? COLORS.success : COLORS.primary}
+                />
+                <Text
+                  fontWeight="SemiBold"
+                  className="text-sm"
+                  style={{ color: copied ? COLORS.success : COLORS.primary }}
+                >
+                  {copied
+                    ? t("customers.portal_copied")
+                    : t("common.copy")}
+                </Text>
+              </View>
+            </View>
+            <Text className="text-xs text-gray-500 mt-1.5" numberOfLines={2}>
+              {isolate(portalLink)}
+            </Text>
+          </PressableOpacity>
+        ) : null}
 
         {customer.notes ? (
           <View className="px-4 py-3.5 border-b border-gray-100">

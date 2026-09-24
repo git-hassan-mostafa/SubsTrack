@@ -52,7 +52,8 @@
     "complete_title": "Mark as fully paid",
     "complete_message": "Mark this as fully paid? The {{amount}} still owed is added to the amount paid. No debt payment is recorded.",
     "save": "Save",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "copy": "Copy"
   },
   "auth": {
     "title": "Sijil",
@@ -241,7 +242,16 @@
     "bulk_pay_summary": "Paid {{ok}} · {{failed}} failed.",
     "bulk_delete_title": "Delete {{count}} customers",
     "bulk_delete_message": "Delete {{count}} customers? Those with no payment history are removed permanently; the rest are deactivated.",
-    "bulk_delete_summary": "Deleted {{ok}} · {{failed}} failed."
+    "bulk_delete_summary": "Deleted {{ok}} · {{failed}} failed.",
+    "portal_label": "Customer portal",
+    "portal_hint": "Let this customer open a read-only page of their own months and payments",
+    "portal_password_label": "Portal password",
+    "portal_password_placeholder": "Password you give the customer",
+    "portal_link_label": "Portal link",
+    "portal_copy_link": "Copy link",
+    "portal_copied": "Copied",
+    "portal_link_after_save": "The link appears once the customer is saved.",
+    "portal_password_generated_hint": "A strong password is filled in for you. You can change it."
   },
   "plans": {
     "title": "Plans",
@@ -733,7 +743,8 @@
     "charge_currency_locked": "Money has already been collected on this bill, so its currency can no longer be changed.",
     "sale_total_positive": "Enter a total greater than 0 for this sale",
     "customer_limit_reached": "Customer limit reached: {{count}} of {{allowance}} used.",
-    "plan_limit_reached": "Plan limit reached: {{count}} of {{allowance}} used."
+    "plan_limit_reached": "Plan limit reached: {{count}} of {{allowance}} used.",
+    "portal_password_too_short": "The portal password needs at least {{count}} characters"
   },
   "products": {
     "title": "Products",

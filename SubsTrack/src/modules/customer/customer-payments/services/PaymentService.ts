@@ -16,7 +16,7 @@ import {
   isNotDueYet,
   isNotLateYet,
 } from "../utils/monthDueRules";
-import { DEFAULT_UNPAID_START_RULE } from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
+import { DEFAULT_UNPAID_START_RULE } from "@/src/modules/admin/tenant-settings/utils/constants";
 import i18n from "@/src/core/i18n";
 import {
   billingMonthLabel,

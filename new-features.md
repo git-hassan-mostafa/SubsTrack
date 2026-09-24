@@ -573,13 +573,22 @@ DROP TABLE tier_plans;  -- with tenants.tier_id / tier_upgraded_at
 
 ## 11. Long-Term / Strategic Features
 
-### 10.1 Customer Self-Service Portal
+### 10.1 Customer Self-Service Portal ✅
 
 **Priority:** 🟢 Low
 
-**Purpose:** A link or QR code a customer can open to see their own payment history and current status. Reduces "am I paid up?" phone calls to staff.
+**Purpose:** A link a customer can open to see their own payment history and current status. Reduces "am I paid up?" phone calls to staff.
 
-**Implementation:** A separate lightweight web app (Next.js or similar), using Supabase Row-Level Security scoped to the customer's identity. Follows the same pattern as the existing `SuperAdmin` separate app.
+**Implementation:** `Portal/` — a plain **React + Vite + Tailwind** web app (not Next.js, not Expo), its own root-level package. The link is `{app_options.CustomerPortalUrl}/{customers.id}` built at runtime, gated by `customers.portal_password`; staff copy it from the customer form.
+
+Two corrections to what this entry originally assumed:
+
+- **"No DB change" was wrong.** `customers` carried no password and no on/off switch, so it gained `portal_password` + `portal_enabled`, plus a `customer_portal_lockouts` table.
+- **RLS scoped to the customer is the trap, not the answer.** No policy narrows a read to one customer, and `current_branch_id()` returns NULL for anyone absent from `public.users` — which every policy reads as *tenant-wide admin*. A customer must therefore never hold a Postgres role; the public `customer-portal` edge function holds the service role and scopes the read in code.
+
+The portal reimplements no rule: it imports `buildMonthGrid`, `mergeOwed`, `resolveLinePrice`, the waterfall and the mappers from `SubsTrack/src`. Shipped with the next-due card, printable receipts, purchases history and the collector's name. See `QA/customer-portal.md`.
+
+Still open: a QR code in the app, a "customer has opened it" marker, and a period statement.
 
 ---
 
@@ -693,7 +702,7 @@ RLS: `app_options_select` → `SELECT` to `authenticated` only. No write policy 
 | Data export (CSV)              | 🟡 Medium | No                                                                   |
 | Churn tracking                 | 🟡 Medium | No                                                                   |
 | Staff performance report       | 🟡 Medium | No                                                                   |
-| Customer self-service portal   | 🟢 Low    | No (separate app)                                                    |
+| Customer self-service portal ✅ | 🟢 Low    | Yes — 2 `customers` columns + `customer_portal_lockouts` (separate app) |
 | API access                     | 🟢 Low    | No                                                                   |
 | White-label                    | 🟢 Low    | Minor — theming columns on tenants                                   |
 | App options + default LBP ✅   | 🔴 High   | Yes — new `app_options` table; auto-seeded `LBP` currency per tenant |

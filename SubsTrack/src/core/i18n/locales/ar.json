@@ -52,7 +52,8 @@
     "complete_title": "اعتباره مدفوعاً بالكامل",
     "complete_message": "هل تريد اعتباره مدفوعاً بالكامل؟ سيُضاف المبلغ المتبقي {{amount}} إلى المبلغ المدفوع. لا تُسجَّل دفعة دين.",
     "save": "حفظ",
-    "unknown": "غير معروف"
+    "unknown": "غير معروف",
+    "copy": "نسخ"
   },
   "auth": {
     "title": "Sijil",
@@ -241,7 +242,16 @@
     "bulk_pay_summary": "تم الدفع لـ {{ok}} · فشل {{failed}}.",
     "bulk_delete_title": "حذف {{count}} عملاء",
     "bulk_delete_message": "هل تريد حذف {{count}} عملاء؟ من ليس لديهم سجل دفعات سيتم حذفهم نهائياً، والباقي سيتم تعطيلهم.",
-    "bulk_delete_summary": "تم حذف {{ok}} · فشل {{failed}}."
+    "bulk_delete_summary": "تم حذف {{ok}} · فشل {{failed}}.",
+    "portal_label": "بوابة العميل",
+    "portal_hint": "اسمح لهذا العميل بفتح صفحة للقراءة فقط تعرض أشهره ودفعاته",
+    "portal_password_label": "كلمة مرور البوابة",
+    "portal_password_placeholder": "كلمة المرور التي تعطيها للعميل",
+    "portal_link_label": "رابط البوابة",
+    "portal_copy_link": "نسخ الرابط",
+    "portal_copied": "تم النسخ",
+    "portal_link_after_save": "يظهر الرابط بعد حفظ العميل.",
+    "portal_password_generated_hint": "تم إنشاء كلمة مرور قوية تلقائياً. يمكنك تغييرها."
   },
   "plans": {
     "title": "الخطط",
@@ -733,7 +743,8 @@
     "charge_currency_locked": "تم تحصيل مبلغ على هذه الفاتورة، لذلك لا يمكن تغيير عملتها.",
     "sale_total_positive": "أدخل مجموعاً أكبر من 0 لهذا المبيع",
     "customer_limit_reached": "تم الوصول إلى حد العملاء: {{count}} من أصل {{allowance}}.",
-    "plan_limit_reached": "تم الوصول إلى حد الخطط: {{count}} من أصل {{allowance}}."
+    "plan_limit_reached": "تم الوصول إلى حد الخطط: {{count}} من أصل {{allowance}}.",
+    "portal_password_too_short": "كلمة مرور البوابة تحتاج {{count}} أحرف على الأقل"
   },
   "products": {
     "title": "المنتجات",

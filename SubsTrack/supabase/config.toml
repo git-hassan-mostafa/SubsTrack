@@ -9,3 +9,10 @@ entrypoint = "./functions/create-user/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/create-user/*.html" ]
+
+# Public: the customer portal calls this with no session at all. Must stay
+# verify_jwt = false, and must be deployed with --no-verify-jwt to match.
+[functions.customer-portal]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/customer-portal/index.ts"

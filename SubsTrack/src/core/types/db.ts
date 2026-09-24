@@ -84,6 +84,8 @@ export interface DbCustomer {
   branch_id: string | null;
   tenant_id: string;
   cancelled_at: string | null;
+  portal_password: string | null;
+  portal_enabled: boolean;
   created_at: string;
   updated_at: string;
   customer_plans?: DbCustomerPlan[] | null;

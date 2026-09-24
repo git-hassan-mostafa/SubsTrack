@@ -6,7 +6,7 @@ import billingService from "@/src/modules/admin/billing/services/BillingService"
 import type { QuotaPair } from "@/src/modules/admin/billing/utils/types";
 import { mapDbCustomerToCustomer } from "../utils/mapper";
 
-type CustomerInput = Pick<
+export type CustomerInput = Pick<
   Customer,
   | "name"
   | "phoneNumber"
@@ -16,7 +16,12 @@ type CustomerInput = Pick<
   | "locationUrl"
   | "branchId"
   | "isRegular"
+  | "portalPassword"
+  | "portalEnabled"
 >;
+
+// Short because staff read it out over the phone to the customer.
+export const MIN_PORTAL_PASSWORD_LENGTH = 4;
 
 class CustomerService {
   async getCustomers(
@@ -71,6 +76,8 @@ class CustomerService {
       active: true,
       is_regular: data.isRegular,
       cancelled_at: null,
+      portal_password: portalPasswordOf(data),
+      portal_enabled: data.portalEnabled,
     });
     return mapDbCustomerToCustomer(row);
   }
@@ -86,6 +93,8 @@ class CustomerService {
       location_url: data.locationUrl?.trim() || null,
       branch_id: data.branchId,
       is_regular: data.isRegular,
+      portal_password: portalPasswordOf(data),
+      portal_enabled: data.portalEnabled,
     });
     return mapDbCustomerToCustomer(row);
   }
@@ -132,7 +141,23 @@ class CustomerService {
     if (!data.branchId) {
       throw new Error(i18n.t("errors.customer_needs_branch"));
     }
+    if (
+      data.portalEnabled &&
+      (data.portalPassword ?? "").trim().length < MIN_PORTAL_PASSWORD_LENGTH
+    ) {
+      throw new Error(
+        i18n.t("errors.portal_password_too_short", {
+          count: MIN_PORTAL_PASSWORD_LENGTH,
+        }),
+      );
+    }
   }
+}
+
+// Switching the portal off CLEARS the password — a stale one is unguarded.
+function portalPasswordOf(data: CustomerInput): string | null {
+  if (!data.portalEnabled) return null;
+  return data.portalPassword?.trim() || null;
 }
 
 export default new CustomerService();

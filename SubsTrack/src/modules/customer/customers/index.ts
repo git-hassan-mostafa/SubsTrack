@@ -1,4 +1,6 @@
 export { default as customerService } from "./services/CustomerService";
+export type { CustomerInput } from "./services/CustomerService";
+export { MIN_PORTAL_PASSWORD_LENGTH } from "./services/CustomerService";
 export { mapDbCustomerToCustomer } from "./utils/mapper";
 export type { DbCustomerWithLines } from "./utils/types";
 export { default as customerRepository } from "./repository/CustomerRepository";

@@ -1,6 +1,9 @@
 import type { StateCreator } from "zustand";
 import type { Customer, CustomerPlan } from "@/src/core/types";
-import { customerService } from "@/src/modules/customer/customers";
+import {
+  customerService,
+  type CustomerInput,
+} from "@/src/modules/customer/customers";
 import {
   resolveBranchFilter,
   ownedRowMatchesFilter,
@@ -8,17 +11,6 @@ import {
 import { QuotaExceededError } from "@/src/modules/admin/billing/utils/quotaError";
 import { activeLines } from "@/src/modules/customer/customer-plans/utils/activeLines";
 import type { GlobalState } from "@/src/state/globalStore";
-
-interface CustomerInput {
-  name: string;
-  phoneNumber: string | null;
-  address: string | null;
-  area: string | null;
-  notes: string | null;
-  locationUrl: string | null;
-  branchId: string | null;
-  isRegular: boolean;
-}
 
 export interface CustomerSlice {
   items: Customer[];

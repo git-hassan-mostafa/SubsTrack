@@ -37,3 +37,7 @@ export const useSelfServiceSignupEnabled = (): boolean =>
 
 export const useSupportWhatsAppNumber = (): string | null =>
   useOptionValue(OPTION_KEYS.supportWhatsAppNumber);
+
+// Blank until the SaaS owner sets it, which is what hides the portal fields.
+export const useCustomerPortalUrl = (): string | null =>
+  useOptionValue(OPTION_KEYS.customerPortalUrl);
