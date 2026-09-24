@@ -1,4 +1,5 @@
 {
+  "installCommand": "npm install --include=dev && npm install --prefix ../SubsTrack --ignore-scripts --include=dev",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/" }]
