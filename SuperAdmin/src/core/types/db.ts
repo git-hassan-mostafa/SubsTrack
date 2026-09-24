@@ -9,6 +9,7 @@ export interface DbTenant {
   customer_allowance: number;
   plan_allowance: number;
   price_per_plan_usd: number;
+  whatsapp_enabled?: boolean | null;
   created_at: string;
 }
 

@@ -40,6 +40,7 @@ function mapDbTenantToTenant(
     customerAllowance: Number(db.customer_allowance),
     planAllowance: Number(db.plan_allowance),
     pricePerPlanUsd: Number(db.price_per_plan_usd),
+    whatsappEnabled: Boolean(db.whatsapp_enabled),
     pendingRequest,
     createdAt: db.created_at,
   };
@@ -77,6 +78,7 @@ export interface UpdateTenantInput {
   customerAllowance: number;
   planAllowance: number;
   pricePerPlanUsd: number;
+  whatsappEnabled: boolean;
 }
 
 // The allowance every tenant starts on and none may go below. Mirrored by
@@ -213,6 +215,7 @@ export class TenantService {
       customer_allowance: data.customerAllowance,
       plan_allowance: data.planAllowance,
       price_per_plan_usd: data.pricePerPlanUsd,
+      whatsapp_enabled: data.whatsappEnabled,
     });
     return mapDbTenantToTenant(row);
   }

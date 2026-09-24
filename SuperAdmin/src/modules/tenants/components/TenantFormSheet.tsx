@@ -41,6 +41,7 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
   const [name, setName] = useState("");
   const [tenantCode, setTenantCode] = useState("");
   const [active, setActive] = useState(true);
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
   const [allowance, setAllowance] = useState(DEFAULT_ALLOWANCE);
   const [planAllowance, setPlanAllowance] = useState(DEFAULT_ALLOWANCE);
   const [price, setPrice] = useState(DEFAULT_PRICE);
@@ -57,6 +58,7 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
       setName(tenant?.name ?? "");
       setTenantCode(tenant?.tenantCode ?? "");
       setActive(tenant?.active ?? true);
+      setWhatsappEnabled(tenant?.whatsappEnabled ?? false);
       setAllowance(
         tenant ? String(tenant.customerAllowance) : DEFAULT_ALLOWANCE,
       );
@@ -91,6 +93,7 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
         customerAllowance: Number(allowance),
         planAllowance: Number(planAllowance),
         pricePerPlanUsd: Number(price),
+        whatsappEnabled,
       });
     } else {
       success = await createTenant({
@@ -280,6 +283,22 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
               <Switch
                 value={active}
                 onValueChange={setActive}
+                trackColor={{ true: "#0a7ea4" }}
+              />
+            </View>
+          ) : null}
+
+          {isEditing ? (
+            <View style={styles.switchRow}>
+              <View>
+                <Text style={styles.switchLabel}>WhatsApp messaging allowed</Text>
+                <Text style={styles.switchHint}>
+                  Lets this tenant connect its own WhatsApp number
+                </Text>
+              </View>
+              <Switch
+                value={whatsappEnabled}
+                onValueChange={setWhatsappEnabled}
                 trackColor={{ true: "#0a7ea4" }}
               />
             </View>

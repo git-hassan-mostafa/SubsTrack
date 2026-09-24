@@ -137,6 +137,7 @@ export class TenantRepository extends BaseRepository {
         | "customer_allowance"
         | "plan_allowance"
         | "price_per_plan_usd"
+        | "whatsapp_enabled"
       >
     >,
   ): Promise<DbTenant> {

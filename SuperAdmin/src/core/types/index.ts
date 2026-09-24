@@ -7,6 +7,7 @@ export interface Tenant {
   customerAllowance: number;
   planAllowance: number;
   pricePerPlanUsd: number;
+  whatsappEnabled: boolean;
   pendingRequest: CustomerRequest | null;
   createdAt: string;
 }

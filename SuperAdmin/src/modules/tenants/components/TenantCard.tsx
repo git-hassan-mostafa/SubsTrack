@@ -39,7 +39,7 @@ export function TenantCard({ tenant, onPress, onEdit }: TenantCardProps) {
         <View style={styles.meta}>
           <View style={styles.allowanceBadge}>
             <Text style={styles.allowanceText}>
-              {`${tenant.customerAllowance} customers · ${tenant.planAllowance} lines · $${tenant.pricePerPlanUsd} each`}
+              {`${tenant.customerAllowance} customers · ${tenant.planAllowance} lines · $${tenant.pricePerPlanUsd} each${tenant.whatsappEnabled ? " · WhatsApp" : ""}`}
             </Text>
           </View>
           <Text style={styles.date}>{formatShortDate(tenant.createdAt)}</Text>
