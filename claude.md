@@ -105,6 +105,7 @@ implementation detail unless explicitly requested.
 | `docs/build-and-release.md`        | running the apps, `tests/`, OTA/EAS publishing                                                                                                          |
 | `docs/ota-fingerprint-mismatch.md` | an OTA update never reaches the installed app                                                                                                           |
 | `docs/edge-functions.md`           | auth / user / tenant creation                                                                                                                           |
+| `docs/whatsapp.md`                 | WhatsApp Cloud API: per-tenant Embedded Signup, `whatsapp_*` tables, send queue, webhooks, Meta setup (gotchas #161–167)                                |
 | `docs/project-structure.md`        | directory trees (can go stale — prefer a file search)                                                                                                   |
 
 ---
@@ -237,7 +238,8 @@ goes up the dependency waves of `PUSH_WAVES`, and every SQLite write queues behi
 `withDbLock` (expo-sqlite gives the app one connection). **Online-only** (throw
 `RequiresConnectionError` offline, delegate online): auth `signIn` /
 `getTenantByCode`, `User.create`/`delete`/`updatePassword`, `Signup.*`,
-`CustomerRequest.*` (not mirrored at all). Auth `getSession`/`getUserProfile`/`getTenant` are a
+`CustomerRequest.*` and `WhatsApp.*` (not mirrored at all — the `whatsapp_*`
+tables are server-only; tenants pay Meta directly, see `docs/whatsapp.md`). Auth `getSession`/`getUserProfile`/`getTenant` are a
 read-through cache so the app boots offline after the first online login.
 **Read `docs/offline.md` before touching any repository or the sync engine.**
 

@@ -6,6 +6,7 @@ export interface DbTenant {
   customer_allowance: number;
   plan_allowance: number;
   price_per_plan_usd: number;
+  whatsapp_enabled?: boolean | null;
   created_at: string;
 }
 
@@ -370,4 +371,61 @@ export interface DbAuditLog {
   occurred_at: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface DbWhatsAppAccount {
+  id: string;
+  tenant_id: string;
+  waba_id: string;
+  phone_number_id: string;
+  display_phone_number: string | null;
+  verified_name: string | null;
+  is_coexistence: boolean;
+  status: string;
+  attention_code: string | null;
+  quality_rating: string | null;
+  messaging_limit_tier: string | null;
+  name_status: string | null;
+  consent_confirmed_at: string | null;
+  connected_at: string;
+}
+
+export interface DbWhatsAppTemplate {
+  id: string;
+  name: string;
+  language: string;
+  category: string | null;
+  status: string;
+  rejection_reason: string | null;
+  parameter_format: string;
+  body_text: string | null;
+  params: unknown;
+  purpose: string | null;
+  is_sijil: boolean;
+  supported: boolean;
+}
+
+export interface DbWhatsAppMessage {
+  id: string;
+  customer_id: string | null;
+  batch_id: string;
+  template_name: string;
+  purpose: string | null;
+  status: string;
+  error_key: string | null;
+  error_code: number | null;
+  error_title: string | null;
+  created_at: string;
+  delivered_at: string | null;
+  read_at: string | null;
+  failed_at: string | null;
+  customers?: { name: string | null } | null;
+}
+
+export interface DbWhatsAppOptOut {
+  id: string;
+  customer_id: string | null;
+  phone_e164: string;
+  source: string;
+  created_at: string;
 }

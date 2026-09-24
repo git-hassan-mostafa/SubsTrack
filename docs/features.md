@@ -17,6 +17,7 @@
   - [Services](#services)
 - [Reports](#reports)
 - [Expenses](#expenses)
+- [WhatsApp Cloud API](#whatsapp-cloud-api-reminders-and-notices)
 - [WhatsApp Invoices](#whatsapp-invoices)
 - [Transactions Hub](#transactions-hub)
 - [The Ledger (charges + collections)](#the-ledger-charges--collections)
@@ -703,6 +704,18 @@ The app counted only money **in** — every hand-over summed into `monthlyRevenu
 **Code map:** `src/modules/transaction/expenses/` (repository + service + `expenseCategories.ts` + panel/card/form), the `expenses` slice + `useExpenseSlice`, `stockCostsInRange` on `IProductRepository`. See gotchas #88, #89 and #94; QA [expenses.md](../QA/expenses.md).
 
 ---
+
+## WhatsApp Cloud API (reminders and notices)
+
+Each tenant connects its **own** WhatsApp Business number (Embedded Signup, web page `/whatsapp-connect`) and Meta bills that tenant directly. The SaaS owner allows it per tenant in SuperAdmin.
+
+- **Where:** customer row menu → **Send payment reminder** / **Send WhatsApp message** / **Stop · Allow WhatsApp messages**; customer list multi-select → **Send on WhatsApp**; customer detail header icon.
+- **Screens:** Admin → **WhatsApp** (org-wide admins only: connection, language, templates) and **WhatsApp messages** (history with status and failure reason).
+- **Messages:** Sijil submits 4 UTILITY templates (en + ar): payment reminder (amount, months, due-since from the ledger), service outage, service back, general notice (free text). The tenant's own approved templates are offered too.
+- **Background:** sending is queued and background-processed, with retries, Meta's daily limit and idempotent webhooks.
+- **Not connected:** a single reminder opens `wa.me` with the same wording.
+
+Full design, Meta setup and tenant steps: [docs/whatsapp.md](whatsapp.md). QA: [QA/whatsapp-cloud.md](../QA/whatsapp-cloud.md).
 
 ## WhatsApp Invoices
 

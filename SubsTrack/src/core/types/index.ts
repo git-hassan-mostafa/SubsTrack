@@ -19,6 +19,7 @@ export interface Tenant {
   customerAllowance: number;
   planAllowance: number;
   pricePerPlanUsd: number;
+  whatsappEnabled: boolean;
   createdAt: string;
 }
 
@@ -817,4 +818,106 @@ export type CashStream = ChargeKind;
 // hands the aggregators and the drill-down sheet.
 export interface CashRow extends CollectedRow {
   stream: CashStream;
+}
+
+export type WhatsAppLanguage = "en" | "ar";
+
+export type WhatsAppAccountStatus =
+  | "connected"
+  | "needs_attention"
+  | "disconnected";
+
+export interface WhatsAppAccount {
+  id: string;
+  wabaId: string;
+  phoneNumberId: string;
+  displayPhoneNumber: string | null;
+  verifiedName: string | null;
+  isCoexistence: boolean;
+  status: WhatsAppAccountStatus;
+  attentionCode: string | null;
+  qualityRating: string | null;
+  messagingLimitTier: string | null;
+  nameStatus: string | null;
+  consentConfirmedAt: string | null;
+  connectedAt: string;
+}
+
+export type WhatsAppTemplatePurpose =
+  | "payment_reminder"
+  | "service_outage"
+  | "service_restored"
+  | "service_notice";
+
+export interface WhatsAppTemplate {
+  id: string;
+  name: string;
+  language: string;
+  category: string | null;
+  status: string;
+  rejectionReason: string | null;
+  parameterFormat: "named" | "positional";
+  bodyText: string | null;
+  params: string[];
+  purpose: WhatsAppTemplatePurpose | null;
+  isSijil: boolean;
+  supported: boolean;
+}
+
+export type WhatsAppMessageStatus =
+  | "queued"
+  | "sending"
+  | "unknown"
+  | "accepted"
+  | "sent"
+  | "delivered"
+  | "read"
+  | "failed"
+  | "cancelled";
+
+export interface WhatsAppMessage {
+  id: string;
+  customerId: string | null;
+  customerName: string | null;
+  batchId: string;
+  templateName: string;
+  purpose: WhatsAppTemplatePurpose | null;
+  status: WhatsAppMessageStatus;
+  errorKey: string | null;
+  errorCode: number | null;
+  errorTitle: string | null;
+  createdAt: string;
+  deliveredAt: string | null;
+  readAt: string | null;
+  failedAt: string | null;
+}
+
+export interface WhatsAppOptOut {
+  id: string;
+  customerId: string | null;
+  phoneE164: string;
+  source: "stop_reply" | "admin";
+  createdAt: string;
+}
+
+export type WhatsAppSkipReason =
+  | "not_found"
+  | "other_branch"
+  | "inactive"
+  | "no_phone"
+  | "invalid_phone"
+  | "opted_out"
+  | "recently_sent"
+  | "missing_values"
+  | "nothing_owed";
+
+export interface WhatsAppRecipient {
+  customerId: string;
+  values: Record<string, string>;
+}
+
+export interface WhatsAppQueueResult {
+  batchId: string;
+  queued: number;
+  skipped: { customerId: string; reason: WhatsAppSkipReason }[];
 }

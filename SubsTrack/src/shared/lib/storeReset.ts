@@ -5,6 +5,8 @@ import { useReportsStore } from "@/src/modules/reports/state/reportsStore";
 import { useDebtHistoryStore } from "@/src/modules/transaction/debts/state/debtHistoryStore";
 import { useExpenseStore } from "@/src/modules/transaction/expenses/state/expenseStore";
 import { useWalletStore } from "@/src/modules/wallet/state/walletStore";
+import { useConnectStore } from "@/src/modules/whatsapp/state/connectStore";
+import { useMessageHistoryStore } from "@/src/modules/whatsapp/state/messageHistoryStore";
 import { getStore } from "@/src/state/globalStore";
 import { bumpDataEpoch } from "./dataEpoch";
 
@@ -25,6 +27,7 @@ export function resetAllDomainStores() {
   state.sales.reset();
   state.ledger.reset();
   state.tenantSettings.reset();
+  state.whatsapp.reset();
 
   useDashboardStore.getState().reset();
   useCollectionsListStore.getState().reset();
@@ -33,4 +36,6 @@ export function resetAllDomainStores() {
   useWalletStore.getState().reset();
   useReportsStore.getState().reset();
   useAuditStore.getState().reset();
+  useMessageHistoryStore.getState().reset();
+  useConnectStore.getState().reset();
 }

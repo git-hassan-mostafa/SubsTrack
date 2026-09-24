@@ -16,6 +16,7 @@ yarn android        # Android emulator
 yarn ios            # iOS simulator
 yarn deploy-create-user-edge-function    # Deploy Supabase Edge Function
 yarn deploy-create-tenant-edge-function  # Deploy self-service tenant signup function (public, --no-verify-jwt)
+yarn deploy-whatsapp-functions           # Deploy the five whatsapp-* functions (see docs/whatsapp.md)
 
 # SuperAdmin
 cd SuperAdmin

@@ -53,6 +53,9 @@
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- The WhatsApp send queue is woken every minute by pg_cron through pg_net.
+CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
+CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 
 -- ============================================================
 -- TIER PLANS — REMOVED
@@ -91,7 +94,10 @@ INSERT INTO app_options (key, value, description) VALUES
     ('LiraRate', '89000', 'Default USD→LBP exchange rate (LBP per 1 USD) seeded onto each new tenant''s Lebanese Pound currency.'),
     ('AllowSelfServiceSignup', 'true', 'When ''false'', the login screen hides the "Create organization" button and the create-tenant Edge Function rejects new signups.'),
     ('SupportWhatsAppNumber', '', 'Owner WhatsApp number in international format (digits only, e.g. 9613123456). Used by the "request more customers" flow in Organization Settings.'),
-    ('CustomerPortalUrl', '', 'Base URL of the customer portal web app, no trailing slash (e.g. https://portal.example.com). The app builds a customer''s link as {this}/{customers.id}. Blank hides the portal fields in the customer form.')
+    ('CustomerPortalUrl', '', 'Base URL of the customer portal web app, no trailing slash (e.g. https://portal.example.com). The app builds a customer''s link as {this}/{customers.id}. Blank hides the portal fields in the customer form.'),
+    ('WhatsAppAppId', '', 'Meta App ID used by the WhatsApp Embedded Signup page. Public value. Blank hides the WhatsApp Cloud API feature everywhere.'),
+    ('WhatsAppConfigId', '', 'Meta "Facebook Login for Business" configuration ID for WhatsApp Embedded Signup. Public value.'),
+    ('WhatsAppConnectUrl', '', 'Full URL of the Sijil web page that runs Embedded Signup, e.g. https://app.example.com/whatsapp-connect. Its domain must be allowed in the Meta app settings.')
 ON CONFLICT (key) DO NOTHING;
 
 -- ============================================================
@@ -151,6 +157,9 @@ END $$;
 -- USD charged per ACTIVE SERVICE LINE per month. Owner-only, same guard.
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS price_per_plan_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15
     CONSTRAINT chk_tenants_price_per_plan CHECK (price_per_plan_usd >= 0);
+
+-- Owner-only switch that lets this tenant connect WhatsApp. Same guard.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS whatsapp_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
@@ -667,9 +676,10 @@ BEGIN
     IF current_user IN ('authenticated', 'anon')
        AND (NEW.customer_allowance IS DISTINCT FROM OLD.customer_allowance
             OR NEW.plan_allowance IS DISTINCT FROM OLD.plan_allowance
-            OR NEW.price_per_plan_usd IS DISTINCT FROM OLD.price_per_plan_usd)
+            OR NEW.price_per_plan_usd IS DISTINCT FROM OLD.price_per_plan_usd
+            OR NEW.whatsapp_enabled IS DISTINCT FROM OLD.whatsapp_enabled)
     THEN
-        RAISE EXCEPTION 'customer_allowance, plan_allowance and price_per_plan_usd are owner-only';
+        RAISE EXCEPTION 'customer_allowance, plan_allowance, price_per_plan_usd and whatsapp_enabled are owner-only';
     END IF;
     RETURN NEW;
 END;
@@ -3027,3 +3037,475 @@ CREATE OR REPLACE TRIGGER trg_audit_logs_updated_at
 -- NOTE: no tombstone table/triggers. The native client propagates hard deletes
 -- itself: it pushes a real DELETE for locally-removed rows and, on pull, drops
 -- any local row that no longer exists on the server (see sync.ts reconcileDeletes).
+
+-- ============================================================
+-- WHATSAPP CLOUD API
+-- Each tenant connects its OWN WhatsApp Business Account through Meta's
+-- Embedded Signup and pays Meta directly. Every table here is SERVER-ONLY:
+-- written by the whatsapp-* Edge Functions (service role), read by tenant
+-- admins through RLS, and deliberately NOT mirrored offline (docs/offline.md).
+-- Full design: docs/whatsapp.md.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS whatsapp_accounts ();
+
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_whatsapp_accounts_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS waba_id TEXT NOT NULL;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS phone_number_id TEXT NOT NULL;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS business_id TEXT;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS display_phone_number TEXT;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS verified_name TEXT;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS default_region TEXT;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS is_coexistence BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'connected'
+    CONSTRAINT chk_whatsapp_accounts_status CHECK (status IN ('connected', 'needs_attention', 'disconnected'));
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS attention_code TEXT;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS quality_rating TEXT;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS messaging_limit_tier TEXT;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS name_status TEXT;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS consent_confirmed_by UUID
+    CONSTRAINT fk_whatsapp_accounts_consent_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS consent_confirmed_at TIMESTAMPTZ;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS connected_by UUID
+    CONSTRAINT fk_whatsapp_accounts_connected_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS connected_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS disconnected_by UUID
+    CONSTRAINT fk_whatsapp_accounts_disconnected_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS disconnected_at TIMESTAMPTZ;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS disconnect_reason TEXT;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS history_sync_started_at TIMESTAMPTZ;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_whatsapp_accounts_live_tenant
+    ON whatsapp_accounts (tenant_id) WHERE status <> 'disconnected';
+CREATE UNIQUE INDEX IF NOT EXISTS uq_whatsapp_accounts_live_phone
+    ON whatsapp_accounts (phone_number_id) WHERE status <> 'disconnected';
+CREATE UNIQUE INDEX IF NOT EXISTS uq_whatsapp_accounts_tenant_phone
+    ON whatsapp_accounts (tenant_id, phone_number_id);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_accounts_waba ON whatsapp_accounts (waba_id);
+
+-- The Meta business token and register PIN, AES-256-GCM encrypted by the Edge
+-- Functions. RLS on with NO policy = service role only. Removed on disconnect.
+CREATE TABLE IF NOT EXISTS whatsapp_credentials ();
+
+ALTER TABLE whatsapp_credentials ADD COLUMN IF NOT EXISTS account_id UUID PRIMARY KEY
+    CONSTRAINT fk_whatsapp_credentials_account REFERENCES whatsapp_accounts(id) ON DELETE CASCADE;
+ALTER TABLE whatsapp_credentials ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_whatsapp_credentials_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE whatsapp_credentials ADD COLUMN IF NOT EXISTS access_token_enc TEXT NOT NULL;
+ALTER TABLE whatsapp_credentials ADD COLUMN IF NOT EXISTS pin_enc TEXT;
+ALTER TABLE whatsapp_credentials ADD COLUMN IF NOT EXISTS key_version INT NOT NULL DEFAULT 1;
+ALTER TABLE whatsapp_credentials ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE whatsapp_credentials ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- One-time links that carry a tenant admin from the app to the web signup page.
+-- Only the SHA-256 of the link token is stored. Service role only.
+CREATE TABLE IF NOT EXISTS whatsapp_connect_sessions ();
+
+ALTER TABLE whatsapp_connect_sessions ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE whatsapp_connect_sessions ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_whatsapp_connect_sessions_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE whatsapp_connect_sessions ADD COLUMN IF NOT EXISTS created_by UUID
+    CONSTRAINT fk_whatsapp_connect_sessions_user REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE whatsapp_connect_sessions ADD COLUMN IF NOT EXISTS token_hash TEXT NOT NULL UNIQUE;
+ALTER TABLE whatsapp_connect_sessions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ NOT NULL;
+ALTER TABLE whatsapp_connect_sessions ADD COLUMN IF NOT EXISTS used_at TIMESTAMPTZ;
+ALTER TABLE whatsapp_connect_sessions ADD COLUMN IF NOT EXISTS pending_token_enc TEXT;
+ALTER TABLE whatsapp_connect_sessions ADD COLUMN IF NOT EXISTS pending_waba_id TEXT;
+ALTER TABLE whatsapp_connect_sessions ADD COLUMN IF NOT EXISTS pending_phone_number_id TEXT;
+ALTER TABLE whatsapp_connect_sessions ADD COLUMN IF NOT EXISTS pending_business_id TEXT;
+ALTER TABLE whatsapp_connect_sessions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE TABLE IF NOT EXISTS whatsapp_templates ();
+
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_whatsapp_templates_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS account_id UUID NOT NULL
+    CONSTRAINT fk_whatsapp_templates_account REFERENCES whatsapp_accounts(id) ON DELETE CASCADE;
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS meta_template_id TEXT;
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS name TEXT NOT NULL;
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS language TEXT NOT NULL;
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS category TEXT;
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'PENDING';
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS parameter_format TEXT NOT NULL DEFAULT 'named'
+    CONSTRAINT chk_whatsapp_templates_format CHECK (parameter_format IN ('named', 'positional'));
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS body_text TEXT;
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS params JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS purpose TEXT;
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS is_sijil BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS supported BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMPTZ;
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE whatsapp_templates ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_whatsapp_templates_name_language
+    ON whatsapp_templates (account_id, name, language);
+
+-- One row per message: its history AND its place in the send queue.
+-- variables holds the filled-in values only until Meta accepts the message.
+CREATE TABLE IF NOT EXISTS whatsapp_messages ();
+
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_whatsapp_messages_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS account_id UUID NOT NULL
+    CONSTRAINT fk_whatsapp_messages_account REFERENCES whatsapp_accounts(id) ON DELETE CASCADE;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS branch_id UUID
+    CONSTRAINT fk_whatsapp_messages_branch REFERENCES branches(id) ON DELETE SET NULL;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS customer_id UUID
+    CONSTRAINT fk_whatsapp_messages_customer REFERENCES customers(id) ON DELETE SET NULL;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS batch_id UUID NOT NULL;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS sent_by UUID
+    CONSTRAINT fk_whatsapp_messages_sent_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS template_id UUID
+    CONSTRAINT fk_whatsapp_messages_template REFERENCES whatsapp_templates(id) ON DELETE SET NULL;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS template_name TEXT NOT NULL;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS language TEXT NOT NULL;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS purpose TEXT;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS to_phone_e164 TEXT NOT NULL;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS variables JSONB;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS idempotency_key TEXT NOT NULL;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'queued'
+    CONSTRAINT chk_whatsapp_messages_status CHECK (status IN (
+        'queued', 'sending', 'unknown', 'accepted', 'sent', 'delivered', 'read', 'failed', 'cancelled'));
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS attempts INT NOT NULL DEFAULT 0;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS locked_at TIMESTAMPTZ;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS wamid TEXT;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS recipient_user_id TEXT;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS error_code INT;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS error_title TEXT;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS error_key TEXT;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS pricing_category TEXT;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS billable BOOLEAN;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS queued_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS failed_at TIMESTAMPTZ;
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_whatsapp_messages_idempotency
+    ON whatsapp_messages (tenant_id, idempotency_key);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_whatsapp_messages_wamid
+    ON whatsapp_messages (wamid) WHERE wamid IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_due
+    ON whatsapp_messages (next_attempt_at) WHERE status = 'queued';
+CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_tenant_created
+    ON whatsapp_messages (tenant_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_account_phone
+    ON whatsapp_messages (account_id, to_phone_e164, created_at DESC);
+
+-- A number that must not be messaged: a STOP reply, or an admin's choice.
+-- Cleared softly (cleared_at), never deleted.
+CREATE TABLE IF NOT EXISTS whatsapp_opt_outs ();
+
+ALTER TABLE whatsapp_opt_outs ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE whatsapp_opt_outs ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_whatsapp_opt_outs_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE whatsapp_opt_outs ADD COLUMN IF NOT EXISTS phone_e164 TEXT NOT NULL;
+ALTER TABLE whatsapp_opt_outs ADD COLUMN IF NOT EXISTS customer_id UUID
+    CONSTRAINT fk_whatsapp_opt_outs_customer REFERENCES customers(id) ON DELETE SET NULL;
+ALTER TABLE whatsapp_opt_outs ADD COLUMN IF NOT EXISTS source TEXT NOT NULL
+    CONSTRAINT chk_whatsapp_opt_outs_source CHECK (source IN ('stop_reply', 'admin'));
+ALTER TABLE whatsapp_opt_outs ADD COLUMN IF NOT EXISTS created_by UUID
+    CONSTRAINT fk_whatsapp_opt_outs_created_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE whatsapp_opt_outs ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE whatsapp_opt_outs ADD COLUMN IF NOT EXISTS cleared_at TIMESTAMPTZ;
+ALTER TABLE whatsapp_opt_outs ADD COLUMN IF NOT EXISTS cleared_by UUID
+    CONSTRAINT fk_whatsapp_opt_outs_cleared_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE whatsapp_opt_outs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_whatsapp_opt_outs_live
+    ON whatsapp_opt_outs (tenant_id, phone_e164) WHERE cleared_at IS NULL;
+
+CREATE OR REPLACE TRIGGER trg_whatsapp_accounts_updated_at
+    BEFORE UPDATE ON whatsapp_accounts FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE OR REPLACE TRIGGER trg_whatsapp_credentials_updated_at
+    BEFORE UPDATE ON whatsapp_credentials FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE OR REPLACE TRIGGER trg_whatsapp_templates_updated_at
+    BEFORE UPDATE ON whatsapp_templates FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE OR REPLACE TRIGGER trg_whatsapp_messages_updated_at
+    BEFORE UPDATE ON whatsapp_messages FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE OR REPLACE TRIGGER trg_whatsapp_opt_outs_updated_at
+    BEFORE UPDATE ON whatsapp_opt_outs FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE whatsapp_accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE whatsapp_credentials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE whatsapp_connect_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE whatsapp_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE whatsapp_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE whatsapp_opt_outs ENABLE ROW LEVEL SECURITY;
+
+-- Admins read; nobody writes from the client (no INSERT/UPDATE/DELETE policy).
+-- whatsapp_credentials and whatsapp_connect_sessions have no policy at all.
+DO $$ BEGIN
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'whatsapp_accounts' AND policyname = 'whatsapp_accounts_select'
+    ) THEN
+        CREATE POLICY whatsapp_accounts_select ON whatsapp_accounts
+            FOR SELECT USING (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = auth.uid()
+                      AND u.role IN ('admin', 'superadmin')
+                      AND u.active = true
+                )
+            );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'whatsapp_templates' AND policyname = 'whatsapp_templates_select'
+    ) THEN
+        CREATE POLICY whatsapp_templates_select ON whatsapp_templates
+            FOR SELECT USING (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = auth.uid()
+                      AND u.role IN ('admin', 'superadmin')
+                      AND u.active = true
+                )
+            );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'whatsapp_messages' AND policyname = 'whatsapp_messages_select'
+    ) THEN
+        CREATE POLICY whatsapp_messages_select ON whatsapp_messages
+            FOR SELECT USING (
+                tenant_id = current_tenant_id()
+                AND (current_branch_id() IS NULL OR branch_id = current_branch_id())
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = auth.uid()
+                      AND u.role IN ('admin', 'superadmin')
+                      AND u.active = true
+                )
+            );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'whatsapp_opt_outs' AND policyname = 'whatsapp_opt_outs_select'
+    ) THEN
+        CREATE POLICY whatsapp_opt_outs_select ON whatsapp_opt_outs
+            FOR SELECT USING (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = auth.uid()
+                      AND u.role IN ('admin', 'superadmin')
+                      AND u.active = true
+                )
+            );
+    END IF;
+
+END $$;
+
+-- Order a status may only move forward in; a late or repeated webhook never moves it back.
+CREATE OR REPLACE FUNCTION whatsapp_status_rank(p_status TEXT)
+RETURNS INT
+LANGUAGE SQL
+IMMUTABLE
+AS $$
+    SELECT CASE p_status
+        WHEN 'queued' THEN 0
+        WHEN 'sending' THEN 1
+        WHEN 'unknown' THEN 2
+        WHEN 'accepted' THEN 3
+        WHEN 'sent' THEN 4
+        WHEN 'delivered' THEN 5
+        WHEN 'read' THEN 6
+        WHEN 'failed' THEN 7
+        WHEN 'cancelled' THEN 8
+        ELSE -1
+    END;
+$$;
+
+-- Hands the worker the next due rows exactly once (SKIP LOCKED), after parking
+-- crashed sends as 'unknown' (never re-sent) and expiring day-old queued rows.
+CREATE OR REPLACE FUNCTION whatsapp_claim_messages(p_limit INT, p_tenant_id UUID DEFAULT NULL)
+RETURNS SETOF whatsapp_messages
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    UPDATE whatsapp_messages
+       SET status = 'unknown', locked_at = NULL, error_key = 'unknown_outcome', variables = NULL
+     WHERE status = 'sending' AND locked_at < NOW() - INTERVAL '10 minutes';
+
+    UPDATE whatsapp_messages
+       SET status = 'cancelled', error_key = 'expired', variables = NULL
+     WHERE status = 'queued' AND queued_at < NOW() - INTERVAL '24 hours';
+
+    RETURN QUERY
+    UPDATE whatsapp_messages m
+       SET status = 'sending', locked_at = NOW(), attempts = m.attempts + 1
+     WHERE m.id IN (
+        SELECT q.id
+          FROM whatsapp_messages q
+          JOIN whatsapp_accounts a ON a.id = q.account_id AND a.status = 'connected'
+         WHERE q.status = 'queued'
+           AND q.next_attempt_at <= NOW()
+           AND (p_tenant_id IS NULL OR q.tenant_id = p_tenant_id)
+         ORDER BY q.next_attempt_at, q.created_at
+         LIMIT p_limit
+         FOR UPDATE OF q SKIP LOCKED
+     )
+    RETURNING m.*;
+END;
+$$;
+
+-- Applies one Meta status webhook idempotently. Matches on the wamid, or on our
+-- own row id (biz_opaque_callback_data) when the wamid was never saved.
+CREATE OR REPLACE FUNCTION whatsapp_apply_status(
+    p_account_id UUID,
+    p_wamid TEXT,
+    p_callback_id TEXT,
+    p_status TEXT,
+    p_at TIMESTAMPTZ,
+    p_error_code INT,
+    p_error_title TEXT,
+    p_error_key TEXT,
+    p_pricing_category TEXT,
+    p_billable BOOLEAN,
+    p_recipient_user_id TEXT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_id UUID;
+BEGIN
+    IF whatsapp_status_rank(p_status) < 4 THEN
+        RETURN FALSE;
+    END IF;
+
+    SELECT id INTO v_id FROM whatsapp_messages
+     WHERE account_id = p_account_id AND wamid = p_wamid;
+
+    IF v_id IS NULL
+       AND p_callback_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+        UPDATE whatsapp_messages SET wamid = p_wamid
+         WHERE account_id = p_account_id AND id = p_callback_id::uuid AND wamid IS NULL
+        RETURNING id INTO v_id;
+    END IF;
+
+    IF v_id IS NULL THEN
+        RETURN FALSE;
+    END IF;
+
+    UPDATE whatsapp_messages SET
+        status = CASE WHEN whatsapp_status_rank(p_status) > whatsapp_status_rank(status)
+                      THEN p_status ELSE status END,
+        sent_at = CASE WHEN p_status IN ('sent', 'delivered', 'read')
+                       THEN COALESCE(sent_at, p_at) ELSE sent_at END,
+        delivered_at = CASE WHEN p_status IN ('delivered', 'read')
+                            THEN COALESCE(delivered_at, p_at) ELSE delivered_at END,
+        read_at = CASE WHEN p_status = 'read' THEN COALESCE(read_at, p_at) ELSE read_at END,
+        failed_at = CASE WHEN p_status = 'failed' THEN COALESCE(failed_at, p_at) ELSE failed_at END,
+        error_code = CASE WHEN p_status = 'failed' THEN COALESCE(p_error_code, error_code) ELSE error_code END,
+        error_title = CASE WHEN p_status = 'failed' THEN COALESCE(p_error_title, error_title) ELSE error_title END,
+        error_key = CASE WHEN p_status = 'failed' THEN COALESCE(p_error_key, error_key) ELSE error_key END,
+        pricing_category = COALESCE(p_pricing_category, pricing_category),
+        billable = COALESCE(p_billable, billable),
+        recipient_user_id = COALESCE(p_recipient_user_id, recipient_user_id),
+        locked_at = NULL,
+        variables = NULL
+     WHERE id = v_id;
+
+    RETURN TRUE;
+END;
+$$;
+
+-- Distinct numbers this account reached in the last 24 h, for Meta's daily tier.
+CREATE OR REPLACE FUNCTION whatsapp_reached_last_day(p_account_id UUID)
+RETURNS INT
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT COUNT(DISTINCT to_phone_e164)::INT
+      FROM whatsapp_messages
+     WHERE account_id = p_account_id
+       AND accepted_at > NOW() - INTERVAL '24 hours';
+$$;
+
+-- Wakes the whatsapp-worker Edge Function when work is due. The URL and secret
+-- live in Supabase Vault (never in this file); missing secrets = no-op.
+CREATE OR REPLACE FUNCTION whatsapp_kick_worker()
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_url TEXT;
+    v_secret TEXT;
+    v_apikey TEXT;
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM whatsapp_messages
+         WHERE (status = 'queued' AND next_attempt_at <= NOW())
+            OR (status = 'sending' AND locked_at < NOW() - INTERVAL '10 minutes')
+    ) THEN
+        RETURN;
+    END IF;
+
+    SELECT decrypted_secret INTO v_url
+      FROM vault.decrypted_secrets WHERE name = 'whatsapp_worker_url';
+    SELECT decrypted_secret INTO v_secret
+      FROM vault.decrypted_secrets WHERE name = 'whatsapp_worker_secret';
+    SELECT decrypted_secret INTO v_apikey
+      FROM vault.decrypted_secrets WHERE name = 'whatsapp_worker_apikey';
+
+    IF v_url IS NULL OR v_secret IS NULL OR v_apikey IS NULL THEN
+        RETURN;
+    END IF;
+
+    PERFORM net.http_post(
+        url := v_url,
+        headers := jsonb_build_object(
+            'Content-Type', 'application/json',
+            'apikey', v_apikey,
+            'x-worker-secret', v_secret
+        ),
+        body := '{}'::jsonb,
+        timeout_milliseconds := 60000
+    );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION whatsapp_claim_messages(INT, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION whatsapp_apply_status(UUID, TEXT, TEXT, TEXT, TIMESTAMPTZ, INT, TEXT, TEXT, TEXT, BOOLEAN, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION whatsapp_reached_last_day(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION whatsapp_kick_worker() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION whatsapp_claim_messages(INT, UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION whatsapp_apply_status(UUID, TEXT, TEXT, TEXT, TIMESTAMPTZ, INT, TEXT, TEXT, TEXT, BOOLEAN, TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION whatsapp_reached_last_day(UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION whatsapp_kick_worker() TO service_role;
+
+-- cron.schedule upserts by job name, so re-running this file keeps ONE job.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+        PERFORM cron.schedule('whatsapp-worker', '* * * * *', 'SELECT public.whatsapp_kick_worker()');
+    END IF;
+END $$;

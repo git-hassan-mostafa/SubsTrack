@@ -23,6 +23,7 @@ import { CustomerDetailsCard } from "../components/CustomerDetailsCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
+import { useWhatsAppActions } from "@/src/modules/whatsapp/hooks/useWhatsAppActions";
 
 export function CustomerDetailScreen() {
   const { t } = useTranslation();
@@ -38,6 +39,12 @@ export function CustomerDetailScreen() {
   const [historyVisible, setHistoryVisible] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
   const saleDetail = useSaleDetailSheet();
+  const whatsappActions = useWhatsAppActions();
+  const whatsappReminder = customer
+    ? whatsappActions
+        .rowItems(customer)
+        .find((item) => item.key === "whatsapp-reminder" && !item.disabled)
+    : undefined;
 
   useEffect(() => {
     getSelectedCustomer();
@@ -77,6 +84,17 @@ export function CustomerDetailScreen() {
             label: t("common.edit"),
             onPress: () => setEditVisible(true),
           },
+          ...(whatsappReminder
+            ? [
+                {
+                  key: whatsappReminder.key,
+                  group: whatsappReminder.group,
+                  icon: "logo-whatsapp" as const,
+                  label: whatsappReminder.label,
+                  onPress: whatsappReminder.onPress,
+                },
+              ]
+            : []),
         ]}
         hideBranchSelector
         hideQuickActions
@@ -140,6 +158,7 @@ export function CustomerDetailScreen() {
       )}
 
       {saleDetail.sheet}
+      {whatsappActions.sheet}
     </SafeAreaView>
   );
 }

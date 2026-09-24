@@ -378,7 +378,7 @@ Shipped as the **Reports** tab (admin-only): any period, collected vs spent vs n
 
 ## 7. Communication Features
 
-### 7.1 WhatsApp Reminders
+### 7.1 WhatsApp Reminders ✅ _(Cloud API, per-tenant — see docs/whatsapp.md)_
 
 **Priority:** 🔴 High (Lebanon-specific)
 
@@ -423,7 +423,7 @@ CREATE TABLE notification_log (
 
 ---
 
-### 7.3 Broadcast Message
+### 7.3 Broadcast Message ✅ _(customer-list multi-select → Send on WhatsApp)_
 
 **Priority:** 🟡 Medium
 

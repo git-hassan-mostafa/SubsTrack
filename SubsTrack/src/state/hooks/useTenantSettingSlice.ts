@@ -1,6 +1,6 @@
 import { useGlobalStore } from "@/src/state/hooks/useGlobalStore";
 import type { TenantSettingSlice } from "@/src/state/slices/tenantSettings/tenantSettingSlice";
-import type { UnpaidStartRule } from "@/src/core/types";
+import type { UnpaidStartRule, WhatsAppLanguage } from "@/src/core/types";
 import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
 import { TENANT_SETTING_KEYS } from "@/src/modules/admin/tenant-settings/utils/constants";
 
@@ -35,6 +35,11 @@ export const useUnpaidStartRule = (): UnpaidStartRule =>
  * The currency amounts are displayed in — `null` = USD (the base).
  * Tenant-wide, not per device: every user of the organization sees the same one.
  */
+export const useWhatsAppLanguage = (): WhatsAppLanguage =>
+  tenantSettingService.parseWhatsAppLanguage(
+    useTenantSettingValue(TENANT_SETTING_KEYS.whatsAppLanguage),
+  );
+
 export const useDisplayCurrencyId = (): string | null =>
   tenantSettingService.parseDisplayCurrencyId(
     useTenantSettingValue(TENANT_SETTING_KEYS.displayCurrencyId),

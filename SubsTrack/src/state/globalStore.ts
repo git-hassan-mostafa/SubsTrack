@@ -49,6 +49,10 @@ import {
   createTenantSettingSlice,
   type TenantSettingSlice,
 } from "./slices/tenantSettings/tenantSettingSlice";
+import {
+  createWhatsAppSlice,
+  type WhatsAppSlice,
+} from "./slices/whatsapp/whatsappSlice";
 
 export interface GlobalState {
   auth: AuthSlice;
@@ -66,6 +70,7 @@ export interface GlobalState {
   ledger: LedgerSlice;
   options: OptionSlice;
   tenantSettings: TenantSettingSlice;
+  whatsapp: WhatsAppSlice;
 }
 
 const STORE_KEY = "__SIJIL_GLOBAL_STORE__";
@@ -88,6 +93,7 @@ const initStore = (): StoreApi<GlobalState> =>
       ledger: createLedgerSlice(set, get, store),
       options: createOptionSlice(set, get, store),
       tenantSettings: createTenantSettingSlice(set, get, store),
+      whatsapp: createWhatsAppSlice(set, get, store),
     })),
   );
 

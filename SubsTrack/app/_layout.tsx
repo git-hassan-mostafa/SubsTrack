@@ -61,6 +61,8 @@ export default function RootLayout() {
   useEffect(() => {
     if (!i18nReady || loading) return;
     const inAuth = segments[0] === "(auth)";
+    const inPublic = (segments[0] as string) === "(public)";
+    if (inPublic) return;
     if (!user && !inAuth) {
       resetAllDomainStores();
       router.replace("/(auth)/login");

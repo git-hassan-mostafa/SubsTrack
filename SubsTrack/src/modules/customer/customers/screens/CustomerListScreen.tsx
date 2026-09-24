@@ -32,6 +32,7 @@ import {
   useWhatsApp,
   WhatsAppComboIcon,
 } from "@/src/modules/invoicing";
+import { useWhatsAppActions } from "@/src/modules/whatsapp/hooks/useWhatsAppActions";
 import { CustomerCard } from "../components/CustomerCard";
 import {
   customerFlags,
@@ -127,6 +128,7 @@ export function CustomerListScreen() {
   const fetchOwed = useLedgerSlice((s) => s.fetchOwed);
   const { sendCollectionInvoice } = useSendInvoice();
   const { canSend, openChat } = useWhatsApp();
+  const whatsappActions = useWhatsAppActions();
   const { writeOffAll } = useDebtRowActions();
   const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
@@ -703,6 +705,8 @@ export function CustomerListScreen() {
         }
       },
     });
+    const whatsappAction = whatsappActions.selectionAction(selected);
+    if (whatsappAction) actions.push(whatsappAction);
     return actions;
   }
 
@@ -855,6 +859,7 @@ export function CustomerListScreen() {
         onPress: () => void handleDeleteCustomer(customer),
       });
     }
+    items.push(...whatsappActions.rowItems(customer));
     return items;
   }
 
@@ -1055,6 +1060,7 @@ export function CustomerListScreen() {
       )}
       {collectSheet}
       {exportSheet}
+      {whatsappActions.sheet}
     </SafeAreaView>
   );
 }

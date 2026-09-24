@@ -3,4 +3,7 @@ export const OPTION_KEYS = {
   allowSelfServiceSignup: "AllowSelfServiceSignup",
   supportWhatsAppNumber: "SupportWhatsAppNumber",
   customerPortalUrl: "CustomerPortalUrl",
+  whatsAppAppId: "WhatsAppAppId",
+  whatsAppConfigId: "WhatsAppConfigId",
+  whatsAppConnectUrl: "WhatsAppConnectUrl",
 } as const;

@@ -1,5 +1,9 @@
 import type { StateCreator } from "zustand";
-import type { TenantSetting, UnpaidStartRule } from "@/src/core/types";
+import type {
+  TenantSetting,
+  UnpaidStartRule,
+  WhatsAppLanguage,
+} from "@/src/core/types";
 import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
 import type { GlobalState } from "@/src/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";
@@ -14,6 +18,7 @@ export interface TenantSettingSlice {
   getSettings: () => Promise<void>;
   setUnpaidStartRule: (rule: UnpaidStartRule) => Promise<void>;
   setDisplayCurrencyId: (currencyId: string | null) => Promise<void>;
+  setWhatsAppLanguage: (language: WhatsAppLanguage) => Promise<void>;
   clearError: () => void;
   reset: () => void;
 }
@@ -102,6 +107,12 @@ export const createTenantSettingSlice: StateCreator<
     setDisplayCurrencyId: async (currencyId) => {
       await save((tenantId) =>
         tenantSettingService.setDisplayCurrencyId(tenantId, currencyId),
+      );
+    },
+
+    setWhatsAppLanguage: async (language) => {
+      await save((tenantId) =>
+        tenantSettingService.setWhatsAppLanguage(tenantId, language),
       );
     },
 

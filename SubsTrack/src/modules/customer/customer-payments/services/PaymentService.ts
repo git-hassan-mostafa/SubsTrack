@@ -11,6 +11,7 @@ import type {
 } from "@/src/core/types";
 import { MONTHS } from "@/src/core/constants";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
+import { groupBy } from "@/src/core/utils/groupBy";
 import {
   isBeforeStartDate,
   isNotDueYet,
@@ -408,17 +409,6 @@ class PaymentService {
 }
 
 export default new PaymentService();
-
-// Buckets rows by a key — used to slice one tenant-wide fetch per customer.
-function groupBy<T>(rows: T[], key: (row: T) => string): Map<string, T[]> {
-  const map = new Map<string, T[]>();
-  for (const row of rows) {
-    const list = map.get(key(row));
-    if (list) list.push(row);
-    else map.set(key(row), [row]);
-  }
-  return map;
-}
 
 // Billing months already covered, multi-month bundles counted month by month.
 // A bill with nothing collected is NOT covered — money decides, never the mere

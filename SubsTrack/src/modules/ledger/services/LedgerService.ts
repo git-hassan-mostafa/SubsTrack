@@ -12,6 +12,9 @@ import type {
 import { chargeService } from "./ChargeService";
 import { mergeOwed } from "../utils/mergeOwed";
 import { keyOf } from "../utils/waterfall";
+import { groupBy } from "@/src/core/utils/groupBy";
+
+const OWED_BATCH_SIZE = 100;
 
 /**
  * The one place that answers "what does this customer owe?".
@@ -43,6 +46,47 @@ class LedgerService {
         : Promise.resolve(new Map<string, MonthBill[]>()),
     ]);
     return mergeOwed({ ...args, stored: open, billsByLine });
+  }
+
+  // getOwed for many customers: the same merge, one read per chunk of 100.
+  async getOwedForCustomers(args: {
+    customers: Customer[];
+    skips: SkippedMonth[];
+    unpaidRule: UnpaidStartRule;
+    currencies: Currency[];
+    today?: Date;
+  }): Promise<Map<string, OpenItem[]>> {
+    const owed = new Map<string, OpenItem[]>();
+    const skipsByCustomer = groupBy(args.skips, (s) => s.customerId);
+    for (let i = 0; i < args.customers.length; i += OWED_BATCH_SIZE) {
+      const chunk = args.customers.slice(i, i + OWED_BATCH_SIZE);
+      const lineIds = chunk.flatMap((c) =>
+        (c.customerPlans ?? []).filter((l) => l.active).map((l) => l.id),
+      );
+      const [open, billsByLine] = await Promise.all([
+        chargeService.getOpenCharges({ customerIds: chunk.map((c) => c.id) }),
+        lineIds.length > 0
+          ? chargeService.getMonthBillsForLines(lineIds)
+          : Promise.resolve(new Map<string, MonthBill[]>()),
+      ]);
+      const openByCustomer = groupBy(open, (item) => item.customerId);
+      for (const customer of chunk) {
+        owed.set(
+          customer.id,
+          mergeOwed({
+            customer,
+            lines: customer.customerPlans ?? [],
+            skips: skipsByCustomer.get(customer.id) ?? [],
+            unpaidRule: args.unpaidRule,
+            currencies: args.currencies,
+            stored: openByCustomer.get(customer.id) ?? [],
+            billsByLine,
+            today: args.today,
+          }),
+        );
+      }
+    }
+    return owed;
   }
 
   async getDebtsView(branchFilter: BranchFilter = null): Promise<DebtsView> {

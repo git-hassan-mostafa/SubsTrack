@@ -59,3 +59,13 @@ Located at `SubsTrack/supabase/functions/customer-portal/index.ts`.
 - Brute force is throttled by `customer_portal_lockouts` (10 failures in 15 min → locked 15 min). That table has RLS on and **no policy at all** — service-role only — and is deliberately absent from the SQLite mirror and `PUSH_WAVES`: a failed-login counter must never enter the sync engine.
 - The response is **raw snake_case `Db*` rows**, because this function is the portal's database; the portal maps them with SubsTrack's own mappers. Columns a customer must not read (`notes`, `location_url`, custody, void reasons) are **nulled, not omitted**, so the row stays a valid `Db*` shape.
 - Deploy: `cd Portal && npm run deploy-function`. **The deploy script deliberately lives in `Portal/package.json`, not `SubsTrack/package.json`** — that file's `scripts` block feeds the OTA fingerprint, so adding one there would stop every installed phone receiving updates (gotcha #53).
+
+## `whatsapp-*` (WhatsApp Cloud API)
+
+Five functions plus the first `_shared/` folder (`_shared/whatsapp/`); full design in [whatsapp.md](whatsapp.md).
+- **Staff functions:** `whatsapp-admin` and `whatsapp-send` keep JWT verification and resolve the caller through `requireAdmin`. It **does** check `users.active`, tenant active and `tenants.whatsapp_enabled`; the tenant always comes from the `users` row, never the body.
+- **Public functions:** `whatsapp-onboard` (one-time session token), `whatsapp-worker` (`x-worker-secret`, called by pg_cron through Vault) and `whatsapp-webhook` (Meta HMAC over the raw body) run with `verify_jwt = false`.
+- **Errors:** errors are `{ error, code }`. The app maps `code` to `whatsapp.errors.<code>` through `WhatsAppError`, keeping the server text as the fallback. A Meta refusal is a 502 with `code: "meta_error"` and Meta's own message.
+- **Deploy:** `yarn deploy-whatsapp-functions` (from inside `SubsTrack/`). Adding this script changed the OTA fingerprint, so it shipped with a new native build (gotcha #53).
+- **The gateway key rule above applies here too.** Meta cannot send headers, so the webhook callback URL carries `?apikey=<anon key>`. pg_cron's call to `whatsapp-worker` sends an `apikey` header read from the Vault secret `whatsapp_worker_apikey`; without it every run is a silent 401 and the queue never drains.
+- The existing five functions keep their own copied `corsHeaders`/`log`/`fail`; moving them onto `_shared/` is a separate change.

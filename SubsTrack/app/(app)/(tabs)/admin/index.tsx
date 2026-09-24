@@ -16,6 +16,7 @@ type MenuItem = {
   iconColor: string;
   route: string;
   tenantWideOnly?: boolean;
+  whatsappOnly?: boolean;
 };
 
 const MENU_ITEMS: MenuItem[] = [
@@ -92,13 +93,35 @@ const MENU_ITEMS: MenuItem[] = [
     iconColor: COLORS.warning,
     route: "/(app)/(tabs)/admin/audit",
   },
+  {
+    labelKey: "whatsapp.title",
+    subtitleKey: "whatsapp.menu_sub",
+    icon: "logo-whatsapp",
+    iconBg: COLORS.successLight,
+    iconColor: COLORS.success,
+    route: "/(app)/(tabs)/admin/whatsapp",
+    tenantWideOnly: true,
+    whatsappOnly: true,
+  },
+  {
+    labelKey: "whatsapp.history_title",
+    subtitleKey: "whatsapp.history_menu_sub",
+    icon: "chatbubbles-outline",
+    iconBg: COLORS.primaryLight,
+    iconColor: COLORS.primary,
+    route: "/(app)/(tabs)/admin/whatsapp-history",
+    whatsappOnly: true,
+  },
 ];
 
 export default function AdminMenuScreen() {
   const { t } = useTranslation();
-  const { isTenantWideAdmin } = useAuth();
+  const { user, isTenantWideAdmin } = useAuth();
+  const whatsappEnabled = !!user?.tenant.whatsappEnabled;
   const menuItems = MENU_ITEMS.filter(
-    (item) => isTenantWideAdmin || !item.tenantWideOnly,
+    (item) =>
+      (isTenantWideAdmin || !item.tenantWideOnly) &&
+      (whatsappEnabled || !item.whatsappOnly),
   );
   return (
     <SafeAreaView className="flex-1 bg-gray-50">

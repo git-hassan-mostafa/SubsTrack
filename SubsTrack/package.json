@@ -13,6 +13,8 @@
     "deploy-delete-user-edge-function": "supabase functions deploy delete-user",
     "deploy-update-user-password-edge-function": "supabase functions deploy update-user-password",
     "deploy-create-tenant-edge-function": "supabase functions deploy create-tenant --no-verify-jwt",
+    "deploy-whatsapp-functions": "supabase functions deploy whatsapp-admin && supabase functions deploy whatsapp-send && supabase functions deploy whatsapp-onboard --no-verify-jwt && supabase functions deploy whatsapp-worker --no-verify-jwt && supabase functions deploy whatsapp-webhook --no-verify-jwt",
+    "deploy-all-functions": "npm run deploy-create-user-edge-function && npm run deploy-delete-user-edge-function && npm run deploy-update-user-password-edge-function && npm run deploy-create-tenant-edge-function && supabase functions deploy customer-portal --no-verify-jwt && npm run deploy-whatsapp-functions",
     "eas-configure": "eas build:configure",
     "build-dev": "eas build --platform android --profile development",
     "build-preview": "eas build --platform android --profile preview",

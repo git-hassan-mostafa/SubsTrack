@@ -16,3 +16,31 @@ entrypoint = "./functions/create-user/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/customer-portal/index.ts"
+
+# WhatsApp Cloud API (docs/whatsapp.md). Staff calls carry a JWT.
+[functions.whatsapp-admin]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/whatsapp-admin/index.ts"
+
+[functions.whatsapp-send]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/whatsapp-send/index.ts"
+
+# Public: the web signup page (one-time session token), pg_cron (worker secret)
+# and Meta (signed webhooks) call these with no Supabase session.
+[functions.whatsapp-onboard]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/whatsapp-onboard/index.ts"
+
+[functions.whatsapp-worker]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/whatsapp-worker/index.ts"
+
+[functions.whatsapp-webhook]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/whatsapp-webhook/index.ts"

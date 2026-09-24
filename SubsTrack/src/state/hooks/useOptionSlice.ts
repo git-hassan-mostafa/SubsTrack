@@ -41,3 +41,18 @@ export const useSupportWhatsAppNumber = (): string | null =>
 // Blank until the SaaS owner sets it, which is what hides the portal fields.
 export const useCustomerPortalUrl = (): string | null =>
   useOptionValue(OPTION_KEYS.customerPortalUrl);
+
+export interface WhatsAppSignupOptions {
+  appId: string | null;
+  configId: string | null;
+  connectUrl: string | null;
+}
+
+// Set by the SaaS owner; any blank one hides the Cloud API feature.
+export const useWhatsAppSignupOptions = (): WhatsAppSignupOptions => {
+  const appId = useOptionValue(OPTION_KEYS.whatsAppAppId)?.trim() || null;
+  const configId = useOptionValue(OPTION_KEYS.whatsAppConfigId)?.trim() || null;
+  const connectUrl =
+    useOptionValue(OPTION_KEYS.whatsAppConnectUrl)?.trim() || null;
+  return { appId, configId, connectUrl };
+};

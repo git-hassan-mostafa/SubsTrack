@@ -10,6 +10,7 @@ export function mapDbTenantToTenant(db: DbTenant): Tenant {
     customerAllowance: Number(db.customer_allowance),
     planAllowance: Number(db.plan_allowance),
     pricePerPlanUsd: Number(db.price_per_plan_usd),
+    whatsappEnabled: Boolean(db.whatsapp_enabled),
     createdAt: db.created_at,
   };
 }

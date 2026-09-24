@@ -4,6 +4,7 @@ import { useCollectionsListStore } from "@/src/modules/ledger/state/collectionsL
 import { useDebtHistoryStore } from "@/src/modules/transaction/debts/state/debtHistoryStore";
 import { useExpenseStore } from "@/src/modules/transaction/expenses/state/expenseStore";
 import { useWalletStore } from "@/src/modules/wallet/state/walletStore";
+import { useMessageHistoryStore } from "@/src/modules/whatsapp/state/messageHistoryStore";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import { getStore } from "./globalStore";
 
@@ -33,6 +34,9 @@ export function refreshActiveData(): void {
   if (wallet.items.length) void wallet.fetchWallets();
   const audit = useAuditStore.getState();
   if (audit.items.length) void audit.fetchEntries();
+  const whatsappHistory = useMessageHistoryStore.getState();
+  if (whatsappHistory.items.length) void whatsappHistory.fetchMessages();
+  if (s.whatsapp.loaded) void s.whatsapp.fetchOverview();
 
   if (s.customers.loaded) {
     void s.payments.fetchCustomerStatuses(s.customers.items);
