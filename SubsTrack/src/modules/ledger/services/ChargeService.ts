@@ -8,6 +8,7 @@ import type {
   MonthBill,
   OpenItem,
 } from "@/src/core/types";
+import type { DbCharge } from "@/src/core/types/db";
 import { deterministicId, newId, nowIso } from "@/src/core/offline/ids";
 import { daysLate } from "@/src/core/utils/date";
 import repository from "../repository/ChargeRepository";
@@ -91,14 +92,18 @@ class ChargeService {
     writeOffScope?: WriteOffScope;
   }): Promise<OpenItem[]> {
     const open = await repository.findOpenWithPaid(opts);
-    return open.map(({ charge, paid }) =>
-      openItemFromCharge(
-        mapDbChargeToCharge(charge),
-        paid,
-        chargeLabel(charge),
-        charge.customers?.name ?? "",
-      ),
-    );
+    return open.map(({ charge, paid }) => toOpenItem(charge, paid));
+  }
+
+  // These exact bills, dead or alive, each with the live money on it.
+  async getBills(chargeIds: string[]): Promise<OpenItem[]> {
+    if (chargeIds.length === 0) return [];
+    const [rows, balances] = await Promise.all([
+      repository.findByIds(chargeIds),
+      repository.balances(chargeIds),
+    ]);
+    const paid = new Map(balances.map((b) => [b.id, Number(b.paid)]));
+    return rows.map((charge) => toOpenItem(charge, paid.get(charge.id) ?? 0));
   }
 
   // One page of PAST bills, each carrying what became of it. Settle dates are
@@ -113,12 +118,7 @@ class ChargeService {
       page.map(({ charge }) => charge.id),
     );
     return page.map(({ charge, paid, downPaid }) => {
-      const item = openItemFromCharge(
-        mapDbChargeToCharge(charge),
-        paid,
-        chargeLabel(charge),
-        charge.customers?.name ?? "",
-      );
+      const item = toOpenItem(charge, paid);
       return {
         ...item,
         downPaid,
@@ -398,6 +398,15 @@ class ChargeService {
 }
 
 const EPSILON = 1e-6;
+
+function toOpenItem(charge: DbCharge, paid: number): OpenItem {
+  return openItemFromCharge(
+    mapDbChargeToCharge(charge),
+    paid,
+    chargeLabel(charge),
+    charge.customers?.name ?? "",
+  );
+}
 
 export const chargeService = new ChargeService();
 export { isDebtItem };

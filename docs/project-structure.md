@@ -231,7 +231,7 @@ SubsTrack/
 │   │   │   ├── hooks/useCollectSheet.tsx        # the one way a list opens the collect sheet
 │   │   │   ├── screens/CollectionsPanel.tsx     # the money-in history (one list, was payments + debt payments)
 │   │   │   └── components/{CollectSheet, BillSheet, BillPaymentsList, CollectionCard,
-│   │   │                    CollectionSplitSheet, CollectionItemCard, CollectionsHistorySheet,
+│   │   │                    CollectionDetailSheet, CollectionItemCard, CollectionsHistorySheet,
 │   │   │                    CollectQuickActionSheet, VoidCollectionDialog, CollectionsVoidDialog,
 │   │   │                    AmountCollectedSection}.tsx
 │   │   │

@@ -38,6 +38,9 @@ export type {
 } from "./services/ChargeService";
 export type {
   CollectInput,
+  CollectionCorrection,
+  CorrectCollectionInput,
+  CorrectionDraft,
   MultiCollectResult,
 } from "./services/CollectionService";
 export type { IChargeRepository } from "./repository/IChargeRepository";
@@ -58,7 +61,7 @@ export { BillHistorySheet } from "./components/BillHistorySheet";
 export { BillPaymentsList } from "./components/BillPaymentsList";
 export { CollectionCard } from "./components/CollectionCard";
 export { CollectionItemCard } from "./components/CollectionItemCard";
-export { CollectionSplitSheet } from "./components/CollectionSplitSheet";
+export { CollectionDetailSheet } from "./components/CollectionDetailSheet";
 export { useOpenBill } from "./hooks/useOpenBill";
 export type { OpenBill } from "./hooks/useOpenBill";
 export { CollectionsPanel } from "./screens/CollectionsPanel";

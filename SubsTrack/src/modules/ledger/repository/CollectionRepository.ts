@@ -9,8 +9,13 @@ import type {
 } from "@/src/core/types/db";
 import { newId } from "@/src/core/offline/ids";
 import { sanitizeSearchTerm } from "@/src/core/utils/searchTerm";
-import { custodyValues } from "@/src/modules/wallet/utils/custodyValues";
+import {
+  custodyValues,
+  receivedCustody,
+} from "@/src/modules/wallet/utils/custodyValues";
 import type {
+  CollectionSwap,
+  CollectionSwapResult,
   CreateCollectionItemPayload,
   CreateCollectionPayload,
   FindCollectionsOptions,
@@ -366,7 +371,7 @@ export class CollectionRepository
   }
 
   async create(payload: CreateCollectionPayload): Promise<DbCollection> {
-    const { items, charges, ...header } = payload;
+    const { items, charges, custody, ...header } = payload;
 
     const bills = await this.resolveTargetBills(charges);
     const itemPayloads = items.map((it) => ({
@@ -377,7 +382,10 @@ export class CollectionRepository
 
     const { data, error } = await this.db
       .from("collections")
-      .insert({ ...header, held_by_user_id: header.received_by_user_id })
+      .insert({
+        ...header,
+        ...(custody ?? receivedCustody(header.received_by_user_id)),
+      })
       .select(COLLECTION_SELECT_LEAN)
       .single();
     if (error) this.handleError(error);
@@ -493,6 +501,26 @@ export class CollectionRepository
       });
     }
     return voided;
+  }
+
+  // Web has no transaction to share, so the void goes first — gotcha #171.
+  async replace(
+    swaps: CollectionSwap[],
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<CollectionSwapResult> {
+    const voided = await this.voidMany(
+      swaps.map((s) => s.id),
+      voidedBy,
+      reason,
+    );
+    const voidedIds = new Set(voided.map((v) => v.id));
+    const created: DbCollection[] = [];
+    for (const swap of swaps) {
+      if (swap.replacement && voidedIds.has(swap.id))
+        created.push(await this.create(swap.replacement));
+    }
+    return { voided, created };
   }
 
   async collectedInRange(

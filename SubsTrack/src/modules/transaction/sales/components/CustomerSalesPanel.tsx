@@ -193,7 +193,7 @@ export function CustomerSalesPanel({ customer }: Props) {
         onDismiss={() => setActiveSale(null)}
         onVoided={() => void refresh()}
         onEdit={openEdit}
-        onChanged={patch.paymentVoided}
+        onChanged={patch.paymentChanged}
       />
 
       {saleActions.sheets}

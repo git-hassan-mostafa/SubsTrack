@@ -305,6 +305,7 @@ class SaleService {
         ratePerUsdSnapshot,
         receivedAt: unpaid?.receivedAt ?? nowIso(),
         receivedByUserId: unpaid?.receivedByUserId ?? input.actorUserId,
+        custody: unpaid?.custody ?? undefined,
         notes: null,
         lines: [
           {

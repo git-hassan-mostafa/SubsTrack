@@ -51,8 +51,9 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { CollectionCard } from "../components/CollectionCard";
-import { CollectionSplitSheet } from "../components/CollectionSplitSheet";
+import { CollectionDetailSheet } from "../components/CollectionDetailSheet";
 import { CollectionsVoidDialog } from "../components/CollectionsVoidDialog";
+import { CorrectCollectionSheet } from "../components/CorrectCollectionSheet";
 import { useOpenBill } from "../hooks/useOpenBill";
 import { collectionService } from "../services/CollectionService";
 
@@ -61,14 +62,7 @@ interface Props {
   inSheet?: boolean;
 }
 
-/**
- * The money-in history: every hand-over of cash, newest first.
- *
- * ONE list where there used to be two (payments and debt payments) — a month, a
- * sale and a custom fee are all settled the same way now, so there is nothing
- * left to merge. Tapping a row opens what it settled: the bill itself, or the
- * split sheet when one hand-over closed several.
- */
+// Every hand-over of cash; for `inSheet`, see docs/ui-patterns.md.
 export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -99,6 +93,7 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
   const clearFilters = useCollectionsListStore((s) => s.clearFilters);
   const clearError = useCollectionsListStore((s) => s.clearError);
   const applyVoided = useCollectionsListStore((s) => s.applyVoided);
+  const applyCorrected = useCollectionsListStore((s) => s.applyCorrected);
   const refreshNetByCustomer = useLedgerSlice((s) => s.fetchNetByCustomer);
 
   const users = useUserSlice((s) => s.items);
@@ -110,11 +105,16 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
   const { canSend, sendCollectionInvoice } = useSendInvoice();
 
   const [voidIds, setVoidIds] = useState<string[] | null>(null);
-  const [split, setSplit] = useState<CollectionListItem | null>(null);
+  const [correctId, setCorrectId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<CollectionListItem | null>(null);
   const [ready, setReady] = useState(false);
   const openBill = useOpenBill({
     onOpenSale,
-    onChanged: (voided) => {
+    onChanged: (voided, replacement) => {
+      if (replacement) {
+        void applyCorrected();
+        return;
+      }
       applyVoided(voided);
       void refreshNetByCustomer(branchFilter);
     },
@@ -195,11 +195,6 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
     sortDirection !== "desc" ||
     period.preset !== "this_month";
 
-  // A plain RN list inside a Gorhom sheet never learns where it is scrolled —
-  // the sheet owns the scroll container — so it reports "at the end" from the
-  // first frame and pages itself to the bottom without anyone scrolling.
-  // Cast because the two lists' generics do not unify; the props below are
-  // identical for both, so the rows stay typed through `sections`.
   const List = (inSheet ? BottomSheetSectionList : SectionList) as typeof SectionList<
     CollectionListItem,
     (typeof sections)[number]
@@ -224,11 +219,7 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
     [items, t, monthlyTotals],
   );
 
-  /**
-   * One receipt per hand-over — there is no multi-row receipt here, because a
-   * collection already IS the whole hand-over and its split is listed inside.
-   * The list read is lean, so the full record (with its items) is fetched now.
-   */
+  // One receipt per hand-over; the row is lean, so the full record is read.
   async function sendOne(row: CollectionListItem) {
     if (!canSend(row.customerPhone)) return;
     const full = await collectionService.getById(row.id);
@@ -240,7 +231,7 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
     });
   }
 
-  /** One bill behind a hand-over. Its label was frozen by the list read. */
+  // One bill behind a hand-over. Its label was frozen by the list read.
   function openItem(
     item: CollectionItem,
     label: string,
@@ -252,7 +243,7 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
 
   function openCollection(row: CollectionListItem) {
     if (row.itemCount > 1 || row.voidedAt !== null) {
-      setSplit(row);
+      setDetail(row);
       return;
     }
     const first = row.items[0];
@@ -287,7 +278,6 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
   return (
     <View className="flex-1 py-3">
       <ResponsiveContainer className="flex-1">
-        {/* Filters hide while selecting; the selection toolbar takes over. */}
         {!selectionActive ? (
           <View>
             <PeriodPicker value={period} onChange={setPeriod} />
@@ -441,6 +431,7 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
                 onToggleSelect={(c) => toggleSelect(c.id)}
                 onEnterSelection={(c) => enterSelection(c.id)}
                 onVoid={(c) => setVoidIds([c.id])}
+                onCorrect={(c) => setCorrectId(c.id)}
                 onSendInvoice={
                   canSend(item.customerPhone)
                     ? (c) => void sendOne(c)
@@ -475,18 +466,29 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
         />
       ) : null}
 
-      <CollectionSplitSheet
-        collection={split}
-        onDismiss={() => setSplit(null)}
-        onOpenItem={(item) => {
-          const i = split?.items.indexOf(item) ?? -1;
-          openItem(item, split?.itemLabels[i] ?? "", split?.customerName);
-        }}
-        loadingItemId={
-          split?.items.find((i) => i.chargeId === openBill.loadingId)?.id ??
-          null
-        }
-      />
+      {correctId ? (
+        <CorrectCollectionSheet
+          collectionId={correctId}
+          onDone={() => {
+            setCorrectId(null);
+            void applyCorrected();
+          }}
+          onDismiss={() => setCorrectId(null)}
+        />
+      ) : null}
+
+      {detail ? (
+        <CollectionDetailSheet
+          collectionId={detail.id}
+          initial={detail}
+          onDismiss={() => setDetail(null)}
+          onOpenItem={openItem}
+          loadingItemId={
+            detail.items.find((i) => i.chargeId === openBill.loadingId)?.id ??
+            null
+          }
+        />
+      ) : null}
 
       {openBill.sheet}
     </View>

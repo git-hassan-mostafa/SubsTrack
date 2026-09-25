@@ -8,18 +8,27 @@ import type {
   Collection,
   CollectionListItem,
   OpenItem,
+  WalletSource,
 } from "@/src/core/types";
-import { nowIso } from "@/src/core/offline/ids";
+import { deterministicId, nowIso } from "@/src/core/offline/ids";
+import {
+  custodyOf,
+  sharedCustody,
+  type CustodyValues,
+} from "@/src/modules/wallet/utils/custodyValues";
 import { chargeService } from "./ChargeService";
 import repository from "../repository/CollectionRepository";
 import type { CreateChargePayload } from "../repository/IChargeRepository";
 import type {
   CreateCollectionItemPayload,
+  CreateCollectionPayload,
   FindCollectionsOptions,
 } from "../repository/ICollectionRepository";
 import { mapDbCollectionToCollection } from "../utils/mapper";
 import { collectionKind } from "../utils/collectionKind";
+import { hasClosedBill, withoutCollection } from "../utils/correction";
 import { chargeLabel } from "../utils/openItems";
+import { amountByCharge, paidToCharge } from "../utils/paidToCharge";
 import { allocate, keyOf } from "../utils/waterfall";
 
 export interface CollectInput {
@@ -33,7 +42,10 @@ export interface CollectInput {
   receivedByUserId: string | null;
   notes?: string | null;
   lines: AllocationLine[];
+  custody?: CustodyValues;
 }
+
+type CollectHeader = Omit<CollectInput, "amount" | "lines" | "custody">;
 
 export interface MultiCollectResult {
   collections: Collection[];
@@ -46,15 +58,28 @@ export interface UnpaidCash {
   receivedAt: string | null;
   receivedByUserId: string | null;
   branchId: string | null;
+  custody: CustodyValues | null;
 }
 
-/**
- * Money: taking it, correcting it, undoing it.
- *
- * Bills are ChargeService's job. The one place the two meet is here — a line
- * that pays a VIRTUAL month has to raise its bill in the same write, because
- * collecting the money is precisely what turns a month into a bill.
- */
+export interface CorrectCollectionInput {
+  collectionId: string;
+  amount: number;
+  actorUserId: string;
+  reason: string | null;
+}
+
+// The bills a hand-over paid, each owing what it would owe without it.
+export interface CorrectionDraft {
+  collection: Collection;
+  pool: OpenItem[];
+}
+
+export interface CollectionCorrection {
+  voided: Collection;
+  replacement: Collection;
+}
+
+// Money: taking it, correcting it, undoing it. Bills are ChargeService's job.
 class CollectionService {
   preview(
     amount: number,
@@ -68,6 +93,14 @@ class CollectionService {
   }
 
   async collect(input: CollectInput): Promise<Collection> {
+    const row = await repository.create(await this.toPayload(input));
+    return mapDbCollectionToCollection(row);
+  }
+
+  // Every rule a hand-over must pass, shared by collecting and correcting.
+  private async toPayload(
+    input: CollectInput,
+  ): Promise<CreateCollectionPayload> {
     const { lines } = input;
     if (lines.length === 0) throw new Error(i18n.t("errors.collect_no_lines"));
     if (!Number.isFinite(input.amount) || input.amount <= 0) {
@@ -110,21 +143,16 @@ class CollectionService {
       });
     }
 
-    const row = await repository.create({
-      tenant_id: input.tenantId,
-      branch_id: input.branchId,
-      customer_id: input.customerId,
-      amount: input.amount,
-      currency_id: input.currencyId,
-      rate_per_usd_snapshot: input.ratePerUsdSnapshot,
-      received_at: input.receivedAt,
-      received_by_user_id: input.receivedByUserId,
-      notes: input.notes ?? null,
-      kind: collectionKind(lines.map((l) => l.item.kind)),
+    return {
+      ...headerPayload(
+        input,
+        input.amount,
+        collectionKind(lines.map((l) => l.item.kind)),
+      ),
       items,
       charges,
-    });
-    return mapDbCollectionToCollection(row);
+      custody: input.custody,
+    };
   }
 
   /**
@@ -193,6 +221,23 @@ class CollectionService {
     return row ? mapDbCollectionToCollection(row) : null;
   }
 
+  // One hand-over for its detail sheet, each bill named with its plan or sale.
+  async getListItem(id: string): Promise<CollectionListItem | null> {
+    const row = await repository.findById(id);
+    if (!row) return null;
+    const item = this.toListItem(row);
+    const bills = await chargeService.getBills(
+      item.items.map((it) => it.chargeId),
+    );
+    const labels = new Map(bills.map((bill) => [bill.chargeId, bill.label]));
+    return {
+      ...item,
+      itemLabels: item.items.map(
+        (it, i) => labels.get(it.chargeId) ?? item.itemLabels[i] ?? "",
+      ),
+    };
+  }
+
   async getHistory(
     opts: FindCollectionsOptions,
   ): Promise<CollectionListItem[]> {
@@ -204,34 +249,35 @@ class CollectionService {
   }
 
   private toListItem(row: DbCollection): CollectionListItem {
-    {
-      const c = mapDbCollectionToCollection(row);
-      const items = c.items ?? [];
-      const dbItems = row.collection_items ?? [];
-      return {
-        id: c.id,
-        customerId: c.customerId,
-        customerName: row.customers?.name ?? null,
-        customerPhone: row.customers?.phone_number ?? null,
-        amount: c.amount,
-        currencyId: c.currencyId,
-        ratePerUsdSnapshot: c.ratePerUsdSnapshot,
-        receivedAt: c.receivedAt,
-        receivedByUserId: c.receivedByUserId,
-        heldByUserId: c.heldByUserId,
-        branchId: c.branchId,
-        notes: c.notes,
-        voidedAt: c.voidedAt,
-        voidedBy: c.voidedBy,
-        voidReason: c.voidReason,
-        itemCount: items.length,
-        itemLabels: dbItems.map((it) =>
-          it.charges ? chargeLabel(it.charges) : "",
-        ),
-        items,
-        kind: row.kind ?? collectionKind(dbItems.map((it) => it.charges?.kind)),
-      };
-    }
+    const c = mapDbCollectionToCollection(row);
+    const items = c.items ?? [];
+    const dbItems = row.collection_items ?? [];
+    return {
+      id: c.id,
+      customerId: c.customerId,
+      customerName: row.customers?.name ?? null,
+      customerPhone: row.customers?.phone_number ?? null,
+      amount: c.amount,
+      currencyId: c.currencyId,
+      ratePerUsdSnapshot: c.ratePerUsdSnapshot,
+      receivedAt: c.receivedAt,
+      receivedByUserId: c.receivedByUserId,
+      heldByUserId: c.heldByUserId,
+      remittedAt: c.remittedAt,
+      remittedBy: c.remittedBy,
+      createdAt: c.createdAt,
+      branchId: c.branchId,
+      notes: c.notes,
+      voidedAt: c.voidedAt,
+      voidedBy: c.voidedBy,
+      voidReason: c.voidReason,
+      itemCount: items.length,
+      itemLabels: dbItems.map((it) =>
+        it.charges ? chargeLabel(it.charges) : "",
+      ),
+      items,
+      kind: row.kind ?? collectionKind(dbItems.map((it) => it.charges?.kind)),
+    };
   }
 
   getMonthlyTotals(
@@ -296,44 +342,121 @@ class CollectionService {
       (payment) => payment.voidedAt === null,
     );
     if (payments.length === 0) return EMPTY_UNPAID;
-    await repository.voidMany(
-      payments.map((payment) => payment.id),
-      voidedBy,
-      reason,
+    const swaps = await Promise.all(
+      payments.map(async (payment) => ({
+        id: payment.id,
+        replacement: await this.keptSlicesOf(payment, chargeId),
+      })),
     );
-    let amount = 0;
-    for (const payment of payments) {
-      const slices = payment.items ?? [];
-      amount += sumItems(slices.filter((item) => item.chargeId === chargeId));
-      const kept = slices.filter((item) => item.chargeId !== chargeId);
-      if (kept.length === 0) continue;
-      await repository.create({
-        tenant_id: payment.tenantId,
-        branch_id: payment.branchId,
-        customer_id: payment.customerId,
-        amount: sumItems(kept),
-        currency_id: payment.currencyId,
-        rate_per_usd_snapshot: payment.ratePerUsdSnapshot,
-        received_at: payment.receivedAt,
-        received_by_user_id: payment.receivedByUserId,
-        notes: payment.notes,
-        kind: collectionKind(kept.map((item) => item.charge?.kind)),
-        items: kept.map((item) => ({
-          tenant_id: payment.tenantId,
-          charge_id: item.chargeId,
-          amount: item.amount,
-        })),
-        charges: [],
-      });
-    }
+    await repository.replace(swaps, voidedBy, reason);
     const oldest = payments.reduce((a, b) =>
       a.receivedAt <= b.receivedAt ? a : b,
     );
     return {
-      amount,
+      amount: payments.reduce((sum, p) => sum + paidToCharge(p, chargeId), 0),
       receivedAt: oldest.receivedAt,
       receivedByUserId: oldest.receivedByUserId,
       branchId: oldest.branchId,
+      custody: sharedCustody(payments),
+    };
+  }
+
+  private async keptSlicesOf(
+    payment: Collection,
+    chargeId: string,
+  ): Promise<CreateCollectionPayload | null> {
+    const kept = (payment.items ?? []).filter(
+      (item) => item.chargeId !== chargeId,
+    );
+    if (kept.length === 0) return null;
+    return this.asReplacement(payment.id, {
+      ...headerPayload(
+        replayOf(payment),
+        sumItems(kept),
+        collectionKind(kept.map((item) => item.charge?.kind)),
+      ),
+      items: kept.map((item) => ({
+        tenant_id: payment.tenantId,
+        charge_id: item.chargeId,
+        amount: item.amount,
+      })),
+      charges: [],
+      custody: custodyOf(payment),
+    });
+  }
+
+  // Two devices replacing one hand-over converge on ONE row — gotcha #171.
+  private async asReplacement(
+    originalId: string,
+    payload: CreateCollectionPayload,
+  ): Promise<CreateCollectionPayload> {
+    const id = await deterministicId("replaces", originalId);
+    return {
+      ...payload,
+      id,
+      items: await Promise.all(
+        payload.items.map(async (item) => ({
+          ...item,
+          id: await deterministicId(id, item.charge_id),
+        })),
+      ),
+    };
+  }
+
+  async getCorrection(collectionId: string): Promise<CorrectionDraft> {
+    const collection = await this.getById(collectionId);
+    if (!collection) throw new Error(i18n.t("errors.collection_not_found"));
+    if (collection.voidedAt)
+      throw new Error(i18n.t("errors.collection_already_voided"));
+    const own = amountByCharge(collection.items ?? []);
+    const bills = await chargeService.getBills([...own.keys()]);
+    if (bills.length !== own.size)
+      throw new Error(i18n.t("errors.correct_bill_missing"));
+    if (hasClosedBill(bills))
+      throw new Error(i18n.t("errors.correct_bill_closed"));
+    return { collection, pool: withoutCollection(bills, collection) };
+  }
+
+  // Void + re-record in one write; only the amount changes — gotcha #171.
+  async correct(input: CorrectCollectionInput): Promise<CollectionCorrection> {
+    if (!Number.isFinite(input.amount) || input.amount <= 0)
+      throw new Error(i18n.t("errors.correct_amount_positive"));
+    const { collection, pool } = await this.getCorrection(input.collectionId);
+    if (Math.abs(input.amount - collection.amount) <= EPSILON)
+      throw new Error(i18n.t("errors.correct_amount_unchanged"));
+    const { lines, leftover } = this.preview(input.amount, pool);
+    if (leftover > EPSILON)
+      throw new Error(i18n.t("errors.collect_exceeds_owed"));
+
+    const payload = await this.toPayload({
+      ...replayOf(collection),
+      amount: input.amount,
+      lines,
+      custody: custodyOf(collection),
+    });
+    const { voided, created } = await repository.replace(
+      [
+        {
+          id: collection.id,
+          replacement: await this.asReplacement(collection.id, payload),
+        },
+      ],
+      input.actorUserId,
+      input.reason,
+    );
+    const [gone] = voided;
+    const [row] = created;
+    if (!gone || !row)
+      throw new Error(i18n.t("errors.collection_already_voided"));
+    return {
+      voided: {
+        ...collection,
+        voidedAt: gone.voided_at,
+        voidedBy: gone.voided_by,
+        voidReason: gone.void_reason,
+        updatedAt: gone.updated_at,
+      },
+      replacement: mapDbCollectionToCollection(row),
     };
   }
 
@@ -380,11 +503,45 @@ function sumItems(items: { amount: number }[]): number {
   return items.reduce((sum, item) => sum + item.amount, 0);
 }
 
+// Everything about a hand-over except its amount and split.
+function replayOf(collection: Collection): CollectHeader {
+  return {
+    tenantId: collection.tenantId,
+    customerId: collection.customerId,
+    branchId: collection.branchId,
+    currencyId: collection.currencyId,
+    ratePerUsdSnapshot: collection.ratePerUsdSnapshot,
+    receivedAt: collection.receivedAt,
+    receivedByUserId: collection.receivedByUserId,
+    notes: collection.notes,
+  };
+}
+
+function headerPayload(
+  header: CollectHeader,
+  amount: number,
+  kind: WalletSource,
+): Omit<CreateCollectionPayload, "items" | "charges"> {
+  return {
+    tenant_id: header.tenantId,
+    branch_id: header.branchId,
+    customer_id: header.customerId,
+    amount,
+    currency_id: header.currencyId,
+    rate_per_usd_snapshot: header.ratePerUsdSnapshot,
+    received_at: header.receivedAt,
+    received_by_user_id: header.receivedByUserId,
+    notes: header.notes ?? null,
+    kind,
+  };
+}
+
 const EMPTY_UNPAID: UnpaidCash = {
   amount: 0,
   receivedAt: null,
   receivedByUserId: null,
   branchId: null,
+  custody: null,
 };
 
 const EPSILON = 1e-6;

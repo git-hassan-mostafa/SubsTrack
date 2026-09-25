@@ -1,9 +1,12 @@
-import { View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { Text } from "@/src/shared/components/Text";
 import { InfoRows } from "@/src/shared/components/InfoRows";
 import { Chip } from "@/src/shared/components/Chip";
+import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { COLORS } from "@/src/shared/constants";
 import type { CollectionItem, CollectionListItem } from "@/src/core/types";
 import {
   findCurrency,
@@ -14,40 +17,103 @@ import { formatDateTime } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useUserNames } from "@/src/shared/hooks/useUserNames";
+import { collectionService } from "../services/CollectionService";
 import { CollectionItemCard } from "./CollectionItemCard";
 
+type OpenBillHandler = (
+  item: CollectionItem,
+  label: string,
+  customerName: string | null,
+) => void;
+
 interface Props {
-  collection: CollectionListItem | null;
+  collectionId: string;
+  initial?: CollectionListItem | null;
   onDismiss: () => void;
-  onOpenItem?: (item: CollectionItem) => void;
+  onOpenItem?: OpenBillHandler;
   loadingItemId?: string | null;
 }
 
-export function CollectionSplitSheet({
-  collection,
+// One hand-over in full; `initial` paints at once while the fresh copy loads.
+export function CollectionDetailSheet({
+  collectionId,
+  initial = null,
   onDismiss,
   onOpenItem,
-  loadingItemId,
+  loadingItemId = null,
 }: Props) {
   const { t } = useTranslation();
-  const currencies = useCurrencySlice((s) => s.items);
-  const userName = useUserNames();
-  const displayCurrencyId = useDisplayCurrencyId();
+  const [collection, setCollection] = useState<CollectionListItem | null>(
+    initial,
+  );
+  const [error, setError] = useState<string | null>(null);
 
-  if (!collection) return null;
-
-  const source = snapshotCurrency(collection, currencies);
-  const display = findCurrency(currencies, displayCurrencyId);
-  const money = formatMoneyPair(collection.amount, source, display);
-  const voided = collection.voidedAt !== null;
+  useEffect(() => {
+    let active = true;
+    collectionService.getListItem(collectionId).then(
+      (next) => {
+        if (!active) return;
+        if (next) setCollection(next);
+        else setError(t("errors.collection_not_found"));
+      },
+      (e: unknown) => {
+        if (active) setError(e instanceof Error ? e.message : String(e));
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [collectionId, t]);
 
   return (
     <FormSheet
       visible
       onDismiss={onDismiss}
-      title={t("ledger.split_title")}
-      subject={collection.customerName ?? t("ledger.walk_in")}
+      title={t("ledger.payment_details")}
+      subject={
+        collection ? (collection.customerName ?? t("ledger.walk_in")) : null
+      }
     >
+      {error ? <ErrorBanner message={error} onDismiss={onDismiss} /> : null}
+      {collection ? (
+        <DetailBody
+          collection={collection}
+          onOpenItem={onOpenItem}
+          loadingItemId={loadingItemId}
+        />
+      ) : !error ? (
+        <View className="items-center py-16">
+          <ActivityIndicator color={COLORS.primary} />
+        </View>
+      ) : null}
+    </FormSheet>
+  );
+}
+
+function DetailBody({
+  collection,
+  onOpenItem,
+  loadingItemId,
+}: {
+  collection: CollectionListItem;
+  onOpenItem?: OpenBillHandler;
+  loadingItemId: string | null;
+}) {
+  const { t } = useTranslation();
+  const currencies = useCurrencySlice((s) => s.items);
+  const userName = useUserNames();
+  const displayCurrencyId = useDisplayCurrencyId();
+
+  const source = snapshotCurrency(collection, currencies);
+  const display = findCurrency(currencies, displayCurrencyId);
+  const money = formatMoneyPair(collection.amount, source, display);
+  const voided = collection.voidedAt !== null;
+  const banked = !voided && collection.heldByUserId === null;
+  const received = formatDateTime(collection.receivedAt);
+  const recorded = formatDateTime(collection.createdAt);
+
+  return (
+    <>
       <View className="items-center gap-1 pb-4 pt-2">
         <Text
           fontWeight="Bold"
@@ -75,9 +141,10 @@ export function CollectionSplitSheet({
       <View>
         <InfoRows
           rows={[
+            { label: t("ledger.received_at"), value: received },
             {
-              label: t("ledger.received_at"),
-              value: formatDateTime(collection.receivedAt),
+              label: t("ledger.recorded_at"),
+              value: recorded !== received ? recorded : null,
             },
             {
               label: t("ledger.collected_by"),
@@ -88,9 +155,20 @@ export function CollectionSplitSheet({
               label: t("ledger.held_by"),
               value: voided
                 ? null
-                : collection.heldByUserId === null
+                : banked
                   ? t("ledger.banked")
                   : (userName(collection.heldByUserId) ?? t("common.unknown")),
+            },
+            {
+              label: t("ledger.banked_at"),
+              value:
+                banked && collection.remittedAt
+                  ? formatDateTime(collection.remittedAt)
+                  : null,
+            },
+            {
+              label: t("ledger.banked_by"),
+              value: banked ? userName(collection.remittedBy) : null,
             },
             { label: t("ledger.notes"), value: collection.notes },
             {
@@ -123,17 +201,24 @@ export function CollectionSplitSheet({
             {t("ledger.voided_hint")}
           </Text>
         ) : null}
-        {collection.items.map((item, i) => (
-          <CollectionItemCard
-            key={item.id}
-            item={item}
-            label={collection.itemLabels[i] ?? ""}
-            snapshot={collection}
-            onOpen={onOpenItem}
-            loading={loadingItemId === item.id}
-          />
-        ))}
+        {collection.items.map((item, i) => {
+          const label = collection.itemLabels[i] ?? "";
+          return (
+            <CollectionItemCard
+              key={item.id}
+              item={item}
+              label={label}
+              snapshot={collection}
+              onOpen={
+                onOpenItem
+                  ? (it) => onOpenItem(it, label, collection.customerName)
+                  : undefined
+              }
+              loading={loadingItemId === item.id}
+            />
+          );
+        })}
       </View>
-    </FormSheet>
+    </>
   );
 }

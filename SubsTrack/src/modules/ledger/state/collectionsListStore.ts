@@ -60,6 +60,7 @@ export interface CollectionsListState {
     reason: string,
   ) => Promise<void>;
   applyVoided: (voided: Collection) => void;
+  applyCorrected: () => Promise<void>;
   clearError: () => void;
   reset: () => void;
 }
@@ -310,6 +311,14 @@ export const useCollectionsListStore = create<CollectionsListState>()(
       getStore().getState().sales.applyCollection(voided, -1);
       getStore().getState().payments.applyCollection(voided, -1);
       getStore().getState().ledger.markOwedChanged();
+    },
+
+    applyCorrected: async () => {
+      const global = getStore().getState();
+      void global.ledger.fetchNetByCustomer(
+        resolveBranchFilter(global.auth.user),
+      );
+      await get().fetchCollections();
     },
 
     clearError: () =>

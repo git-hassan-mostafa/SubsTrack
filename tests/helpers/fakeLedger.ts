@@ -12,9 +12,12 @@ import type {
   UpdateChargePayload,
 } from "@/src/modules/ledger/repository/IChargeRepository";
 import type {
+  CollectionSwap,
+  CollectionSwapResult,
   CreateCollectionPayload,
   FindCollectionsOptions,
 } from "@/src/modules/ledger/repository/ICollectionRepository";
+import { receivedCustody } from "@/src/modules/wallet/utils/custodyValues";
 import {
   monthBillKey,
   patchForIncomingCash,
@@ -413,7 +416,14 @@ export const fakeCollectionRepository = {
     );
   },
   async create(payload: CreateCollectionPayload): Promise<DbCollection> {
-    const { items: newItems, charges: newCharges, ...header } = payload;
+    const {
+      items: newItems,
+      charges: newCharges,
+      custody,
+      ...header
+    } = payload;
+    if (header.id && collections.some((c) => c.id === header.id))
+      throw new Error(`duplicate key value violates collections_pkey`);
     const now = new Date().toISOString();
     const targets = new Map<string, DbCharge>();
 
@@ -442,20 +452,18 @@ export const fakeCollectionRepository = {
 
     const row: DbCollection = {
       ...header,
-      id: nextId("col"),
+      id: header.id ?? nextId("col"),
       created_at: now,
       updated_at: now,
       voided_at: null,
       voided_by: null,
       void_reason: null,
-      held_by_user_id: header.received_by_user_id,
-      remitted_at: null,
-      remitted_by: null,
+      ...(custody ?? receivedCustody(header.received_by_user_id)),
     };
     collections.push(row);
     const itemRows: DbCollectionItem[] = newItems.map((it) => ({
       ...it,
-      id: nextId("ci"),
+      id: it.id ?? nextId("ci"),
       collection_id: row.id,
       charge_id: targets.get(it.charge_id)?.id ?? it.charge_id,
       created_at: now,
@@ -502,6 +510,25 @@ export const fakeCollectionRepository = {
       });
     }
     return live.map((r) => ({ ...r }));
+  },
+  // Both repositories: a replacement lands only if THIS call voided it.
+  async replace(
+    swaps: CollectionSwap[],
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<CollectionSwapResult> {
+    const voided = await fakeCollectionRepository.voidMany(
+      swaps.map((s) => s.id),
+      voidedBy,
+      reason,
+    );
+    const voidedIds = new Set(voided.map((v) => v.id));
+    const created: DbCollection[] = [];
+    for (const swap of swaps) {
+      if (swap.replacement && voidedIds.has(swap.id))
+        created.push(await fakeCollectionRepository.create(swap.replacement));
+    }
+    return { voided, created };
   },
   async collectedInRange(
     startIso: string,

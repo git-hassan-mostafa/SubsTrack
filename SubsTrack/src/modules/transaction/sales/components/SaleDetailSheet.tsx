@@ -37,7 +37,7 @@ interface Props {
   onDismiss: () => void;
   onVoided?: (result: SaleVoidResult) => void;
   onEdit?: (sale: Sale) => void;
-  onChanged?: (voided: Collection) => void;
+  onChanged?: (voided: Collection, replacement?: Collection) => void;
 }
 
 export function SaleDetailSheet({

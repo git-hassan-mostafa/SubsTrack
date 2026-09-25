@@ -20,20 +20,12 @@ interface Props {
   items: OpenItem[];
   lines: AllocationLine[];
   excluded: ReadonlySet<string>;
-  onToggle: (item: OpenItem) => void;
+  onToggle?: (item: OpenItem) => void;
   money: (value: number) => string;
   remainingAfter: number;
 }
 
-/**
- * The split preview: what this money will do, in the order it will do it.
- *
- * The whole point is that the queue is VISIBLE — the rows are drawn in the
- * waterfall's own order and each carries its position, its due date and how far
- * behind it is, so staff can see WHY the oldest bill got the money instead of
- * having to trust it. Untick a row and the numbers below it close up, which is
- * the rule "the money moves down to the next bill" shown rather than explained.
- */
+// The split in the waterfall's own order; without `onToggle` it is read-only.
 export function AllocationPreview({
   items,
   lines,
@@ -67,7 +59,7 @@ export function AllocationPreview({
       >
         {t("ledger.this_pays")}
       </Text>
-      {items.length > 1 ? (
+      {onToggle && items.length > 1 ? (
         <Text className="-mt-1 mb-2 text-[11px] text-gray-400">
           {t("ledger.skip_bill_hint")}
         </Text>
@@ -91,7 +83,7 @@ export function AllocationPreview({
           return (
             <EntityCard
               key={key}
-              onPress={() => onToggle(item)}
+              onPress={onToggle ? () => onToggle(item) : undefined}
               dimmed={skipped}
               renderIcon={
                 <QueueBadge

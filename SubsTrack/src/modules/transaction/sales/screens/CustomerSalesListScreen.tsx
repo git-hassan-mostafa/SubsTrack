@@ -259,7 +259,7 @@ export function CustomerSalesListScreen() {
         onDismiss={() => setActiveSale(null)}
         onVoided={handleVoided}
         onEdit={openEdit}
-        onChanged={patch.paymentVoided}
+        onChanged={patch.paymentChanged}
       />
 
       {saleActions.sheets}

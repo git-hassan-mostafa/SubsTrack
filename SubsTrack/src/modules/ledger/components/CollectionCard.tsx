@@ -10,10 +10,7 @@ import {
 } from "@/src/shared/components/CardText";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { Chip } from "@/src/shared/components/Chip";
-import {
-  ActionMenu,
-  type ActionMenuItem,
-} from "@/src/shared/components/ActionMenu";
+import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import type { CollectionListItem } from "@/src/core/types";
 import {
   findCurrency,
@@ -26,10 +23,12 @@ import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useUserNames } from "@/src/shared/hooks/useUserNames";
 import { KIND_STYLE } from "../utils/kindStyle";
 import { collectionLabel } from "../utils/collectionLabel";
+import { paymentMenu } from "../utils/paymentMenu";
 
 interface Props {
   item: CollectionListItem;
   onVoid?: (item: CollectionListItem) => void;
+  onCorrect?: (item: CollectionListItem) => void;
   onSendInvoice?: (item: CollectionListItem) => void;
   onOpen?: (item: CollectionListItem) => void;
   loading?: boolean;
@@ -43,6 +42,7 @@ interface Props {
 export function CollectionCard({
   item,
   onVoid,
+  onCorrect,
   onSendInvoice,
   onOpen,
   loading = false,
@@ -73,32 +73,18 @@ export function CollectionCard({
         ? userName(item.heldByUserId)
         : undefined;
 
-  const actions: ActionMenuItem[] = [];
-  if (onSendInvoice && !voided) {
-    actions.push({
-      key: "invoice",
-      group: "send",
-      label: t("invoicing.send_on_whatsapp"),
-      icon: "logo-whatsapp",
-      onPress: () => {
-        setMenuOpen(false);
-        onSendInvoice(item);
-      },
-    });
-  }
-  if (onVoid && !voided) {
-    actions.push({
-      key: "void",
-      group: "danger",
-      label: t("ledger.void_payment"),
-      icon: "trash-outline",
-      destructive: true,
-      onPress: () => {
-        setMenuOpen(false);
-        onVoid(item);
-      },
-    });
-  }
+  const act = (handler?: (item: CollectionListItem) => void) =>
+    handler && !voided
+      ? () => {
+          setMenuOpen(false);
+          handler(item);
+        }
+      : undefined;
+  const actions = paymentMenu(t, {
+    onSend: act(onSendInvoice),
+    onCorrect: act(onCorrect),
+    onVoid: act(onVoid),
+  });
 
   return (
     <EntityCard

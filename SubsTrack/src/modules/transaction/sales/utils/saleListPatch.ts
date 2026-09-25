@@ -1,4 +1,5 @@
 import type { Collection, Sale } from "@/src/core/types";
+import { amountByCharge } from "@/src/modules/ledger/utils/paidToCharge";
 
 /** Newest first, which is how every sales list is sorted. */
 export function addSale(items: Sale[], sale: Sale): Sale[] {
@@ -43,25 +44,13 @@ export function applyVoidedSales(
   return items.map((s) => byId.get(s.id) ?? s);
 }
 
-/**
- * Money in (or back out) on whichever bills this hand-over settled.
- *
- * A sale holds no money — `amountPaid` is a sum over the collection items that
- * reached its bill — so a collect only moves the sales whose `chargeId` the
- * hand-over names. `sign` is -1 when that hand-over was voided.
- */
+// Money in (1) or out (-1) on the sales whose bills this hand-over names.
 export function applyCollectionToSales(
   items: Sale[],
   collection: Pick<Collection, "items">,
   sign: 1 | -1 = 1,
 ): Sale[] {
-  const paidByCharge = new Map<string, number>();
-  for (const item of collection.items ?? []) {
-    paidByCharge.set(
-      item.chargeId,
-      (paidByCharge.get(item.chargeId) ?? 0) + item.amount,
-    );
-  }
+  const paidByCharge = amountByCharge(collection.items ?? []);
   if (paidByCharge.size === 0) return items;
   return items.map((s) => {
     const paid = s.chargeId ? paidByCharge.get(s.chargeId) : undefined;
@@ -91,25 +80,16 @@ export function saleUsd(sale: Sale): number {
   return sale.totalAmount / sale.ratePerUsdSnapshot;
 }
 
-/**
- * The writes a sales list patches itself for. A VOID is deliberately absent: it
- * takes the sale's hand-overs with it, and one of those may also have settled
- * another sale on the same list — which the write never names, so those screens
- * re-read instead.
- */
+// No sale VOID: its hand-overs may have paid other sales, so lists re-read.
 export interface SalePatches {
   created: (sale: Sale) => void;
   updated: (sale: Sale) => void;
   collected: (collection: Collection) => void;
-  paymentVoided: (collection: Collection) => void;
+  paymentChanged: (voided: Collection, replacement?: Collection) => void;
   writeOffChanged: (chargeId: string, writtenOffAt: string | null) => void;
 }
 
-/**
- * The patches a CUSTOMER-SCOPED list applies after a write, so the two such
- * lists behave identically. `customerId` is the scope: an edit that moved the
- * sale to another customer drops it from this list.
- */
+// A customer-scoped list's patches; an edit that moved the sale away drops it.
 export function saleListPatches(
   setItems: (fn: (prev: Sale[]) => Sale[]) => void,
   customerId: string | undefined,
@@ -122,8 +102,13 @@ export function saleListPatches(
       ),
     collected: (collection) =>
       setItems((prev) => applyCollectionToSales(prev, collection)),
-    paymentVoided: (collection) =>
-      setItems((prev) => applyCollectionToSales(prev, collection, -1)),
+    paymentChanged: (voided, replacement) =>
+      setItems((prev) => {
+        const undone = applyCollectionToSales(prev, voided, -1);
+        return replacement
+          ? applyCollectionToSales(undone, replacement)
+          : undone;
+      }),
     writeOffChanged: (chargeId, writtenOffAt) =>
       setItems((prev) => applyWriteOffToSales(prev, chargeId, writtenOffAt)),
   };

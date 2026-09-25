@@ -1,23 +1,16 @@
 import type { BranchFilter } from "@/src/core/constants";
 import type { CashRow, WalletSource } from "@/src/core/types";
 import type { DbCollection, DbCollectionItem } from "@/src/core/types/db";
+import type { CustodyValues } from "@/src/modules/wallet/utils/custodyValues";
 import type { CreateChargePayload } from "./IChargeRepository";
 
 /** One line of the split. `collection_id` is filled in by the repository. */
 export type CreateCollectionItemPayload = Omit<
   DbCollectionItem,
   "id" | "collection_id" | "created_at" | "updated_at" | "charges"
->;
+> & { id?: string };
 
-/**
- * A hand-over of cash plus where it went.
- *
- * `charges` carries the bills that must EXIST before the items can point at
- * them — the month charges the waterfall just materialized. They travel with
- * the collection so that offline the whole thing lands in ONE transaction: cash
- * can never be recorded against a bill that failed to save. Each is upserted by
- * its deterministic id, so a bill another device already created is reused.
- */
+// Bills ride along so offline they land in the SAME transaction as the cash.
 export type CreateCollectionPayload = Omit<
   DbCollection,
   | "id"
@@ -32,9 +25,22 @@ export type CreateCollectionPayload = Omit<
   | "collection_items"
   | "customers"
 > & {
+  id?: string;
   items: CreateCollectionItemPayload[];
   charges: CreateChargePayload[];
+  custody?: CustodyValues;
 };
+
+// Its replacement is written only if THIS call voided it — gotcha #171.
+export interface CollectionSwap {
+  id: string;
+  replacement: CreateCollectionPayload | null;
+}
+
+export interface CollectionSwapResult {
+  voided: DbCollection[];
+  created: DbCollection[];
+}
 
 export type SortDirection = "desc" | "asc";
 
@@ -78,6 +84,11 @@ export interface ICollectionRepository {
     voidedBy: string,
     reason: string | null,
   ): Promise<DbCollection[]>;
+  replace(
+    swaps: CollectionSwap[],
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<CollectionSwapResult>;
 
   collectedInRange(
     startIso: string,

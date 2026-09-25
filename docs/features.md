@@ -840,8 +840,8 @@ across currencies would have to be an expression; both are left out on purpose
 is user-picked and can be back-dated.
 
 **Tapping a row opens what it settled** — the bill itself for a single-bill
-hand-over, `CollectionSplitSheet` when it settled several, and **always the
-split for a voided row**, whatever it settled: the bill behind a reversal is
+hand-over, `CollectionDetailSheet` ("Payment details") when it settled
+several, and **always the detail sheet for a voided row**, whatever it settled: the bill behind a reversal is
 owed again, so it is no longer that row's story. A voided row used to open
 nothing at all, which left the one question staff actually ask — who cancelled
 this, when, and why — with no surface to answer it. So the sheet keeps the
@@ -1904,8 +1904,8 @@ across currencies would have to be an expression; both are left out on purpose
 is user-picked and can be back-dated.
 
 **Tapping a row opens what it settled** — the bill itself for a single-bill
-hand-over, `CollectionSplitSheet` when it settled several, and **always the
-split for a voided row**, whatever it settled: the bill behind a reversal is
+hand-over, `CollectionDetailSheet` ("Payment details") when it settled
+several, and **always the detail sheet for a voided row**, whatever it settled: the bill behind a reversal is
 owed again, so it is no longer that row's story. A voided row used to open
 nothing at all, which left the one question staff actually ask — who cancelled
 this, when, and why — with no surface to answer it. So the sheet keeps the
@@ -2168,8 +2168,8 @@ the **charge's** (what he was billed).
 | `CollectSheet`                                                                      | the ONE collect form. Two modes: a whole customer (type an amount, watch the waterfall split it, untick a row to steer the cash on) or a single bill. Same write either way, so one code path and one audit shape.                                                                                                                                                                                                                                                                                                                                                                                                                |
 | hero, then **every payment that reached it**, each with its own date and collector. |
 | `BillPaymentsList`                                                                  | the payments half of `BillSheet`, on its own — the list of hand-overs against ONE bill, with the per-row menu (send receipt / void this payment). Shared with the **sale receipt**, because a month and a sale are the same `charges` row to the ledger.                                                                                                                                                                                                                                                                                                                                                                          |
-| `CollectionCard`                                                                    | one hand-over. A single-bill payment names it inline; several wear a `3 items` marker. **Tapping the card opens what it settled** — the bill itself, or `CollectionSplitSheet` when it closed several. A voided row is inert.                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `CollectionSplitSheet` / `CollectionItemCard`                                       | the bills ONE hand-over settled, each a card that opens its own bill — the split shown rather than explained. Needs no read: the list already hydrates every item's charge.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `CollectionCard`                                                                    | one hand-over. A single-bill payment names it inline; several wear a `3 items` marker. **Tapping the card opens what it settled** — the bill itself, or `CollectionDetailSheet` when it closed several or was voided.                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `CollectionDetailSheet` / `CollectionItemCard`                                       | ONE hand-over in full ("Payment details") — dates, collector, custody, void — and the bills it settled, each a card that opens its own bill. Paints at once from the list row, then re-reads the payment so each bill is named with its plan or sale.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `useOpenBill`                                                                       | "show me the bill behind this row", read-only. A month and a manual fee open the shared `BillSheet`; a **sale** opens its receipt through an injected `onOpenSale`, because the sale sheet lives in the sales module and sales depends on the ledger — never the reverse. `open(charge)` takes the bill; `openOwed(item)` takes an `OpenItem`. **Neither reads**: an `OpenItem` built from a stored bill carries that `Charge` (`openItemFromCharge`), exactly as a `CollectionItem` carries its own, and a sale needs only the `saleId` already on the row. A **virtual** month opens nothing: there is no record behind it yet. |
 | `CollectionsPanel` / `CollectionsHistorySheet`                                      | the money-in history. ONE list where there were two (payments and debt payments). Reached from the quick-actions menu.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `CollectQuickActionSheet`                                                           | "Collect money" from anywhere: pick a customer, the waterfall does the rest.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -3004,8 +3004,8 @@ across currencies would have to be an expression; both are left out on purpose
 is user-picked and can be back-dated.
 
 **Tapping a row opens what it settled** — the bill itself for a single-bill
-hand-over, `CollectionSplitSheet` when it settled several, and **always the
-split for a voided row**, whatever it settled: the bill behind a reversal is
+hand-over, `CollectionDetailSheet` ("Payment details") when it settled
+several, and **always the detail sheet for a voided row**, whatever it settled: the bill behind a reversal is
 owed again, so it is no longer that row's story. A voided row used to open
 nothing at all, which left the one question staff actually ask — who cancelled
 this, when, and why — with no surface to answer it. So the sheet keeps the
@@ -4068,8 +4068,8 @@ across currencies would have to be an expression; both are left out on purpose
 is user-picked and can be back-dated.
 
 **Tapping a row opens what it settled** — the bill itself for a single-bill
-hand-over, `CollectionSplitSheet` when it settled several, and **always the
-split for a voided row**, whatever it settled: the bill behind a reversal is
+hand-over, `CollectionDetailSheet` ("Payment details") when it settled
+several, and **always the detail sheet for a voided row**, whatever it settled: the bill behind a reversal is
 owed again, so it is no longer that row's story. A voided row used to open
 nothing at all, which left the one question staff actually ask — who cancelled
 this, when, and why — with no surface to answer it. So the sheet keeps the
@@ -4332,8 +4332,8 @@ the **charge's** (what he was billed).
 | `CollectSheet`                                                                                                                                                                                                                                                                                                                     | the ONE collect form. Two modes: a whole customer (type an amount, watch the waterfall split it, untick a row to steer the cash on) or a single bill. Same write either way, so one code path and one audit shape.                                                                                                                                                                                                                                                                                                                                                                                                                |
 | hero, then **every payment that reached it**, each with its own date and collector.                                                                                                                                                                                                                                                |
 | `BillPaymentsList`                                                                                                                                                                                                                                                                                                                 | the payments half of `BillSheet`, on its own — the list of hand-overs against ONE bill, with the per-row menu (send receipt / void this payment). Shared with the **sale receipt**, because a month and a sale are the same `charges` row to the ledger.                                                                                                                                                                                                                                                                                                                                                                          |
-| `CollectionCard`                                                                                                                                                                                                                                                                                                                   | one hand-over. A single-bill payment names it inline; several wear a `3 items` marker. **Tapping the card opens what it settled** — the bill itself, or `CollectionSplitSheet` when it closed several. A voided row is inert.                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `CollectionSplitSheet` / `CollectionItemCard`                                                                                                                                                                                                                                                                                      | the bills ONE hand-over settled, each a card that opens its own bill — the split shown rather than explained. Needs no read: the list already hydrates every item's charge.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `CollectionCard`                                                                                                                                                                                                                                                                                                                   | one hand-over. A single-bill payment names it inline; several wear a `3 items` marker. **Tapping the card opens what it settled** — the bill itself, or `CollectionDetailSheet` when it closed several or was voided.                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `CollectionDetailSheet` / `CollectionItemCard`                                                                                                                                                                                                                                                                                      | ONE hand-over in full ("Payment details") — dates, collector, custody, void — and the bills it settled, each a card that opens its own bill. Paints at once from the list row, then re-reads the payment so each bill is named with its plan or sale.                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `useOpenBill`                                                                                                                                                                                                                                                                                                                      | "show me the bill behind this row", read-only. A month and a manual fee open the shared `BillSheet`; a **sale** opens its receipt through an injected `onOpenSale`, because the sale sheet lives in the sales module and sales depends on the ledger — never the reverse. `open(charge)` takes the bill; `openOwed(item)` takes an `OpenItem`. **Neither reads**: an `OpenItem` built from a stored bill carries that `Charge` (`openItemFromCharge`), exactly as a `CollectionItem` carries its own, and a sale needs only the `saleId` already on the row. A **virtual** month opens nothing: there is no record behind it yet. |
 | `CollectionsPanel` / `CollectionsHistorySheet`                                                                                                                                                                                                                                                                                     | the money-in history. ONE list where there were two (payments and debt payments). Reached from the quick-actions menu.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `CollectQuickActionSheet`                                                                                                                                                                                                                                                                                                          | "Collect money" from anywhere: pick a customer, the waterfall does the rest.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -4663,8 +4663,47 @@ meant to read as one joined pill.
 **Correcting money is a void, never an edit.** A bill's price can be corrected
 (a sale's, by editing the sale; a hand-typed fee's, by editing it); the _money_
 cannot, because a hand-over is a physical event with its own date, collector and
-custody. Voiding it and collecting again is the only path, and it is the honest
-one — the trail then says what really happened instead of quietly rewriting it.
+custody. The row is never rewritten — the trail then says what really happened
+instead of quietly rewriting it.
+
+**Correct amount** (payment row menu, beside Void payment — on the bill sheet,
+the sale receipt and Money received) is that void done for the user when only
+the NUMBER was typed wrong (gotcha #171). `CorrectCollectionSheet` shows the
+recorded amount, one amount box and the usual split preview; Save calls
+`CollectionService.correct`, which voids the hand-over and re-records it in ONE
+write (`ICollectionRepository.replace`):
+
+- **Kept:** received date, collector, branch, customer, currency, frozen rate,
+  notes and **custody** (who holds the cash now, or its remittance). Dashboard
+  revenue stays in its month and no wallet changes hands.
+- **Changed:** the amount, and its split. The new amount is re-poured over the
+  **same bills** the payment touched, oldest due date first, each bill counted as
+  owing what it would owe without this payment — so lowering takes money off the
+  NEWEST bill first, and raising fills what those bills still owe. The preview is
+  read-only — no bill can be skipped, because skipping an older month would move
+  its money onto a newer one and break "months settle oldest first".
+- **Refused:** 0 (that is a void), the same amount, more than those bills owe
+  (collect the rest as a new payment), and a payment on a voided or written-off
+  bill (undo the write-off first).
+- **The bill's price is never touched.** On a line with no set price the typed
+  bill stays; if the BILL was typed wrong too, void the payment and collect again.
+- The old row's void reason reads "Corrected from X to Y", plus the optional
+  reason typed on the sheet.
+
+**Payment details.** Tapping a payment opens `CollectionDetailSheet`, wherever
+the payment is listed: a row in a bill's payments list (month bill sheet, sale
+receipt), a wallet card (Wallets, My Wallet), and a multi-bill or voided card in
+Money received (a single-bill card there still opens its bill directly, §17.2).
+It shows the amount (and its `≈` display-currency value), the kind, **Received
+on**, **Recorded in the app on** (only when it differs), who took it, where the
+cash is now or when and by whom it was banked, the notes, the void details, and
+every bill it paid with its own slice, the bill total and the due date. It is
+read-only — the row's 3-dot keeps Send / Correct amount / Void. It paints at
+once from a list row when there is one, then re-reads the payment
+(`collectionService.getListItem`) so each bill is named with its plan or sale
+receipt number. Only Money received lets a bill card open that bill; the other
+entry points already sit inside a sheet, so they do not stack a bill sheet on
+top.
 
 ---
 

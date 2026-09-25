@@ -48,15 +48,15 @@ export interface AllocationResult {
  */
 export function allocate(amount: number, items: OpenItem[]): AllocationResult {
   const lines: AllocationLine[] = [];
-  let left = round(amount);
+  let left = roundMoney(amount);
 
   for (const item of sortByDue(items)) {
     if (left <= 0) break;
     if (item.balance <= 0) continue;
-    const take = round(Math.min(left, item.balance));
+    const take = roundMoney(Math.min(left, item.balance));
     if (take <= 0) continue;
     lines.push({ item, amount: take, settles: take >= item.balance });
-    left = round(left - take);
+    left = roundMoney(left - take);
   }
 
   return { lines, leftover: left };
@@ -79,14 +79,12 @@ export function allocateExcluding(
 
 /** The most that can be collected from this pool — the overpay ceiling. */
 export function totalOwed(items: OpenItem[]): number {
-  return round(items.reduce((sum, i) => sum + Math.max(0, i.balance), 0));
+  return roundMoney(
+    items.reduce((sum, i) => sum + Math.max(0, i.balance), 0),
+  );
 }
 
-/**
- * Money is stored as NUMERIC(20,8); 8 decimals is also what a divided unit cost
- * keeps. Rounding here (rather than at display) stops 0.1 + 0.2 leaving a
- * millionth of a cent behind and a bill that never closes.
- */
-function round(n: number): number {
+// NUMERIC(20,8): rounding stops float dust leaving a bill that never closes.
+export function roundMoney(n: number): number {
   return Math.round(n * 1e8) / 1e8;
 }

@@ -16,6 +16,8 @@ import {
   collectionService,
   ledgerService,
   type CollectInput,
+  type CollectionCorrection,
+  type CorrectCollectionInput,
   type CreateManualChargeInput,
   type UpdateManualChargeInput,
   type MultiCollectResult,
@@ -75,6 +77,9 @@ export interface LedgerSlice {
     voidedBy: string,
     reason: string | null,
   ) => Promise<Collection | null>;
+  correctCollection: (
+    input: CorrectCollectionInput,
+  ) => Promise<CollectionCorrection | null>;
 
   addManualCharge: (input: CreateManualChargeInput) => Promise<Charge | null>;
   updateManualCharge: (
@@ -292,6 +297,19 @@ export const createLedgerSlice: StateCreator<
         voidedBy: result.voidedBy,
         voidReason: result.voidReason,
       };
+    },
+
+    correctCollection: async (input) => {
+      const result = await run("loading", () =>
+        collectionService.correct(input),
+      );
+      if (result === null) return null;
+      get().sales.applyCollection(result.voided, -1);
+      get().payments.applyCollection(result.voided, -1);
+      get().sales.applyCollection(result.replacement);
+      get().payments.applyCollection(result.replacement);
+      get().ledger.clearOwed();
+      return result;
     },
 
     addManualCharge: (input) =>

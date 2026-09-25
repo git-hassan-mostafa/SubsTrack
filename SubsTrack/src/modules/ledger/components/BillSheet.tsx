@@ -37,7 +37,7 @@ interface Props {
   onVoidBill?: (charge: Charge) => Promise<boolean>;
   onWriteOff?: (charge: Charge, balance: number) => void;
   onRevertWriteOff?: (charge: Charge, balance: number) => Promise<void>;
-  onChanged?: (voided: Collection) => void;
+  onChanged?: (voided: Collection, replacement?: Collection) => void;
 }
 
 export function BillSheet({

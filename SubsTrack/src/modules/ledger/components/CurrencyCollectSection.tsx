@@ -16,7 +16,7 @@ interface Props {
   excluded: ReadonlySet<string>;
   grouped: boolean;
   onChangeAmount: (amount: number | null) => void;
-  onToggle: (item: OpenItem) => void;
+  onToggle?: (item: OpenItem) => void;
 }
 
 /**

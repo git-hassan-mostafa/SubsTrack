@@ -5,7 +5,7 @@ import { BillSheet } from "../components/BillSheet";
 
 interface Options {
   onOpenSale?: (saleId: string) => Promise<void> | void;
-  onChanged?: (voided: Collection) => void;
+  onChanged?: (voided: Collection, replacement?: Collection) => void;
 }
 
 export interface OpenBill {

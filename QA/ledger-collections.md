@@ -332,7 +332,7 @@ settled a month + a sale + a custom fee, and (d) a **voided** row.
 ### 17.1 The card marker replaced the expander
 
 17.1.1 The multi-bill row (c) shows a grey **3 items** chip — there is **no** `▾` chevron and no inline list any more; the bills themselves are **named** on the line above it (see §19.1).
-17.1.2 Tapping the row does not expand anything in place; it opens the split sheet (§17.3).
+17.1.2 Tapping the row does not expand anything in place; it opens **Payment details** (§17.3).
 17.1.3 The single-bill rows (a) and (b) name their bill on the same line, with no chip.
 
 ### 17.2 A single-bill hand-over opens its bill
@@ -345,18 +345,18 @@ settled a month + a sale + a custom fee, and (d) a **voided** row.
 
 ### 17.3 A multi-bill hand-over opens the split
 
-17.3.1 Tap row (c) → a sheet titled **What this paid** opens: the hand-over's total, a status pill, then a details block (customer · received to the minute · who took it · where the cash is now · notes) and the bills under **This pays**. See §19.4.
+17.3.1 Tap row (c) → a sheet titled **Payment details** opens: the hand-over's total, a status pill, then a details block (customer · received to the minute · who took it · where the cash is now · notes) and the bills under **This pays**. See §19.4.
 17.3.2 One card per bill, in the order the waterfall filled them, each with its own amount, its own kind icon colour and its frozen label — plus the bill's **total** and **due date**, and when it was billed.
 17.3.3 The card amounts **add up to the hand-over's total** exactly.
 17.3.4 Every amount prints in the **hand-over's** currency (an item has no currency of its own), with the display-currency value as a `≈` line under the headline only.
-17.3.5 Tap the month card → the month bill sheet opens **on top of** the split sheet. Back (or the header dismiss) returns to the split, not to the list.
+17.3.5 Tap the month card → the month bill sheet opens **on top of** Payment details. Back (or the header dismiss) returns to Payment details, not to the list.
 17.3.6 Tap the sale card → the sale receipt opens the same way; its row shows a spinner while the sale is fetched.
-17.3.7 Opening the split sheet triggers **no network read** — the list already carries every item and its charge.
+17.3.7 Payment details **opens at once** from what the list already holds (no spinner), then quietly re-reads the payment so each bill is named with its plan (e.g. "Jan 2026 · Internet") or its sale receipt number. Offline it still opens.
 
 ### 17.4 A voided hand-over opens its own record
 
 17.4.1 Row (d) has no 3-dot menu (nothing can be done to it), its amount is **struck through**, and it wears a red **Voided** chip carrying the reason.
-17.4.2 Tapping row (d) opens the **split sheet** — its own record. It used to do nothing at all.
+17.4.2 Tapping row (d) opens **Payment details** — its own record. It used to do nothing at all.
 17.4.3 It opens the split even when it settled **one** bill: a live row would go straight to that bill, but the bill is owed again and is no longer this row's story.
 17.4.4 A voided row shows **no** custody chip — the cash it names does not exist any more.
 17.4.5 The sheet lists: the struck-through total, a **kind** pill plus a red **Voided** pill, the customer, when it was received, who took it, the notes, **when it was voided, by whom, and the reason**.
@@ -543,3 +543,113 @@ Save is pressed — not the moment it opened. A date the user picks is kept as-i
 21.5 Mixed-currency customer, field untouched → every row the one Save writes (one per currency) carries the same Save moment.
 21.6 Works the same in every entry point: customer grid Collect, debts list, customer debts, sale receipt Collect, and the quick-action "Collect money".
 21.7 Offline (native): untouched field, Save → the row is stamped with the device's Save moment, and the same value reaches the server after sync.
+
+---
+
+## 22. Correct amount — fixing a mistyped payment (gotcha #171)
+
+A payment typed with the wrong number (500 instead of 50) is fixed from the
+payment row's 3-dot menu → **Correct amount**. Under the hood the old payment is
+voided and a new one is saved; to the user it reads as one correction.
+
+### 22.1 Where it is offered
+
+22.1.1 The month **bill sheet** → payments list → a live row's 3-dot → **Correct amount** sits above **Void payment**.
+22.1.2 The **sale receipt** → payments list → same menu, same entry.
+22.1.3 **Money received** (Transactions) → a live card's 3-dot → **Correct amount**.
+22.1.4 A **voided** payment offers neither Correct amount nor Void payment.
+22.1.5 Arabic: the entry reads **تصحيح المبلغ** and the sheet lays out right-to-left.
+
+### 22.2 The sheet
+
+22.2.1 Opens with a spinner, then shows: the short hint, **Amount recorded**, **Received on**, **Taken by**, one amount box pre-filled with the recorded amount, the "This pays" preview, an optional **Reason** field and **Save correction**.
+22.2.2 The currency is locked to the payment's own currency — it cannot be changed here.
+22.2.3 **Save correction** is disabled until the amount is different from the recorded one.
+22.2.4 Clearing the box (or typing 0) shows "To take back the whole payment, void it instead." and keeps Save disabled.
+22.2.5 Typing more than the bills can take shows the usual "The most you can collect is …" line and keeps Save disabled. **Collect all** fills in that maximum.
+22.2.6 Closing the sheet after changing the amount asks to discard; closing it untouched does not.
+
+### 22.3 Lowering
+
+22.3.1 One $50 payment on a $50 month, typed as $50 but really $40 → Correct amount → 40 → Save. The month now shows **40/50** (partial ring), the payments list shows a live $40 row and the old $50 row struck through as voided.
+22.3.2 One $40 payment that paid Sep ($20) and Oct ($20) → correct to $30 → **Oct loses the money first**: Sep stays paid in full, Oct becomes 10/20.
+22.3.3 Same payment → correct to $15 → Sep 15/20, Oct back to unpaid (red); the new payment no longer lists Oct.
+22.3.4 The preview rows **cannot be tapped** and there is no "Tap a bill to skip it" hint — a correction never moves money from an older month onto a newer one.
+
+### 22.4 Raising
+
+22.4.1 A $50 month with a $5 payment (typo) → correct to $50 → the month is paid in full; one live $50 payment.
+22.4.2 The same bill also has another $30 payment → the most this payment can become is $20; $25 is refused with the "most you can collect" line.
+22.4.3 A payment on a paid-in-full bill cannot be raised at all — collect the extra as a new payment on another bill instead.
+
+### 22.5 What must NOT change
+
+22.5.1 The corrected payment keeps the **original Received on** date/time — not today. Dashboard revenue and Money received keep it in its original month; the month's total changes by the difference only.
+22.5.2 It keeps the original **Taken by**, branch, customer, currency, rate and notes. An LBP payment stays LBP, with the same USD value per lira as before.
+22.5.3 **Custody:** a payment the collector already handed to the branch admin → correct it → the new payment is still **with the branch admin** (Money received card chip, Wallets). The collector's wallet does not grow.
+22.5.4 A payment already **banked / handed over** (remitted) → correct it → the new one is still banked; no wallet changes.
+22.5.5 The **bill's price never changes**. On a plan with no set price, the typed month amount stays; to fix a wrong BILL, void the payment and collect again.
+
+### 22.6 The trail
+
+22.6.1 The voided row's reason reads **"Corrected from $50 to $40"**, followed by the typed reason when one was entered ("… · typed wrong").
+22.6.2 Audit log (admin): one **void** entry for the old payment and one **create** entry for the new one, both on the same customer.
+22.6.3 Money received with status **Voided only** lists the old row; **Not voided** lists the new one.
+22.6.4 Send on WhatsApp from the new row → the receipt shows the corrected amount.
+
+### 22.7 Refusals
+
+22.7.1 A payment on a bill that was later **written off** → Correct amount → the sheet shows "A bill this payment paid was voided or written off. Undo the write-off first, then correct the payment." and no form.
+22.7.2 Two phones: phone A voids a payment, phone B (not yet synced) corrects it → after sync, only one of the two outcomes stands; no payment is counted twice.
+22.7.3 Web: correct a payment that another browser voided a moment ago → "This payment is already voided." Nothing is saved.
+
+### 22.8 Offline (native)
+
+22.8.1 Airplane mode → correct a payment → the grid, bill sheet and Money received update at once; after sync the server shows the voided old row and the new row with the same Received on.
+22.8.2 Kill the app in the middle of Save (offline) → on reopen either both the void and the new payment exist, or neither does — never a voided payment with no replacement.
+22.8.3 The same payment corrected to the same amount on two offline phones → after both sync there is **one** live corrected payment, not two.
+
+### 22.9 Sale edit keeps custody too (same fix)
+
+22.9.1 A sale paid $30 at the till, cash handed to the branch admin, then the sale edited down to $20 → the re-recorded $20 is **with the branch admin**, not back with the collector.
+22.9.2 A $30 hand-over that paid a sale ($10) and a month ($20), cash with the admin → lower the sale's collected amount to 0 → the month stays paid, and its rebuilt $20 payment is still with the admin.
+
+---
+
+## 23. Payment details — tapping any payment
+
+Tapping a payment opens **Payment details**: one read-only sheet with
+everything about that one hand-over.
+
+### 23.1 Where it opens
+
+23.1.1 **Month bill sheet** → payments list → tap a row (not its 3-dot) → Payment details opens on top of the bill sheet.
+23.1.2 **Sale receipt** → payments list → tap a row → Payment details.
+23.1.3 **Wallets** (admin) → open a collector's wallet → tap a cash card → Payment details opens on top of the wallet sheet.
+23.1.4 **My Wallet** → tap a cash card → Payment details.
+23.1.5 **Money received** → a multi-bill or voided card → Payment details (as before, §17.3/§17.4). A single-bill live card still opens its bill directly (§17.2).
+23.1.6 The 3-dot on a payment row still opens its menu (Send / Correct amount / Void); it does **not** also open Payment details.
+23.1.7 Wallet cards: a tap opens Payment details. After a long-press starts selection (only where the user may receive / close out), taps **select** cards instead and no sheet opens. The small **Receive** / **Close out** link on a card still does its own job.
+23.1.8 A **voided** payment row (on a bill or on a voided bill) opens Payment details too, showing the void.
+
+### 23.2 What it shows
+
+23.2.1 Title **Payment details**, with the customer's name (or "Walk-in / no customer") under it.
+23.2.2 The amount in the payment's own currency, big, with a `≈` line in the display currency when they differ; a kind pill (Month / Sale / Custom / Mixed) and a red **Voided** pill when voided (amount struck through).
+23.2.3 **Received on** (date and time).
+23.2.4 **Recorded in the app on** appears only when it differs from Received on — e.g. a payment back-dated to last week shows both; a normal one shows only Received on.
+23.2.5 **Taken by** (the collector).
+23.2.6 **Cash now with**: the holder's name, or "Banked / handed over". Not shown on a voided payment.
+23.2.7 A banked payment also shows **Banked on** and **Banked by**.
+23.2.8 **Notes**, and for a voided payment **Voided on**, **Voided by** and **Void reason** (e.g. "Corrected from $50 to $40").
+23.2.9 Under **This pays** (or **This had paid** when voided): one card per bill, each with its own slice of the money, the bill total, due date and billed-on date. The slices add up to the amount at the top.
+23.2.10 Bills are named in full: a month shows its plan ("Jan 2026 · Internet"), a sale its receipt number ("#A1B2C3 · …"), a custom fee its description.
+
+### 23.3 Behaviour
+
+23.3.1 From the bill sheet, sale receipt and wallets the bill cards are **not** tappable (you are already in a sheet). From Money received they open the bill, as before.
+23.3.2 A spinner shows while the payment loads (bill sheet, sale receipt, wallets); from Money received it opens at once.
+23.3.3 A payment that no longer exists (deleted on another device before sync) → "This payment no longer exists." in a red banner; tapping it closes the sheet.
+23.3.4 Close with the header **Close**, the Back button or by dragging down → returns to the screen underneath, which is unchanged.
+23.3.5 Offline (native): Payment details opens from every entry point with no network.
+23.3.6 Arabic: the sheet reads right-to-left and every label is translated (تفاصيل الدفعة).

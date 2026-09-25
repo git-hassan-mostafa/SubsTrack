@@ -18,7 +18,13 @@ import { useUserNames } from "@/src/shared/hooks/useUserNames";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useSendInvoice } from "@/src/modules/invoicing";
 import { paidToCharge } from "../utils/paidToCharge";
-import { collectionService } from "../services/CollectionService";
+import { paymentMenu } from "../utils/paymentMenu";
+import {
+  collectionService,
+  type CollectionCorrection,
+} from "../services/CollectionService";
+import { CollectionDetailSheet } from "./CollectionDetailSheet";
+import { CorrectCollectionSheet } from "./CorrectCollectionSheet";
 import { VoidCollectionDialog } from "./VoidCollectionDialog";
 
 interface Props {
@@ -27,24 +33,13 @@ interface Props {
   visible: boolean;
   billVoided?: boolean;
   recipient?: { name: string; phone: string | null } | null;
-  onChanged?: (voided: Collection) => void;
+  onChanged?: (voided: Collection, replacement?: Collection) => void;
   onCollectedChange?: (collected: number) => void;
   onPaymentsChange?: (payments: Collection[]) => void;
   onLoadingChange?: (loading: boolean) => void;
 }
 
-/**
- * Every payment that has reached ONE bill, with its own date, collector and
- * 3-dot menu (send receipt / void this hand-over).
- *
- * Shared by the month `BillSheet` and the sale receipt, because a month and a
- * sale are the same thing to the ledger: one `charges` row that any number of
- * `collections` can settle. Voiding a row here says THAT hand-over was wrong and
- * leaves the bill owed — voiding the bill itself is the owner's own action.
- *
- * `billVoided` makes the whole list a record: voiding the bill already took its
- * cash, so every row reads voided and nothing here can be acted on again.
- */
+// Every payment on ONE bill; voiding a row leaves the bill owed — gotcha #109.
 export function BillPaymentsList({
   chargeId,
   snapshot,
@@ -66,6 +61,8 @@ export function BillPaymentsList({
   const [error, setError] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<Collection | null>(null);
   const [voidTarget, setVoidTarget] = useState<Collection | null>(null);
+  const [correctTarget, setCorrectTarget] = useState<Collection | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const loading = payments === null;
 
   const load = useCallback(async () => {
@@ -120,31 +117,27 @@ export function BillPaymentsList({
   }
 
   function paymentActions(target: Collection): ActionMenuItem[] {
-    const actions: ActionMenuItem[] = [];
-    if (sendable) {
-      actions.push({
-        key: "invoice",
-        group: "send",
-        label: t("invoicing.send_on_whatsapp"),
-        icon: "logo-whatsapp",
-        onPress: () => {
-          setMenuFor(null);
-          void handleSend(target);
-        },
-      });
-    }
-    actions.push({
-      key: "void",
-      group: "danger",
-      label: t("ledger.void_payment"),
-      icon: "trash-outline",
-      destructive: true,
-      onPress: () => {
-        setVoidTarget(target);
-        setMenuFor(null);
-      },
+    const act = (then: () => void) => () => {
+      setMenuFor(null);
+      then();
+    };
+    return paymentMenu(t, {
+      onSend: sendable ? act(() => void handleSend(target)) : undefined,
+      onCorrect: act(() => setCorrectTarget(target)),
+      onVoid: act(() => setVoidTarget(target)),
     });
-    return actions;
+  }
+
+  function handleCorrected({ voided, replacement }: CollectionCorrection) {
+    setCorrectTarget(null);
+    const stillHere = paidToCharge(replacement, chargeId) > 0;
+    setPayments((prev) =>
+      (prev ?? []).flatMap((p) => {
+        if (p.id !== voided.id) return [p];
+        return stillHere ? [replacement, voided] : [voided];
+      }),
+    );
+    onChanged?.(voided, replacement);
   }
 
   return (
@@ -180,8 +173,9 @@ export function BillPaymentsList({
           const coversMore = (p.items?.length ?? 0) > 1;
           const voided = billVoided || p.voidedAt !== null;
           return (
-            <View
+            <PressableOpacity
               key={p.id}
+              onPress={() => setDetailId(p.id)}
               className={`flex-row items-center gap-3 rounded-xl border border-gray-200 px-3 py-2.5 ${
                 voided ? "opacity-50" : ""
               }`}
@@ -224,7 +218,7 @@ export function BillPaymentsList({
                   />
                 </PressableOpacity>
               )}
-            </View>
+            </PressableOpacity>
           );
         })
       )}
@@ -248,6 +242,21 @@ export function BillPaymentsList({
             onChanged?.(voided);
           }}
           onDismiss={() => setVoidTarget(null)}
+        />
+      )}
+
+      {detailId && (
+        <CollectionDetailSheet
+          collectionId={detailId}
+          onDismiss={() => setDetailId(null)}
+        />
+      )}
+
+      {correctTarget && (
+        <CorrectCollectionSheet
+          collectionId={correctTarget.id}
+          onDone={handleCorrected}
+          onDismiss={() => setCorrectTarget(null)}
         />
       )}
     </View>

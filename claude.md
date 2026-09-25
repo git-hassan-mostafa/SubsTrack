@@ -49,7 +49,8 @@ Offline`). Never `new XxxRepository()` in a service/slice — import the default
    is raised.
    8b. **Money is a hand-over, never a number on the thing it paid for.** Balance
    = `charge.amount − SUM(collection_items)`, computed. Nothing anywhere stores a
-   `paid` counter. Correcting cash = void the collection, never edit an amount.
+   `paid` counter. Correcting cash = void the collection, never edit an amount
+   (Correct amount = void + re-record, gotcha #171).
    8c. **Everything keys off MONEY, never off a row existing** (gotcha #106).
 9. Cross-module state → global Zustand store (`src/state/slices/`). Slices import
    peer-slice **types** only, never their creators/hooks; cross-slice reads via
@@ -339,6 +340,12 @@ second payment had nowhere to go):
   (gotcha #125). Plain `voidCharge` still refuses a paid bill. A **month** bill
   void is gated NEWEST-FIRST through `payments.voidMonthBill`. Hand-overs are
   voided in ONE write (`CollectionRepository.voidMany`), never a loop.
+- **Correct amount** (a mistyped payment) is a void + re-recorded hand-over in
+  ONE call, `CollectionService.correct` → `ICollectionRepository.replace`
+  (gotcha #171): same date, collector, currency, rate, notes and **custody**;
+  only the amount and its split over the SAME bills change. Any rebuilt
+  hand-over (`unpayCharge` too) goes through `replace` and keeps its custody —
+  a fresh `create` would put handed-over cash back in the collector's wallet.
 - A line with **no set price** is collected through an OPEN item (gotcha #112) —
   the collect sheet's "Amount for this month" field IS the bill and picks the
   currency; `OpenItem.openAmount` is the flag.
@@ -394,7 +401,7 @@ Facts that change how you code and are easy to get wrong:
   server round trip). It is the sale card's **title** (items summary drops to a
   subtitle), the receipt's "Receipt ID" row, the History sheet header (both entry
   points pass `saleTitle()`), and — via `chargeLabel` — every place a sale bill is
-  named: money-received card + split sheet, debts, collect preview, WhatsApp. On
+  named: money-received card + payment details sheet, debts, collect preview, WhatsApp. On
   that ledger path it is the ONLY identity (`charges(*)` never joins `sales`, so
   the label was the bare word "Sale"). The Audit Log card's chip stays the
   **customer** — that is the subject, not the record's name.

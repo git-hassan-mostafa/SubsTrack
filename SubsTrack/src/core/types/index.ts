@@ -550,6 +550,9 @@ export interface CollectionListItem {
   receivedAt: string;
   receivedByUserId: string | null;
   heldByUserId: string | null;
+  remittedAt: string | null;
+  remittedBy: string | null;
+  createdAt: string;
   branchId: string | null;
   notes: string | null;
   voidedAt: string | null;

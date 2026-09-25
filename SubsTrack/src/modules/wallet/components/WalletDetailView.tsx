@@ -37,6 +37,7 @@ import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { formatDate } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import { CollectionDetailSheet } from "@/src/modules/ledger/components/CollectionDetailSheet";
 import type {
   UserWalletDetail,
   WalletItem,
@@ -146,6 +147,7 @@ export function WalletDetailView({
   const [typeFilter, setTypeFilter] = useState<WalletSource | null>(null);
   const [fromDate, setFromDate] = useState<string | null>(null);
   const [toDate, setToDate] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const allItems = detail?.items ?? [];
   const holderId = detail?.holderUserId ?? null;
@@ -161,8 +163,6 @@ export function WalletDetailView({
     clearItemSelection();
   }, [holderId, clearItemSelection]);
 
-  // Raw cash amount formatted in its own currency (source === target, so the
-  // live rate is irrelevant — this shows the physical cash count).
   const inOwnCurrency = (amount: number, currencyId: string | null) => {
     const cur = findCurrency(currencies, currencyId);
     return formatMoney(amount, cur, cur);
@@ -260,7 +260,6 @@ export function WalletDetailView({
           paddingBottom: 48,
         }}
       >
-        {/* Grand total (USD → display currency) — the full wallet, not the filtered subset. */}
         <View className="items-center py-4">
           <Text className="text-xs text-gray-400 uppercase tracking-wide">
             {t("wallet.total_held")}
@@ -270,7 +269,6 @@ export function WalletDetailView({
           </Text>
         </View>
 
-        {/* Per-currency physical cash breakdown (only when >1 currency involved). */}
         {detail && detail.byCurrency.length > 1 ? (
           <View className="bg-gray-50 rounded-2xl px-4 py-2 mb-4">
             {detail.byCurrency.map((ct) => (
@@ -289,7 +287,6 @@ export function WalletDetailView({
           </View>
         ) : null}
 
-        {/* Bulk action — hidden while selecting or when the viewer can't act. */}
         {canAct && !selecting && !isEmpty ? (
           <PressableOpacity
             onPress={onActAll}
@@ -312,7 +309,6 @@ export function WalletDetailView({
           />
         ) : (
           <View>
-            {/* Section header + filter toggle — hidden while selecting. */}
             {!selecting ? (
               <View className="flex-row items-center justify-between mb-2">
                 <Text
@@ -404,7 +400,7 @@ export function WalletDetailView({
                 return (
                   <EntityCard
                     key={k}
-                    disabled={!canAct}
+                    onPress={() => setDetailId(item.id)}
                     icon={meta.icon}
                     iconColor={meta.color}
                     iconBgClassName={meta.bg}
@@ -460,6 +456,13 @@ export function WalletDetailView({
           </View>
         )}
       </Scroll>
+
+      {detailId ? (
+        <CollectionDetailSheet
+          collectionId={detailId}
+          onDismiss={() => setDetailId(null)}
+        />
+      ) : null}
     </View>
   );
 }

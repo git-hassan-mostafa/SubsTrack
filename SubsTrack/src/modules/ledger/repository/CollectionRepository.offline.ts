@@ -11,9 +11,14 @@ import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository"
 import { insertDirty, updateDirty } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@/src/core/offline/ids";
 import { sanitizeSearchTerm } from "@/src/core/utils/searchTerm";
-import { custodyValues } from "@/src/modules/wallet/utils/custodyValues";
+import {
+  custodyValues,
+  receivedCustody,
+} from "@/src/modules/wallet/utils/custodyValues";
 import type {
   CollectionSortField,
+  CollectionSwap,
+  CollectionSwapResult,
   CreateCollectionPayload,
   FindCollectionsOptions,
   ICollectionRepository,
@@ -26,6 +31,12 @@ import {
 } from "./chargeRevive";
 import { collectionPlanId } from "../utils/collectionPlan";
 import { sumByMonth } from "../utils/monthTotals";
+
+interface AuditContext {
+  branchId: string | null;
+  subject: string | null;
+  customerId?: string;
+}
 
 /** SQLite-backed hand-overs. Reproduces
  *  `'*, collection_items(*, charges(*)), customers(*)'`. */
@@ -205,11 +216,7 @@ export class OfflineCollectionRepository
     db: SQLiteDatabase,
     before: DbCharge,
     next: CreateChargePayload,
-    audit: {
-      branchId: string | null;
-      subject: string | null;
-      customerId?: string;
-    },
+    audit: AuditContext,
   ): Promise<DbCharge> {
     const chargeId = before.id;
     const patch = patchForIncomingCash(
@@ -242,9 +249,26 @@ export class OfflineCollectionRepository
   }
 
   async create(payload: CreateCollectionPayload): Promise<DbCollection> {
-    const { items, charges, ...header } = payload;
+    const audit = await this.auditContext(payload);
+    return this.write((db) => this.insertIn(db, payload, audit));
+  }
+
+  private auditContext(
+    payload: CreateCollectionPayload,
+  ): Promise<AuditContext> {
+    return payload.customer_id
+      ? this.customerAudit(payload.customer_id)
+      : Promise.resolve({ branchId: payload.branch_id, subject: null });
+  }
+
+  private async insertIn(
+    db: SQLiteDatabase,
+    payload: CreateCollectionPayload,
+    audit: AuditContext,
+  ): Promise<DbCollection> {
+    const { items, charges, custody, ...header } = payload;
     const now = nowIso();
-    const id = newId();
+    const id = header.id ?? newId();
     const row: DbCollection = {
       ...header,
       id,
@@ -253,108 +277,100 @@ export class OfflineCollectionRepository
       voided_at: null,
       voided_by: null,
       void_reason: null,
-      held_by_user_id: header.received_by_user_id,
-      remitted_at: null,
-      remitted_by: null,
+      ...(custody ?? receivedCustody(header.received_by_user_id)),
     };
-
-    const audit = row.customer_id
-      ? await this.customerAudit(row.customer_id)
-      : { branchId: row.branch_id, subject: null };
 
     const targets = new Map<string, DbCharge>();
     const itemRows: DbCollectionItem[] = [];
     const settled = new Map<string, DbCharge>();
 
-    await this.write(async (db) => {
-      for (const charge of charges) {
-        const byKey = monthBillKey(charge)
-          ? this.decodeOne<DbCharge>(
-              "charges",
-              await db.getFirstAsync<Record<string, unknown>>(
-                "SELECT * FROM charges WHERE customer_plan_id = ? AND billing_month = ?",
-                [charge.customer_plan_id, charge.billing_month] as never[],
-              ),
-            )
-          : null;
-        const byId = this.decodeOne<DbCharge>(
-          "charges",
-          await db.getFirstAsync<Record<string, unknown>>(
-            "SELECT * FROM charges WHERE id = ?",
-            [charge.id] as never[],
-          ),
+    for (const charge of charges) {
+      const byKey = monthBillKey(charge)
+        ? this.decodeOne<DbCharge>(
+            "charges",
+            await db.getFirstAsync<Record<string, unknown>>(
+              "SELECT * FROM charges WHERE customer_plan_id = ? AND billing_month = ?",
+              [charge.customer_plan_id, charge.billing_month] as never[],
+            ),
+          )
+        : null;
+      const byId = this.decodeOne<DbCharge>(
+        "charges",
+        await db.getFirstAsync<Record<string, unknown>>(
+          "SELECT * FROM charges WHERE id = ?",
+          [charge.id] as never[],
+        ),
+      );
+      const target = resolveBillTarget(charge, byKey, byId);
+      if ("reuse" in target) {
+        targets.set(
+          charge.id,
+          await this.reviveTargetBill(db, target.reuse, charge, audit),
         );
-        const target = resolveBillTarget(charge, byKey, byId);
-        if ("reuse" in target) {
-          targets.set(
-            charge.id,
-            await this.reviveTargetBill(db, target.reuse, charge, audit),
-          );
-          continue;
-        }
-        const chargeRow: DbCharge = {
-          ...charge,
-          created_at: now,
-          updated_at: now,
-          voided_at: null,
-          voided_by: null,
-          void_reason: null,
-          written_off_at: null,
-          written_off_by: null,
-          write_off_reason: null,
-        };
-        const stored: DbCharge = {
-          ...chargeRow,
-          id: target.idTaken ? newId() : chargeRow.id,
-        };
-        await insertDirty(db, "charges", stored);
-        targets.set(charge.id, stored);
-        await this.auditIn(db, {
-          table: "charges",
-          recordId: stored.id,
-          action: "create",
-          after: stored,
-          ...audit,
-        });
+        continue;
       }
-
-      await insertDirty(db, "collections", row);
-      for (const it of items) {
-        const itemRow: DbCollectionItem = {
-          ...it,
-          charge_id: targets.get(it.charge_id)?.id ?? it.charge_id,
-          id: newId(),
-          collection_id: id,
-          created_at: now,
-          updated_at: now,
-        };
-        itemRows.push(itemRow);
-        await insertDirty(db, "collection_items", itemRow);
-      }
-
-      for (const c of targets.values()) settled.set(c.id, c);
-      const missing = itemRows
-        .map((it) => it.charge_id)
-        .filter((chargeId) => !settled.has(chargeId));
-      for (const c of (
-        await this.rowsById<DbCharge>("charges", missing)
-      ).values()) {
-        settled.set(c.id, c);
-      }
-
+      const chargeRow: DbCharge = {
+        ...charge,
+        created_at: now,
+        updated_at: now,
+        voided_at: null,
+        voided_by: null,
+        void_reason: null,
+        written_off_at: null,
+        written_off_by: null,
+        write_off_reason: null,
+      };
+      const stored: DbCharge = {
+        ...chargeRow,
+        id: target.idTaken ? newId() : chargeRow.id,
+      };
+      await insertDirty(db, "charges", stored);
+      targets.set(charge.id, stored);
       await this.auditIn(db, {
-        table: "collections",
-        recordId: id,
+        table: "charges",
+        recordId: stored.id,
         action: "create",
-        after: {
-          ...row,
-          collection_items: items,
-          plan_id: collectionPlanId(
-            itemRows.map((it) => settled.get(it.charge_id)?.plan_id),
-          ),
-        },
+        after: stored,
         ...audit,
       });
+    }
+
+    await insertDirty(db, "collections", row);
+    for (const it of items) {
+      const itemRow: DbCollectionItem = {
+        ...it,
+        charge_id: targets.get(it.charge_id)?.id ?? it.charge_id,
+        id: it.id ?? newId(),
+        collection_id: id,
+        created_at: now,
+        updated_at: now,
+      };
+      itemRows.push(itemRow);
+      await insertDirty(db, "collection_items", itemRow);
+    }
+
+    for (const c of targets.values()) settled.set(c.id, c);
+    const missing = itemRows
+      .map((it) => it.charge_id)
+      .filter((chargeId) => !settled.has(chargeId));
+    for (const c of (
+      await this.rowsById<DbCharge>("charges", missing)
+    ).values()) {
+      settled.set(c.id, c);
+    }
+
+    await this.auditIn(db, {
+      table: "collections",
+      recordId: id,
+      action: "create",
+      after: {
+        ...row,
+        collection_items: items,
+        plan_id: collectionPlanId(
+          itemRows.map((it) => settled.get(it.charge_id)?.plan_id),
+        ),
+      },
+      ...audit,
     });
 
     return {
@@ -453,6 +469,46 @@ export class OfflineCollectionRepository
     reason: string | null,
   ): Promise<DbCollection[]> {
     if (ids.length === 0) return [];
+    return this.write((db) => this.voidManyIn(db, ids, voidedBy, reason));
+  }
+
+  // One transaction: a replacement never lands without its void — gotcha #171.
+  async replace(
+    swaps: CollectionSwap[],
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<CollectionSwapResult> {
+    if (swaps.length === 0) return { voided: [], created: [] };
+    const audits = new Map<string, AuditContext>();
+    for (const swap of swaps) {
+      if (swap.replacement)
+        audits.set(swap.id, await this.auditContext(swap.replacement));
+    }
+    return this.write(async (db) => {
+      const voided = await this.voidManyIn(
+        db,
+        swaps.map((s) => s.id),
+        voidedBy,
+        reason,
+      );
+      const voidedIds = new Set(voided.map((v) => v.id));
+      const created: DbCollection[] = [];
+      for (const swap of swaps) {
+        const audit = audits.get(swap.id);
+        if (!swap.replacement || !audit || !voidedIds.has(swap.id)) continue;
+        created.push(await this.insertIn(db, swap.replacement, audit));
+      }
+      return { voided, created };
+    });
+  }
+
+  private async voidManyIn(
+    db: SQLiteDatabase,
+    ids: string[],
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<DbCollection[]> {
+    if (ids.length === 0) return [];
     const now = nowIso();
     const holes = ids.map(() => "?").join(",");
     const raw = await this.all<Record<string, unknown>>(
@@ -468,33 +524,31 @@ export class OfflineCollectionRepository
     const live = priors.filter((p) => !p.voided_at);
     if (live.length === 0) return [];
     const plans = await this.planIdsByCollection(live.map((p) => p.id));
-    await this.write(async (db) => {
-      await db.runAsync(
-        `UPDATE collections
-            SET voided_at = ?, voided_by = ?, void_reason = ?, updated_at = ?, _dirty = 1
-          WHERE id IN (${holes}) AND voided_at IS NULL`,
-        [now, voidedBy, reason, now, ...ids] as never[],
-      );
-      for (const prior of live) {
-        const planId = plans.get(prior.id) ?? null;
-        await this.auditIn(db, {
-          table: "collections",
-          recordId: prior.id,
-          action: "void",
-          before: { ...prior, plan_id: planId },
-          after: {
-            ...prior,
-            voided_at: now,
-            voided_by: voidedBy,
-            void_reason: reason,
-            plan_id: planId,
-          },
-          customerId: prior.customer_id ?? undefined,
-          branchId: prior.branch_id ?? null,
-          subject: subjects.get(prior.id) ?? null,
-        });
-      }
-    });
+    await db.runAsync(
+      `UPDATE collections
+          SET voided_at = ?, voided_by = ?, void_reason = ?, updated_at = ?, _dirty = 1
+        WHERE id IN (${holes}) AND voided_at IS NULL`,
+      [now, voidedBy, reason, now, ...ids] as never[],
+    );
+    for (const prior of live) {
+      const planId = plans.get(prior.id) ?? null;
+      await this.auditIn(db, {
+        table: "collections",
+        recordId: prior.id,
+        action: "void",
+        before: { ...prior, plan_id: planId },
+        after: {
+          ...prior,
+          voided_at: now,
+          voided_by: voidedBy,
+          void_reason: reason,
+          plan_id: planId,
+        },
+        customerId: prior.customer_id ?? undefined,
+        branchId: prior.branch_id ?? null,
+        subject: subjects.get(prior.id) ?? null,
+      });
+    }
     return live.map((p) => ({
       ...p,
       voided_at: now,

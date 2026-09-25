@@ -615,6 +615,29 @@ describe("a bill`s payments list", () => {
     expect(payments.find((p) => p.id === "c-dead")?.voidedAt).not.toBeNull();
   });
 
+  it("TC-CL-42 the detail read carries custody, the recorded time and one label per bill", async () => {
+    store.seedCharge({ id: "d-1", amount: 20, billing_month: "2026-01-01" });
+    const banked = store.seedCollection("d-1", 20, {
+      id: "c-banked",
+      held_by_user_id: null,
+      remitted_at: "2026-03-01T09:00:00.000Z",
+      remitted_by: "owner",
+      created_at: "2026-02-02T08:00:00.000Z",
+    });
+    const item = await collectionService.getListItem(banked.id);
+    expect(item).toMatchObject({
+      id: "c-banked",
+      heldByUserId: null,
+      remittedAt: "2026-03-01T09:00:00.000Z",
+      remittedBy: "owner",
+      createdAt: "2026-02-02T08:00:00.000Z",
+      itemCount: 1,
+    });
+    expect(item?.itemLabels).toHaveLength(1);
+    expect(item?.itemLabels[0]).not.toBe("");
+    expect(await collectionService.getListItem("nope")).toBeNull();
+  });
+
   it("TC-CL-41 a voided bill still shows the money the void took away", async () => {
     const chg = store.seedCharge({ amount: 40 });
     store.seedCollection(chg.id, 40, { id: "c-gone" });
@@ -676,8 +699,38 @@ describe("unpayCharge", () => {
       receivedAt: null,
       receivedByUserId: null,
       branchId: null,
+      custody: null,
     });
     expect(store.collections).toHaveLength(0);
+  });
+
+  it("TC-CL-63 the rebuilt hand-over stays with whoever holds its cash (#171)", async () => {
+    store.seedCharge({ id: "chg-x", amount: 10 });
+    store.seedCharge({ id: "chg-y", amount: 10 });
+    const shared = await collectionService.collect(
+      input({
+        amount: 20,
+        lines: [
+          lineOf(openItem({ chargeId: "chg-x", amount: 10 }), 10),
+          lineOf(openItem({ chargeId: "chg-y", amount: 10 }), 10),
+        ],
+      }),
+    );
+    const row = store.collections.find((c) => c.id === shared.id)!;
+    row.held_by_user_id = "branch-admin";
+    const result = await collectionService.unpayCharge(
+      "chg-x",
+      "user-1",
+      "corrected",
+    );
+    expect(live()).toHaveLength(1);
+    expect(live()[0].held_by_user_id).toBe("branch-admin");
+    expect(live()[0].received_by_user_id).toBe("user-1");
+    expect(result.custody).toEqual({
+      held_by_user_id: "branch-admin",
+      remitted_at: null,
+      remitted_by: null,
+    });
   });
 });
 
