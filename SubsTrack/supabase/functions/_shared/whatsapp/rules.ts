@@ -12,6 +12,13 @@ export interface QueuedVariables {
   values: TemplateValue[];
 }
 
+export interface TemplateComponent {
+  type?: string;
+  format?: string;
+  text?: string;
+  buttons?: { type?: string; url?: string }[];
+}
+
 export const GRAPH_VERSION = "v25.0";
 
 export const MAX_SEND_ATTEMPTS = 5;
@@ -59,6 +66,16 @@ const TIER_LIMITS: Record<string, number> = {
   TIER_100K: 100000,
   TIER_UNLIMITED: Number.POSITIVE_INFINITY,
 };
+
+const SENDABLE_BUTTONS = new Set(["QUICK_REPLY", "URL", "PHONE_NUMBER", "VOICE_CALL"]);
+
+const EVENT_STATUS = new Map<string, string | null>([
+  ["REINSTATED", "APPROVED"],
+  ["UNARCHIVED", "APPROVED"],
+  ["FLAGGED", null],
+  ["LOCKED", null],
+  ["UNLOCKED", null],
+]);
 
 const STOP_WORDS = new Set([
   "stop",
@@ -150,6 +167,38 @@ export function templateParamNames(body: string | null | undefined): string[] {
     if (!names.includes(match[1])) names.push(match[1]);
   }
   return names;
+}
+
+// Sijil fills BODY text only; any other value to fill means it cannot send it.
+export function isSendableTemplate(
+  components: TemplateComponent[] | null | undefined,
+): boolean {
+  for (const component of components ?? []) {
+    const type = String(component.type ?? "").toUpperCase();
+    if (type === "BODY" || type === "FOOTER") continue;
+    if (type === "HEADER") {
+      if (component.format && component.format.toUpperCase() !== "TEXT") return false;
+      if (templateParamNames(component.text).length > 0) return false;
+      continue;
+    }
+    if (type === "BUTTONS") {
+      for (const button of component.buttons ?? []) {
+        const kind = String(button.type ?? "").toUpperCase();
+        if (!SENDABLE_BUTTONS.has(kind)) return false;
+        if (templateParamNames(button.url).length > 0) return false;
+      }
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
+// A template webhook event is not always a status: FLAGGED only warns.
+export function templateStatusForEvent(event: unknown): string | null {
+  const name = typeof event === "string" ? event.trim().toUpperCase() : "";
+  if (!name) return null;
+  return EVENT_STATUS.has(name) ? (EVENT_STATUS.get(name) ?? null) : name;
 }
 
 export function detectParameterFormat(names: string[]): TemplateParameterFormat {

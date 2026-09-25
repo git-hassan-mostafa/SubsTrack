@@ -711,8 +711,8 @@ Each tenant connects its **own** WhatsApp Business number (Embedded Signup, web 
 
 - **Where:** customer row menu → **Send payment reminder** / **Send WhatsApp message** / **Stop · Allow WhatsApp messages**; customer list multi-select → **Send on WhatsApp**; customer detail header icon.
 - **Screens:** Admin → **WhatsApp** (org-wide admins only: connection, language, templates) and **WhatsApp messages** (history with status and failure reason).
-- **Messages:** Sijil submits 4 UTILITY templates (en + ar): payment reminder (amount, months, due-since from the ledger), service outage, service back, general notice (free text). The tenant's own approved templates are offered too.
-- **Background:** sending is queued and background-processed, with retries, Meta's daily limit and idempotent webhooks.
+- **Messages:** Sijil submits 4 UTILITY templates (en + ar): payment reminder (amount, months, due-since from the ledger — only bills already due, never a prepaid future month), service outage, service back, general notice (free text). The tenant's own approved templates are offered too.
+- **Background:** sending is queued and background-processed, with retries, Meta's daily limit and idempotent webhooks. An opt-out (STOP reply or the admin) also cancels that number's waiting messages; an account problem (e.g. no payment method) keeps them waiting until **Check again**.
 - **Not connected:** a single reminder opens `wa.me` with the same wording.
 
 Full design, Meta setup and tenant steps: [docs/whatsapp.md](whatsapp.md). QA: [QA/whatsapp-cloud.md](../QA/whatsapp-cloud.md).

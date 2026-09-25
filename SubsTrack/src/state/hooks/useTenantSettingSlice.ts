@@ -31,15 +31,13 @@ export const useUnpaidStartRule = (): UnpaidStartRule =>
     useTenantSettingValue(TENANT_SETTING_KEYS.unpaidStartRule),
   );
 
-/**
- * The currency amounts are displayed in — `null` = USD (the base).
- * Tenant-wide, not per device: every user of the organization sees the same one.
- */
+// The language of Sijil's own templates; the tenant's own keep theirs.
 export const useWhatsAppLanguage = (): WhatsAppLanguage =>
   tenantSettingService.parseWhatsAppLanguage(
     useTenantSettingValue(TENANT_SETTING_KEYS.whatsAppLanguage),
   );
 
+// Tenant-wide, not per device; `null` means USD, the base currency.
 export const useDisplayCurrencyId = (): string | null =>
   tenantSettingService.parseDisplayCurrencyId(
     useTenantSettingValue(TENANT_SETTING_KEYS.displayCurrencyId),

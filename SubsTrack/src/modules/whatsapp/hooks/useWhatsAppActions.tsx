@@ -43,6 +43,7 @@ export function useWhatsAppActions(): WhatsAppActions {
   const ensureLoaded = useWhatsAppSlice((s) => s.ensureLoaded);
   const setOptOut = useWhatsAppSlice((s) => s.setOptOut);
   const reminderFallbackText = useWhatsAppSlice((s) => s.reminderFallbackText);
+  const clearError = useWhatsAppSlice((s) => s.clearError);
   const language = useWhatsAppLanguage();
   const currencies = useCurrencySlice((s) => s.items);
   const unpaidRule = useUnpaidStartRule();
@@ -65,6 +66,13 @@ export function useWhatsAppActions(): WhatsAppActions {
     [t],
   );
 
+  const showSliceError = useCallback(async () => {
+    const message =
+      getStore().getState().whatsapp.error ?? t("common.something_went_wrong");
+    clearError();
+    await showProblem(message);
+  }, [clearError, showProblem, t]);
+
   const sendReminderFallback = useCallback(
     async (customer: Customer) => {
       const result = await reminderFallbackText(
@@ -79,7 +87,7 @@ export function useWhatsAppActions(): WhatsAppActions {
         language,
       );
       if (!result) {
-        await showProblem(getStore().getState().whatsapp.error ?? t("common.something_went_wrong"));
+        await showSliceError();
         return;
       }
       if (!result.text) {
@@ -88,7 +96,7 @@ export function useWhatsAppActions(): WhatsAppActions {
       }
       await openChat(customer.phoneNumber, result.text);
     },
-    [reminderFallbackText, user, optedOut, currencies, unpaidRule, i18n, language, showProblem, t, openChat],
+    [reminderFallbackText, user, optedOut, currencies, unpaidRule, i18n, language, showSliceError, showProblem, t, openChat],
   );
 
   const toggleOptOut = useCallback(
@@ -103,11 +111,9 @@ export function useWhatsAppActions(): WhatsAppActions {
       });
       if (!agreed) return;
       const ok = await setOptOut(customer.id, stop);
-      if (!ok) {
-        await showProblem(getStore().getState().whatsapp.error ?? t("common.something_went_wrong"));
-      }
+      if (!ok) await showSliceError();
     },
-    [setOptOut, showProblem, t],
+    [setOptOut, showSliceError, t],
   );
 
   const rowItems = useCallback(

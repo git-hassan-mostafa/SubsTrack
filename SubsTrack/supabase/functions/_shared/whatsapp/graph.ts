@@ -42,8 +42,20 @@ async function appSecretProof(token: string): Promise<string> {
   return hmacSha256Hex(appCredentials().appSecret, token);
 }
 
+// A reply cut off mid-body already left our side: a network failure.
 async function parseResponse(response: Response) {
-  const text = await response.text();
+  let text: string;
+  try {
+    text = await response.text();
+  } catch (error) {
+    throw new MetaError(
+      error instanceof Error ? error.message : "Network error",
+      null,
+      response.status,
+      null,
+      true,
+    );
+  }
   let body = null;
   try {
     body = text ? JSON.parse(text) : null;

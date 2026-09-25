@@ -18,10 +18,7 @@ import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE } from "@/src/shared/constants";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import {
-  useUnpaidStartRule,
-  useWhatsAppLanguage,
-} from "@/src/state/hooks/useTenantSettingSlice";
+import { useUnpaidStartRule } from "@/src/state/hooks/useTenantSettingSlice";
 import {
   useOptedOutCustomerIds,
   useSendableTemplates,
@@ -32,7 +29,9 @@ import type { WhatsAppSendOutcome } from "@/src/state/slices/whatsapp/whatsappSl
 import { templateLabel } from "../utils/labels";
 import {
   defaultChoices,
+  messageLanguage,
   missingCustomText,
+  paramMaxLength,
   PLACEHOLDER_SOURCES,
   previewText,
   type PlaceholderChoices,
@@ -59,7 +58,6 @@ export function SendWhatsAppSheet({
   onDismiss,
 }: SendWhatsAppSheetProps) {
   const { t, i18n } = useTranslation();
-  const language = useWhatsAppLanguage();
   const sendable = useSendableTemplates();
   const forPurpose = useTemplateForPurpose(purpose);
   const optedOutCustomerIds = useOptedOutCustomerIds();
@@ -120,7 +118,7 @@ export function SendWhatsAppSheet({
         optedOutCustomerIds,
         currencies,
         unpaidRule,
-        t: i18n.getFixedT(template.isSijil ? language : i18n.language),
+        t: i18n.getFixedT(messageLanguage(template, i18n.language)),
       },
     });
     if (result) setOutcome(result);
@@ -213,6 +211,7 @@ export function SendWhatsAppSheet({
                       }
                       value={choice.text}
                       onChangeText={(text) => updateChoice(param, { text })}
+                      maxLength={paramMaxLength(template, param)}
                       multiline
                     />
                   ) : null}

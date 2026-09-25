@@ -16,11 +16,14 @@ import { whatsAppService } from "@/src/modules/whatsapp/services/WhatsAppService
 import { reminderFacts } from "@/src/modules/whatsapp/utils/reminderFacts";
 import {
   defaultChoices,
+  messageLanguage,
   missingCustomText,
   needsOwedFacts,
+  paramMaxLength,
   previewText,
   resolveValues,
 } from "@/src/modules/whatsapp/utils/templateValues";
+import { DEFAULT_PARAM_MAX_LENGTH } from "@/supabase/functions/_shared/whatsapp/rules";
 import { sijilTemplateByPurpose } from "@/supabase/functions/_shared/whatsapp/sijilTemplates";
 import { store } from "../helpers/fakeLedger";
 import { customer, line, openItem, plan, LBP } from "../helpers/factories";
@@ -71,7 +74,9 @@ describe("reminderFacts", () => {
       [LBP],
       t,
     );
-    expect(facts?.dueDate).toBe("Jan 1 2026");
+    expect(facts?.dueDate).toBe(
+      'whatsapp.due_date_value {"day":1,"month":"months.jan","year":2026}',
+    );
   });
 
   it("TC-WA-M-05 an open-amount line (no price yet) never adds to a reminder", () => {
@@ -84,7 +89,7 @@ describe("reminderFacts", () => {
   });
 
   it("TC-WA-M-06 more than three periods are shortened, oldest first", () => {
-    const months = ["2026-01-01", "2026-02-01", "2026-03-01", "2026-04-01", "2026-05-01"];
+    const months = ["2025-11-01", "2025-12-01", "2026-01-01", "2026-02-01", "2026-03-01"];
     const facts = reminderFacts(
       months.map((m) => openItem({ billingMonth: m, dueDate: m })),
       [LBP],
@@ -92,7 +97,47 @@ describe("reminderFacts", () => {
     );
     expect(facts?.period).toContain("whatsapp.period_more");
     expect(facts?.period).toContain('"count":2');
-    expect(facts?.period).toContain("months.jan 2026");
+    expect(facts?.period).toContain("months.nov 2025");
+  });
+
+  it("TC-WA-M-13 a balance that is not due yet is never put in a reminder", () => {
+    const facts = reminderFacts(
+      [
+        openItem({ amount: 20, billingMonth: "2026-02-01", dueDate: "2026-02-01" }),
+        openItem({ amount: 20, paid: 5, billingMonth: "2026-04-01", dueDate: "2026-04-01" }),
+        openItem({ kind: "manual", amount: 50, billingMonth: null, dueDate: "2026-03-20", label: "Router" }),
+      ],
+      [LBP],
+      t,
+    );
+    expect(facts?.amount).toBe("$20.00");
+    expect(facts?.period).toBe("months.feb 2026");
+    expect(
+      reminderFacts([openItem({ amount: 20, paid: 5, billingMonth: "2026-04-01", dueDate: "2026-04-01" })], [LBP], t),
+    ).toBeNull();
+  });
+
+  it("TC-WA-M-14 a bill due today is due, and the due date is read as written", () => {
+    const today = openItem({ kind: "manual", amount: 10, billingMonth: null, dueDate: "2026-03-15", label: "Fee" });
+    const facts = reminderFacts([today], [LBP], t, "2026-03-15");
+    expect(facts?.amount).toBe("$10.00");
+    expect(facts?.dueDate).toContain('"day":15');
+    expect(facts?.dueDate).toContain('"month":"months.mar"');
+  });
+
+  it("TC-WA-M-15 the due date's month is in the message language", () => {
+    const arabic = (key: string, opts?: Record<string, unknown>) =>
+      key === "months.sep"
+        ? "أيلول"
+        : key === "whatsapp.due_date_value"
+          ? `${opts?.day} ${opts?.month} ${opts?.year}`
+          : key;
+    const facts = reminderFacts(
+      [openItem({ billingMonth: "2025-09-01", dueDate: "2025-09-01" })],
+      [LBP],
+      arabic,
+    );
+    expect(facts?.dueDate).toBe("1 أيلول 2025");
   });
 });
 
@@ -123,9 +168,30 @@ describe("placeholder values", () => {
   it("TC-WA-M-09 an unknown placeholder must be typed before sending", () => {
     const choices = defaultChoices({ params: ["1", "details"] });
     expect(missingCustomText(choices)).toEqual(["1", "details"]);
-    expect(previewText({ bodyText: "Hi {{1}}: {{details}}" }, choices, (s) => s)).toBe(
+    expect(previewText({ bodyText: "Hi {{1}}: {{details}}", name: "own" }, choices, (s) => s)).toBe(
       "Hi [custom]: [custom]",
     );
+  });
+
+  it("TC-WA-M-16 the preview shows typed text exactly as Meta will get it", () => {
+    const outage = sijilTemplateByPurpose("service_outage");
+    const choices = defaultChoices({ params: outage.params });
+    choices.details = { source: "custom", text: `line one\n\nline two ${"x".repeat(500)}` };
+    const preview = previewText({ bodyText: "Details: {{details}}.", name: outage.name }, choices, (s) => s);
+    expect(preview).not.toContain("\n");
+    expect(preview.length).toBe("Details: ".length + outage.maxLength.details + 1);
+  });
+
+  it("TC-WA-M-17 each field is capped where whatsapp-send would cut it", () => {
+    const outage = sijilTemplateByPurpose("service_outage");
+    expect(paramMaxLength({ name: outage.name }, "details")).toBe(outage.maxLength.details);
+    expect(paramMaxLength({ name: "own_template" }, "1")).toBe(DEFAULT_PARAM_MAX_LENGTH);
+  });
+
+  it("TC-WA-M-18 values are built in the template's own language when Sijil speaks it", () => {
+    expect(messageLanguage({ language: "ar" }, "en")).toBe("ar");
+    expect(messageLanguage({ language: "en_US" }, "ar")).toBe("en");
+    expect(messageLanguage({ language: "fr" }, "ar")).toBe("ar");
   });
 });
 

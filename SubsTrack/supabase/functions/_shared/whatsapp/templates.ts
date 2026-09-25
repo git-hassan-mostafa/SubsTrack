@@ -1,6 +1,6 @@
 // @ts-nocheck — Deno runtime file.
 import { graphRequest } from "./graph.ts";
-import { detectParameterFormat, templateParamNames } from "./rules.ts";
+import { detectParameterFormat, isSendableTemplate, templateParamNames } from "./rules.ts";
 import {
   SIJIL_TEMPLATES,
   SIJIL_TEMPLATE_PREFIX,
@@ -9,31 +9,6 @@ import {
 } from "./sijilTemplates.ts";
 
 const TEMPLATE_FIELDS = "id,name,language,status,category,components,parameter_format,rejected_reason";
-
-function hasParams(text: string | null | undefined): boolean {
-  return templateParamNames(text).length > 0;
-}
-
-// Sijil fills BODY text only; media or header/button values = not sendable.
-function isSupported(components): boolean {
-  for (const component of components ?? []) {
-    const type = String(component.type ?? "").toUpperCase();
-    if (type === "BODY" || type === "FOOTER") continue;
-    if (type === "HEADER") {
-      if (component.format && component.format !== "TEXT") return false;
-      if (hasParams(component.text)) return false;
-      continue;
-    }
-    if (type === "BUTTONS") {
-      for (const button of component.buttons ?? []) {
-        if (hasParams(button.url) || button.type === "OTP" || button.type === "FLOW") return false;
-      }
-      continue;
-    }
-    return false;
-  }
-  return true;
-}
 
 function toRow(account, template, syncedAt: string) {
   const body = (template.components ?? []).find(
@@ -64,7 +39,7 @@ function toRow(account, template, syncedAt: string) {
     params,
     purpose: sijil?.purpose ?? null,
     is_sijil: sijil !== null,
-    supported: isSupported(template.components),
+    supported: isSendableTemplate(template.components),
     last_synced_at: syncedAt,
   };
 }

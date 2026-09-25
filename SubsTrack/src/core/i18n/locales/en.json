@@ -1644,6 +1644,7 @@
     "history_title": "WhatsApp messages",
     "history_menu_sub": "What was sent and what happened to it",
     "period_more": "{{periods}} and {{count}} more",
+    "due_date_value": "{{month}} {{day}}, {{year}}",
     "purpose": {
       "payment_reminder": "Payment reminder",
       "service_outage": "Service outage",
@@ -1694,8 +1695,8 @@
       "recently_sent_plural": "{{count}} skipped: already got this message in the last 24 hours",
       "missing_values": "{{count}} skipped: a value is missing",
       "missing_values_plural": "{{count}} skipped: a value is missing",
-      "nothing_owed": "{{count}} skipped: owes nothing",
-      "nothing_owed_plural": "{{count}} skipped: owe nothing"
+      "nothing_owed": "{{count}} skipped: nothing is due",
+      "nothing_owed_plural": "{{count}} skipped: nothing is due"
     },
     "problem_title": "WhatsApp",
     "send_reminder": "Send payment reminder",
@@ -1806,7 +1807,8 @@
       "token_invalid": "Sijil lost access to your WhatsApp account.",
       "account_restricted": "Meta has restricted your WhatsApp account.",
       "number_not_registered": "Your number is not registered with WhatsApp Cloud API.",
-      "permission_removed": "Sijil's access was removed in Meta."
+      "permission_removed": "Sijil's access was removed in Meta.",
+      "opted_out": "Cancelled because the customer asked not to get WhatsApp messages."
     },
     "unknown_customer": "Customer",
     "cancel_batch": "Cancel waiting messages",
@@ -1830,7 +1832,8 @@
       "close_tab": "On a computer you can close this tab.",
       "cancelled": "The Meta window was closed before finishing. Try again.",
       "meta_error": "Meta reported a problem: {{message}}",
-      "no_details": "Meta did not send the account details. Try again."
+      "no_details": "Meta did not send the account details. Try again.",
+      "no_number": "Meta's window finished without a phone number. Start again and choose or add a number."
     },
     "errors": {
       "not_configured": "WhatsApp is not set up by Sijil yet. Please contact support.",
@@ -1855,7 +1858,8 @@
       "no_recipients": "Choose at least one customer.",
       "too_many_recipients": "Too many customers in one request.",
       "invalid_customer": "Unknown customer.",
-      "invalid_phone": "This customer's phone number is not valid."
+      "invalid_phone": "This customer's phone number is not valid.",
+      "server_error": "Something went wrong. Please try again."
     }
   }
 }

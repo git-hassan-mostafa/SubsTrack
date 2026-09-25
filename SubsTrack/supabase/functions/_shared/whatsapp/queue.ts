@@ -14,6 +14,8 @@ import {
 const CLAIM_BATCH = 25;
 const IN_FLIGHT = 10;
 const DAILY_LIMIT_DEFER_MS = 60 * 60_000;
+const LOCAL_ERROR_DEFER_MS = 5 * 60_000;
+const DAY_MS = 24 * 60 * 60_000;
 
 interface AccountContext {
   account: { id: string; phone_number_id: string; status: string; messaging_limit_tier: string | null };
@@ -30,15 +32,9 @@ async function loadContext(service, accountId: string): Promise<AccountContext> 
     .select("id, phone_number_id, status, messaging_limit_tier")
     .eq("id", accountId)
     .maybeSingle();
-  const since = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
-  const [token, reachedResult, phonesResult] = await Promise.all([
-    account ? accountToken(service, accountId) : Promise.resolve(null),
+  const [token, reachedResult] = await Promise.all([
+    account ? accountToken(service, accountId).catch(() => null) : Promise.resolve(null),
     service.rpc("whatsapp_reached_last_day", { p_account_id: accountId }),
-    service
-      .from("whatsapp_messages")
-      .select("to_phone_e164")
-      .eq("account_id", accountId)
-      .gt("accepted_at", since),
   ]);
   if (account?.status === "connected" && !token) {
     await markAttention(service, accountId, "token_invalid");
@@ -48,9 +44,25 @@ async function loadContext(service, accountId: string): Promise<AccountContext> 
     token,
     limit: tierLimit(account?.messaging_limit_tier),
     reached: reachedResult.data ?? 0,
-    reachedPhones: new Set((phonesResult.data ?? []).map((r) => r.to_phone_e164)),
+    reachedPhones: new Set(),
     blocked: !account || account.status !== "connected" || !token,
   };
+}
+
+// Asks only about this batch's numbers: a whole-day read is cut at 1000 rows.
+async function learnReachedPhones(service, context: AccountContext, rows) {
+  if (context.blocked) return;
+  const unknown = [...new Set(rows.map((row) => row.to_phone_e164))].filter(
+    (phone) => !context.reachedPhones.has(phone),
+  );
+  if (unknown.length === 0) return;
+  const { data } = await service
+    .from("whatsapp_messages")
+    .select("to_phone_e164")
+    .eq("account_id", context.account.id)
+    .gt("accepted_at", new Date(Date.now() - DAY_MS).toISOString())
+    .in("to_phone_e164", unknown);
+  for (const row of data ?? []) context.reachedPhones.add(row.to_phone_e164);
 }
 
 async function release(service, row, patch: Record<string, unknown>) {
@@ -94,6 +106,10 @@ async function markFailure(service, row, error: MetaError) {
   }
 
   const kind = classifyMetaError(error.code, error.httpStatus);
+  if (kind === "account") {
+    await release(service, row, base);
+    return "account";
+  }
   if (kind === "retry" && shouldRetry(row.attempts)) {
     await service
       .from("whatsapp_messages")
@@ -112,7 +128,7 @@ async function markFailure(service, row, error: MetaError) {
     .update({ ...base, status: "failed", failed_at: now, variables: null })
     .eq("id", row.id)
     .eq("status", "sending");
-  return kind === "account" ? "account" : "failed";
+  return "failed";
 }
 
 async function sendOne(service, context: AccountContext, row) {
@@ -150,12 +166,16 @@ async function sendOne(service, context: AccountContext, row) {
     );
     await markAccepted(service, row, response?.messages?.[0]?.id ?? null);
   } catch (error) {
-    const metaError =
-      error instanceof MetaError ? error : new MetaError(String(error), null, 0, null, true);
-    const outcome = await markFailure(service, row, metaError);
+    if (!(error instanceof MetaError)) {
+      await release(service, row, {
+        next_attempt_at: new Date(Date.now() + LOCAL_ERROR_DEFER_MS).toISOString(),
+      });
+      return;
+    }
+    const outcome = await markFailure(service, row, error);
     if (outcome === "account") {
       context.blocked = true;
-      await markAttention(service, context.account.id, attentionCodeFor(metaError.code) ?? "meta_error");
+      await markAttention(service, context.account.id, attentionCodeFor(error.code) ?? "meta_error");
     }
   }
 }
@@ -196,6 +216,7 @@ export async function processQueue(
     for (const [accountId, accountRows] of byAccount) {
       if (!contexts.has(accountId)) contexts.set(accountId, await loadContext(service, accountId));
       const context = contexts.get(accountId);
+      await learnReachedPhones(service, context, accountRows);
       await runLimited(accountRows, IN_FLIGHT, (row) => sendOne(service, context, row));
     }
     processed += rows.length;

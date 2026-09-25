@@ -18,7 +18,8 @@ export function regionOf(displayPhoneNumber: string | null | undefined): string 
   return parsed?.country ?? null;
 }
 
+// A wa_id is not always E.164 (Mexico's keeps a 1), so it goes through toE164.
 export function fromWaId(waId: string | null | undefined): string | null {
   const digits = (waId ?? "").replace(/\D/g, "");
-  return digits ? `+${digits}` : null;
+  return digits ? (toE164(`+${digits}`, null) ?? `+${digits}`) : null;
 }

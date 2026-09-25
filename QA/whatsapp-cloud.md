@@ -49,6 +49,10 @@ Covers each tenant connecting **its own** WhatsApp Business account through Meta
 | 2.9 | Open `/whatsapp-connect` with no `s` | "This page only works from the link Sijil opens" |
 | 2.10 | Open `/whatsapp-connect` in the native app | Redirects home |
 | 2.11 | Right after connecting | Templates list shows 8 rows (4 messages × en/ar) as **Waiting**, then **Approved** after Meta's review |
+| 2.12 | Finish Meta's window **without** adding or choosing a phone number | "Meta's window finished without a phone number…". Nothing is sent to the server; **Continue with Facebook** works again with the same link |
+| 2.13 | Connect from the Sijil **web** app | The page opens in the same tab. After "WhatsApp is connected", **Return to Sijil** opens Admin → WhatsApp (Connected) in that tab; no "close this tab" line |
+| 2.14 | Connect from the phone, then switch back to Sijil with the phone's app switcher (not the button) | The WhatsApp screen shows **Connected** without pull-to-refresh |
+| 2.15 | Close Meta's window, then tap **Continue with Facebook** again within 10 s | No "Meta did not send the account details" error pops up from the first try |
 
 ## 3. Templates
 
@@ -58,13 +62,16 @@ Covers each tenant connecting **its own** WhatsApp Business account through Meta
 | 3.2 | Meta re-classes a Sijil template as Marketing | Warning "Meta classed this as Marketing" under the row |
 | 3.3 | Tenant creates its own Utility template in WhatsApp Manager → Refresh | It appears; once approved it is offered in the send sheet as "Your own template" |
 | 3.4 | Own template with an image header or dynamic URL button | Listed with "Sijil cannot send this one yet"; not offered for sending |
+| 3.5 | Own template with a **copy code** button or a catalog button → Refresh | Same as 3.4 |
+| 3.6 | Meta flags a template for low quality (webhook `FLAGGED`) | It stays **Approved** and can still be sent |
+| 3.7 | Meta pauses a template, then reinstates it (webhook `REINSTATED`) | Paused → **Approved** by itself, with no Refresh; the send sheet offers it again |
 
 ## 4. Sending
 
 | # | Steps | Expected |
 |---|---|---|
 | 4.1 | Customer row menu → Send payment reminder (connected, approved) | Sheet: type = Payment reminder, preview with `[Amount owed]`, `[Months owed]`, `[Due since]`. Send → "1 message is on its way" |
-| 4.2 | Customers → Overdue tab → select all → Send on WhatsApp | One sheet for all; result lists queued count and each skip reason (no phone, owes nothing, asked to stop, …) |
+| 4.2 | Customers → Overdue tab → select all → Send on WhatsApp | One sheet for all; result lists queued count and each skip reason (no phone, nothing is due, asked to stop, …) |
 | 4.3 | Choose **Service outage**, leave Details empty | Send disabled until Details is typed |
 | 4.4 | Choose the tenant's own template with `{{1}}` | Each placeholder has a "Value for 1" picker (customer name / amount owed / … / type the text) |
 | 4.5 | Send the same reminder to the same customer twice within 24 h | Second time: "already got this message in the last 24 hours" + **Send again anyway** |
@@ -75,13 +82,19 @@ Covers each tenant connecting **its own** WhatsApp Business account through Meta
 | 4.10 | Branch admin selects customers | Only own-branch customers are sent; any other → "another branch" |
 | 4.11 | Native app offline → Send | "needs an internet connection" |
 | 4.12 | 300 new customers on a TIER_250 account | 250 go out; the rest stay **Waiting** with "Meta's daily limit was reached", then send later |
+| 4.13 | Customer owes March, and has paid half of **next** month in advance → reminder | Amount and months cover March only. If the advance is the only balance → "skipped: nothing is due" |
+| 4.14 | Manual bill with a due date **next week** → reminder | Not in the amount until its due date |
+| 4.15 | Message language **Arabic**, app in English → reminder | Preview/customer text shows Arabic month names in both the period and the date, e.g. "1 أيلول 2026"; July reads "تموز" |
+| 4.16 | Tenant's own template in **Arabic** (`ar`), app in English, a placeholder set to "Months owed" | The months are in Arabic |
+| 4.17 | Service notice: paste 700 characters with line breaks into Details | The field stops at 600 characters; the preview shows one line, exactly what the customer gets |
+| 4.18 | TIER_2K or higher: send 1,200+ reminders, then an outage notice to the same customers the same day | The notice goes out; it is **not** held back as "daily limit" (those numbers were already reached today) |
 
 ## 5. Not connected (wa.me fallback)
 
 | # | Steps | Expected |
 |---|---|---|
 | 5.1 | Row menu → Send payment reminder | WhatsApp opens on the phone with the Sijil reminder text (tenant language) and the right amount |
-| 5.2 | Customer owes nothing | Dialog "owes nothing"; no chat opens |
+| 5.2 | Customer owes nothing (or only owes bills that are not due yet) | Dialog "nothing is due"; no chat opens |
 | 5.3 | Multi-select | No "Send on WhatsApp" action (bulk needs a connection) |
 
 ## 6. Statuses and webhooks
@@ -91,12 +104,17 @@ Covers each tenant connecting **its own** WhatsApp Business account through Meta
 | 6.1 | Message delivered, then read | History: Sent → Delivered → Read |
 | 6.2 | Meta delivers `read` before `delivered`, or repeats a webhook | Status never moves backwards; timestamps keep the first value |
 | 6.3 | Number not on WhatsApp | Failed — "This number is not on WhatsApp" |
-| 6.4 | No payment method on the WABA | Failed — payment reason; account shows **Needs attention** with the fix steps; queue pauses. After adding the card → Check again → Connected |
+| 6.4 | No payment method on the WABA | The message stays **Waiting** with the payment reason (not Failed); account shows **Needs attention** with the fix steps; queue pauses. After adding the card → Check again → Connected, and the waiting messages go out |
 | 6.5 | POST to the webhook with a wrong signature | 401, nothing changes |
 | 6.6 | GET verify with the wrong verify token | 403 |
 | 6.7 | Customer replies `STOP` / `إيقاف` | Number marked "Asked not to get WhatsApp messages"; skipped next time |
 | 6.8 | Customer replies "please stop by tomorrow" | Nothing changes |
 | 6.9 | Tenant removes Sijil in Meta Business Settings | Account becomes Disconnected (`partner_removed`); waiting messages cancelled |
+| 6.10 | A message to a customer is **Waiting** (daily limit or retry), then that customer replies `STOP` | The waiting message becomes **Cancelled** "the customer asked not to get WhatsApp messages"; it is never sent |
+| 6.11 | Same as 6.10, but the admin taps **Stop messages** on the customer | Same result |
+| 6.12 | Customer opted out, then their phone number is changed → **Allow messages** | The opt-out clears and the customer can be messaged on the new number. A STOP sent from the OLD number still blocks that old number |
+| 6.13 | Meta's reply times out (row shows **Unknown**), then the `sent` webhook arrives | Row becomes Sent, and it counts toward the daily limit |
+| 6.14 | `META_APP_SECRET` missing on the server → Send | Messages stay **Waiting** and retry every 5 minutes; none show **Unknown** |
 
 ## 7. Disconnect / reconnect
 

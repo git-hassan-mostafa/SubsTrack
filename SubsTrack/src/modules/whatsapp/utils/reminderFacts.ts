@@ -1,6 +1,7 @@
 import type { Currency, OpenItem } from "@/src/core/types";
+import { MONTHS } from "@/src/core/constants";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import { formatDate } from "@/src/core/utils/date";
+import { getTodayDateString } from "@/src/core/utils/date";
 import { getBlockRangeLabel } from "@/src/modules/customer/customer-payments/utils/blockRangeLabel";
 import { sortByDue } from "@/src/modules/ledger/utils/waterfall";
 import { PERIOD_LABEL_LIMIT } from "./constants";
@@ -13,9 +14,14 @@ export interface ReminderFacts {
   dueDate: string;
 }
 
-// An open-amount line has no price yet, so it never joins a reminder total.
-function remindable(items: OpenItem[]): OpenItem[] {
-  return items.filter((item) => !item.openAmount && item.balance > 0);
+// A prepaid future month or a no-price line is never part of a reminder.
+function remindable(items: OpenItem[], today: string): OpenItem[] {
+  return items.filter(
+    (item) =>
+      !item.openAmount &&
+      item.balance > 0 &&
+      item.dueDate.slice(0, 10) <= today,
+  );
 }
 
 function itemPeriod(item: OpenItem, t: TFn): string {
@@ -26,9 +32,9 @@ function itemPeriod(item: OpenItem, t: TFn): string {
 }
 
 // Each currency is summed in its own units, never converted (like collect).
-export function owedAmountText(items: OpenItem[], currencies: Currency[]): string {
+function owedAmountText(items: OpenItem[], currencies: Currency[]): string {
   const totals = new Map<string, { currencyId: string | null; amount: number }>();
-  for (const item of remindable(items)) {
+  for (const item of items) {
     const key = item.currencyId ?? "USD";
     const current = totals.get(key);
     if (current) current.amount += item.balance;
@@ -42,9 +48,9 @@ export function owedAmountText(items: OpenItem[], currencies: Currency[]): strin
     .join(" + ");
 }
 
-export function periodText(items: OpenItem[], t: TFn): string {
+function periodText(items: OpenItem[], t: TFn): string {
   const labels: string[] = [];
-  for (const item of sortByDue(remindable(items))) {
+  for (const item of items) {
     const label = itemPeriod(item, t);
     if (!labels.includes(label)) labels.push(label);
   }
@@ -56,20 +62,27 @@ export function periodText(items: OpenItem[], t: TFn): string {
   });
 }
 
+// Parsed by hand: new Date() would shift the day west of UTC.
+function dueDateText(isoDate: string, t: TFn): string {
+  const [year, month, day] = isoDate.slice(0, 10).split("-").map(Number);
+  return t("whatsapp.due_date_value", {
+    day,
+    month: t(`months.${MONTHS[month - 1]}`),
+    year,
+  });
+}
+
 export function reminderFacts(
   items: OpenItem[],
   currencies: Currency[],
   t: TFn,
+  today: string = getTodayDateString(),
 ): ReminderFacts | null {
-  const due = sortByDue(remindable(items));
+  const due = sortByDue(remindable(items, today));
   if (due.length === 0) return null;
   return {
     amount: owedAmountText(due, currencies),
     period: periodText(due, t),
-    dueDate: formatDate(due[0].dueDate, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }),
+    dueDate: dueDateText(due[0].dueDate, t),
   };
 }

@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { AppState, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter, type Href } from "expo-router";
@@ -16,6 +16,7 @@ import { WhatsAppConnectionSection } from "../components/WhatsAppConnectionSecti
 import { WhatsAppLanguageSection } from "../components/WhatsAppLanguageSection";
 import { WhatsAppTemplatesSection } from "../components/WhatsAppTemplatesSection";
 
+// Connecting ends in the browser, so coming back to the app refetches.
 export function WhatsAppSettingsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -32,6 +33,13 @@ export function WhatsAppSettingsScreen() {
       void fetchOverview();
     }, [getSettings, fetchOverview]),
   );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void fetchOverview();
+    });
+    return () => subscription.remove();
+  }, [fetchOverview]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);

@@ -16,6 +16,7 @@ import {
   readJson,
   UUID_REGEX,
 } from "../_shared/whatsapp/http.ts";
+import { clearOptOut, recordOptOut } from "../_shared/whatsapp/optOuts.ts";
 import { toE164 } from "../_shared/whatsapp/phone.ts";
 import { submitSijilTemplates, syncTemplates } from "../_shared/whatsapp/templates.ts";
 
@@ -100,31 +101,20 @@ async function setOptOut(service, caller, body) {
   if (!phone) throw new HttpError(400, "invalid_phone", "This customer's phone number is not valid.");
 
   if (body.optedOut === true) {
-    const { data: existing } = await service
-      .from("whatsapp_opt_outs")
-      .select("id")
-      .eq("tenant_id", caller.tenantId)
-      .eq("phone_e164", phone)
-      .is("cleared_at", null)
-      .maybeSingle();
-    if (!existing) {
-      const { error } = await service.from("whatsapp_opt_outs").insert({
-        tenant_id: caller.tenantId,
-        phone_e164: phone,
-        customer_id: customer.id,
-        source: "admin",
-        created_by: caller.userId,
-      });
-      if (error) throw error;
-    }
+    await recordOptOut(service, {
+      tenantId: caller.tenantId,
+      phone,
+      customerId: customer.id,
+      source: "admin",
+      createdBy: caller.userId,
+    });
   } else {
-    const { error } = await service
-      .from("whatsapp_opt_outs")
-      .update({ cleared_at: new Date().toISOString(), cleared_by: caller.userId })
-      .eq("tenant_id", caller.tenantId)
-      .eq("phone_e164", phone)
-      .is("cleared_at", null);
-    if (error) throw error;
+    await clearOptOut(service, {
+      tenantId: caller.tenantId,
+      customerId: customer.id,
+      phone,
+      clearedBy: caller.userId,
+    });
   }
   return { ok: true };
 }

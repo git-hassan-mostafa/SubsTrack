@@ -18,3 +18,6 @@ export const HISTORY_STATUS_FILTERS: (WhatsAppMessageStatus | "all")[] = [
 ];
 
 export const PERIOD_LABEL_LIMIT = 3;
+
+export const CONNECT_FROM_PARAM = "from";
+export const CONNECT_FROM_WEB = "web";

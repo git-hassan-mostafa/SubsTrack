@@ -3204,6 +3204,9 @@ CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_tenant_created
     ON whatsapp_messages (tenant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_account_phone
     ON whatsapp_messages (account_id, to_phone_e164, created_at DESC);
+-- The worker counts numbers reached in the last 24 h before every batch.
+CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_account_accepted
+    ON whatsapp_messages (account_id, accepted_at) WHERE accepted_at IS NOT NULL;
 
 -- A number that must not be messaged: a STOP reply, or an admin's choice.
 -- Cleared softly (cleared_at), never deleted.
@@ -3373,7 +3376,8 @@ END;
 $$;
 
 -- Applies one Meta status webhook idempotently. Matches on the wamid, or on our
--- own row id (biz_opaque_callback_data) when the wamid was never saved.
+-- own row id (biz_opaque_callback_data) when the wamid was never saved. It also
+-- fills accepted_at, so an 'unknown' send Meta confirms counts toward the daily tier.
 CREATE OR REPLACE FUNCTION whatsapp_apply_status(
     p_account_id UUID,
     p_wamid TEXT,
@@ -3416,6 +3420,8 @@ BEGIN
     UPDATE whatsapp_messages SET
         status = CASE WHEN whatsapp_status_rank(p_status) > whatsapp_status_rank(status)
                       THEN p_status ELSE status END,
+        accepted_at = CASE WHEN p_status IN ('sent', 'delivered', 'read')
+                           THEN COALESCE(accepted_at, p_at) ELSE accepted_at END,
         sent_at = CASE WHEN p_status IN ('sent', 'delivered', 'read')
                        THEN COALESCE(sent_at, p_at) ELSE sent_at END,
         delivered_at = CASE WHEN p_status IN ('delivered', 'read')

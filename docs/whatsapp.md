@@ -2,7 +2,7 @@
 
 Each tenant connects **its own** WhatsApp Business Account (WABA) and phone number through Meta's **Embedded Signup v4**, and **Meta bills that tenant directly**. Sijil is a Meta **Tech Provider**: it never holds a credit line and never pays for a tenant's messages. Receipts still use `wa.me` links (`modules/invoicing`); the Cloud API sends **reminders and notices**.
 
-Read this before touching `supabase/functions/whatsapp-*`, `supabase/functions/_shared/whatsapp/`, `src/modules/whatsapp/` or the `whatsapp_*` tables. Gotchas: #161–#167. The owner's step-by-step setup and test list is [whatsapp-setup-guide.md](whatsapp-setup-guide.md).
+Read this before touching `supabase/functions/whatsapp-*`, `supabase/functions/_shared/whatsapp/`, `src/modules/whatsapp/` or the `whatsapp_*` tables. Gotchas: #161–#170. The owner's step-by-step setup and test list is [whatsapp-setup-guide.md](whatsapp-setup-guide.md).
 
 ---
 
@@ -24,7 +24,7 @@ Meta ─(X-Hub-Signature-256)→ whatsapp-webhook ─→ statuses, template stat
 | `whatsapp-worker` | `x-worker-secret` | drains due rows (~50 s budget) |
 | `whatsapp-webhook` | public; HMAC-SHA256 of the raw body with the app secret | GET verify handshake; POST events |
 
-Shared server code: `_shared/whatsapp/`. `rules.ts` and `sijilTemplates.ts` are **pure and import-free**. The app imports them through `@/supabase/functions/...` (the wa.me fallback text, the preview, the Graph version) and `tests/` covers them. Every other shared file is Deno-only.
+Shared server code: `_shared/whatsapp/` (`optOuts.ts` records and clears opt-outs for both the webhook and `whatsapp-admin`). `rules.ts` and `sijilTemplates.ts` are **pure and import-free**. The app imports them through `@/supabase/functions/...` (the wa.me fallback text, the preview, the Graph version) and `tests/` covers them. Every other shared file is Deno-only.
 
 ## 2. Tables (server-only — never mirrored, see docs/offline.md)
 
@@ -44,15 +44,20 @@ Owner switch: `tenants.whatsapp_enabled` (SuperAdmin), guarded by `trg_tenants_g
 ## 3. Sending rules
 
 - **Templates only.** A business-initiated message outside a customer-opened 24 h window must be an approved template. Sijil submits four UTILITY templates in en + ar on connect (`sijilTemplates.ts`): payment reminder, service outage, service back, general notice (free-text `details`). The tenant's own **approved** templates are listed too; Sijil fills BODY placeholders only.
-- **The amounts are worked out in the app.** Unpaid months are not stored, so the server cannot compute them. `LedgerService.getOwedForCustomers` runs the ledger's own `mergeOwed` in chunks, and `reminderFacts` turns balances into `amount` / `period` / `due_date`. The server re-checks everything else: tenant, branch, active customer, phone (read from the DB and normalised to E.164 with the region of the tenant's number), opt-out, template approved, parameter shape, and not sent in the last 24 h unless forced.
+- **The amounts are worked out in the app.** Unpaid months are not stored, so the server cannot compute them. `LedgerService.getOwedForCustomers` runs the ledger's own `mergeOwed` in chunks, and `reminderFacts` turns balances into `amount` / `period` / `due_date`. Only bills whose due date is today or earlier count; a part-paid future month (a prepayment) or a manual bill due later is left out. The due date and period use the month names of the message's language.
+- **Values are built in the template's language.** A Sijil template uses the tenant language; a tenant's own template uses its own language when it is `en…` or `ar…` (`messageLanguage`). A typed value is capped in the field at the same length `whatsapp-send` cuts it to (`paramMaxLength`), and the preview shows it on one line, as Meta receives it. The server re-checks everything else: tenant, branch, active customer, phone (read from the DB and normalised to E.164 with the region of the tenant's number), opt-out, template approved, parameter shape, and not sent in the last 24 h unless forced.
 - **Idempotency.** `idempotency_key = requestId:customerId`, unique per tenant. One request id covers a whole send, even in 200-recipient chunks.
 - **Retries.** See `classifyMetaError`:
   - Retryable codes back off exponentially, at most 5 attempts.
   - Permanent codes fail at once.
-  - Account-level codes (token 190, payment 131042, restricted 368, not registered 133010) set the account to `needs_attention`, which pauses its queue until **Check again**.
-  - A **network failure** after the request left becomes `unknown` and is **never re-sent**. The webhook reconciles it through `biz_opaque_callback_data` = our row id.
-- **Daily tier.** Before each new recipient the worker counts distinct numbers reached in the last 24 h (`whatsapp_reached_last_day`). Over the tier limit, the row is deferred by an hour. Queued rows older than 24 h are cancelled, because their amounts would be stale.
+  - Account-level codes (token 190, payment 131042, restricted 368, not registered 133010) set the account to `needs_attention`, which pauses its queue until **Check again**. The message that hit the error goes **back to the queue** with the reason, so it is sent after the fix (or expires after 24 h). It is not marked failed.
+  - A **network failure** after the request left (including a reply cut off mid-body) becomes `unknown` and is **never re-sent**. The webhook reconciles it through `biz_opaque_callback_data` = our row id, and also fills `accepted_at` so it counts toward the daily tier.
+  - An error thrown **before** the request left (e.g. a missing secret) puts the row back in the queue for 5 minutes. It is never shown as `unknown`.
+- **Daily tier.** The worker counts distinct numbers reached in the last 24 h (`whatsapp_reached_last_day`). For each claimed batch it asks which of those numbers were already reached (never the whole day in one read, gotcha #170). Over the tier limit, a new number's row is deferred by an hour. Queued rows older than 24 h are cancelled, because their amounts would be stale.
+- **Opt-outs.** A STOP reply and the admin's **Stop messages** both go through `recordOptOut`, which also cancels that number's queued rows (gotcha #169). **Allow messages** clears the customer's current number and the admin's own blocks for that customer. A STOP from a number the customer no longer has stays in force, but is unlinked from the customer.
+- **Template webhooks.** Events map through `templateStatusForEvent`: `REINSTATED` / `UNARCHIVED` → `APPROVED`; `FLAGGED` / `LOCKED` / `UNLOCKED` leave the status alone (gotcha #168). A template whose buttons or header need a value Sijil cannot fill (copy-code, dynamic URL, media, OTP, flow, catalog) is stored as not supported (`isSendableTemplate`).
 - **Not connected.** A one-customer reminder opens `wa.me` with the same template wording. Bulk sends and notices need a connection.
+- **Connect page.** It trusts `postMessage` only from `facebook.com` or a `*.facebook.com` host. `FINISH_ONLY_WABA` (the admin finished Meta's window without a phone number) shows its own message and is never sent to the server. Started from the web app, the page gets `?from=web`, and **Return to Sijil** goes back to Admin → WhatsApp in the same tab instead of `sijil://`. The native WhatsApp screen refetches when the app comes back to the front.
 
 ## 4. Meta setup (SaaS owner, once)
 

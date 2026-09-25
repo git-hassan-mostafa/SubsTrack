@@ -1,5 +1,13 @@
 import type { WhatsAppTemplate } from "@/src/core/types";
-import { renderTemplate } from "@/supabase/functions/_shared/whatsapp/rules";
+import {
+  DEFAULT_PARAM_MAX_LENGTH,
+  renderTemplate,
+  sanitizeParam,
+} from "@/supabase/functions/_shared/whatsapp/rules";
+import {
+  isWhatsAppLanguage,
+  sijilTemplateByName,
+} from "@/supabase/functions/_shared/whatsapp/sijilTemplates";
 import type { ReminderFacts } from "./reminderFacts";
 
 export type PlaceholderSource =
@@ -46,18 +54,39 @@ export function defaultChoices(
   return choices;
 }
 
-// The preview shows each automatic value as its label, e.g. "[Amount owed]".
+// The same cap whatsapp-send cuts a value to, so the field stops there first.
+export function paramMaxLength(
+  template: Pick<WhatsAppTemplate, "name">,
+  param: string,
+): number {
+  return (
+    sijilTemplateByName(template.name)?.maxLength[param] ??
+    DEFAULT_PARAM_MAX_LENGTH
+  );
+}
+
+// A template's own language wins ("en_US" is en); otherwise the fallback.
+export function messageLanguage(
+  template: Pick<WhatsAppTemplate, "language">,
+  fallback: string,
+): string {
+  const base = template.language.split(/[_-]/)[0].toLowerCase();
+  return isWhatsAppLanguage(base) ? base : fallback;
+}
+
+// Typed text is shown as Meta will get it: one line, cut to its cap.
 export function previewText(
-  template: Pick<WhatsAppTemplate, "bodyText">,
+  template: Pick<WhatsAppTemplate, "bodyText" | "name">,
   choices: PlaceholderChoices,
   sourceLabel: (source: PlaceholderSource) => string,
 ): string {
   const values: Record<string, string> = {};
   for (const [param, choice] of Object.entries(choices)) {
-    values[param] =
-      choice.source === "custom" && choice.text.trim()
-        ? choice.text.trim()
-        : `[${sourceLabel(choice.source)}]`;
+    const typed =
+      choice.source === "custom"
+        ? sanitizeParam(choice.text, paramMaxLength(template, param))
+        : "";
+    values[param] = typed || `[${sourceLabel(choice.source)}]`;
   }
   return renderTemplate(template.bodyText ?? "", values);
 }

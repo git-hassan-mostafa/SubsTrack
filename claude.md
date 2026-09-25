@@ -105,7 +105,7 @@ implementation detail unless explicitly requested.
 | `docs/build-and-release.md`        | running the apps, `tests/`, OTA/EAS publishing                                                                                                          |
 | `docs/ota-fingerprint-mismatch.md` | an OTA update never reaches the installed app                                                                                                           |
 | `docs/edge-functions.md`           | auth / user / tenant creation                                                                                                                           |
-| `docs/whatsapp.md`                 | WhatsApp Cloud API: per-tenant Embedded Signup, `whatsapp_*` tables, send queue, webhooks, Meta setup (gotchas #161–167)                                |
+| `docs/whatsapp.md`                 | WhatsApp Cloud API: per-tenant Embedded Signup, `whatsapp_*` tables, send queue, webhooks, Meta setup (gotchas #161–170)                                |
 | `docs/project-structure.md`        | directory trees (can go stale — prefer a file search)                                                                                                   |
 
 ---

@@ -3,6 +3,7 @@ import { markAttention, retireAccount } from "../_shared/whatsapp/accounts.ts";
 import { serviceClient } from "../_shared/whatsapp/auth.ts";
 import { hmacSha256Hex, timingSafeEqual } from "../_shared/whatsapp/crypto.ts";
 import { createLogger, newRequestId, requireEnv } from "../_shared/whatsapp/http.ts";
+import { recordOptOut } from "../_shared/whatsapp/optOuts.ts";
 import { fromWaId } from "../_shared/whatsapp/phone.ts";
 import {
   attentionCodeFor,
@@ -10,6 +11,7 @@ import {
   errorKeyFor,
   isStopRequest,
   normalizeTier,
+  templateStatusForEvent,
 } from "../_shared/whatsapp/rules.ts";
 
 const { log } = createLogger("whatsapp-webhook");
@@ -117,14 +119,6 @@ async function applyInbound(service, account, messages) {
     if (!isStopRequest(body)) continue;
     const phone = await senderPhone(service, account, message);
     if (!phone) continue;
-    const { data: existing } = await service
-      .from("whatsapp_opt_outs")
-      .select("id")
-      .eq("tenant_id", account.tenant_id)
-      .eq("phone_e164", phone)
-      .is("cleared_at", null)
-      .maybeSingle();
-    if (existing) continue;
     const { data: last } = await service
       .from("whatsapp_messages")
       .select("customer_id")
@@ -133,26 +127,29 @@ async function applyInbound(service, account, messages) {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    const { error } = await service.from("whatsapp_opt_outs").insert({
-      tenant_id: account.tenant_id,
-      phone_e164: phone,
-      customer_id: last?.customer_id ?? null,
+    await recordOptOut(service, {
+      tenantId: account.tenant_id,
+      phone,
+      customerId: last?.customer_id ?? null,
       source: "stop_reply",
     });
-    if (error && error.code !== "23505") throw error;
   }
 }
 
 async function applyTemplateStatus(service, accounts, value) {
   const ids = accounts.map((a) => a.id);
   if (ids.length === 0 || !value?.message_template_id) return;
+  const status = templateStatusForEvent(value.event);
+  const patch = {
+    ...(status
+      ? { status, rejection_reason: value.reason && value.reason !== "NONE" ? value.reason : null }
+      : {}),
+    ...(value.message_template_category ? { category: value.message_template_category } : {}),
+  };
+  if (Object.keys(patch).length === 0) return;
   const { error } = await service
     .from("whatsapp_templates")
-    .update({
-      status: String(value.event ?? "PENDING"),
-      rejection_reason: value.reason && value.reason !== "NONE" ? value.reason : null,
-      ...(value.message_template_category ? { category: value.message_template_category } : {}),
-    })
+    .update(patch)
     .in("account_id", ids)
     .eq("meta_template_id", String(value.message_template_id));
   if (error) throw error;

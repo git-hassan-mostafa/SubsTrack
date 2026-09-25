@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Linking, ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
@@ -10,11 +10,14 @@ import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { useOptionSlice, useWhatsAppSignupOptions } from "@/src/state/hooks/useOptionSlice";
 import { GRAPH_VERSION } from "@/supabase/functions/_shared/whatsapp/rules";
 import { useConnectStore } from "../state/connectStore";
+import { CONNECT_FROM_WEB } from "../utils/constants";
 
 const SDK_URL = "https://connect.facebook.net/en_US/sdk.js";
 const SDK_SCRIPT_ID = "facebook-jssdk";
 const DETAILS_WAIT_MS = 10_000;
 const APP_RETURN_URL = "sijil://";
+const WEB_RETURN_ROUTE = "/(app)/(tabs)/admin/whatsapp" as Href;
+const NO_NUMBER_EVENT = "FINISH_ONLY_WABA";
 
 interface FacebookLoginResponse {
   authResponse?: { code?: string } | null;
@@ -38,7 +41,7 @@ interface SignupDetails {
 interface Pending {
   code: string | null;
   details: SignupDetails | null;
-  submitted: boolean;
+  settled: boolean;
 }
 
 type FacebookWindow = Window & { FB?: FacebookSdk; fbAsyncInit?: () => void };
@@ -74,8 +77,18 @@ function useFacebookSdk(appId: string | null): boolean {
   return ready;
 }
 
+// A bare endsWith("facebook.com") would also trust evilfacebook.com.
+function isFacebookOrigin(origin: string): boolean {
+  try {
+    const host = new URL(origin).hostname;
+    return host === "facebook.com" || host.endsWith(".facebook.com");
+  } catch {
+    return false;
+  }
+}
+
 function parseSignupMessage(event: MessageEvent): { event: string; data: Record<string, string> } | null {
-  if (!event.origin.endsWith("facebook.com")) return null;
+  if (!isFacebookOrigin(event.origin)) return null;
   try {
     const payload = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
     return payload?.type === "WA_EMBEDDED_SIGNUP"
@@ -89,7 +102,9 @@ function parseSignupMessage(event: MessageEvent): { event: string; data: Record<
 // Web-only: Embedded Signup needs the Facebook JS SDK, never the native app.
 export function WhatsAppConnectPage() {
   const { t } = useTranslation();
-  const { s } = useLocalSearchParams<{ s?: string }>();
+  const router = useRouter();
+  const { s, from } = useLocalSearchParams<{ s?: string; from?: string }>();
+  const fromWeb = from === CONNECT_FROM_WEB;
   const optionsLoading = useOptionSlice((state) => state.loading);
   const { appId, configId } = useWhatsAppSignupOptions();
   const sdkReady = useFacebookSdk(appId);
@@ -101,20 +116,30 @@ export function WhatsAppConnectPage() {
   const fail = useConnectStore((state) => state.fail);
   const reset = useConnectStore((state) => state.reset);
   const [pin, setPin] = useState("");
-  const pending = useRef<Pending>({ code: null, details: null, submitted: false });
+  const pending = useRef<Pending>({ code: null, details: null, settled: false });
 
   const trySubmit = useCallback(() => {
-    const { code, details, submitted } = pending.current;
-    if (submitted || !code || !details || !s) return;
-    pending.current.submitted = true;
+    const { code, details, settled } = pending.current;
+    if (settled || !code || !details || !s) return;
+    pending.current.settled = true;
     void complete({ s, code, ...details });
   }, [complete, s]);
+
+  const settleWithError = useCallback(
+    (message: string) => {
+      pending.current.settled = true;
+      fail(message);
+    },
+    [fail],
+  );
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
       const message = parseSignupMessage(event);
       if (!message) return;
-      if (message.event.startsWith("FINISH")) {
+      if (message.event === NO_NUMBER_EVENT) {
+        settleWithError(t("whatsapp.connect_page.no_number"));
+      } else if (message.event.startsWith("FINISH")) {
         pending.current.details = {
           wabaId: String(message.data.waba_id ?? ""),
           phoneNumberId: String(message.data.phone_number_id ?? ""),
@@ -127,12 +152,12 @@ export function WhatsAppConnectPage() {
         trySubmit();
       } else if (message.event === "CANCEL" || message.event === "ERROR") {
         const detail = message.data.error_message;
-        fail(detail ? t("whatsapp.connect_page.meta_error", { message: detail }) : t("whatsapp.connect_page.cancelled"));
+        settleWithError(detail ? t("whatsapp.connect_page.meta_error", { message: detail }) : t("whatsapp.connect_page.cancelled"));
       }
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [trySubmit, fail, t]);
+  }, [trySubmit, settleWithError, t]);
 
   useEffect(() => reset, [reset]);
 
@@ -140,15 +165,18 @@ export function WhatsAppConnectPage() {
     const sdk = facebookWindow().FB;
     if (!sdk || !configId) return;
     reset();
-    pending.current = { code: null, details: null, submitted: false };
+    const attempt: Pending = { code: null, details: null, settled: false };
+    pending.current = attempt;
     sdk.login(
       (response) => {
         const code = response.authResponse?.code ?? null;
         if (!code) return;
-        pending.current.code = code;
+        attempt.code = code;
         trySubmit();
         setTimeout(() => {
-          if (!pending.current.submitted) fail(t("whatsapp.connect_page.no_details"));
+          if (pending.current === attempt && !attempt.settled) {
+            fail(t("whatsapp.connect_page.no_details"));
+          }
         }, DETAILS_WAIT_MS);
       },
       {
@@ -181,12 +209,18 @@ export function WhatsAppConnectPage() {
       >
         <Button
           label={t("whatsapp.connect_page.return_to_app")}
-          onPress={() => void Linking.openURL(APP_RETURN_URL)}
+          onPress={() =>
+            fromWeb
+              ? router.replace(WEB_RETURN_ROUTE)
+              : void Linking.openURL(APP_RETURN_URL)
+          }
           fullWidth
         />
-        <Text className="text-xs text-gray-500 text-center mt-3">
-          {t("whatsapp.connect_page.close_tab")}
-        </Text>
+        {fromWeb ? null : (
+          <Text className="text-xs text-gray-500 text-center mt-3">
+            {t("whatsapp.connect_page.close_tab")}
+          </Text>
+        )}
       </Message>
     );
   }

@@ -12,10 +12,17 @@ import { confirm } from "@/src/shared/lib/confirm";
 import { useWhatsAppSignupOptions } from "@/src/state/hooks/useOptionSlice";
 import { useWhatsAppSlice } from "@/src/state/hooks/useWhatsAppSlice";
 import { tierLimit } from "@/supabase/functions/_shared/whatsapp/rules";
+import { CONNECT_FROM_PARAM, CONNECT_FROM_WEB } from "../utils/constants";
 
+// On web the page replaces this tab, so it is told to come back in-app.
 async function openConnectPage(url: string) {
-  if (Platform.OS === "web") window.location.assign(url);
-  else await Linking.openURL(url);
+  if (Platform.OS !== "web") {
+    await Linking.openURL(url);
+    return;
+  }
+  const target = new URL(url);
+  target.searchParams.set(CONNECT_FROM_PARAM, CONNECT_FROM_WEB);
+  window.location.assign(target.toString());
 }
 
 export function WhatsAppConnectionSection() {

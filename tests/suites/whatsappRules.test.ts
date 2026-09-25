@@ -7,12 +7,14 @@ import {
   classifyMetaError,
   detectParameterFormat,
   errorKeyFor,
+  isSendableTemplate,
   isStopRequest,
   normalizeTier,
   renderTemplate,
   sanitizeParam,
   shouldRetry,
   templateParamNames,
+  templateStatusForEvent,
   tierLimit,
 } from "@/supabase/functions/_shared/whatsapp/rules";
 
@@ -89,6 +91,64 @@ describe("STOP replies", () => {
   it("TC-WA-R-10 a sentence that merely contains stop does not", () => {
     for (const text of ["please stop by tomorrow", "I paid, stop?? no", "", null]) {
       expect(isStopRequest(text)).toBe(false);
+    }
+  });
+});
+
+describe("template webhook events", () => {
+  it("TC-WA-R-16 a reinstated or unarchived template can be sent again", () => {
+    expect(templateStatusForEvent("REINSTATED")).toBe("APPROVED");
+    expect(templateStatusForEvent("UNARCHIVED")).toBe("APPROVED");
+  });
+
+  it("TC-WA-R-17 a warning event never blocks an approved template", () => {
+    for (const event of ["FLAGGED", "LOCKED", "UNLOCKED", "", undefined, null, 5]) {
+      expect(templateStatusForEvent(event)).toBeNull();
+    }
+  });
+
+  it("TC-WA-R-18 a real status event is stored as that status", () => {
+    expect(templateStatusForEvent("REJECTED")).toBe("REJECTED");
+    expect(templateStatusForEvent("paused")).toBe("PAUSED");
+    expect(templateStatusForEvent(" APPROVED ")).toBe("APPROVED");
+  });
+});
+
+describe("which templates Sijil can send", () => {
+  const body = { type: "BODY", text: "Hi {{name}}" };
+
+  it("TC-WA-R-19 body, footer, a plain text header and plain buttons are sendable", () => {
+    expect(
+      isSendableTemplate([
+        { type: "HEADER", format: "TEXT", text: "Notice" },
+        body,
+        { type: "FOOTER", text: "Reply STOP" },
+        {
+          type: "BUTTONS",
+          buttons: [
+            { type: "QUICK_REPLY" },
+            { type: "URL", url: "https://example.com/help" },
+            { type: "PHONE_NUMBER" },
+          ],
+        },
+      ]),
+    ).toBe(true);
+    expect(isSendableTemplate(null)).toBe(true);
+  });
+
+  it("TC-WA-R-20 anything needing a value Sijil cannot fill is not sendable", () => {
+    const cases = [
+      [{ type: "HEADER", format: "IMAGE" }, body],
+      [{ type: "HEADER", format: "TEXT", text: "Hi {{1}}" }, body],
+      [body, { type: "BUTTONS", buttons: [{ type: "URL", url: "https://x.com/{{1}}" }] }],
+      [body, { type: "BUTTONS", buttons: [{ type: "COPY_CODE" }] }],
+      [body, { type: "BUTTONS", buttons: [{ type: "OTP" }] }],
+      [body, { type: "BUTTONS", buttons: [{ type: "FLOW" }] }],
+      [body, { type: "BUTTONS", buttons: [{ type: "MPM" }] }],
+      [body, { type: "CAROUSEL" }],
+    ];
+    for (const components of cases) {
+      expect(isSendableTemplate(components)).toBe(false);
     }
   });
 });

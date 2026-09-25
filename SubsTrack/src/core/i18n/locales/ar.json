@@ -440,7 +440,7 @@
     "apr": "نيسان",
     "may": "أيار",
     "jun": "حزيران",
-    "jul": "تمور",
+    "jul": "تموز",
     "aug": "آب",
     "sep": "أيلول",
     "oct": "تشرين أول",
@@ -1644,6 +1644,7 @@
     "history_title": "رسائل واتساب",
     "history_menu_sub": "ما تم إرساله وما حصل له",
     "period_more": "{{periods}} و{{count}} غيرها",
+    "due_date_value": "{{day}} {{month}} {{year}}",
     "purpose": {
       "payment_reminder": "تذكير بالدفع",
       "service_outage": "انقطاع الخدمة",
@@ -1806,7 +1807,8 @@
       "token_invalid": "فقد سجل الوصول إلى حساب واتساب الخاص بك.",
       "account_restricted": "قيّدت Meta حساب واتساب الخاص بك.",
       "number_not_registered": "رقمك غير مسجل في WhatsApp Cloud API.",
-      "permission_removed": "تمت إزالة صلاحية سجل في Meta."
+      "permission_removed": "تمت إزالة صلاحية سجل في Meta.",
+      "opted_out": "أُلغيت لأن الزبون طلب عدم استلام رسائل واتساب."
     },
     "unknown_customer": "زبون",
     "cancel_batch": "إلغاء الرسائل المنتظرة",
@@ -1830,7 +1832,8 @@
       "close_tab": "على الكمبيوتر يمكنك إغلاق هذه الصفحة.",
       "cancelled": "أُغلقت نافذة Meta قبل الانتهاء. حاول مجدداً.",
       "meta_error": "أبلغت Meta عن مشكلة: {{message}}",
-      "no_details": "لم ترسل Meta تفاصيل الحساب. حاول مجدداً."
+      "no_details": "لم ترسل Meta تفاصيل الحساب. حاول مجدداً.",
+      "no_number": "انتهت نافذة Meta دون إضافة رقم هاتف. ابدأ من جديد واختر رقماً أو أضف رقماً جديداً."
     },
     "errors": {
       "not_configured": "لم يُجهّز سجل واتساب بعد. يرجى التواصل مع الدعم.",
@@ -1855,7 +1858,8 @@
       "no_recipients": "اختر زبوناً واحداً على الأقل.",
       "too_many_recipients": "عدد الزبائن كبير جداً في طلب واحد.",
       "invalid_customer": "زبون غير معروف.",
-      "invalid_phone": "رقم هاتف هذا الزبون غير صحيح."
+      "invalid_phone": "رقم هاتف هذا الزبون غير صحيح.",
+      "server_error": "حدث خطأ ما. حاول مجدداً."
     }
   }
 }
