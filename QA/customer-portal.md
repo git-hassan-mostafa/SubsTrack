@@ -109,6 +109,10 @@ Open the same customer in SubsTrack side by side.
 | 4.10 | A customer who owes nothing | green "You are paid up" card, no red anywhere |
 | 4.11 | While the page is still loading | **no red badge**. Absence means unknown, never unpaid |
 | 4.12 | "What you owe" list | oldest first, with the note that this is the order payments are applied |
+| 4.13 | A customer with a **plan-less** line (custom amounts) and unpaid months on it | the card is **not** "You are paid up"; each unpaid month is listed with "Amount set by your provider" in place of a figure, and it adds nothing to the totals (TC-PRT-09) |
+| 4.14 | Same customer, the Months section and "Your services" | the line's title reads **"No plan"**, never blank — same as the app's line tab |
+| 4.15 | Same customer who ALSO has a priced line with unpaid months | the total counts only the priced months; the plan-less months sit beside them in the list (TC-PRT-11) |
+| 4.16 | Staff app → collect-all / WhatsApp reminder for that customer | unchanged — the plan-less months are still asked for through the collect sheet's amount box, not added to the owed list (TC-PRT-10) |
 
 ---
 

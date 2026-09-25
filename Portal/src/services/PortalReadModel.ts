@@ -104,6 +104,7 @@ export function buildPortalModel(payload: PortalPayload): PortalModel {
     currencies,
     stored,
     billsByLine,
+    withOpenMonths: true,
   });
 
   return {

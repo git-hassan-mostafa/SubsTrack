@@ -13,6 +13,7 @@ import { COLORS } from "../../../../shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { Chip, type ChipTone } from "@/src/shared/components/Chip";
 import { activeLines } from "@/src/modules/customer/customer-plans";
+import { lineLabel } from "@/src/modules/customer/customer-plans/utils/lineLabel";
 import { customerFlags, type CustomerFlag } from "../utils/customerFlags";
 
 interface Props {
@@ -133,7 +134,7 @@ export const CustomerCard = memo(function CustomerCard({
     lines.length === 0
       ? t("common.no_plan")
       : lines.length === 1
-        ? lines[0].plan?.name || t("common.no_plan")
+        ? lineLabel(lines[0], t("common.no_plan"))
         : t("subscriptions.count_plans", { count: lines.length });
 
   const chips = buildChips(customer, status, debtLabel, t);

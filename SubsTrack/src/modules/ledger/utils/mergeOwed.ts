@@ -22,16 +22,10 @@ export interface MergeOwedArgs {
   stored: OpenItem[];
   billsByLine: Map<string, MonthBill[]>;
   today?: Date;
+  withOpenMonths?: boolean;
 }
 
-/**
- * The pure half of `LedgerService.getOwed` — everything after its two reads.
- *
- * It lives in utils/ rather than on the service because importing the service
- * drags ChargeService, and therefore a repository and Supabase, into the graph.
- * The customer portal holds the rows already and must run this exact merge on
- * them; anything else would be a second copy of the stored-vs-virtual rule.
- */
+// Pure half of getOwed, kept off the service so the portal can run it too.
 export function mergeOwed(args: MergeOwedArgs): OpenItem[] {
   const { customer, lines, skips, unpaidRule, currencies, billsByLine } = args;
   const active = lines.filter((l) => l.active);
@@ -51,6 +45,7 @@ export function mergeOwed(args: MergeOwedArgs): OpenItem[] {
     currencies,
     alreadyBilled: billed,
     today: args.today ?? new Date(),
+    withOpenMonths: args.withOpenMonths ?? false,
   });
 
   const revalued = new Set(
@@ -75,6 +70,7 @@ function virtualUnpaidMonths(args: {
   currencies: Currency[];
   alreadyBilled: ReadonlySet<string>;
   today: Date;
+  withOpenMonths: boolean;
 }): OpenItem[] {
   const {
     customer,
@@ -85,14 +81,18 @@ function virtualUnpaidMonths(args: {
     currencies,
     alreadyBilled,
     today,
+    withOpenMonths,
   } = args;
   const out: OpenItem[] = [];
 
   for (const line of activeLines) {
     const price = resolveLinePrice(line);
-    if (!price.isFixed || price.amount === null || price.amount <= 0) continue;
-    const ratePerUsd =
-      findCurrency(currencies, price.currencyId)?.ratePerUsd ?? 1;
+    const priced =
+      price.isFixed && price.amount !== null && price.amount > 0;
+    if (!priced && !withOpenMonths) continue;
+    const ratePerUsd = priced
+      ? (findCurrency(currencies, price.currencyId)?.ratePerUsd ?? 1)
+      : 1;
 
     const bills = billsByLine.get(line.id) ?? [];
     const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
@@ -118,10 +118,11 @@ function virtualUnpaidMonths(args: {
             durationMonths: price.durationMonths,
             planId: line.planId,
             label: `${entry.label} ${entry.year}${line.plan?.name ? ` · ${line.plan.name}` : ""}`,
-            amount: price.amount,
-            currencyId: price.currencyId,
+            amount: priced ? price.amount! : 0,
+            currencyId: priced ? price.currencyId : null,
             ratePerUsdSnapshot: ratePerUsd,
             dueDate: entry.billingMonth,
+            openAmount: !priced,
           }),
         );
       }

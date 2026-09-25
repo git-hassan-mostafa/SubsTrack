@@ -36,6 +36,7 @@ import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
+import { lineLabel } from "@/src/modules/customer/customer-plans/utils/lineLabel";
 import { MonthGrid } from "./MonthGrid";
 import { SkipMonthSheet } from "./SkipMonthSheet";
 import {
@@ -77,11 +78,6 @@ interface CustomerPaymentPanelProps {
 
 const EMPTY_GRID: MonthEntry[] = [];
 const EMPTY_MONTHS: string[] = [];
-
-// Label for a service line tab/header: its plan name, else a "no plan" tag.
-function lineLabel(line: CustomerPlan, noPlan: string): string {
-  return line.plan?.name || noPlan;
-}
 
 // A single at-a-glance payment status for a line's tab, derived from the viewed
 // year's grid (reuses buildMonthGrid's statuses — no status logic here). Worst

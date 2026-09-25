@@ -10,14 +10,16 @@ import { Money } from "./Money";
 export function StatusCard({ model }: { model: PortalModel }) {
   const { t } = useTranslation();
   const groups = groupByCurrency(
-    model.owed.map((item) => ({
-      amount: item.balance,
-      currencyId: item.currencyId,
-      ratePerUsdSnapshot: item.ratePerUsdSnapshot,
-    })),
+    model.owed
+      .filter((item) => !item.openAmount)
+      .map((item) => ({
+        amount: item.balance,
+        currencyId: item.currencyId,
+        ratePerUsdSnapshot: item.ratePerUsdSnapshot,
+      })),
   );
 
-  if (groups.length === 0) {
+  if (model.owed.length === 0) {
     return (
       <section className="rounded-2xl border-2 border-green-600 bg-successLight p-5 text-center">
         <p className="text-2xl font-bold text-green-700">
@@ -73,13 +75,19 @@ export function StatusCard({ model }: { model: PortalModel }) {
               <span className="min-w-0 truncate text-base text-gray-800">
                 {item.label}
               </span>
-              <Money
-                amount={item.balance}
-                currencyId={item.currencyId}
-                currencies={model.currencies}
-                displayCurrencyId={model.displayCurrencyId}
-                className="shrink-0 text-base font-semibold text-gray-900"
-              />
+              {item.openAmount ? (
+                <span className="shrink-0 text-sm text-gray-600">
+                  {t("portal.amount_set_by_provider")}
+                </span>
+              ) : (
+                <Money
+                  amount={item.balance}
+                  currencyId={item.currencyId}
+                  currencies={model.currencies}
+                  displayCurrencyId={model.displayCurrencyId}
+                  className="shrink-0 text-base font-semibold text-gray-900"
+                />
+              )}
             </li>
           ))}
         </ul>

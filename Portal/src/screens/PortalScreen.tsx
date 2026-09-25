@@ -12,6 +12,7 @@ import { SaleList } from "../components/SaleList";
 import { ServiceLines } from "../components/ServiceLines";
 import { Receipt, type ReceiptTarget } from "../components/Receipt";
 import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
+import { lineLabel } from "@/src/modules/customer/customer-plans/utils/lineLabel";
 
 export function PortalScreen({ model }: { model: PortalModel }) {
   const { t } = useTranslation();
@@ -77,7 +78,7 @@ export function PortalScreen({ model }: { model: PortalModel }) {
               return (
                 <div key={line.id}>
                   <p className="mb-2 text-base font-semibold text-gray-900">
-                    {line.plan?.name ?? ""}
+                    {lineLabel(line, t("portal.no_plan"))}
                     {price.isFixed && price.amount !== null ? (
                       <span className="font-normal text-gray-600">
                         {" ("}

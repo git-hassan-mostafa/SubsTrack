@@ -121,6 +121,51 @@ describe("what the portal renders", () => {
   });
 });
 
+describe("a line with no set price", () => {
+  const OPEN = line({ id: "line-open", startDate: "2026-02-01", plan: null });
+  const openArgs = {
+    ...args,
+    customer: customer({ id: "cust-1", customerPlans: [OPEN] }),
+    lines: [OPEN],
+    stored: [],
+    billsByLine: new Map(),
+  };
+
+  it("TC-PRT-09 lists its unpaid months as open items for the portal", () => {
+    const owed = mergeOwed({ ...openArgs, withOpenMonths: true });
+
+    expect(owed.map((i) => i.billingMonth)).toEqual([
+      "2026-02-01",
+      "2026-03-01",
+    ]);
+    expect(owed.every((i) => i.openAmount)).toBe(true);
+    expect(owed.every((i) => i.balance === 0)).toBe(true);
+    expect(owed.every((i) => i.currencyId === null)).toBe(true);
+  });
+
+  it("TC-PRT-10 leaves the staff owed list unchanged by default", () => {
+    expect(mergeOwed(openArgs)).toEqual([]);
+  });
+
+  it("TC-PRT-11 keeps a priced line's months priced beside an open line", () => {
+    const owed = mergeOwed({
+      ...openArgs,
+      customer: customer({ id: "cust-1", customerPlans: [L, OPEN] }),
+      lines: [L, OPEN],
+      withOpenMonths: true,
+    });
+
+    const priced = owed.filter((i) => !i.openAmount);
+    expect(priced.map((i) => i.customerPlanId)).toEqual([
+      "line-1",
+      "line-1",
+      "line-1",
+    ]);
+    expect(priced.every((i) => i.balance === 20)).toBe(true);
+    expect(owed.filter((i) => i.openAmount)).toHaveLength(2);
+  });
+});
+
 describe("the receipt behind a month cell", () => {
   const monthCharge = {
     id: "charge-jan",

@@ -20,6 +20,8 @@
   "months_hint": "Tap a paid month to see its receipt.",
   "month": "Month",
   "what_you_owe": "What you owe",
+  "amount_set_by_provider": "Amount set by your provider",
+  "no_plan": "No plan",
   "payments": "Payments",
   "tap_for_receipt": "Tap any line to see its receipt.",
   "purchases": "Purchases",

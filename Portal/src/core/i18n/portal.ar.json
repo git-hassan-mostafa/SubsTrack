@@ -20,6 +20,8 @@
   "months_hint": "اضغط على شهر مدفوع لعرض الإيصال.",
   "month": "الشهر",
   "what_you_owe": "ما عليك",
+  "amount_set_by_provider": "يحدّد المبلغ مزوّد الخدمة",
+  "no_plan": "بدون خطة",
   "payments": "الدفعات",
   "tap_for_receipt": "اضغط على أي سطر لعرض الإيصال.",
   "purchases": "المشتريات",

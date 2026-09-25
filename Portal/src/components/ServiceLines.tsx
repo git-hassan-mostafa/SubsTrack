@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
+import { lineLabel } from "@/src/modules/customer/customer-plans/utils/lineLabel";
 import { formatDate } from "@/src/core/utils/date";
 import type { PortalModel } from "../services/PortalReadModel";
 import { Money } from "./Money";
@@ -27,7 +28,7 @@ export function ServiceLines({ model }: { model: PortalModel }) {
             >
               <span className="min-w-0">
                 <span className="block truncate text-base font-semibold text-gray-900">
-                  {line.plan?.name ?? ""}
+                  {lineLabel(line, t("portal.no_plan"))}
                 </span>
                 <span className="block text-sm text-gray-600">
                   {t("portal.started")} {formatDate(line.startDate)}
