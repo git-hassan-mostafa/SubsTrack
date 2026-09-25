@@ -154,7 +154,6 @@ export function DebtorDetailSheet({
                   <DebtList
                     items={writtenOff.items}
                     loading={writtenOff.loading}
-                    newestFirst
                     emptyMessage={t("debts.no_written_off")}
                     onRevertWriteOff={onRevertWriteOff}
                     onOpenItem={onOpenItem}
@@ -174,7 +173,6 @@ export function DebtorDetailSheet({
                     <DebtList
                       items={debtor.items}
                       unpaidMonths={debtor.unpaidMonths}
-                      newestFirst
                       onCollect={onCollectItem}
                       onEditItem={onEditItem}
                       onVoidItem={onVoidItem}

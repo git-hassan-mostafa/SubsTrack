@@ -74,6 +74,14 @@ function compareBy(sort: AllDebtsSort, a: OpenItem, b: OpenItem): number {
   return byAmount !== 0 ? byAmount : compareOpenItems(a, b);
 }
 
+// Every debt list shares this, so a customer's debts read in one order anywhere.
+export function sortDebts(
+  items: OpenItem[],
+  sort: AllDebtsSort = DEFAULT_ALL_DEBTS_FILTERS.sort,
+): OpenItem[] {
+  return [...items].sort((a, b) => compareBy(sort, a, b));
+}
+
 // The written-off scope arrives as a flat list of its own, so the filters live
 // here rather than on the flatten — one rule set, both scopes.
 export function filterAndSortDebts(
@@ -92,7 +100,7 @@ export function filterAndSortDebts(
       item.label.toLowerCase().includes(q)
     );
   });
-  return rows.sort((a, b) => compareBy(filters.sort, a, b));
+  return sortDebts(rows, filters.sort);
 }
 
 export function selectAllDebts(

@@ -4,6 +4,7 @@ import {
   flattenDebts,
   hasActiveAllDebtsFilters,
   selectAllDebts,
+  sortDebts,
   totalUsdOf,
   type AllDebtsFilters,
 } from "@/src/modules/transaction/debts/utils/allDebtsFilter";
@@ -302,5 +303,33 @@ describe("all-debts: totals and filter state", () => {
     expect(hasActiveAllDebtsFilters(filters({ status: "late" }))).toBe(true);
     expect(hasActiveAllDebtsFilters(filters({ sort: "newest" }))).toBe(true);
     expect(hasActiveAllDebtsFilters(filters({ search: "ali" }))).toBe(true);
+  });
+});
+
+describe("all-debts: one order for every debt list", () => {
+  it("TC-AD-26 a customer's debt list reads in the same order as All debts", () => {
+    const early = openItem({
+      chargeId: "early",
+      dueDate: "2026-03-01",
+      createdAt: "2026-01-05T08:00:00.000Z",
+    });
+    const late = openItem({
+      chargeId: "late",
+      dueDate: "2026-01-01",
+      createdAt: "2026-02-20T08:00:00.000Z",
+    });
+    const v = view([debtor({ items: [early, late] })]);
+    expect(keys(sortDebts([early, late]))).toEqual(
+      keys(selectAllDebts(v, filters(), TODAY)),
+    );
+    expect(keys(sortDebts([early, late]))).toEqual(["late", "early"]);
+  });
+
+  it("TC-AD-27 sorting never reorders the caller's array", () => {
+    const a = openItem({ chargeId: "a", createdAt: "2026-01-01T00:00:00.000Z" });
+    const b = openItem({ chargeId: "b", createdAt: "2026-02-01T00:00:00.000Z" });
+    const input = [a, b];
+    sortDebts(input);
+    expect(keys(input)).toEqual(["a", "b"]);
   });
 });
