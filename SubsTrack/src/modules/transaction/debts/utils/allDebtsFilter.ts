@@ -3,7 +3,13 @@ import { compareOpenItems } from "@/src/modules/ledger/utils/waterfall";
 import { daysLate } from "@/src/core/utils/date";
 
 export type AllDebtsStatus = "late" | "not_late" | "partial";
-export type AllDebtsSort = "oldest" | "newest" | "largest" | "smallest";
+export type AllDebtsSort =
+  | "created"
+  | "updated"
+  | "oldest"
+  | "newest"
+  | "largest"
+  | "smallest";
 
 export interface AllDebtsFilters {
   search: string;
@@ -16,7 +22,7 @@ export const DEFAULT_ALL_DEBTS_FILTERS: AllDebtsFilters = {
   search: "",
   kind: null,
   status: null,
-  sort: "oldest",
+  sort: "created",
 };
 
 export function hasActiveAllDebtsFilters(f: AllDebtsFilters): boolean {
@@ -49,12 +55,20 @@ function usdOf(item: OpenItem): number {
   return item.balance / item.ratePerUsdSnapshot;
 }
 
-// The date sorts reuse the waterfall's own total order, so the list reads in
-// the sequence money would settle it; the amount sorts fall back to that order
-// so two equal balances can never swap places between renders.
+function updatedAtOf(item: OpenItem): string {
+  return item.charge?.updatedAt ?? item.createdAt;
+}
+
+// Every sort falls back to the waterfall order, so ties never swap on render.
 function compareBy(sort: AllDebtsSort, a: OpenItem, b: OpenItem): number {
   if (sort === "oldest") return compareOpenItems(a, b);
   if (sort === "newest") return -compareOpenItems(a, b);
+  if (sort === "created")
+    return b.createdAt.localeCompare(a.createdAt) || compareOpenItems(a, b);
+  if (sort === "updated")
+    return (
+      updatedAtOf(b).localeCompare(updatedAtOf(a)) || compareOpenItems(a, b)
+    );
   const byAmount =
     sort === "largest" ? usdOf(b) - usdOf(a) : usdOf(a) - usdOf(b);
   return byAmount !== 0 ? byAmount : compareOpenItems(a, b);

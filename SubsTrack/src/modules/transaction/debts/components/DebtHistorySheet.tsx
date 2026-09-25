@@ -22,6 +22,7 @@ import { keyOf } from "@/src/modules/ledger/utils/waterfall";
 import { useOwedChanged } from "@/src/modules/ledger";
 import { useDebtHistoryStore } from "../state/debtHistoryStore";
 import {
+  DEFAULT_DEBT_HISTORY_FILTERS,
   HISTORY_PERIOD_PRESETS,
   hasActiveHistoryFilters,
   type HistoryOutcome,
@@ -114,6 +115,8 @@ export function DebtHistorySheet({
 
   const sortOptions: DropdownOption<HistorySort>[] = useMemo(
     () => [
+      { label: t("debts.sort_created"), value: "created" },
+      { label: t("debts.sort_updated"), value: "updated" },
       { label: t("debts.sort_newest"), value: "newest" },
       { label: t("debts.sort_oldest"), value: "oldest" },
       { label: t("debts.sort_largest"), value: "largest" },
@@ -215,7 +218,9 @@ export function DebtHistorySheet({
                   placeholder={t("ledger.sort_by_label")}
                   options={sortOptions}
                   value={sort}
-                  onChange={(next) => void setSort(next ?? "newest")}
+                  onChange={(next) =>
+                    void setSort(next ?? DEFAULT_DEBT_HISTORY_FILTERS.sort)
+                  }
                   triggerStyle="chip"
                 />
                 {dirty ? (

@@ -1622,7 +1622,9 @@ CREATE OR REPLACE VIEW charge_balances WITH (security_invoker = true) AS
                         FROM collection_items i3
                         JOIN collections p3 ON p3.id = i3.collection_id
                        WHERE i3.charge_id = c.id AND p3.voided_at IS NULL)
-           ), 0) < c.amount) AS became_debt
+           ), 0) < c.amount) AS became_debt,
+           c.created_at,
+           c.updated_at
     FROM charges c
     LEFT JOIN collection_items i ON i.charge_id = c.id
     LEFT JOIN collections p ON p.id = i.collection_id AND p.voided_at IS NULL

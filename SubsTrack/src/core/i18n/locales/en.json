@@ -1011,6 +1011,8 @@
     "status_late": "Late",
     "status_not_late": "Not late yet",
     "status_partial": "Partly paid",
+    "sort_created": "Newest created first",
+    "sort_updated": "Last updated first",
     "sort_oldest": "Oldest due first",
     "sort_newest": "Newest due first",
     "sort_largest": "Largest amount",

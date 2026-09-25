@@ -64,7 +64,11 @@ export interface FindChargesOptions {
 // scope, which is a statement ABOUT the bill rather than a sum over it.
 export type BalanceScope = "any" | "settled" | "partial" | "unpaid";
 
-export type ChargeSortField = "due_date" | "amount";
+export type ChargeSortField =
+  | "due_date"
+  | "amount"
+  | "created_at"
+  | "updated_at";
 
 // A past bill, what has reached it since, and what it took on the day it was
 // raised. Only this read carries `downPaid` — it is what makes the row a story

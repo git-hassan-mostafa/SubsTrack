@@ -190,6 +190,42 @@ describe("all-debts: sorting", () => {
     ).toEqual(["aaa", "bbb"]);
   });
 
+  it("TC-AD-24 the default sort is newest CREATED first, not due date", () => {
+    const early = openItem({
+      chargeId: "early",
+      dueDate: "2026-03-01",
+      createdAt: "2026-01-05T08:00:00.000Z",
+    });
+    const late = openItem({
+      chargeId: "late",
+      dueDate: "2026-01-01",
+      createdAt: "2026-02-20T08:00:00.000Z",
+    });
+    const made = view([debtor({ items: [early, late] })]);
+    expect(DEFAULT_ALL_DEBTS_FILTERS.sort).toBe("created");
+    expect(keys(selectAllDebts(made, filters(), TODAY))).toEqual([
+      "late",
+      "early",
+    ]);
+  });
+
+  it("TC-AD-25 last updated reads the bill's own updatedAt", () => {
+    const touched = openItem({
+      chargeId: "touched",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      charge: { updatedAt: "2026-03-10T00:00:00.000Z" } as OpenItem["charge"],
+    });
+    const idle = openItem({
+      chargeId: "idle",
+      createdAt: "2026-02-01T00:00:00.000Z",
+      charge: { updatedAt: "2026-02-01T00:00:00.000Z" } as OpenItem["charge"],
+    });
+    const v2 = view([debtor({ items: [idle, touched] })]);
+    expect(
+      keys(selectAllDebts(v2, filters({ sort: "updated" }), TODAY)),
+    ).toEqual(["touched", "idle"]);
+  });
+
   it("TC-AD-15 a rate snapshot decides the amount order, not the raw balance", () => {
     const lbp = openItem({
       chargeId: "lbp",

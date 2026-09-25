@@ -176,6 +176,14 @@ describe("debt history: what the query is asked", () => {
       sortField: "amount",
       sortDirection: "asc",
     });
+    expect(toReadScopes(filters({ sort: "created" }))).toMatchObject({
+      sortField: "created_at",
+      sortDirection: "desc",
+    });
+    expect(toReadScopes(filters({ sort: "updated" }))).toMatchObject({
+      sortField: "updated_at",
+      sortDirection: "desc",
+    });
   });
 
   it("TC-DH-18 'all time' sends no date bounds at all", () => {
@@ -240,9 +248,9 @@ describe("debt history: filter state", () => {
     expect(hasActiveHistoryFilters(DEFAULT_DEBT_HISTORY_FILTERS)).toBe(false);
   });
 
-  it("TC-DH-23 it opens on ALL TIME, newest first", () => {
+  it("TC-DH-23 it opens on ALL TIME, newest created first", () => {
     expect(DEFAULT_DEBT_HISTORY_FILTERS.period).toBe("all");
-    expect(DEFAULT_DEBT_HISTORY_FILTERS.sort).toBe("newest");
+    expect(DEFAULT_DEBT_HISTORY_FILTERS.sort).toBe("created");
   });
 
   it("TC-DH-24 any changed filter flags the clear button", () => {
@@ -251,5 +259,6 @@ describe("debt history: filter state", () => {
     expect(hasActiveHistoryFilters(filters({ outcome: "settled" }))).toBe(true);
     expect(hasActiveHistoryFilters(filters({ kind: "sale" }))).toBe(true);
     expect(hasActiveHistoryFilters(filters({ sort: "oldest" }))).toBe(true);
+    expect(hasActiveHistoryFilters(filters({ sort: "newest" }))).toBe(true);
   });
 });

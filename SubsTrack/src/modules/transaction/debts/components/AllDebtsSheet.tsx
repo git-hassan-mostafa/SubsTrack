@@ -113,6 +113,8 @@ export function AllDebtsSheet({
 
   const sortOptions: DropdownOption<AllDebtsSort>[] = useMemo(
     () => [
+      { label: t("debts.sort_created"), value: "created" },
+      { label: t("debts.sort_updated"), value: "updated" },
       { label: t("debts.sort_oldest"), value: "oldest" },
       { label: t("debts.sort_newest"), value: "newest" },
       { label: t("debts.sort_largest"), value: "largest" },
@@ -238,7 +240,9 @@ export function AllDebtsSheet({
                 placeholder={t("ledger.sort_by_label")}
                 options={sortOptions}
                 value={filters.sort}
-                onChange={(sort) => patch({ sort: sort ?? "oldest" })}
+                onChange={(sort) =>
+                  patch({ sort: sort ?? DEFAULT_ALL_DEBTS_FILTERS.sort })
+                }
                 triggerStyle="chip"
               />
               {dirty ? (

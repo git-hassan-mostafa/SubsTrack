@@ -1011,6 +1011,8 @@
     "status_late": "متأخرة",
     "status_not_late": "غير متأخرة بعد",
     "status_partial": "مسدّدة جزئياً",
+    "sort_created": "الأحدث إنشاءً أولاً",
+    "sort_updated": "آخر تحديث أولاً",
     "sort_oldest": "الأقدم استحقاقاً أولاً",
     "sort_newest": "الأحدث استحقاقاً أولاً",
     "sort_largest": "الأكبر مبلغاً",

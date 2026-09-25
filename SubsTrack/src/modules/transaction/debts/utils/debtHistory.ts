@@ -10,7 +10,22 @@ import { daysLate } from "@/src/core/utils/date";
 import { periodFromPreset, type ReportPeriod } from "@/src/core/utils/dateRange";
 
 export type HistoryOutcome = "settled" | "partial" | "open" | "written_off";
-export type HistorySort = "newest" | "oldest" | "largest" | "smallest";
+export type HistorySort =
+  | "created"
+  | "updated"
+  | "newest"
+  | "oldest"
+  | "largest"
+  | "smallest";
+
+const SORT_FIELDS: Record<HistorySort, ChargeSortField> = {
+  created: "created_at",
+  updated: "updated_at",
+  newest: "due_date",
+  oldest: "due_date",
+  largest: "amount",
+  smallest: "amount",
+};
 
 // A period the reader has to ASK for: the whole point of this list is old
 // debts, so it opens on everything and narrows from there.
@@ -48,7 +63,7 @@ export const DEFAULT_DEBT_HISTORY_FILTERS: DebtHistoryFilters = {
   period: "all",
   outcome: null,
   kind: null,
-  sort: "newest",
+  sort: "created",
 };
 
 export function hasActiveHistoryFilters(f: DebtHistoryFilters): boolean {
@@ -116,10 +131,7 @@ export function toReadScopes(filters: DebtHistoryFilters): {
         : filters.outcome === null
           ? "any"
           : "live",
-    sortField:
-      filters.sort === "largest" || filters.sort === "smallest"
-        ? "amount"
-        : "due_date",
+    sortField: SORT_FIELDS[filters.sort],
     sortDirection:
       filters.sort === "oldest" || filters.sort === "smallest" ? "asc" : "desc",
   };

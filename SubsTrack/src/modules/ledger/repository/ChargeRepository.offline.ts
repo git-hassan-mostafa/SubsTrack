@@ -243,7 +243,10 @@ export class OfflineChargeRepository
             ? `WHERE ${owed} AND __paid = 0`
             : "";
     const dir = opts.sortDirection === "asc" ? "ASC" : "DESC";
-    const sortCol = opts.sortField === "amount" ? "CAST(amount AS REAL)" : "due_date";
+    const sortCol =
+      opts.sortField === "amount"
+        ? "CAST(amount AS REAL)"
+        : (opts.sortField ?? "due_date");
     params.push(opts.limit ?? OFFLINE_PAGE_SIZE, opts.offset ?? 0);
     // `__down_paid < amount` IS the list — a bill settled the moment it was
     // raised never became a debt, so it is excluded here rather than filtered

@@ -147,9 +147,7 @@ export class ChargeRepository
       .map((o) => ({ charge: byId.get(o.id)!, paid: Number(o.paid) }));
   }
 
-  // The debts read without its `balance > 0` gate — see gotcha #118. `id` is the
-  // second sort key because the view carries no `created_at` to break a tie on,
-  // and an unstable order would repeat or skip rows between pages.
+  // The debts read without its `balance > 0` gate; `id` keeps paging stable.
   async findHistory(
     opts: FindChargeHistoryOptions,
   ): Promise<DbChargeHistoryRow[]> {

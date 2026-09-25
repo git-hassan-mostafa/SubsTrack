@@ -162,3 +162,16 @@ Covers the **Debts** screen (Transactions → Debts — a single debtors list, n
 | 6.2 | Offline read        | Airplane mode                                | The list renders from the mirror with the same totals                                                                                                |
 | 6.3 | Offline write       | Add a fee, write one off, offline            | Both apply locally; both sync on reconnect                                                                                                           |
 | 6.4 | Customer-list badge | The "Has debts" tab and the card's debt pill | Both ask `hasDebtFlag(netUsd)` over `ledger.netByCustomer`, so they always agree; unlike the month tabs it is **not** restricted to active + regular |
+
+---
+
+## 7. Sorting the All debts and Debt history sheets
+
+| #   | Scenario                               | Steps                                                                | Expected result                                                                                                  |
+| --- | -------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 7.1 | Default is newest created              | Open **All debts**, then **Debt history**                            | Both open on **Newest created first** — the bill raised most recently is on top, whatever its due date           |
+| 7.2 | Back-dated bill                        | Add a fee today with a due date last year                            | With the default sort it is at the **top** (just created); with **Oldest due first** it moves to the front of the queue |
+| 7.3 | Last updated                           | Edit an old bill, then pick **Last updated first**                   | That bill jumps to the top in both sheets                                                                        |
+| 7.4 | Clear filters                          | Pick any other sort, tap **Clear filters**                           | The sort goes back to **Newest created first**; the clear button hides again                                     |
+| 7.5 | History paging keeps the order         | Debt history with more than one page, each new sort                  | Scrolling loads more rows with no repeats and no gaps; web and offline show the same order                       |
+| 7.6 | Sort never moves the money             | Any sort on screen, then **Collect**                                 | The split preview still fills **oldest due date first** — the sort is display only                               |
