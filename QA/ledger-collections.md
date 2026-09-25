@@ -527,3 +527,19 @@ surface that passes `onVoidBill`.
 20.10 There is **no loading spinner on the void** any more: the confirm dialog blocks while it runs and the sheet dismisses on success, so there is nothing left to spin on. It must not double-fire if the menu row is tapped twice quickly (the menu closes on the first tap).
 20.11 Press and drag **down** on the header near the 3-dot → the sheet drags/closes; a plain tap on the icon still opens the menu.
 20.12 RTL (Arabic): the 3-dot and Close sit on the leading side and the menu row reads right-to-left.
+
+---
+
+## 21. "Received on" follows the moment of Save
+
+The collect sheet's **Received on** field shows the time the sheet opened. A
+sheet can stay open for minutes, so an untouched field must save the moment
+Save is pressed — not the moment it opened. A date the user picks is kept as-is.
+
+21.1 Open the collect sheet at 10:00, do not touch **Received on**, wait until 10:05, Save → the money-in history shows the hand-over received at **10:05**, not 10:00.
+21.2 Open the sheet, pick a different date/time (e.g. yesterday 14:30), Save → the hand-over is received at **yesterday 14:30** exactly.
+21.3 Open the sheet, pick a different time, wait a few minutes, Save → the picked time is kept; waiting does not move it.
+21.4 Open the picker and confirm it **without changing** the value, wait, Save → counts as untouched: the Save moment is used (as 21.1).
+21.5 Mixed-currency customer, field untouched → every row the one Save writes (one per currency) carries the same Save moment.
+21.6 Works the same in every entry point: customer grid Collect, debts list, customer debts, sale receipt Collect, and the quick-action "Collect money".
+21.7 Offline (native): untouched field, Save → the row is stamped with the device's Save moment, and the same value reaches the server after sync.

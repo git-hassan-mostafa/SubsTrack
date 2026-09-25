@@ -4343,7 +4343,21 @@ the **charge's** (what he was billed).
 
 **The split preview is the heart of the collect sheet.** Staff sees exactly what
 the money will do BEFORE saving, which is what makes an automatic allocation
-trustworthy instead of magic.
+trustworthy instead of magic. Any row can be unticked to steer the cash to the
+next one.
+
+`CollectSheet` has two modes and one write shape: a WHOLE CUSTOMER (every
+currency owed listed at once, each with its own amount box and oldest-first
+split) or a SINGLE BILL. A hand-over is single-currency (gotcha #108), so a
+mixed-currency customer produces ONE `collections` row per currency — amounts
+are typed in each currency's own units and never converted. The total in the
+display currency is for reading only.
+
+**"Received on" is the moment of SAVE unless staff picks a date.** The field
+shows the time the sheet opened, but a sheet can sit open for minutes, so an
+untouched field saves `new Date()` at the moment Save is pressed. Once staff
+picks a different date/time in the picker, that picked value is saved instead.
+Confirming the picker on the same value does not count as a pick.
 
 ### Where voiding lives — two doors, two statements
 

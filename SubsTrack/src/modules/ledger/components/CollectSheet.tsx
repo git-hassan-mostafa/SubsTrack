@@ -52,21 +52,7 @@ interface Props {
   singleItem?: OpenItem | null;
 }
 
-/**
- * The one door money comes in through.
- *
- * Two modes, one write shape: a WHOLE CUSTOMER (every currency owed listed at
- * once, each with its own amount box and oldest-first split) or a SINGLE BILL.
- *
- * A hand-over is single-currency (gotcha #108), so a mixed-currency customer
- * produces ONE `collections` row per currency — the amounts are typed in each
- * currency's own units and never converted, or the wallet would claim cash
- * nobody handed over and a balance would close a few piastres short. The total
- * in the display currency is shown for reading only.
- *
- * The split preview is the heart of it — staff sees exactly what the money will
- * do BEFORE saving. Any row can be unticked to steer the cash to the next one.
- */
+// The one door money comes in through — see docs/features.md (Ledger).
 export function CollectSheet({
   visible,
   onDismiss,
@@ -113,6 +99,7 @@ export function CollectSheet({
   }, [groups]);
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
   const [receivedAt, setReceivedAt] = useState(getNowDateTimeString);
+  const [receivedAtPicked, setReceivedAtPicked] = useState(false);
   const [notes, setNotes] = useState("");
 
   const [openBill, setOpenBill] = useState<number | null>(null);
@@ -205,10 +192,18 @@ export function CollectSheet({
         }));
 
     onSubmit({
-      receivedAt: dayToInstantIso(receivedAt),
+      receivedAt: receivedAtPicked
+        ? dayToInstantIso(receivedAt)
+        : new Date().toISOString(),
       notes: notes.trim() || null,
       groups: groupsOut,
     });
+  };
+
+  const pickReceivedAt = (value: string) => {
+    if (value === receivedAt) return;
+    setReceivedAt(value);
+    setReceivedAtPicked(true);
   };
 
   const setAmount = (key: string, amount: number | null) =>
@@ -344,7 +339,7 @@ export function CollectSheet({
         <DatePickerInput
           label={t("ledger.received_at")}
           value={receivedAt}
-          onChange={setReceivedAt}
+          onChange={pickReceivedAt}
           showTime
         />
 
