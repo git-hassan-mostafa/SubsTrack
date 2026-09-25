@@ -198,65 +198,67 @@ export function AllDebtsSheet({
               />
             </View>
 
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyboardShouldPersistTaps="always"
-              className="mt-2 grow-0"
-              contentContainerStyle={{
-                paddingHorizontal: 24,
-                gap: 8,
-                alignItems: "center",
-              }}
-            >
-              <Dropdown<DebtScope>
-                placeholder={t("debts.filter_by_scope")}
-                options={scopeOptions}
-                value={scope}
-                onChange={(next) => setScope(next ?? "live")}
-                triggerStyle="chip"
-              />
-              <Dropdown<ChargeKind>
-                placeholder={t("ledger.filter_by_type")}
-                options={kindOptions}
-                value={filters.kind}
-                onChange={(kind) => patch({ kind })}
-                nullable
-                nullLabel={t("ledger.all_types")}
-                triggerStyle="chip"
-              />
-              {!showingWrittenOff ? (
-                <Dropdown<AllDebtsStatus>
-                  placeholder={t("ledger.filter_by_status")}
-                  options={statusOptions}
-                  value={filters.status}
-                  onChange={(status) => patch({ status })}
-                  nullable
-                  nullLabel={t("ledger.all_statuses")}
+            <View className="mt-3">
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyboardShouldPersistTaps="always"
+                contentContainerStyle={{
+                  paddingHorizontal: 24,
+                  paddingVertical: 2,
+                  gap: 8,
+                  alignItems: "center",
+                }}
+              >
+                <Dropdown<DebtScope>
+                  placeholder={t("debts.filter_by_scope")}
+                  options={scopeOptions}
+                  value={scope}
+                  onChange={(next) => setScope(next ?? "live")}
                   triggerStyle="chip"
                 />
-              ) : null}
-              <Dropdown<AllDebtsSort>
-                placeholder={t("ledger.sort_by_label")}
-                options={sortOptions}
-                value={filters.sort}
-                onChange={(sort) =>
-                  patch({ sort: sort ?? DEFAULT_ALL_DEBTS_FILTERS.sort })
-                }
-                triggerStyle="chip"
-              />
-              {dirty ? (
-                <PressableOpacity
-                  onPress={clearAll}
-                  className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
-                >
-                  <Ionicons name="close" size={14} color={COLORS.gray500} />
-                  <Text fontWeight="Medium" className="text-sm text-gray-500">
-                    {t("common.clear_filters")}
-                  </Text>
-                </PressableOpacity>
-              ) : null}
-            </ScrollView>
+                <Dropdown<ChargeKind>
+                  placeholder={t("ledger.filter_by_type")}
+                  options={kindOptions}
+                  value={filters.kind}
+                  onChange={(kind) => patch({ kind })}
+                  nullable
+                  nullLabel={t("ledger.all_types")}
+                  triggerStyle="chip"
+                />
+                {!showingWrittenOff ? (
+                  <Dropdown<AllDebtsStatus>
+                    placeholder={t("ledger.filter_by_status")}
+                    options={statusOptions}
+                    value={filters.status}
+                    onChange={(status) => patch({ status })}
+                    nullable
+                    nullLabel={t("ledger.all_statuses")}
+                    triggerStyle="chip"
+                  />
+                ) : null}
+                <Dropdown<AllDebtsSort>
+                  placeholder={t("ledger.sort_by_label")}
+                  options={sortOptions}
+                  value={filters.sort}
+                  onChange={(sort) =>
+                    patch({ sort: sort ?? DEFAULT_ALL_DEBTS_FILTERS.sort })
+                  }
+                  triggerStyle="chip"
+                />
+                {dirty ? (
+                  <PressableOpacity
+                    onPress={clearAll}
+                    className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
+                  >
+                    <Ionicons name="close" size={14} color={COLORS.gray500} />
+                    <Text fontWeight="Medium" className="text-sm text-gray-500">
+                      {t("common.clear_filters")}
+                    </Text>
+                  </PressableOpacity>
+                ) : null}
+              </ScrollView>
+            </View>
 
             <BottomSheetFlatList
               data={rows}

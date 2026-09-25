@@ -23,6 +23,7 @@ const TAP_SLOP = 8;
 const BASE_TEXT_STYLE: TextStyle = {
   fontFamily: "Cairo",
   includeFontPadding: false,
+  ...(Platform.OS === "web" ? { outlineWidth: 0 } : null),
 };
 
 /** The bordered multi-line note box every void / skip reason field uses. */
