@@ -83,7 +83,7 @@ export function AllDebtsSheet({
   const debouncedSearch = useDebounce(filters.search);
 
   const showingWrittenOff = scope === "written_off";
-  const writtenOff = useAllWrittenOffDebts(branchFilter, showingWrittenOff);
+  const writtenOff = useAllWrittenOffDebts(branchFilter);
 
   const scopeOptions: DropdownOption<DebtScope>[] = useMemo(
     () => [

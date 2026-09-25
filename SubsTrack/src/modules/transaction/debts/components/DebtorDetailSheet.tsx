@@ -73,7 +73,6 @@ export function DebtorDetailSheet({
   const writtenOff = useWrittenOffDebts(
     debtor.customerId,
     debtor.customerName,
-    showingWrittenOff,
   );
 
   const owed = [...debtor.items, ...debtor.unpaidMonths];

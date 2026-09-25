@@ -53,11 +53,7 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
   const tokenRef = useRef(0);
 
   const showingWrittenOff = scope === "written_off";
-  const writtenOff = useWrittenOffDebts(
-    customer.id,
-    customer.name,
-    showingWrittenOff,
-  );
+  const writtenOff = useWrittenOffDebts(customer.id, customer.name);
 
   const refresh = useCallback(async () => {
     const token = ++tokenRef.current;

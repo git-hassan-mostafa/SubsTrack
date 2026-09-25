@@ -1049,8 +1049,8 @@ surface reads through one scope — `FindChargesOptions.writeOffScope`, `'live'`
 by default — so the debtor sheet and the customer's Transactions panel carry
 **Owed now / Written off** pill tabs (`PillTabs`, the customer list's own filter
 control), always present and defaulting to "Owed now". The written-off tab lists
-those bills greyed out with the orange chip, and its read fires only when that
-tab is picked, so the default scope costs no query. They are a SEPARATE read
+those bills greyed out with the orange chip, and its read fires in the background
+as soon as the surface opens, so picking the tab never waits. They are a SEPARATE read
 and are never folded into `DebtsView`, which is what keeps the debtor total, the Debts
 headline and the customer badge meaning "still expected". A written-off row
 offers neither **Collect** nor **Write off** — only **Undo write-off**
@@ -2138,8 +2138,8 @@ surface reads through one scope — `FindChargesOptions.writeOffScope`, `'live'`
 by default — so the debtor sheet and the customer's Transactions panel carry
 **Owed now / Written off** pill tabs (`PillTabs`, the customer list's own filter
 control), always present and defaulting to "Owed now". The written-off tab lists
-those bills greyed out with the orange chip, and its read fires only when that
-tab is picked, so the default scope costs no query. They are a SEPARATE read
+those bills greyed out with the orange chip, and its read fires in the background
+as soon as the surface opens, so picking the tab never waits. They are a SEPARATE read
 and are never folded into `DebtsView`, which is what keeps the debtor total, the Debts
 headline and the customer badge meaning "still expected". A written-off row
 offers neither **Collect** nor **Write off** — only **Undo write-off**
@@ -3213,8 +3213,8 @@ surface reads through one scope — `FindChargesOptions.writeOffScope`, `'live'`
 by default — so the debtor sheet and the customer's Transactions panel carry
 **Owed now / Written off** pill tabs (`PillTabs`, the customer list's own filter
 control), always present and defaulting to "Owed now". The written-off tab lists
-those bills greyed out with the orange chip, and its read fires only when that
-tab is picked, so the default scope costs no query. They are a SEPARATE read
+those bills greyed out with the orange chip, and its read fires in the background
+as soon as the surface opens, so picking the tab never waits. They are a SEPARATE read
 and are never folded into `DebtsView`, which is what keeps the debtor total, the Debts
 headline and the customer badge meaning "still expected". A written-off row
 offers neither **Collect** nor **Write off** — only **Undo write-off**
@@ -4302,8 +4302,8 @@ surface reads through one scope — `FindChargesOptions.writeOffScope`, `'live'`
 by default — so the debtor sheet and the customer's Transactions panel carry
 **Owed now / Written off** pill tabs (`PillTabs`, the customer list's own filter
 control), always present and defaulting to "Owed now". The written-off tab lists
-those bills greyed out with the orange chip, and its read fires only when that
-tab is picked, so the default scope costs no query. They are a SEPARATE read
+those bills greyed out with the orange chip, and its read fires in the background
+as soon as the surface opens, so picking the tab never waits. They are a SEPARATE read
 and are never folded into `DebtsView`, which is what keeps the debtor total, the Debts
 headline and the customer badge meaning "still expected". A written-off row
 offers neither **Collect** nor **Write off** — only **Undo write-off**
