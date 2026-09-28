@@ -44,3 +44,9 @@ Full steps: [docs/whatsapp-setup-guide.md](docs/whatsapp-setup-guide.md).
 - [ ] Collect a payment — the month turns paid.
 - [ ] Open a customer's portal link — the portal opens, same month grid as the app.
 - [ ] (WhatsApp) Send a reminder to your own phone — Admin → WhatsApp messages shows Delivered.
+
+## Generated Random Tokens
+
+- `WHATSAPP_TOKEN_KEY`: iAmQfdKyaecnZb9SsOfnACANrGoie6+yWVelJRemB1U=
+- `WHATSAPP_WORKER_SECRET`: 9e7bfa9432aca952812b511f1b97209c0506bf4f98a6b7d955a34865f915b458
+- `WHATSAPP_WEBHOOK_VERIFY_TOKEN`: 0621dbb1c118b6b27b217cc9b79ef13799956d9f4e220b31
