@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View } from "react-native";
+import { Image, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -12,6 +12,11 @@ import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { CanCreateOrganization } from "@/src/shared/components/FeatureGate";
 import { useSignupStore } from "@/src/modules/authentication/signup/state/signupStore";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
+
+const BRAND_LOGO = require("@/assets/images/icon-web-transparent.png");
+
+// sized by style: web Image ignores className and width props (gotcha #172)
+const BRAND_LOGO_SIZE = { width: 28, height: 28 };
 
 type FormState = {
   tenantName: string;
@@ -59,16 +64,6 @@ export function LoginScreen() {
       >
         <ResponsiveContainer className="flex-1">
           <View className="px-6 py-8">
-            {/* Brand logo */}
-            <View className="flex-row items-center mb-10">
-              <View className="w-11 h-11 bg-primary rounded-2xl items-center justify-center me-3">
-                <Text className="text-white text-xl">📅</Text>
-              </View>
-              <Text fontWeight="Bold" className="text-xl text-gray-900">
-                Sijil
-              </Text>
-            </View>
-
             <Text fontWeight="Bold" className="text-3xl text-gray-900 mb-2">
               {t("auth.welcome_back")}
             </Text>
