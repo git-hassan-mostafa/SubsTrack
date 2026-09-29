@@ -8,8 +8,8 @@ import {
   resolveBranchFilter,
   ownedRowMatchesFilter,
 } from "@/src/shared/lib/branchFilter";
-import { QuotaExceededError } from "@/src/modules/admin/billing/utils/quotaError";
-import { activeLines } from "@/src/modules/customer/customer-plans/utils/activeLines";
+import { QuotaExceededError } from "@shared/modules/admin/billing/utils/quotaError";
+import { activeLines } from "@shared/modules/customer/customer-plans/utils/activeLines";
 import type { GlobalState } from "@/src/state/globalStore";
 
 export interface CustomerSlice {

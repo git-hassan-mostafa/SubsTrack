@@ -21,10 +21,10 @@ import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchF
 import { useExportRows } from "@/src/shared/hooks/useExportRows";
 import { loadAllPages } from "@/src/shared/hooks/loadAllPages";
 import { currentMonthDays } from "@shared/core/utils/dateRange";
-import { showsOlderThanThisMonth } from "../utils/exportWindow";
+import { showsOlderThanThisMonth } from "@shared/modules/admin/audit/utils/exportWindow";
 import { HistoryList } from "../components/HistoryList";
-import { AUDITED_TABLES } from "../utils/constants";
-import { actionLabel, tableLabel } from "../utils/format";
+import { AUDITED_TABLES } from "@shared/modules/admin/audit/utils/constants";
+import { actionLabel, tableLabel } from "@shared/modules/admin/audit/utils/format";
 
 const ACTIONS: AuditAction[] = [
   "create",

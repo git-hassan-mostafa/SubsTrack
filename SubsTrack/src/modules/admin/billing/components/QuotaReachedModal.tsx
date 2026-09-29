@@ -6,7 +6,7 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
 import { useAuth } from "@/src/modules/authentication/auth";
-import type { QuotaErrorPayload } from "../utils/types";
+import type { QuotaErrorPayload } from "@shared/modules/admin/billing/utils/types";
 
 interface Props {
   payload: QuotaErrorPayload | null;

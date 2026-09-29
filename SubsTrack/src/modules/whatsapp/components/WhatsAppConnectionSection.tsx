@@ -11,8 +11,8 @@ import { CARD_SURFACE } from "@/src/shared/constants";
 import { confirm } from "@/src/shared/lib/confirm";
 import { useWhatsAppSignupOptions } from "@/src/state/hooks/useOptionSlice";
 import { useWhatsAppSlice } from "@/src/state/hooks/useWhatsAppSlice";
-import { tierLimit } from "@/supabase/functions/_shared/whatsapp/rules";
-import { CONNECT_FROM_PARAM, CONNECT_FROM_WEB } from "../utils/constants";
+import { tierLimit } from "@edge/whatsapp/rules";
+import { CONNECT_FROM_PARAM, CONNECT_FROM_WEB } from "@shared/modules/whatsapp/utils/constants";
 
 // On web the page replaces this tab, so it is told to come back in-app.
 async function openConnectPage(url: string) {

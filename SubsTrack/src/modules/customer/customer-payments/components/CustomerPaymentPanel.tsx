@@ -34,22 +34,22 @@ import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { getBlockRangeLabel } from "../utils/blockRangeLabel";
-import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
-import { lineLabel } from "@/src/modules/customer/customer-plans/utils/lineLabel";
+import { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/utils/blockRangeLabel";
+import { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
+import { lineLabel } from "@shared/modules/customer/customer-plans/utils/lineLabel";
 import { MonthGrid } from "./MonthGrid";
 import { SkipMonthSheet } from "./SkipMonthSheet";
 import {
   expandSelectionUnit,
   groupPayableBlocks,
-} from "../utils/monthSelection";
-import { isAfterMonth, lastBillableMonth } from "../utils/payWindow";
+} from "@shared/modules/customer/customer-payments/utils/monthSelection";
+import { isAfterMonth, lastBillableMonth } from "@shared/modules/customer/customer-payments/utils/payWindow";
 import {
   billingMonthLabel,
   blockingPaidMonths,
   blockingUnpaidMonths,
   coveredBillingMonths,
-} from "../utils/payOrder";
+} from "@shared/modules/customer/customer-payments/utils/payOrder";
 import {
   useSelection,
   useSelectionBackHandler,

@@ -1,3 +1,4 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import type {
   Currency,
   Customer,
@@ -19,26 +20,25 @@ import { ledgerService } from "@/src/modules/ledger/services/LedgerService";
 import {
   RECIPIENTS_PER_REQUEST,
   renderTemplate,
-} from "@/supabase/functions/_shared/whatsapp/rules";
+} from "@edge/whatsapp/rules";
 import {
   sijilTemplateByPurpose,
   type SijilTemplatePurpose,
-} from "@/supabase/functions/_shared/whatsapp/sijilTemplates";
-import repository from "../repository/WhatsAppRepository";
-import type { SignupCompletion, SignupResult } from "../repository/IWhatsAppRepository";
+} from "@edge/whatsapp/sijilTemplates";
+import type { SignupCompletion, SignupResult } from "@shared/modules/whatsapp/repository/IWhatsAppRepository";
 import {
   mapDbWhatsAppAccount,
   mapDbWhatsAppMessage,
   mapDbWhatsAppOptOut,
   mapDbWhatsAppTemplate,
-} from "../utils/mapper";
-import { reminderFacts } from "../utils/reminderFacts";
+} from "@shared/modules/whatsapp/utils/mapper";
+import { reminderFacts } from "@shared/modules/whatsapp/utils/reminderFacts";
 import {
   defaultChoices,
   needsOwedFacts,
   resolveValues,
   type PlaceholderChoices,
-} from "../utils/templateValues";
+} from "@shared/modules/whatsapp/utils/templateValues";
 
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
@@ -66,12 +66,12 @@ export interface RecipientBuildArgs {
 class WhatsAppService {
   async getOverview(tenantId: string): Promise<WhatsAppOverview> {
     const [accountRow, optOutRows] = await Promise.all([
-      repository.findLiveAccount(tenantId),
-      repository.findOptOuts(tenantId),
+      repositories().whatsApp.findLiveAccount(tenantId),
+      repositories().whatsApp.findOptOuts(tenantId),
     ]);
     const account = accountRow ? mapDbWhatsAppAccount(accountRow) : null;
     const templates = account
-      ? (await repository.findTemplates(account.id)).map(mapDbWhatsAppTemplate)
+      ? (await repositories().whatsApp.findTemplates(account.id)).map(mapDbWhatsAppTemplate)
       : [];
     return { account, templates, optOuts: optOutRows.map(mapDbWhatsAppOptOut) };
   }
@@ -82,41 +82,41 @@ class WhatsAppService {
     offset: number,
     limit: number,
   ): Promise<WhatsAppMessage[]> {
-    const rows = await repository.findMessages(tenantId, { status, offset, limit });
+    const rows = await repositories().whatsApp.findMessages(tenantId, { status, offset, limit });
     return rows.map(mapDbWhatsAppMessage);
   }
 
   async startConnect(consent: boolean): Promise<string> {
-    const { url } = await repository.startConnect(consent);
+    const { url } = await repositories().whatsApp.startConnect(consent);
     return url;
   }
 
   refresh(): Promise<void> {
-    return repository.refresh();
+    return repositories().whatsApp.refresh();
   }
 
   submitTemplates(): Promise<number> {
-    return repository.submitTemplates();
+    return repositories().whatsApp.submitTemplates();
   }
 
   disconnect(): Promise<void> {
-    return repository.disconnect();
+    return repositories().whatsApp.disconnect();
   }
 
   setOptOut(customerId: string, optedOut: boolean): Promise<void> {
-    return repository.setOptOut(customerId, optedOut);
+    return repositories().whatsApp.setOptOut(customerId, optedOut);
   }
 
   cancelBatch(batchId: string): Promise<void> {
-    return repository.cancelBatch(batchId);
+    return repositories().whatsApp.cancelBatch(batchId);
   }
 
   completeSignup(input: SignupCompletion): Promise<SignupResult> {
-    return repository.completeSignup(input);
+    return repositories().whatsApp.completeSignup(input);
   }
 
   registerPin(s: string, pin: string): Promise<SignupResult> {
-    return repository.registerPin(s, pin);
+    return repositories().whatsApp.registerPin(s, pin);
   }
 
   isReady(account: WhatsAppAccount | null): boolean {
@@ -216,7 +216,7 @@ class WhatsAppService {
     const requestId = newId();
     const result: WhatsAppQueueResult = { batchId: requestId, queued: 0, skipped: [] };
     for (let i = 0; i < recipients.length; i += RECIPIENTS_PER_REQUEST) {
-      const chunk = await repository.queue({
+      const chunk = await repositories().whatsApp.queue({
         requestId,
         templateId: template.id,
         recipients: recipients.slice(i, i + RECIPIENTS_PER_REQUEST),

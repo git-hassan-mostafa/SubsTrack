@@ -38,8 +38,12 @@ matching `docs/` file. Dev phase: architecture + DB schema are open to change.
 4. No business logic in components or stores.
 5. No Supabase calls outside the repository layer. Sole exception: the sync engine
    `src/core/offline/sync/`.
-   5b. Native repos are a platform switch (`Platform.OS === 'web' ? Supabase :
-Offline`). Never `new XxxRepository()` in a service/slice — import the default.
+   5b. Services reach a repository ONLY through `repositories().x`
+   (`Shared/src/core/runtime/repositories.ts`), called inside a method, never at
+   module load. Each app hands its set to `configureShared()` at startup: the
+   Supabase classes live in `Shared/` (`createSupabaseRepositories()`), the phone
+   passes its offline twins (`SubsTrack/src/platform/offlineRepositories.ts`).
+   Never `new XxxRepository()` in a service/slice.
    Both impls `implements IXxxRepository`; changing one's method surface must
    change the interface, and therefore the other.
 6. RLS enforces multi-tenancy; app-level filtering is secondary.

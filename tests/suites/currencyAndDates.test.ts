@@ -15,7 +15,7 @@ import {
   localMonthKey,
   toBillingMonth,
 } from "@shared/core/utils/date";
-import { sumByMonth } from "@/src/modules/ledger/utils/monthTotals";
+import { sumByMonth } from "@shared/modules/ledger/utils/monthTotals";
 import { LBP } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
 

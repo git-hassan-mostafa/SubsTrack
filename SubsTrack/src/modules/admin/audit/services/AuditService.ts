@@ -1,12 +1,12 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import type {
   AuditEntry,
   AuditFilter,
   AuditRecordTarget,
   AuditSource,
 } from "@shared/core/types";
-import repository from "../repository/AuditRepository";
-import { CUSTOMER_HISTORY_TABLES } from "../utils/constants";
-import { mapDbAuditLogToAuditEntry } from "../utils/mapper";
+import { CUSTOMER_HISTORY_TABLES } from "@shared/modules/admin/audit/utils/constants";
+import { mapDbAuditLogToAuditEntry } from "@shared/modules/admin/audit/utils/mapper";
 
 /** Entries plus where they came from — see AuditSource. */
 export interface AuditEntries {
@@ -36,7 +36,7 @@ export interface AuditDayGroup {
  */
 class AuditService {
   async getEntries(filter: AuditFilter, page = 0): Promise<AuditEntryPage> {
-    const { rows, source, hasMore } = await repository.findRecent(filter, page);
+    const { rows, source, hasMore } = await repositories().audit.findRecent(filter, page);
     return { entries: rows.map(mapDbAuditLogToAuditEntry), source, hasMore };
   }
 
@@ -44,17 +44,17 @@ class AuditService {
     table: string,
     recordId: string,
   ): Promise<AuditEntries> {
-    const { rows, source } = await repository.findForRecord(table, recordId);
+    const { rows, source } = await repositories().audit.findForRecord(table, recordId);
     return { entries: rows.map(mapDbAuditLogToAuditEntry), source };
   }
 
   async getRecordsHistory(targets: AuditRecordTarget[]): Promise<AuditEntries> {
-    const { rows, source } = await repository.findForRecords(targets);
+    const { rows, source } = await repositories().audit.findForRecords(targets);
     return { entries: rows.map(mapDbAuditLogToAuditEntry), source };
   }
 
   async getCustomerHistory(customerId: string): Promise<AuditEntries> {
-    const { rows, source } = await repository.findForCustomer(
+    const { rows, source } = await repositories().audit.findForCustomer(
       customerId,
       CUSTOMER_HISTORY_TABLES,
     );

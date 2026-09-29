@@ -25,8 +25,8 @@ import {
   groupOwedByCurrency,
   planCollection,
   totalCollectingUsd,
-} from "../utils/currencyGroups";
-import { keyOf } from "../utils/waterfall";
+} from "@shared/modules/ledger/utils/currencyGroups";
+import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { CollectAllButton } from "./CollectAllButton";
 import { CollectHero } from "./CollectHero";
 import { CurrencyCollectSection } from "./CurrencyCollectSection";

@@ -15,7 +15,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["../SubsTrack/*"],
-      "@shared/*": ["../Shared/src/*"]
+      "@shared/*": ["../Shared/src/*"],
+      "@edge/*": ["../SubsTrack/supabase/functions/_shared/*"]
     }
   },
   "include": [

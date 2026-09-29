@@ -39,7 +39,7 @@ import {
   hasAnythingOwed,
   hasDebtFlag,
   type CustomerFlag,
-} from "../utils/customerFlags";
+} from "@shared/modules/customer/customers/utils/customerFlags";
 import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomDebtFormSheet } from "@/src/modules/transaction/debts/components/CustomDebtFormSheet";
@@ -54,9 +54,9 @@ import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useAuth } from "../../../authentication/auth/hooks/useAuth";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
-import { isBeforeStartDate } from "@/src/modules/customer/customer-payments/utils/monthDueRules";
-import { activeLines } from "@/src/modules/customer/customer-plans/utils/activeLines";
-import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
+import { isBeforeStartDate } from "@shared/modules/customer/customer-payments/utils/monthDueRules";
+import { activeLines } from "@shared/modules/customer/customer-plans/utils/activeLines";
+import { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
   PageHeader,

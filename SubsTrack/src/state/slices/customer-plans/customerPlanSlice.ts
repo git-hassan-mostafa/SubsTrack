@@ -4,7 +4,7 @@ import {
   type LineDraft,
   type RemovedLine,
 } from "@/src/modules/customer/customer-plans";
-import { QuotaExceededError } from "@/src/modules/admin/billing/utils/quotaError";
+import { QuotaExceededError } from "@shared/modules/admin/billing/utils/quotaError";
 import type { GlobalState } from "@/src/state/globalStore";
 
 // Thin slice for the customer form's inline Plans editor. Service lines are the

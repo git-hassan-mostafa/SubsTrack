@@ -18,8 +18,8 @@ import type {
   FindChargesOptions,
   IChargeRepository,
   UpdateChargePayload,
-} from "./IChargeRepository";
-import { writeOffRevertPatch } from "./chargeRevive";
+} from "@shared/modules/ledger/repository/IChargeRepository";
+import { writeOffRevertPatch } from "@shared/modules/ledger/repository/chargeRevive";
 
 const PAID_SUM = `COALESCE(SUM(CASE WHEN co.id IS NOT NULL AND co.voided_at IS NULL
                      THEN CAST(i.amount AS REAL) ELSE 0 END), 0)`;

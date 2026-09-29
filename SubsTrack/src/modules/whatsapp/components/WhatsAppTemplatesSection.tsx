@@ -6,7 +6,7 @@ import { Chip, type ChipTone } from "@/src/shared/components/Chip";
 import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE } from "@/src/shared/constants";
 import { useWhatsAppSlice } from "@/src/state/hooks/useWhatsAppSlice";
-import { templateLabel } from "../utils/labels";
+import { templateLabel } from "@shared/modules/whatsapp/utils/labels";
 
 const STATUS_TONES: Record<string, ChipTone> = {
   APPROVED: "emerald",

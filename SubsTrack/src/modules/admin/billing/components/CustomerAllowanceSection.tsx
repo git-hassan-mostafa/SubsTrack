@@ -10,7 +10,7 @@ import { useAuth } from "@/src/modules/authentication/auth";
 import { useBillingSlice } from "@/src/state/hooks/useBillingSlice";
 import { confirm } from "@/src/shared/lib/confirm";
 import billingService from "../services/BillingService";
-import { askText, requestedPair } from "../utils/requestAsk";
+import { askText, requestedPair } from "@shared/modules/admin/billing/utils/requestAsk";
 import { UpdateAllowanceSheet } from "./UpdateAllowanceSheet";
 import { UsageBar } from "./UsageBar";
 

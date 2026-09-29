@@ -14,7 +14,7 @@ import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
 import {
   custodyValues,
   receivedCustody,
-} from "@/src/modules/wallet/utils/custodyValues";
+} from "@shared/modules/wallet/utils/custodyValues";
 import type {
   CollectionSortField,
   CollectionSwap,
@@ -22,15 +22,15 @@ import type {
   CreateCollectionPayload,
   FindCollectionsOptions,
   ICollectionRepository,
-} from "./ICollectionRepository";
-import type { CreateChargePayload } from "./IChargeRepository";
+} from "@shared/modules/ledger/repository/ICollectionRepository";
+import type { CreateChargePayload } from "@shared/modules/ledger/repository/IChargeRepository";
 import {
   monthBillKey,
   patchForIncomingCash,
   resolveBillTarget,
-} from "./chargeRevive";
-import { collectionPlanId } from "../utils/collectionPlan";
-import { sumByMonth } from "../utils/monthTotals";
+} from "@shared/modules/ledger/repository/chargeRevive";
+import { collectionPlanId } from "@shared/modules/ledger/utils/collectionPlan";
+import { sumByMonth } from "@shared/modules/ledger/utils/monthTotals";
 
 interface AuditContext {
   branchId: string | null;

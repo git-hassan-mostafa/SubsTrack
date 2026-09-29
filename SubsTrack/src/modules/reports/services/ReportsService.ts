@@ -1,22 +1,22 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import type { BranchFilter } from "@shared/core/constants";
 import type { CashRow, ExpenseItem, UnpaidStartRule } from "@shared/core/types";
 import { groupByCurrency } from "@shared/core/utils/currency";
 import { previousPeriod, toRange } from "@shared/core/utils/dateRange";
-import customerRepo from "@/src/modules/customer/customers/repository/CustomerRepository";
-import { mapDbCustomerToCustomer } from "@/src/modules/customer/customers/utils/mapper";
+import { mapDbCustomerToCustomer } from "@shared/modules/customer/customers/utils/mapper";
 import paymentService from "@/src/modules/customer/customer-payments/services/PaymentService";
 import { chargeService } from "@/src/modules/ledger/services/ChargeService";
 import { collectionService } from "@/src/modules/ledger/services/CollectionService";
 import { ledgerService } from "@/src/modules/ledger/services/LedgerService";
 import { skippedMonthService } from "@/src/modules/customer/customer-payments";
 import expenseService from "@/src/modules/transaction/expenses/services/ExpenseService";
-import { sumByKey, sumUsdOf, topN } from "../utils/aggregate";
+import { sumByKey, sumUsdOf, topN } from "@shared/modules/reports/utils/aggregate";
 import type {
   AgingRow,
   DebtsReport,
   MoneyReport,
   ReportsFilter,
-} from "../utils/types";
+} from "@shared/modules/reports/utils/types";
 
 // USD of any row that carries a frozen rate — the ONE conversion rule, applied
 // to cash and expenses alike.
@@ -95,7 +95,7 @@ class ReportsService {
 
     // The whole customer base, not the list's first page — ageing that stops at
     // 50 customers is worse than no ageing at all.
-    const customers = (await customerRepo.findAllForStatus(branchFilter)).map(
+    const customers = (await repositories().customer.findAllForStatus(branchFilter)).map(
       mapDbCustomerToCustomer,
     );
 

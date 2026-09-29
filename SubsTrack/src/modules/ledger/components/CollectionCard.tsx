@@ -22,7 +22,7 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useUserNames } from "@/src/shared/hooks/useUserNames";
 import { KIND_STYLE } from "../utils/kindStyle";
-import { collectionLabel } from "../utils/collectionLabel";
+import { collectionLabel } from "@shared/modules/ledger/utils/collectionLabel";
 import { paymentMenu } from "../utils/paymentMenu";
 
 interface Props {

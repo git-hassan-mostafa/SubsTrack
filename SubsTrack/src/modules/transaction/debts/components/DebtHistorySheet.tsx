@@ -18,7 +18,7 @@ import { CustomerPicker } from "@/src/modules/customer/customers";
 import { COLORS } from "@/src/shared/constants";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 import type { ChargeKind, DebtHistoryItem } from "@shared/core/types";
-import { keyOf } from "@/src/modules/ledger/utils/waterfall";
+import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { useOwedChanged } from "@/src/modules/ledger";
 import { useDebtHistoryStore } from "../state/debtHistoryStore";
 import {
@@ -28,7 +28,7 @@ import {
   type HistoryOutcome,
   type HistoryPeriodPreset,
   type HistorySort,
-} from "../utils/debtHistory";
+} from "@shared/modules/transaction/debts/utils/debtHistory";
 import { DebtHistoryCard } from "./DebtHistoryCard";
 
 interface Props {

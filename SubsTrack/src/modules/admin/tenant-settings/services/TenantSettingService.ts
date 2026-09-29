@@ -1,15 +1,15 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import type {
   TenantSetting,
   UnpaidStartRule,
   WhatsAppLanguage,
 } from "@shared/core/types";
-import repository from "../repository/TenantSettingRepository";
-import { mapDbTenantSettingToTenantSetting } from "../utils/mapper";
+import { mapDbTenantSettingToTenantSetting } from "@shared/modules/admin/tenant-settings/utils/mapper";
 import {
   DEFAULT_UNPAID_START_RULE,
   DEFAULT_WHATSAPP_LANGUAGE,
   TENANT_SETTING_KEYS,
-} from "../utils/constants";
+} from "@shared/modules/admin/tenant-settings/utils/constants";
 
 export { DEFAULT_UNPAID_START_RULE };
 
@@ -27,7 +27,7 @@ const WHATSAPP_LANGUAGES: WhatsAppLanguage[] = ["en", "ar"];
  */
 class TenantSettingService {
   async getSettings(): Promise<TenantSetting[]> {
-    const rows = await repository.findAll();
+    const rows = await repositories().tenantSetting.findAll();
     return rows.map(mapDbTenantSettingToTenantSetting);
   }
 
@@ -38,7 +38,7 @@ class TenantSettingService {
     if (!UNPAID_START_RULES.includes(rule)) {
       throw new Error(`Unknown unpaid start rule: ${rule}`);
     }
-    const row = await repository.upsert(
+    const row = await repositories().tenantSetting.upsert(
       tenantId,
       TENANT_SETTING_KEYS.unpaidStartRule,
       rule,
@@ -50,7 +50,7 @@ class TenantSettingService {
     tenantId: string,
     currencyId: string | null,
   ): Promise<TenantSetting> {
-    const row = await repository.upsert(
+    const row = await repositories().tenantSetting.upsert(
       tenantId,
       TENANT_SETTING_KEYS.displayCurrencyId,
       currencyId,
@@ -65,7 +65,7 @@ class TenantSettingService {
     if (!WHATSAPP_LANGUAGES.includes(language)) {
       throw new Error(`Unknown WhatsApp language: ${language}`);
     }
-    const row = await repository.upsert(
+    const row = await repositories().tenantSetting.upsert(
       tenantId,
       TENANT_SETTING_KEYS.whatsAppLanguage,
       language,

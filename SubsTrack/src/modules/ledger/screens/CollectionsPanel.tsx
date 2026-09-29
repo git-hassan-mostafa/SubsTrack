@@ -21,7 +21,7 @@ import {
 import { PeriodPicker } from "@/src/shared/components/PeriodPicker";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
-import { groupByMonth } from "@/src/shared/lib/monthSections";
+import { groupByMonth } from "@shared/shared/lib/monthSections";
 import {
   SelectionBar,
   type SelectionAction,
@@ -42,7 +42,7 @@ import type {
 import type {
   CollectionSortField,
   SortDirection,
-} from "../repository/ICollectionRepository";
+} from "@shared/modules/ledger/repository/ICollectionRepository";
 import type { CollectionStatus } from "@/src/modules/ledger/state/collectionsListStore";
 import { useCollectionsListStore } from "@/src/modules/ledger/state/collectionsListStore";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";

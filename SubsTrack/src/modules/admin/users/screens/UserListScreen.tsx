@@ -21,7 +21,7 @@ import type { AppUser } from "@shared/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { UserCard } from "../components/UserCard";
-import { canEditUser, canManageUser } from "../utils/userPermissions";
+import { canEditUser, canManageUser } from "@shared/modules/admin/users/utils/userPermissions";
 import { UserFormSheet } from "../components/UserFormSheet";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";

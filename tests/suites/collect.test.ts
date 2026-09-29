@@ -1,17 +1,9 @@
-jest.mock("@/src/modules/ledger/repository/ChargeRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeLedger").fakeChargeRepository,
-}));
-jest.mock("@/src/modules/ledger/repository/CollectionRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeLedger").fakeCollectionRepository,
-}));
 
 import { chargeService } from "@/src/modules/ledger/services/ChargeService";
 import { collectionService } from "@/src/modules/ledger/services/CollectionService";
 import type { CollectInput } from "@/src/modules/ledger/services/CollectionService";
 import type { AllocationLine, OpenItem } from "@shared/core/types";
-import { collectionPlanId } from "@/src/modules/ledger/utils/collectionPlan";
+import { collectionPlanId } from "@shared/modules/ledger/utils/collectionPlan";
 import { store } from "../helpers/fakeLedger";
 import { openItem } from "../helpers/factories";
 

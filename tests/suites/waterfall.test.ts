@@ -5,7 +5,7 @@ import {
   keyOf,
   sortByDue,
   totalOwed,
-} from "@/src/modules/ledger/utils/waterfall";
+} from "@shared/modules/ledger/utils/waterfall";
 import { openItem } from "../helpers/factories";
 
 // TC-WF-* — the oldest-first split. Everything the collect sheet previews and

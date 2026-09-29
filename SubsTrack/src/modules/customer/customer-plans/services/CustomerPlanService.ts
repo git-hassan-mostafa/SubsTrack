@@ -1,10 +1,10 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import type { CustomerPlan } from "@shared/core/types";
 import { isValidDateString } from "@shared/core/utils/date";
 import i18n from "@shared/core/i18n";
 import billingService from "@/src/modules/admin/billing/services/BillingService";
-import type { QuotaPair } from "@/src/modules/admin/billing/utils/types";
-import repository from "../repository/CustomerPlanRepository";
-import { mapDbCustomerPlanToCustomerPlan } from "../utils/mapper";
+import type { QuotaPair } from "@shared/modules/admin/billing/utils/types";
+import { mapDbCustomerPlanToCustomerPlan } from "@shared/modules/customer/customer-plans/utils/mapper";
 
 // A new / edited service line. planId null = custom/occasional line (ad-hoc
 // amounts, no fixed plan).
@@ -39,7 +39,7 @@ class CustomerPlanService {
     tenantId: string,
   ): Promise<CustomerPlan> {
     this.validateDate(data.startDate);
-    const row = await repository.create({
+    const row = await repositories().customerPlan.create({
       customer_id: data.customerId,
       plan_id: data.planId,
       start_date: data.startDate,
@@ -61,7 +61,7 @@ class CustomerPlanService {
     reactivate = false,
   ): Promise<CustomerPlan> {
     this.validateDate(data.startDate);
-    const row = await repository.update(id, {
+    const row = await repositories().customerPlan.update(id, {
       plan_id: data.planId,
       start_date: data.startDate,
       custom_price: data.customPrice,
@@ -75,17 +75,17 @@ class CustomerPlanService {
     id: string,
     hardDelete = false,
   ): Promise<CustomerPlan | null> {
-    const paymentCount = await repository.countPayments(id);
+    const paymentCount = await repositories().customerPlan.countPayments(id);
     if (hardDelete || paymentCount === 0) {
-      await repository.delete(id);
+      await repositories().customerPlan.delete(id);
       return null;
     }
-    const row = await repository.cancel(id);
+    const row = await repositories().customerPlan.cancel(id);
     return mapDbCustomerPlanToCustomerPlan(row);
   }
 
   async countActive(): Promise<number> {
-    return repository.countActive();
+    return repositories().customerPlan.countActive();
   }
 
   // `lines` is the final list, so removals and reactivations net out against
@@ -160,11 +160,11 @@ class CustomerPlanService {
   }
 
   async hasPayments(id: string): Promise<boolean> {
-    return (await repository.countPayments(id)) > 0;
+    return (await repositories().customerPlan.countPayments(id)) > 0;
   }
 
   async getPaidLineIds(customerId: string): Promise<string[]> {
-    return repository.findPaidLineIds(customerId);
+    return repositories().customerPlan.findPaidLineIds(customerId);
   }
 
   private async assertStartDatesUnlocked(
@@ -177,7 +177,7 @@ class CustomerPlanService {
       return prev != null && prev.startDate !== l.startDate;
     });
     if (moved.length === 0) return;
-    const locked = new Set(await repository.findPaidLineIds(customerId));
+    const locked = new Set(await repositories().customerPlan.findPaidLineIds(customerId));
     if (moved.some((l) => l.id && locked.has(l.id))) {
       throw new Error(i18n.t("errors.start_date_locked_paid"));
     }

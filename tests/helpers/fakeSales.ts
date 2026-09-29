@@ -2,7 +2,7 @@ import type { DbSale, DbSaleItem } from "@shared/core/types/db";
 import type {
   CreateSalePayload,
   UpdateSalePayload,
-} from "@/src/modules/transaction/sales/repository/ISaleRepository";
+} from "@shared/modules/transaction/sales/repository/ISaleRepository";
 import { store } from "./fakeLedger";
 
 /**

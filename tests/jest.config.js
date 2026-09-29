@@ -19,6 +19,7 @@ module.exports = {
     "^@/src/modules/customer/customers$": stub("customers-barrel.ts"),
     "^@/src/modules/customer/customer-plans$": stub("customer-plans-barrel.ts"),
     "^@shared/(.*)$": `${shared}/src/$1`,
+    "^@edge/(.*)$": `${app}/supabase/functions/_shared/$1`,
     "^@/(.*)$": `${app}/$1`,
     "^react-native-url-polyfill/auto$": stub("empty.ts"),
     "^react-native$": stub("react-native.ts"),

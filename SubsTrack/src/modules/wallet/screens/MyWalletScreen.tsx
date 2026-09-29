@@ -11,7 +11,7 @@ import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchF
 import { useWalletStore } from "../state/walletStore";
 import type { WalletItem } from "@shared/core/types";
 import { WalletDetailView } from "../components/WalletDetailView";
-import { canCloseOut } from "../utils/custody";
+import { canCloseOut } from "@shared/modules/wallet/utils/custody";
 
 // The signed-in user's own wallet — the cash they are carrying. Read-only for
 // everyone below the top of the chain: their cash leaves only when someone above

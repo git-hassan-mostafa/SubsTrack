@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
-import type { QuotaKind } from "../utils/types";
+import type { QuotaKind } from "@shared/modules/admin/billing/utils/types";
 
 interface Props {
   kind: QuotaKind;

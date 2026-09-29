@@ -16,7 +16,7 @@ import { getStore } from "@/src/state/globalStore";
 import { useActiveBranches } from "@/src/modules/admin/branches";
 import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
-import { canManageUser } from "../utils/userPermissions";
+import { canManageUser } from "@shared/modules/admin/users/utils/userPermissions";
 
 interface Props {
   user?: AppUser | null;

@@ -16,7 +16,7 @@ import {
   templateParamNames,
   templateStatusForEvent,
   tierLimit,
-} from "@/supabase/functions/_shared/whatsapp/rules";
+} from "@edge/whatsapp/rules";
 
 describe("classifyMetaError", () => {
   it("TC-WA-R-01 throttling and Meta outages are retried", () => {

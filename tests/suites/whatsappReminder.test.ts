@@ -1,11 +1,3 @@
-jest.mock("@/src/modules/ledger/repository/ChargeRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeLedger").fakeChargeRepository,
-}));
-jest.mock("@/src/modules/ledger/repository/CollectionRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeLedger").fakeCollectionRepository,
-}));
 jest.mock("@/src/modules/customer/customer-payments/services/SkippedMonthService", () => ({
   __esModule: true,
   default: { getActiveSkips: async () => [] },
@@ -13,7 +5,7 @@ jest.mock("@/src/modules/customer/customer-payments/services/SkippedMonthService
 
 import { ledgerService } from "@/src/modules/ledger/services/LedgerService";
 import { whatsAppService } from "@/src/modules/whatsapp/services/WhatsAppService";
-import { reminderFacts } from "@/src/modules/whatsapp/utils/reminderFacts";
+import { reminderFacts } from "@shared/modules/whatsapp/utils/reminderFacts";
 import {
   defaultChoices,
   messageLanguage,
@@ -22,9 +14,9 @@ import {
   paramMaxLength,
   previewText,
   resolveValues,
-} from "@/src/modules/whatsapp/utils/templateValues";
-import { DEFAULT_PARAM_MAX_LENGTH } from "@/supabase/functions/_shared/whatsapp/rules";
-import { sijilTemplateByPurpose } from "@/supabase/functions/_shared/whatsapp/sijilTemplates";
+} from "@shared/modules/whatsapp/utils/templateValues";
+import { DEFAULT_PARAM_MAX_LENGTH } from "@edge/whatsapp/rules";
+import { sijilTemplateByPurpose } from "@edge/whatsapp/sijilTemplates";
 import { store } from "../helpers/fakeLedger";
 import { customer, line, openItem, plan, LBP } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";

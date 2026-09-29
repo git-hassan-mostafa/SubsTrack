@@ -3,7 +3,7 @@ import type { DbPlan } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@shared/core/utils/ids";
-import type { IPlanRepository } from "./IPlanRepository";
+import type { IPlanRepository } from "@shared/modules/admin/plans/repository/IPlanRepository";
 
 /**
  * SQLite-backed Plan repository. Reads from the local mirror; writes mutate the

@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
-import type { BillState } from "../utils/billState";
+import type { BillState } from "@shared/modules/ledger/utils/billState";
 
 interface Props {
   state: BillState;

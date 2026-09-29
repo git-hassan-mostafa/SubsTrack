@@ -4,7 +4,8 @@
     "strict": true,
     "paths": {
       "@/*": ["./*"],
-      "@shared/*": ["../Shared/src/*"]
+      "@shared/*": ["../Shared/src/*"],
+      "@edge/*": ["./supabase/functions/_shared/*"]
     }
   },
   "include": [

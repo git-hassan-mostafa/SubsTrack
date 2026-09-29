@@ -3,7 +3,7 @@ import type { DbService } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, markDeleted } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@shared/core/utils/ids";
-import type { IServiceRepository } from "./IServiceRepository";
+import type { IServiceRepository } from "@shared/modules/admin/service-catalog/repository/IServiceRepository";
 
 /**
  * SQLite-backed Service repository. Reads from the local mirror; writes mutate

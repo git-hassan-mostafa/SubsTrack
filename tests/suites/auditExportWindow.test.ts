@@ -1,4 +1,4 @@
-import { showsOlderThanThisMonth } from "@/src/modules/admin/audit/utils/exportWindow";
+import { showsOlderThanThisMonth } from "@shared/modules/admin/audit/utils/exportWindow";
 
 const MONTH_START = "2026-09-01";
 const at = (occurredAt: string) => ({ occurredAt });

@@ -1,6 +1,6 @@
 import type { DbAppOption } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
-import type { IOptionRepository } from "./IOptionRepository";
+import type { IOptionRepository } from "@shared/modules/options/repository/IOptionRepository";
 
 /**
  * SQLite-backed Option repository. Reads from the local mirror only. app_options

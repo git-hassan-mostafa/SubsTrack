@@ -1,19 +1,11 @@
-﻿jest.mock("@/src/modules/ledger/repository/ChargeRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeLedger").fakeChargeRepository,
-}));
-jest.mock("@/src/modules/ledger/repository/CollectionRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeLedger").fakeCollectionRepository,
-}));
-
+﻿
 import {
   fundedPlans,
   groupKey,
   groupOwedByCurrency,
   planCollection,
   totalCollectingUsd,
-} from "@/src/modules/ledger/utils/currencyGroups";
+} from "@shared/modules/ledger/utils/currencyGroups";
 import { collectionService } from "@/src/modules/ledger/services/CollectionService";
 import type { CollectInput } from "@/src/modules/ledger/services/CollectionService";
 import type { AllocationLine, Currency, OpenItem } from "@shared/core/types";

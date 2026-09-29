@@ -1,8 +1,8 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import type { AppUser, UserRole } from "@shared/core/types";
 import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
-import repository from "../repository/UserRepository";
-import { mapDbUserToAppUser } from "../utils/mapper";
+import { mapDbUserToAppUser } from "@shared/modules/admin/users/utils/mapper";
 
 interface CreateUserInput {
   username: string;
@@ -24,7 +24,7 @@ interface UpdateUserInput {
 
 class UserService {
   async getUsers(branchFilter: BranchFilter = null): Promise<AppUser[]> {
-    const rows = await repository.findAll(branchFilter);
+    const rows = await repositories().user.findAll(branchFilter);
     return rows.map(mapDbUserToAppUser);
   }
 
@@ -50,7 +50,7 @@ class UserService {
     this.validateBranchAssignment(data.role, data.branchId, tenantHasBranches);
 
     try {
-      const row = await repository.create({
+      const row = await repositories().user.create({
         username: data.username.trim().toLowerCase(),
         fullName: data.fullName.trim(),
         password: data.password,
@@ -84,7 +84,7 @@ class UserService {
     this.validateBranchAssignment(data.role, data.branchId, tenantHasBranches);
     try {
       const [row] = await Promise.all([
-        repository.update(id, {
+        repositories().user.update(id, {
           username: data.username.trim().toLowerCase(),
           full_name: data.fullName.trim(),
           phone_number: data.phone?.trim() || null,
@@ -92,7 +92,7 @@ class UserService {
           branch_id: data.branchId,
         }),
         data.newPassword
-          ? repository.updatePassword(id, data.newPassword)
+          ? repositories().user.updatePassword(id, data.newPassword)
           : Promise.resolve(),
       ]);
       return mapDbUserToAppUser(row);
@@ -119,17 +119,17 @@ class UserService {
     targetRole: UserRole,
   ): Promise<{ mode: "hard" } | { mode: "soft"; user: AppUser }> {
     this.checkToggleActivePermission(id, callerId, callerRole, targetRole);
-    const paymentCount = await repository.countPayments(id);
+    const paymentCount = await repositories().user.countPayments(id);
     if (paymentCount === 0) {
       try {
-        await repository.delete(id);
+        await repositories().user.delete(id);
       } catch (err) {
         this.rethrow(err);
       }
       return { mode: "hard" };
     }
     try {
-      const row = await repository.setActive(id, false);
+      const row = await repositories().user.setActive(id, false);
       return { mode: "soft", user: mapDbUserToAppUser(row) };
     } catch (err) {
       this.rethrow(err);
@@ -146,13 +146,13 @@ class UserService {
       this.checkToggleActivePermission(t.id, callerId, callerRole, t.role);
     }
     const ids = targets.map((t) => t.id);
-    const withPayments = await repository.usersWithPayments(ids);
+    const withPayments = await repositories().user.usersWithPayments(ids);
     const soft = ids.filter((id) => withPayments.has(id));
     const hard = ids.filter((id) => !withPayments.has(id));
     try {
       await Promise.all([
-        repository.setActiveMany(soft, false),
-        ...hard.map((id) => repository.delete(id)),
+        repositories().user.setActiveMany(soft, false),
+        ...hard.map((id) => repositories().user.delete(id)),
       ]);
     } catch (err) {
       this.rethrow(err);
@@ -168,7 +168,7 @@ class UserService {
   ): Promise<AppUser> {
     this.checkToggleActivePermission(id, callerId, callerRole, targetRole);
     try {
-      const row = await repository.setActive(id, false);
+      const row = await repositories().user.setActive(id, false);
       return mapDbUserToAppUser(row);
     } catch (err) {
       this.rethrow(err);
@@ -183,7 +183,7 @@ class UserService {
   ): Promise<AppUser> {
     this.checkToggleActivePermission(id, callerId, callerRole, targetRole);
     try {
-      const row = await repository.setActive(id, true);
+      const row = await repositories().user.setActive(id, true);
       return mapDbUserToAppUser(row);
     } catch (err) {
       this.rethrow(err);

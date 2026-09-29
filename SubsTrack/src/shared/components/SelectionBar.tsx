@@ -5,7 +5,7 @@ import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { PressableOpacity } from "./PressableOpacity";
 import { Checkbox } from "./Checkbox";
-import { sortActions, type ActionGroup } from "@/src/shared/lib/actionOrder";
+import { sortActions, type ActionGroup } from "@shared/shared/lib/actionOrder";
 
 export interface SelectionAction {
   key: string;

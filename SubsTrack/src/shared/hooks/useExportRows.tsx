@@ -6,8 +6,8 @@ import {
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
 import type { PageHeaderIconAction } from "@/src/shared/components/PageHeader";
-import { exportCsv } from "@/src/shared/lib/csv";
-import { cell, fieldsOf, flattenRow, header } from "./exportRowFormat";
+import { exportCsv } from "@/src/shared/lib/exportCsv";
+import { cell, fieldsOf, flattenRow, header } from "@shared/shared/hooks/exportRowFormat";
 
 // What a paginated screen tells the hook so it can offer the second choice.
 // `loadAll` keeps fetching pages until `hasMore` goes false; the hook only ever

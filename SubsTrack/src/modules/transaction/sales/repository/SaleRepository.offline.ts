@@ -11,12 +11,12 @@ import type {
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, updateDirty } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@shared/core/utils/ids";
-import type { FindSalesOptions } from "../utils/types";
+import type { FindSalesOptions } from "@shared/modules/transaction/sales/utils/types";
 import type {
   CreateSalePayload,
   ISaleRepository,
   UpdateSalePayload,
-} from "./ISaleRepository";
+} from "@shared/modules/transaction/sales/repository/ISaleRepository";
 import { dayStartIso, nextDayStartIso } from "@shared/core/utils/dateRange";
 import {
   isReceiptIdTerm,

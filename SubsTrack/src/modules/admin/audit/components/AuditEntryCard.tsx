@@ -6,8 +6,8 @@ import { formatDateTimeShort } from "@shared/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { CardMeta } from "@/src/shared/components/CardText";
-import { buildAuditSummary } from "../utils/summary";
-import { fieldContext, type AuditContextBase } from "../utils/valueDisplay";
+import { buildAuditSummary } from "@shared/modules/admin/audit/utils/summary";
+import { fieldContext, type AuditContextBase } from "@shared/modules/admin/audit/utils/valueDisplay";
 import { AuditSummaryText } from "./AuditSummaryText";
 
 const ACTION_STYLE: Record<

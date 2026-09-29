@@ -22,7 +22,7 @@ import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
-import { keyOf } from "@/src/modules/ledger/utils/waterfall";
+import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import {
   DEFAULT_ALL_DEBTS_FILTERS,
   filterAndSortDebts,
@@ -32,7 +32,7 @@ import {
   type AllDebtsFilters,
   type AllDebtsSort,
   type AllDebtsStatus,
-} from "../utils/allDebtsFilter";
+} from "@shared/modules/transaction/debts/utils/allDebtsFilter";
 import { useAllWrittenOffDebts } from "../hooks/useAllWrittenOffDebts";
 import type { DebtScope } from "../hooks/useWrittenOffDebts";
 import { DebtItemCard } from "./DebtItemCard";

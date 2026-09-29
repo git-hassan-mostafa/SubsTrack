@@ -1,23 +1,23 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import type { Currency, Product, StockMovement } from "@shared/core/types";
 import type { DbStockMovement } from "@shared/core/types/db";
 import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
-import repository from "../repository/ProductRepository";
 import type {
   CreateStockMovementPayload,
   StockCostRow,
-} from "../repository/IProductRepository";
+} from "@shared/modules/admin/products/repository/IProductRepository";
 import {
   mapDbProductToProduct,
   mapDbStockMovementToStockMovement,
-} from "../utils/mapper";
-import { ProductInput, RestockEntry } from "../utils/types";
+} from "@shared/modules/admin/products/utils/mapper";
+import { ProductInput, RestockEntry } from "@shared/modules/admin/products/utils/types";
 
 class ProductService {
   async getProducts(branchFilter: BranchFilter = null): Promise<Product[]> {
     const [rows, stock] = await Promise.all([
-      repository.findAll(branchFilter),
-      repository.stockOnHand(),
+      repositories().product.findAll(branchFilter),
+      repositories().product.stockOnHand(),
     ]);
     return rows.map((r) => mapDbProductToProduct(r, stock[r.id] ?? 0));
   }
@@ -30,7 +30,7 @@ class ProductService {
   ): Promise<Product> {
     this.validate(data);
     try {
-      const row = await repository.create({
+      const row = await repositories().product.create({
         tenant_id: tenantId,
         branch_id: data.branchId,
         name: data.name.trim(),
@@ -43,7 +43,7 @@ class ProductService {
       });
       const initial = data.initialStock ?? 0;
       if (initial > 0) {
-        await repository.addMovements([
+        await repositories().product.addMovements([
           this.movement(tenantId, row.id, initial, "initial", {
             userId,
             unitCost: data.initialStockUnitCost ?? data.costPrice ?? null,
@@ -60,7 +60,7 @@ class ProductService {
   async updateProduct(id: string, data: ProductInput): Promise<Product> {
     this.validate(data);
     try {
-      const row = await repository.update(id, {
+      const row = await repositories().product.update(id, {
         name: data.name.trim(),
         description: data.description?.trim() || null,
         price: data.price,
@@ -69,7 +69,7 @@ class ProductService {
         cost_currency_id: data.costCurrencyId,
         branch_id: data.branchId,
       });
-      const stock = await repository.stockOnHand([id]);
+      const stock = await repositories().product.stockOnHand([id]);
       return mapDbProductToProduct(row, stock[id] ?? 0);
     } catch (err) {
       return this.rethrow(err);
@@ -77,18 +77,18 @@ class ProductService {
   }
 
   async deleteProduct(id: string): Promise<"hard" | "soft"> {
-    const refs = await repository.countReferences(id);
+    const refs = await repositories().product.countReferences(id);
     if (refs > 0) {
-      await repository.update(id, { active: false });
+      await repositories().product.update(id, { active: false });
       return "soft";
     }
-    await repository.delete(id);
+    await repositories().product.delete(id);
     return "hard";
   }
 
   async reactivateProduct(id: string): Promise<Product> {
-    const row = await repository.update(id, { active: true });
-    const stock = await repository.stockOnHand([id]);
+    const row = await repositories().product.update(id, { active: true });
+    const stock = await repositories().product.stockOnHand([id]);
     return mapDbProductToProduct(row, stock[id] ?? 0);
   }
 
@@ -96,12 +96,12 @@ class ProductService {
     ids: string[],
   ): Promise<{ hard: string[]; soft: string[] }> {
     if (ids.length === 0) return { hard: [], soft: [] };
-    const referenced = await repository.referencedIds(ids);
+    const referenced = await repositories().product.referencedIds(ids);
     const soft = ids.filter((id) => referenced.has(id));
     const hard = ids.filter((id) => !referenced.has(id));
     await Promise.all([
-      repository.deactivateMany(soft),
-      repository.deleteMany(hard),
+      repositories().product.deactivateMany(soft),
+      repositories().product.deleteMany(hard),
     ]);
     return { hard, soft };
   }
@@ -117,7 +117,7 @@ class ProductService {
     if (!Number.isInteger(quantity) || quantity <= 0) {
       throw new Error(i18n.t("errors.stock_delta_invalid"));
     }
-    await repository.addMovements([
+    await repositories().product.addMovements([
       this.movement(tenantId, productId, quantity, "restock", {
         note,
         userId,
@@ -125,7 +125,7 @@ class ProductService {
         currency: cost?.currency ?? null,
       }),
     ]);
-    const stock = await repository.stockOnHand([productId]);
+    const stock = await repositories().product.stockOnHand([productId]);
     return stock[productId] ?? 0;
   }
 
@@ -153,13 +153,13 @@ class ProductService {
     ) {
       cost.rate_per_usd_snapshot = existing.rate_per_usd_snapshot;
     }
-    const row = await repository.updateMovement(movementId, {
+    const row = await repositories().product.updateMovement(movementId, {
       quantity_delta:
         existing.quantity_delta > 0 ? input.quantity : -input.quantity,
       note: input.note?.trim() || null,
       ...cost,
     });
-    const stock = await repository.stockOnHand([row.product_id]);
+    const stock = await repositories().product.stockOnHand([row.product_id]);
     return {
       movement: mapDbStockMovementToStockMovement(row),
       onHand: stock[row.product_id] ?? 0,
@@ -171,15 +171,15 @@ class ProductService {
     userId: string | null = null,
   ): Promise<{ productId: string; onHand: number }> {
     const existing = await this.liveManualMovement(movementId);
-    const row = await repository.voidMovement(existing.id, userId);
-    const stock = await repository.stockOnHand([row.product_id]);
+    const row = await repositories().product.voidMovement(existing.id, userId);
+    const stock = await repositories().product.stockOnHand([row.product_id]);
     return { productId: row.product_id, onHand: stock[row.product_id] ?? 0 };
   }
 
   private async liveManualMovement(
     movementId: string,
   ): Promise<DbStockMovement> {
-    const existing = await repository.findMovement(movementId);
+    const existing = await repositories().product.findMovement(movementId);
     if (!existing) throw new Error(i18n.t("errors.stock_movement_missing"));
     if (existing.reason === "sale") {
       throw new Error(i18n.t("errors.stock_movement_sale_locked"));
@@ -201,7 +201,7 @@ class ProductService {
     );
     if (valid.length === 0)
       throw new Error(i18n.t("errors.stock_delta_invalid"));
-    await repository.addMovements(
+    await repositories().product.addMovements(
       valid.map((e) =>
         this.movement(tenantId, e.productId, e.quantity, "restock", {
           note,
@@ -211,15 +211,15 @@ class ProductService {
         }),
       ),
     );
-    return repository.stockOnHand(valid.map((e) => e.productId));
+    return repositories().product.stockOnHand(valid.map((e) => e.productId));
   }
 
   async getStockOnHand(productIds?: string[]): Promise<Record<string, number>> {
-    return repository.stockOnHand(productIds);
+    return repositories().product.stockOnHand(productIds);
   }
 
   async getMovements(productId: string, limit = 20): Promise<StockMovement[]> {
-    const rows = await repository.movementsForProduct(productId, limit);
+    const rows = await repositories().product.movementsForProduct(productId, limit);
     return rows.map(mapDbStockMovementToStockMovement);
   }
 
@@ -276,7 +276,7 @@ class ProductService {
     endExclusiveIso: string,
     branchFilter: BranchFilter = null,
   ): Promise<StockCostRow[]> {
-    return repository.stockCostsInRange(
+    return repositories().product.stockCostsInRange(
       startIso,
       endExclusiveIso,
       branchFilter,

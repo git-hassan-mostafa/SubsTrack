@@ -6,7 +6,7 @@ import { EmptyState } from "@/src/shared/components/EmptyState";
 import type { Currency } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { formatDate } from "@shared/core/utils/date";
-import type { RecordRow } from "../utils/types";
+import type { RecordRow } from "@shared/modules/reports/utils/types";
 
 interface Props {
   visible: boolean;

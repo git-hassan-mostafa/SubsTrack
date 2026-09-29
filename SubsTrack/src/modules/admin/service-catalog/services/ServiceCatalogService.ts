@@ -1,9 +1,9 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import type { Service } from "@shared/core/types";
 import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
-import repository from "../repository/ServiceRepository";
-import { mapDbServiceToService } from "../utils/mapper";
-import { ServiceInput } from "../utils/types";
+import { mapDbServiceToService } from "@shared/modules/admin/service-catalog/utils/mapper";
+import { ServiceInput } from "@shared/modules/admin/service-catalog/utils/types";
 
 /**
  * Business logic for the service price list — the twin of ProductService, minus
@@ -15,14 +15,14 @@ import { ServiceInput } from "../utils/types";
  */
 class ServiceCatalogService {
   async getServices(branchFilter: BranchFilter = null): Promise<Service[]> {
-    const rows = await repository.findAll(branchFilter);
+    const rows = await repositories().service.findAll(branchFilter);
     return rows.map(mapDbServiceToService);
   }
 
   async createService(data: ServiceInput, tenantId: string): Promise<Service> {
     this.validate(data);
     try {
-      const row = await repository.create({
+      const row = await repositories().service.create({
         tenant_id: tenantId,
         branch_id: data.branchId,
         name: data.name.trim(),
@@ -40,7 +40,7 @@ class ServiceCatalogService {
   async updateService(id: string, data: ServiceInput): Promise<Service> {
     this.validate(data);
     try {
-      const row = await repository.update(id, {
+      const row = await repositories().service.update(id, {
         name: data.name.trim(),
         description: data.description?.trim() || null,
         price: data.price,
@@ -54,17 +54,17 @@ class ServiceCatalogService {
   }
 
   async deleteService(id: string): Promise<"hard" | "soft"> {
-    const refs = await repository.countReferences(id);
+    const refs = await repositories().service.countReferences(id);
     if (refs > 0) {
-      await repository.update(id, { active: false });
+      await repositories().service.update(id, { active: false });
       return "soft";
     }
-    await repository.delete(id);
+    await repositories().service.delete(id);
     return "hard";
   }
 
   async reactivateService(id: string): Promise<Service> {
-    const row = await repository.update(id, { active: true });
+    const row = await repositories().service.update(id, { active: true });
     return mapDbServiceToService(row);
   }
 
@@ -72,12 +72,12 @@ class ServiceCatalogService {
     ids: string[],
   ): Promise<{ hard: string[]; soft: string[] }> {
     if (ids.length === 0) return { hard: [], soft: [] };
-    const referenced = await repository.referencedIds(ids);
+    const referenced = await repositories().service.referencedIds(ids);
     const soft = ids.filter((id) => referenced.has(id));
     const hard = ids.filter((id) => !referenced.has(id));
     await Promise.all([
-      repository.deactivateMany(soft),
-      repository.deleteMany(hard),
+      repositories().service.deactivateMany(soft),
+      repositories().service.deleteMany(hard),
     ]);
     return { hard, soft };
   }

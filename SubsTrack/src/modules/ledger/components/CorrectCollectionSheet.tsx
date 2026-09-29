@@ -27,7 +27,7 @@ import {
   groupKey,
   groupOwedByCurrency,
   planCollection,
-} from "../utils/currencyGroups";
+} from "@shared/modules/ledger/utils/currencyGroups";
 import { CurrencyCollectSection } from "./CurrencyCollectSection";
 
 const NO_SKIPS: ReadonlySet<string> = new Set();

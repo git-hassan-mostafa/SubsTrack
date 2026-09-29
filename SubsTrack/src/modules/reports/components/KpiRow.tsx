@@ -1,6 +1,6 @@
 import { View } from "react-native";
 import { StatTile } from "@/src/shared/components/StatTile";
-import type { Delta } from "../utils/aggregate";
+import type { Delta } from "@shared/modules/reports/utils/aggregate";
 import { ComparisonPill } from "./ComparisonPill";
 
 export interface Kpi {

@@ -1,13 +1,12 @@
 export { default as expenseService } from "./services/ExpenseService";
-export { default as expenseRepository } from "./repository/ExpenseRepository";
-export { expenseToItem, mapDbExpenseToExpense } from "./utils/mapper";
-export type { CreateExpenseInput, ExpensesFilter } from "./utils/types";
+export { expenseToItem, mapDbExpenseToExpense } from "@shared/modules/transaction/expenses/utils/mapper";
+export type { CreateExpenseInput, ExpensesFilter } from "@shared/modules/transaction/expenses/utils/types";
 export {
   EXPENSE_CATEGORIES,
   STOCK_CATEGORY,
-  expenseCategoryIcon,
   expenseCategoryLabelKey,
-} from "./utils/expenseCategories";
+} from "@shared/modules/transaction/expenses/utils/expenseCategories";
+export { expenseCategoryIcon } from "./utils/expenseCategoryIcon";
 export { ExpensesPanel } from "./screens/ExpensesPanel";
 export { ExpenseCard } from "./components/ExpenseCard";
 export { ExpenseFormSheet } from "./components/ExpenseFormSheet";

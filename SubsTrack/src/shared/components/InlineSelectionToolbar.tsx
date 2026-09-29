@@ -5,7 +5,7 @@ import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { PressableOpacity } from "./PressableOpacity";
 import type { SelectionAction } from "./SelectionBar";
-import { sortActions } from "@/src/shared/lib/actionOrder";
+import { sortActions } from "@shared/shared/lib/actionOrder";
 
 interface Props {
   count: number;

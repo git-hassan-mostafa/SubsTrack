@@ -1,7 +1,7 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import type { SkippedMonth } from "@shared/core/types";
 import i18n from "@shared/core/i18n";
-import repository from "../repository/SkippedMonthRepository";
-import { mapDbSkippedMonthToSkippedMonth } from "../utils/mapper";
+import { mapDbSkippedMonthToSkippedMonth } from "@shared/modules/customer/customer-payments/utils/mapper";
 
 // One month of one service line to skip / unskip. `note` is optional and is
 // carried through on unskip too, so the reason stays readable in history.
@@ -19,12 +19,12 @@ export interface SetSkipInput {
  */
 class SkippedMonthService {
   async getSkipsForCustomer(customerId: string): Promise<SkippedMonth[]> {
-    const rows = await repository.findActiveByCustomer(customerId);
+    const rows = await repositories().skippedMonth.findActiveByCustomer(customerId);
     return rows.map(mapDbSkippedMonthToSkippedMonth);
   }
 
   async getActiveSkips(): Promise<SkippedMonth[]> {
-    const rows = await repository.findActive();
+    const rows = await repositories().skippedMonth.findActive();
     return rows.map(mapDbSkippedMonthToSkippedMonth);
   }
 
@@ -40,7 +40,7 @@ class SkippedMonthService {
         throw new Error(i18n.t("errors.billing_month_format"));
       }
     }
-    const rows = await repository.upsertMany(
+    const rows = await repositories().skippedMonth.upsertMany(
       inputs.map((input) => ({
         tenant_id: tenantId,
         customer_id: input.customerId,

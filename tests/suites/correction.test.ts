@@ -1,11 +1,3 @@
-jest.mock("@/src/modules/ledger/repository/ChargeRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeLedger").fakeChargeRepository,
-}));
-jest.mock("@/src/modules/ledger/repository/CollectionRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeLedger").fakeCollectionRepository,
-}));
 
 import { collectionService } from "@/src/modules/ledger/services/CollectionService";
 import type { CollectInput } from "@/src/modules/ledger/services/CollectionService";
@@ -14,12 +6,12 @@ import { deterministicId } from "@shared/core/utils/ids";
 import {
   hasClosedBill,
   withoutCollection,
-} from "@/src/modules/ledger/utils/correction";
+} from "@shared/modules/ledger/utils/correction";
 import {
   custodyOf,
   receivedCustody,
   sharedCustody,
-} from "@/src/modules/wallet/utils/custodyValues";
+} from "@shared/modules/wallet/utils/custodyValues";
 import { fakeChargeRepository, store } from "../helpers/fakeLedger";
 import { charge, collectionItem, openItem } from "../helpers/factories";
 

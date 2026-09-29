@@ -1,0 +1,22 @@
+import type { CustomerPlan } from "@shared/core/types";
+import type { DbCustomerPlan } from "@shared/core/types/db";
+import { mapDbPlanToPlan } from "@shared/modules/admin/plans/utils/mapper";
+
+export function mapDbCustomerPlanToCustomerPlan(
+  db: DbCustomerPlan,
+): CustomerPlan {
+  return {
+    id: db.id,
+    customerId: db.customer_id,
+    planId: db.plan_id,
+    startDate: db.start_date,
+    cancelledAt: db.cancelled_at,
+    active: db.active,
+    customPrice: db.custom_price != null ? Number(db.custom_price) : null,
+    customCurrencyId: db.custom_currency_id,
+    tenantId: db.tenant_id,
+    createdAt: db.created_at,
+    updatedAt: db.updated_at,
+    plan: db.plans ? mapDbPlanToPlan(db.plans) : null,
+  };
+}

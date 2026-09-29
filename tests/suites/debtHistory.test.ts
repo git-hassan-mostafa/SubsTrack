@@ -8,7 +8,7 @@ import {
   toDueDateRange,
   toReadScopes,
   type DebtHistoryFilters,
-} from "@/src/modules/transaction/debts/utils/debtHistory";
+} from "@shared/modules/transaction/debts/utils/debtHistory";
 import type { Charge, DebtHistoryItem } from "@shared/core/types";
 import { openItem } from "../helpers/factories";
 

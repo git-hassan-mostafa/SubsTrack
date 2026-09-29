@@ -2,7 +2,7 @@ import paymentService from "@/src/modules/customer/customer-payments/services/Pa
 import {
   customerFlags,
   hasDebtFlag,
-} from "@/src/modules/customer/customers/utils/customerFlags";
+} from "@shared/modules/customer/customers/utils/customerFlags";
 import { bill, customer, line, plan, skip } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
 

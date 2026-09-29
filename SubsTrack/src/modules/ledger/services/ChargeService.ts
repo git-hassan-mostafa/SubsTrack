@@ -1,3 +1,4 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
 import type {
@@ -11,18 +12,16 @@ import type {
 import type { DbCharge } from "@shared/core/types/db";
 import { deterministicId, newId, nowIso } from "@shared/core/utils/ids";
 import { daysLate } from "@shared/core/utils/date";
-import repository from "../repository/ChargeRepository";
 import type {
   FindChargeHistoryOptions,
   WriteOffScope,
-} from "../repository/IChargeRepository";
-import collectionRepository from "../repository/CollectionRepository";
-import { mapDbChargeToCharge } from "../utils/mapper";
+} from "@shared/modules/ledger/repository/IChargeRepository";
+import { mapDbChargeToCharge } from "@shared/modules/ledger/utils/mapper";
 import {
   chargeLabel,
   isDebtItem,
   openItemFromCharge,
-} from "../utils/openItems";
+} from "@shared/modules/ledger/utils/openItems";
 
 export interface CreateManualChargeInput {
   tenantId: string;
@@ -57,14 +56,14 @@ class ChargeService {
   }
 
   async getById(id: string): Promise<Charge | null> {
-    const row = await repository.findById(id);
+    const row = await repositories().charge.findById(id);
     return row ? mapDbChargeToCharge(row) : null;
   }
 
   async getMonthBillsForLines(
     customerPlanIds: string[],
   ): Promise<Map<string, MonthBill[]>> {
-    const rows = await repository.findMonthChargesForLines(customerPlanIds);
+    const rows = await repositories().charge.findMonthChargesForLines(customerPlanIds);
     const byLine = new Map<string, MonthBill[]>();
     for (const { charge: row, paid } of rows) {
       const charge = mapDbChargeToCharge(row);
@@ -78,7 +77,7 @@ class ChargeService {
   }
 
   async getMonthBillsForCustomer(customerId: string): Promise<MonthBill[]> {
-    const rows = await repository.findMonthChargesForCustomer(customerId);
+    const rows = await repositories().charge.findMonthChargesForCustomer(customerId);
     return rows.map(({ charge, paid }) => ({
       charge: mapDbChargeToCharge(charge),
       collected: paid,
@@ -91,7 +90,7 @@ class ChargeService {
     branchFilter?: BranchFilter;
     writeOffScope?: WriteOffScope;
   }): Promise<OpenItem[]> {
-    const open = await repository.findOpenWithPaid(opts);
+    const open = await repositories().charge.findOpenWithPaid(opts);
     return open.map(({ charge, paid }) => toOpenItem(charge, paid));
   }
 
@@ -99,8 +98,8 @@ class ChargeService {
   async getBills(chargeIds: string[]): Promise<OpenItem[]> {
     if (chargeIds.length === 0) return [];
     const [rows, balances] = await Promise.all([
-      repository.findByIds(chargeIds),
-      repository.balances(chargeIds),
+      repositories().charge.findByIds(chargeIds),
+      repositories().charge.balances(chargeIds),
     ]);
     const paid = new Map(balances.map((b) => [b.id, Number(b.paid)]));
     return rows.map((charge) => toOpenItem(charge, paid.get(charge.id) ?? 0));
@@ -112,7 +111,7 @@ class ChargeService {
   async getChargeHistory(
     opts: FindChargeHistoryOptions,
   ): Promise<DebtHistoryItem[]> {
-    const page = await repository.findHistory(opts);
+    const page = await repositories().charge.findHistory(opts);
     if (page.length === 0) return [];
     const settled = await this.settleDates(
       page.map(({ charge }) => charge.id),
@@ -134,11 +133,11 @@ class ChargeService {
     chargeIds: string[],
   ): Promise<Map<string, string>> {
     const settled = new Map<string, string>();
-    const items = await collectionRepository.findItemsForCharges(chargeIds);
+    const items = await repositories().collection.findItemsForCharges(chargeIds);
     if (items.length === 0) return settled;
     const receivedAt = new Map(
       (
-        await collectionRepository.findByIds([
+        await repositories().collection.findByIds([
           ...new Set(items.map((i) => i.collection_id)),
         ])
       ).map((c) => [c.id, c.received_at]),
@@ -222,7 +221,7 @@ class ChargeService {
       throw new Error(i18n.t("errors.rate_snapshot_positive"));
 
     const now = nowIso();
-    const row = await repository.create({
+    const row = await repositories().charge.create({
       id: newId(),
       tenant_id: input.tenantId,
       branch_id: input.branchId,
@@ -251,7 +250,7 @@ class ChargeService {
     values: UpdateManualChargeInput,
   ): Promise<Charge> {
     if (values.amount !== undefined) this.validateAmount(values.amount);
-    const existing = await repository.findById(id);
+    const existing = await repositories().charge.findById(id);
     if (!existing) throw new Error(i18n.t("errors.charge_not_found"));
     if (existing.voided_at || existing.written_off_at) {
       throw new Error(i18n.t("errors.charge_not_editable"));
@@ -262,7 +261,7 @@ class ChargeService {
       values.currencyId !== existing.currency_id;
     const needsBalance = values.amount !== undefined || movesCurrency;
     const paid = needsBalance
-      ? ((await repository.balances([id]))[0]?.paid ?? 0)
+      ? ((await repositories().charge.balances([id]))[0]?.paid ?? 0)
       : 0;
 
     if (movesCurrency && paid > 0)
@@ -271,7 +270,7 @@ class ChargeService {
       throw new Error(i18n.t("errors.charge_amount_below_collected"));
     }
 
-    const row = await repository.update(id, {
+    const row = await repositories().charge.update(id, {
       ...(values.description !== undefined
         ? { description: values.description.trim() }
         : {}),
@@ -293,10 +292,10 @@ class ChargeService {
     voidedBy: string,
     reason: string | null,
   ): Promise<Charge> {
-    const [balance] = await repository.balances([id]);
+    const [balance] = await repositories().charge.balances([id]);
     if (balance && balance.paid > 0)
       throw new Error(i18n.t("errors.charge_void_has_money"));
-    const row = await repository.void(id, voidedBy, reason);
+    const row = await repositories().charge.void(id, voidedBy, reason);
     return mapDbChargeToCharge(row);
   }
 
@@ -306,7 +305,7 @@ class ChargeService {
 
   async paymentIdsForCharges(chargeIds: string[]): Promise<string[]> {
     if (chargeIds.length === 0) return [];
-    const items = await collectionRepository.findItemsForCharges(chargeIds);
+    const items = await repositories().collection.findItemsForCharges(chargeIds);
     return [...new Set(items.map((i) => i.collection_id))];
   }
 
@@ -317,9 +316,9 @@ class ChargeService {
   ): Promise<Charge> {
     const paymentIds = await this.paymentIdsForCharge(id);
     if (paymentIds.length > 0) {
-      await collectionRepository.voidMany(paymentIds, voidedBy, reason);
+      await repositories().collection.voidMany(paymentIds, voidedBy, reason);
     }
-    const row = await repository.void(id, voidedBy, reason);
+    const row = await repositories().charge.void(id, voidedBy, reason);
     return mapDbChargeToCharge(row);
   }
 
@@ -328,12 +327,12 @@ class ChargeService {
     writtenOffBy: string,
     reason: string | null,
   ): Promise<Charge> {
-    const charge = await repository.findById(id);
+    const charge = await repositories().charge.findById(id);
     if (!charge) throw new Error(i18n.t("errors.charge_not_found"));
     if (charge.voided_at) throw new Error(i18n.t("errors.charge_voided"));
     if (charge.written_off_at)
       throw new Error(i18n.t("errors.charge_already_written_off"));
-    const row = await repository.writeOff(id, writtenOffBy, reason);
+    const row = await repositories().charge.writeOff(id, writtenOffBy, reason);
     return mapDbChargeToCharge(row);
   }
 
@@ -344,7 +343,7 @@ class ChargeService {
     reason: string | null,
   ): Promise<Charge[]> {
     if (ids.length === 0) return [];
-    const rows = await repository.writeOffMany(
+    const rows = await repositories().charge.writeOffMany(
       [...new Set(ids)],
       writtenOffBy,
       reason,
@@ -354,12 +353,12 @@ class ChargeService {
 
   // Refuses a LIVE bill rather than no-opping: nothing was given up to undo.
   async revertWriteOff(id: string): Promise<Charge> {
-    const charge = await repository.findById(id);
+    const charge = await repositories().charge.findById(id);
     if (!charge) throw new Error(i18n.t("errors.charge_not_found"));
     if (charge.voided_at) throw new Error(i18n.t("errors.charge_voided"));
     if (!charge.written_off_at)
       throw new Error(i18n.t("errors.charge_not_written_off"));
-    const row = await repository.revertWriteOff(id);
+    const row = await repositories().charge.revertWriteOff(id);
     return mapDbChargeToCharge(row);
   }
 
@@ -368,13 +367,13 @@ class ChargeService {
     endExclusiveIso: string,
     branchFilter: BranchFilter,
   ): Promise<number> {
-    const rows = await repository.writtenOffInRange(
+    const rows = await repositories().charge.writtenOffInRange(
       startIso,
       endExclusiveIso,
       branchFilter,
     );
     if (rows.length === 0) return 0;
-    const balances = await collectionRepository.findItemsForCharges(
+    const balances = await repositories().collection.findItemsForCharges(
       rows.map((r) => r.id),
     );
     const paidBy = new Map<string, number>();

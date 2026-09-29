@@ -11,11 +11,11 @@ import {
   buildCollectionInvoiceText,
   buildSalesInvoiceText,
   type InvoiceContext,
-} from "../utils/invoiceText";
+} from "@shared/modules/invoicing/utils/invoiceText";
 import {
   resolveInvoiceRecipient,
   type InvoiceRecipientRow,
-} from "../utils/invoiceRecipient";
+} from "@shared/modules/invoicing/utils/invoiceRecipient";
 import { useWhatsApp } from "./useWhatsApp";
 
 const UNREACHABLE_MESSAGE = {

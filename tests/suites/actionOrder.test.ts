@@ -1,4 +1,4 @@
-import { sortActions } from "@/src/shared/lib/actionOrder";
+import { sortActions } from "@shared/shared/lib/actionOrder";
 
 const keysOf = (rows: { key: string }[]) => rows.map((r) => r.key);
 

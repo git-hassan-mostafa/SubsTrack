@@ -21,6 +21,10 @@ export default defineConfig({
       },
       { find: /^react-native$/, replacement: here("./stubs/react-native.ts") },
       { find: /^@shared\//, replacement: here("../Shared/src/") },
+      {
+        find: /^@edge\//,
+        replacement: here("../SubsTrack/supabase/functions/_shared/"),
+      },
       { find: /^@\//, replacement: here("../SubsTrack/") },
     ],
     dedupe: sharedPeers,

@@ -5,7 +5,7 @@ import {
   isNotDueYet,
   isNotLateYet,
   startDayOfMonth,
-} from "@/src/modules/customer/customer-payments/utils/monthDueRules";
+} from "@shared/modules/customer/customer-payments/utils/monthDueRules";
 import { freezeToday, unfreeze } from "../helpers/clock";
 
 // Gotcha #83: the per-tenant unpaid rule decides TWO different things, and mixing

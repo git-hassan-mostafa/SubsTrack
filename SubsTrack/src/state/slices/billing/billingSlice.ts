@@ -1,13 +1,13 @@
 import type { StateCreator } from "zustand";
 import type { CustomerRequest } from "@shared/core/types";
 import billingService from "@/src/modules/admin/billing/services/BillingService";
-import { AllowanceFloorError } from "@/src/modules/admin/billing/utils/allowanceFloorError";
-import type { QuotaExceededError } from "@/src/modules/admin/billing/utils/quotaError";
+import { AllowanceFloorError } from "@shared/modules/admin/billing/utils/allowanceFloorError";
+import type { QuotaExceededError } from "@shared/modules/admin/billing/utils/quotaError";
 import type {
   AllowanceFloorPayload,
   QuotaErrorPayload,
   QuotaPair,
-} from "@/src/modules/admin/billing/utils/types";
+} from "@shared/modules/admin/billing/utils/types";
 import customerService from "@/src/modules/customer/customers/services/CustomerService";
 import customerPlanService from "@/src/modules/customer/customer-plans/services/CustomerPlanService";
 import type { GlobalState } from "@/src/state/globalStore";

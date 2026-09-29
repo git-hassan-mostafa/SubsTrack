@@ -13,7 +13,7 @@ import {
   custodyTargetFor,
   receiveBlock,
   type WalletActor,
-} from "../utils/custody";
+} from "@shared/modules/wallet/utils/custody";
 import { groupByCurrency, sumUsd } from "@shared/core/utils/currency";
 
 /** One holder, resolved from the user list — what the chain rules need. */

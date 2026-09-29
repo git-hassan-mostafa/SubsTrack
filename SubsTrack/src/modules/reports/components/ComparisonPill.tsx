@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
-import type { Delta } from "../utils/aggregate";
+import type { Delta } from "@shared/modules/reports/utils/aggregate";
 
 interface Props {
   delta: Delta;

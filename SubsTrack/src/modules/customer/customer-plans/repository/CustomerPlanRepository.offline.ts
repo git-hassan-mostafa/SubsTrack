@@ -9,7 +9,7 @@ import { newId, nowIso } from "@shared/core/utils/ids";
 import type {
   CreateCustomerPlanPayload,
   ICustomerPlanRepository,
-} from "./ICustomerPlanRepository";
+} from "@shared/modules/customer/customer-plans/repository/ICustomerPlanRepository";
 
 /** SQLite-backed customer_plans repository (service lines). Mirrors `'*, plans(*)'`. */
 export class OfflineCustomerPlanRepository

@@ -16,7 +16,7 @@ import type { Customer, Sale } from "@shared/core/types";
 import saleService from "../services/SaleService";
 import { useOwedChanged } from "@/src/modules/ledger";
 import { useSaleActions } from "../hooks/useSaleActions";
-import { saleListPatches } from "../utils/saleListPatch";
+import { saleListPatches } from "@shared/modules/transaction/sales/utils/saleListPatch";
 import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { SaleCard } from "./SaleCard";
 import { SaleFormSheet } from "./SaleFormSheet";

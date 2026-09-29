@@ -4,15 +4,13 @@ import type {
   UnpaidStartRule,
 } from "@shared/core/types";
 import type { BranchFilter } from "@shared/core/constants";
+import { repositories } from "@shared/core/runtime/repositories";
 import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
-import { customerRepository as customerRepo } from "@/src/modules/customer/customers";
-import { planRepository as planRepo } from "@/src/modules/admin/plans";
-import { userRepository as userRepo } from "@/src/modules/admin/users";
 import { collectionService, ledgerService } from "@/src/modules/ledger";
 import saleService from "@/src/modules/transaction/sales/services/SaleService";
 import expenseService from "@/src/modules/transaction/expenses/services/ExpenseService";
 import walletService from "@/src/modules/wallet/services/WalletService";
-import type { WalletActor } from "@/src/modules/wallet/utils/custody";
+import type { WalletActor } from "@shared/modules/wallet/utils/custody";
 
 // One calendar month of collected cash, split by what it settled.
 interface MonthCollections {
@@ -76,19 +74,19 @@ class DashboardService {
       wallets,
       expenses,
     ] = await Promise.all([
-      customerRepo.countAll(branchFilter),
-      customerRepo.countActive(branchFilter),
+      repositories().customer.countAll(branchFilter),
+      repositories().customer.countActive(branchFilter),
       this.getMonthCollections(year, month, branchFilter),
-      customerRepo.countUnpaidForMonth(billingMonth, branchFilter, unpaidRule),
-      userRepo.countAll(branchFilter),
-      planRepo.countAll(branchFilter),
+      repositories().customer.countUnpaidForMonth(billingMonth, branchFilter, unpaidRule),
+      repositories().user.countAll(branchFilter),
+      repositories().plan.countAll(branchFilter),
       ledgerService.getDebtsView(branchFilter),
-      customerRepo.countCreatedInRange(
+      repositories().customer.countCreatedInRange(
         monthStart,
         monthEndExclusive,
         branchFilter,
       ),
-      customerRepo.countCancelledInRange(
+      repositories().customer.countCancelledInRange(
         monthStart,
         monthEndExclusive,
         branchFilter,

@@ -16,8 +16,8 @@ import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { confirm } from "@/src/shared/lib/confirm";
 import { useMessageHistoryStore } from "../state/messageHistoryStore";
-import { HISTORY_STATUS_FILTERS } from "../utils/constants";
-import { sijilTemplateByName } from "@/supabase/functions/_shared/whatsapp/sijilTemplates";
+import { HISTORY_STATUS_FILTERS } from "@shared/modules/whatsapp/utils/constants";
+import { sijilTemplateByName } from "@edge/whatsapp/sijilTemplates";
 
 type Filter = WhatsAppMessageStatus | "all";
 

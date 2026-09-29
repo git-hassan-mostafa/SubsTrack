@@ -4,8 +4,8 @@ import {
   WHATSAPP_LANGUAGES,
   sijilTemplateByName,
   sijilTemplateByPurpose,
-} from "@/supabase/functions/_shared/whatsapp/sijilTemplates";
-import { templateParamNames } from "@/supabase/functions/_shared/whatsapp/rules";
+} from "@edge/whatsapp/sijilTemplates";
+import { templateParamNames } from "@edge/whatsapp/rules";
 
 describe("Sijil message templates", () => {
   it("TC-WA-T-01 names are unique, prefixed and Meta-safe", () => {

@@ -1,9 +1,8 @@
 export { default as customerService } from "./services/CustomerService";
 export type { CustomerInput } from "./services/CustomerService";
 export { MIN_PORTAL_PASSWORD_LENGTH } from "./services/CustomerService";
-export { mapDbCustomerToCustomer } from "./utils/mapper";
-export type { DbCustomerWithLines } from "./utils/types";
-export { default as customerRepository } from "./repository/CustomerRepository";
+export { mapDbCustomerToCustomer } from "@shared/modules/customer/customers/utils/mapper";
+export type { DbCustomerWithLines } from "@shared/modules/customer/customers/utils/types";
 export { CustomerCard } from "./components/CustomerCard";
 export { CustomerDetailsCard } from "./components/CustomerDetailsCard";
 export { CustomerFormSheet } from "./components/CustomerFormSheet";

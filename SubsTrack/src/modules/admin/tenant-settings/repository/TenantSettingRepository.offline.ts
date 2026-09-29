@@ -2,7 +2,7 @@ import type { DbTenantSetting } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { upsertNaturalKeyDirty } from "@/src/core/offline/db/dml";
 import { deterministicId, nowIso } from "@shared/core/utils/ids";
-import type { ITenantSettingRepository } from "./ITenantSettingRepository";
+import type { ITenantSettingRepository } from "@shared/modules/admin/tenant-settings/repository/ITenantSettingRepository";
 
 /**
  * SQLite-backed TenantSetting repository. Reads the local mirror; writes mutate

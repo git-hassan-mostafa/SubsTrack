@@ -2,13 +2,13 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { CashStream, Currency, ExpenseCategory } from "@shared/core/types";
 import { formatMoney } from "@shared/core/utils/currency";
-import { expenseCategoryLabelKey } from "@/src/modules/transaction/expenses/utils/expenseCategories";
-import { delta, shareOfTotal } from "../../utils/aggregate";
+import { expenseCategoryLabelKey } from "@shared/modules/transaction/expenses/utils/expenseCategories";
+import { delta, shareOfTotal } from "@shared/modules/reports/utils/aggregate";
 import { REPORT_COLORS } from "../../utils/reportColors";
 import type {
   MoneyReport as MoneyReportData,
   RecordRow,
-} from "../../utils/types";
+} from "@shared/modules/reports/utils/types";
 import { ReportCard } from "../../components/ReportCard";
 import { KpiRow, type Kpi } from "../../components/KpiRow";
 import { BreakdownList } from "../../components/BreakdownList";

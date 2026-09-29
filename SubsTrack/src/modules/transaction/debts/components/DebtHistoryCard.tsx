@@ -25,7 +25,7 @@ import {
   daysOverdue,
   historyOutcomeOf,
   type HistoryOutcome,
-} from "../utils/debtHistory";
+} from "@shared/modules/transaction/debts/utils/debtHistory";
 import { KIND_ICON } from "../utils/kindIcon";
 
 interface Props {

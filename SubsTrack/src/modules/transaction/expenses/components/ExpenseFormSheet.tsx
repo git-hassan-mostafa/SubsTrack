@@ -15,7 +15,7 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useExpenseStore } from "@/src/modules/transaction/expenses/state/expenseStore";
 import { findCurrency } from "@shared/core/utils/currency";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
-import { EXPENSE_CATEGORIES } from "../utils/expenseCategories";
+import { EXPENSE_CATEGORIES } from "@shared/modules/transaction/expenses/utils/expenseCategories";
 
 interface Props {
   onDismiss: () => void;

@@ -1,14 +1,6 @@
-jest.mock("@/src/modules/ledger/repository/ChargeRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeLedger").fakeChargeRepository,
-}));
-jest.mock("@/src/modules/ledger/repository/CollectionRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeLedger").fakeCollectionRepository,
-}));
 
 import { chargeService } from "@/src/modules/ledger/services/ChargeService";
-import { chargeStatusOf } from "@/src/modules/ledger/utils/billState";
+import { chargeStatusOf } from "@shared/modules/ledger/utils/billState";
 import { fakeChargeRepository, store } from "../helpers/fakeLedger";
 
 // TC-CH-* — raising, correcting, voiding and writing off a BILL. Money is never

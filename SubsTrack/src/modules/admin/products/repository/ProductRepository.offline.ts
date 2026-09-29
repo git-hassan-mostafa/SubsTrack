@@ -4,13 +4,13 @@ import type { DbProduct, DbStockMovement } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, markDeleted } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@shared/core/utils/ids";
-import { toStockCostRow } from "../utils/mapper";
+import { toStockCostRow } from "@shared/modules/admin/products/utils/mapper";
 import type {
   CreateStockMovementPayload,
   IProductRepository,
   StockCostRow,
   UpdateStockMovementPayload,
-} from "./IProductRepository";
+} from "@shared/modules/admin/products/repository/IProductRepository";
 
 /**
  * SQLite-backed Product repository. Reads from the local mirror; writes mutate

@@ -1,7 +1,7 @@
 import {
   expandSelectionUnit,
   groupPayableBlocks,
-} from "@/src/modules/customer/customer-payments/utils/monthSelection";
+} from "@shared/modules/customer/customer-payments/utils/monthSelection";
 import paymentService from "@/src/modules/customer/customer-payments/services/PaymentService";
 import {
   canCloseOut,
@@ -10,7 +10,7 @@ import {
   receiveBlock,
   walletRank,
   type WalletActor,
-} from "@/src/modules/wallet/utils/custody";
+} from "@shared/modules/wallet/utils/custody";
 import { bill, line, plan } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
 

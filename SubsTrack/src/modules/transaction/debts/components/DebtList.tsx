@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import type { OpenItem } from "@shared/core/types";
-import { sortDebts } from "../utils/allDebtsFilter";
+import { sortDebts } from "@shared/modules/transaction/debts/utils/allDebtsFilter";
 import { DebtItemCard } from "./DebtItemCard";
 
 interface Props {

@@ -1,7 +1,7 @@
 import {
   isAfterMonth,
   lastBillableMonth,
-} from "@/src/modules/customer/customer-payments/utils/payWindow";
+} from "@shared/modules/customer/customer-payments/utils/payWindow";
 import { customer, line } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
 

@@ -1,6 +1,6 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import i18n from "@shared/core/i18n";
-import repository from "../repository/AuthRepository";
-import { mapDbUserToAuthUser } from "../utils/mapper";
+import { mapDbUserToAuthUser } from "@shared/modules/authentication/auth/utils/mapper";
 import { AuthUser } from "@shared/core/types";
 import type { DbUser } from "@shared/core/types/db";
 import { OrganizationSwitchBlockedError } from "@shared/core/errors/offlineErrors";
@@ -25,7 +25,7 @@ class AuthService {
 
     let session;
     try {
-      session = await repository.signIn(email, password);
+      session = await repositories().auth.signIn(email, password);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       console.log(msg);
@@ -40,24 +40,24 @@ class AuthService {
 
     let profile: DbUser | null;
     try {
-      profile = await repository.getUserProfile(session.user.id);
+      profile = await repositories().auth.getUserProfile(session.user.id);
     } catch (e) {
       if (e instanceof OrganizationSwitchBlockedError) {
-        await repository.signOut().catch(() => {});
+        await repositories().auth.signOut().catch(() => {});
       }
       throw e;
     }
     if (!profile) {
-      await repository.signOut().catch(() => {});
+      await repositories().auth.signOut().catch(() => {});
       throw new Error("account_not_configured");
     }
     if (!profile.active) {
-      await repository.signOut().catch(() => {});
+      await repositories().auth.signOut().catch(() => {});
       throw new Error(i18n.t("errors.account_deactivated"));
     }
-    const tenant = await repository.getTenant(profile.tenant_id);
+    const tenant = await repositories().auth.getTenant(profile.tenant_id);
     if (!tenant) {
-      await repository.signOut().catch(() => {});
+      await repositories().auth.signOut().catch(() => {});
       throw new Error("account_not_configured");
     }
     return {
@@ -67,31 +67,31 @@ class AuthService {
   }
 
   async restoreSession(): Promise<AuthResult | null> {
-    const session = await repository.getSession();
+    const session = await repositories().auth.getSession();
     if (!session) return null;
 
     let profile: DbUser | null;
     try {
-      profile = await repository.getUserProfile(session.user.id);
+      profile = await repositories().auth.getUserProfile(session.user.id);
     } catch (e) {
       if (e instanceof OrganizationSwitchBlockedError) {
-        await repository.signOut().catch(() => {});
+        await repositories().auth.signOut().catch(() => {});
         return null;
       }
       throw e;
     }
     if (!profile) {
-      await repository.signOut().catch(() => {});
+      await repositories().auth.signOut().catch(() => {});
       return null;
     }
     if (!profile.active) {
-      await repository.signOut().catch(() => {});
+      await repositories().auth.signOut().catch(() => {});
       return null;
     }
 
-    const tenant = await repository.getTenant(profile.tenant_id);
+    const tenant = await repositories().auth.getTenant(profile.tenant_id);
     if (!tenant) {
-      await repository.signOut().catch(() => {});
+      await repositories().auth.signOut().catch(() => {});
       return null;
     }
     return {
@@ -101,7 +101,7 @@ class AuthService {
   }
 
   async logout(): Promise<void> {
-    await repository.signOut();
+    await repositories().auth.signOut();
   }
 }
 

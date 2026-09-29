@@ -1,3 +1,2 @@
 export { default as optionService } from "./services/OptionService";
-export { default as optionRepository } from "./repository/OptionRepository";
-export { OPTION_KEYS } from "./utils/constants";
+export { OPTION_KEYS } from "@shared/modules/options/utils/constants";

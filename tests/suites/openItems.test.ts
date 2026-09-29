@@ -4,7 +4,7 @@ import {
   monthItemFromEntry,
   openItemFromCharge,
   virtualMonthItem,
-} from "@/src/modules/ledger/utils/openItems";
+} from "@shared/modules/ledger/utils/openItems";
 import { bill, charge } from "../helpers/factories";
 
 // OWED vs DEBT. A fully unpaid month is OWED but is NOT a debt — it is red in the

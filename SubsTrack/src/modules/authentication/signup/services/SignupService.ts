@@ -1,9 +1,9 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import i18n from "@shared/core/i18n";
-import repository from "../repository/SignupRepository";
 import {
   type CreateTenantInput,
   type CreateTenantResult,
-} from "../utils/types";
+} from "@shared/modules/authentication/signup/utils/types";
 
 interface OrganizationForm {
   name: string;
@@ -55,7 +55,7 @@ class SignupService {
   }
 
   async checkTenantCodeAvailable(code: string): Promise<boolean> {
-    return repository.isTenantCodeAvailable(code);
+    return repositories().signup.isTenantCodeAvailable(code);
   }
 
   async createTenant(
@@ -72,7 +72,7 @@ class SignupService {
       adminFullName: account.adminFullName.trim(),
       adminPassword: account.adminPassword,
     };
-    return repository.createTenant(input);
+    return repositories().signup.createTenant(input);
   }
 }
 

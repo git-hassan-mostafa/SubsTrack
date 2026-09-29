@@ -24,7 +24,7 @@ import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
 import { FilterChipsRow } from "@/src/shared/components/FilterChipsRow";
-import { groupByMonth } from "@/src/shared/lib/monthSections";
+import { groupByMonth } from "@shared/shared/lib/monthSections";
 import {
   useSelection,
   useSelectionBackHandler,
@@ -40,7 +40,7 @@ import type { Sale } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { saleUsd } from "../utils/saleListPatch";
+import { saleUsd } from "@shared/modules/transaction/sales/utils/saleListPatch";
 import { SaleCard } from "../components/SaleCard";
 import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";

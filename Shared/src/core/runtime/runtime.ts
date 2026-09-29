@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AuthUser } from "@shared/core/types";
+import type { Repositories } from "./repositories";
 
 export interface RuntimeIds {
   randomUUID(): string;
@@ -30,6 +31,8 @@ export interface ExceptionInput {
 // The platform pieces an app hands to Shared once, at startup.
 export interface Runtime {
   supabase: SupabaseClient;
+  authStorageKey: string;
+  repositories: Repositories;
   ids: RuntimeIds;
   storage: RuntimeStorage;
   actor(): RuntimeActor | null;

@@ -5,7 +5,7 @@ import {
   removeSales,
   replaceSale,
   saleUsd,
-} from "@/src/modules/transaction/sales/utils/saleListPatch";
+} from "@shared/modules/transaction/sales/utils/saleListPatch";
 import {
   cartUnits,
   lineName,
@@ -14,11 +14,11 @@ import {
   savedUnits,
   stockDelta,
   toItemPayload,
-} from "@/src/modules/transaction/sales/utils/saleLines";
+} from "@shared/modules/transaction/sales/utils/saleLines";
 import {
   sharedBillsAcross,
   sharedBillsOf,
-} from "@/src/modules/ledger/utils/sharedBills";
+} from "@shared/modules/ledger/utils/sharedBills";
 import type { Product, Sale, SaleItem } from "@shared/core/types";
 import { charge, collection, collectionItem, LBP } from "../helpers/factories";
 

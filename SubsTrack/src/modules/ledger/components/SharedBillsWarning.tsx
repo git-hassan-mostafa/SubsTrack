@@ -8,7 +8,7 @@ import {
 } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import type { SharedBill } from "../utils/sharedBills";
+import type { SharedBill } from "@shared/modules/ledger/utils/sharedBills";
 
 interface Props {
   bills: SharedBill[];

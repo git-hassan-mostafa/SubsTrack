@@ -13,7 +13,7 @@ import {
 import { saleTitle } from "@shared/core/utils/receiptId";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";
-import type { SaleVoidResult } from "../utils/types";
+import type { SaleVoidResult } from "@shared/modules/transaction/sales/utils/types";
 
 interface Options {
   onView: (sale: Sale) => void;

@@ -1,5 +1,4 @@
-import type { Session } from "@supabase/supabase-js";
-import { supabase } from "@/src/shared/lib/supabase";
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import type { DbBranch, DbTenant, DbUser } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { upsertFromServer } from "@/src/core/offline/db/dml";
@@ -17,8 +16,8 @@ import {
   runSyncIfDue,
   flushPendingWrites,
 } from "@/src/core/offline/sync";
-import type { IAuthRepository } from "./IAuthRepository";
-import { AuthRepository } from "./AuthRepository";
+import type { IAuthRepository } from "@shared/modules/authentication/auth/repository/IAuthRepository";
+import { AuthRepository } from "@shared/modules/authentication/auth/repository/AuthRepository";
 
 /** Read-through cache over the online repo — see docs/offline.md, #154/#159. */
 export class OfflineAuthRepository
@@ -93,7 +92,7 @@ export class OfflineAuthRepository
   }
 
   onAuthStateChange(
-    callback: Parameters<typeof supabase.auth.onAuthStateChange>[0],
+    callback: Parameters<SupabaseClient["auth"]["onAuthStateChange"]>[0],
   ) {
     return this.online.onAuthStateChange(callback);
   }

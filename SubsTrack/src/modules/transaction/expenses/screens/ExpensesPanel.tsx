@@ -19,7 +19,7 @@ import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
 import { FilterChipsRow } from "@/src/shared/components/FilterChipsRow";
-import { groupByMonth } from "@/src/shared/lib/monthSections";
+import { groupByMonth } from "@shared/shared/lib/monthSections";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { Dropdown } from "@/src/shared/components/Dropdown";
@@ -29,13 +29,13 @@ import { useAuth } from "@/src/modules/authentication/auth";
 import { confirm } from "@/src/shared/lib/confirm";
 import type { ExpenseCategory, ExpenseItem } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { outflowLabel } from "../utils/outflow";
+import { outflowLabel } from "@shared/modules/transaction/expenses/utils/outflow";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useExpenseStore } from "@/src/modules/transaction/expenses/state/expenseStore";
 import { ExpenseCard } from "../components/ExpenseCard";
 import { ExpenseFormSheet } from "../components/ExpenseFormSheet";
-import { EXPENSE_CATEGORIES, STOCK_CATEGORY } from "../utils/expenseCategories";
+import { EXPENSE_CATEGORIES, STOCK_CATEGORY } from "@shared/modules/transaction/expenses/utils/expenseCategories";
 
 interface Props {
   filterRowRef?: RefObject<ScrollView | null>;

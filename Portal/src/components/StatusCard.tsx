@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { groupByCurrency } from "@shared/core/utils/currency";
-import { keyOf } from "@/src/modules/ledger/utils/waterfall";
+import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import type { PortalModel } from "../services/PortalReadModel";
 import { Money } from "./Money";
 

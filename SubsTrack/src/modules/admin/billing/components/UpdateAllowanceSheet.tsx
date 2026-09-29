@@ -19,8 +19,8 @@ import {
   QUOTA_KINDS,
   type QuotaKind,
   type QuotaPair,
-} from "../utils/types";
-import { askText, requestedPair } from "../utils/requestAsk";
+} from "@shared/modules/admin/billing/utils/types";
+import { askText, requestedPair } from "@shared/modules/admin/billing/utils/requestAsk";
 import { AllowanceField } from "./AllowanceField";
 
 interface Props {

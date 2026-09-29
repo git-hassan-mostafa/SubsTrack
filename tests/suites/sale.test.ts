@@ -1,15 +1,3 @@
-jest.mock("@/src/modules/ledger/repository/ChargeRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeLedger").fakeChargeRepository,
-}));
-jest.mock("@/src/modules/ledger/repository/CollectionRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeLedger").fakeCollectionRepository,
-}));
-jest.mock("@/src/modules/transaction/sales/repository/SaleRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeSales").fakeSaleRepository,
-}));
 jest.mock("@/src/modules/admin/products/services/ProductService", () => ({
   __esModule: true,
   default: require("../helpers/fakeSales").fakeProductService,
@@ -19,7 +7,7 @@ import saleService from "@/src/modules/transaction/sales/services/SaleService";
 import type {
   CreateSaleInput,
   CreateSaleItemInput,
-} from "@/src/modules/transaction/sales/utils/types";
+} from "@shared/modules/transaction/sales/utils/types";
 import type { Product } from "@shared/core/types";
 import { store } from "../helpers/fakeLedger";
 import { saleStore, stockOnHand } from "../helpers/fakeSales";

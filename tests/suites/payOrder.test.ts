@@ -3,7 +3,7 @@ import {
   blockingUnpaidMonths,
   coveredBillingMonths,
   latestTargetYear,
-} from "@/src/modules/customer/customer-payments/utils/payOrder";
+} from "@shared/modules/customer/customer-payments/utils/payOrder";
 import paymentService from "@/src/modules/customer/customer-payments/services/PaymentService";
 import { bill, line, plan, skip } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";

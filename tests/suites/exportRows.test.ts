@@ -1,4 +1,4 @@
-import { toCsv } from "@/src/shared/lib/csv";
+import { toCsv } from "@shared/shared/lib/csv";
 import { loadAllPages } from "@/src/shared/hooks/loadAllPages";
 import {
   cell,
@@ -6,7 +6,7 @@ import {
   flattenRow,
   header,
   isReadable,
-} from "@/src/shared/hooks/exportRowFormat";
+} from "@shared/shared/hooks/exportRowFormat";
 
 describe("readable fields", () => {
   // A UUID is not a fact anyone reads, and the name behind it already rides on

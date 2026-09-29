@@ -3,7 +3,7 @@ import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
 import { useUserNames } from "@/src/shared/hooks/useUserNames";
-import type { AuditLookups } from "../utils/valueDisplay";
+import type { AuditLookups } from "@shared/modules/admin/audit/utils/valueDisplay";
 
 /** Every `getX()` self-guards on its `loaded` flag, so calling all three is free. */
 export function useAuditLookups(): AuditLookups {

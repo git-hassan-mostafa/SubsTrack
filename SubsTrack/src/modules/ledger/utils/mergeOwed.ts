@@ -7,11 +7,11 @@ import type {
   SkippedMonth,
   UnpaidStartRule,
 } from "@shared/core/types";
-import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
+import { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
 import { findCurrency } from "@shared/core/utils/currency";
 import paymentService from "@/src/modules/customer/customer-payments/services/PaymentService";
-import { virtualMonthItem } from "./openItems";
-import { sortByDue } from "./waterfall";
+import { virtualMonthItem } from "@shared/modules/ledger/utils/openItems";
+import { sortByDue } from "@shared/modules/ledger/utils/waterfall";
 
 export interface MergeOwedArgs {
   customer: Customer;

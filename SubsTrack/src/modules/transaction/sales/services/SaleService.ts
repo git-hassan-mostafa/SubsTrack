@@ -1,24 +1,22 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import type { Charge, Sale, SaleItem } from "@shared/core/types";
 import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
 import { newId, nowIso } from "@shared/core/utils/ids";
 import { localMonthKey } from "@shared/core/utils/date";
-import repository from "../repository/SaleRepository";
-import chargeRepository from "@/src/modules/ledger/repository/ChargeRepository";
-import collectionRepository from "@/src/modules/ledger/repository/CollectionRepository";
 import { chargeService } from "@/src/modules/ledger/services/ChargeService";
 import { collectionService } from "@/src/modules/ledger/services/CollectionService";
-import { mapDbChargeToCharge } from "@/src/modules/ledger/utils/mapper";
-import { openItemFromCharge } from "@/src/modules/ledger/utils/openItems";
+import { mapDbChargeToCharge } from "@shared/modules/ledger/utils/mapper";
+import { openItemFromCharge } from "@shared/modules/ledger/utils/openItems";
 import productService from "@/src/modules/admin/products/services/ProductService";
 import {
   CreateSaleInput,
   CreateSaleItemInput,
   UpdateSaleInput,
   type FindSalesOptions,
-} from "../utils/types";
-import type { SaleChargePayload } from "../repository/ISaleRepository";
-import { mapDbSaleToSale } from "../utils/mapper";
+} from "@shared/modules/transaction/sales/utils/types";
+import type { SaleChargePayload } from "@shared/modules/transaction/sales/repository/ISaleRepository";
+import { mapDbSaleToSale } from "@shared/modules/transaction/sales/utils/mapper";
 import {
   cartUnits,
   lineName,
@@ -27,7 +25,7 @@ import {
   savedUnits,
   toItemPayload,
   type ProductLineInput,
-} from "../utils/saleLines";
+} from "@shared/modules/transaction/sales/utils/saleLines";
 
 // Frozen human summary of everything in a sale, e.g. "Water ×2, Installation".
 // Contains every line's name — products and services alike — so the Sales-tab
@@ -81,17 +79,17 @@ function chargeFromPayload(
 
 class SaleService {
   async getSales(opts: FindSalesOptions = {}): Promise<Sale[]> {
-    const rows = await repository.findAll(opts);
+    const rows = await repositories().sale.findAll(opts);
     return this.withMoney(rows.map(mapDbSaleToSale));
   }
 
   async getSalesForCustomer(customerId: string, limit = 20): Promise<Sale[]> {
-    const rows = await repository.findByCustomer(customerId, limit);
+    const rows = await repositories().sale.findByCustomer(customerId, limit);
     return this.withMoney(rows.map(mapDbSaleToSale));
   }
 
   async getSaleById(id: string): Promise<Sale | null> {
-    const row = await repository.findById(id);
+    const row = await repositories().sale.findById(id);
     if (!row) return null;
     const [sale] = await this.withMoney([mapDbSaleToSale(row)]);
     return sale;
@@ -99,7 +97,7 @@ class SaleService {
 
   private async withMoney(sales: Sale[]): Promise<Sale[]> {
     if (sales.length === 0) return sales;
-    const charges = await chargeRepository.findBySaleIds(
+    const charges = await repositories().charge.findBySaleIds(
       sales.map((s) => s.id),
     );
     if (charges.length === 0) return sales;
@@ -120,13 +118,13 @@ class SaleService {
   private async paidByCharge(
     chargeIds: string[],
   ): Promise<Map<string, number>> {
-    const balances = await chargeRepository.balances(chargeIds);
+    const balances = await repositories().charge.balances(chargeIds);
     return new Map(balances.map((b) => [b.id, b.paid]));
   }
 
   private async chargeIdOf(sale: Sale): Promise<string> {
     if (sale.chargeId) return sale.chargeId;
-    const charge = await chargeRepository.findBySaleId(sale.id);
+    const charge = await repositories().charge.findBySaleId(sale.id);
     if (!charge) throw new Error(i18n.t("errors.collect_unknown_item"));
     return charge.id;
   }
@@ -164,7 +162,7 @@ class SaleService {
       recorded_by_user_id: input.recordedByUserId,
       notes: null,
     };
-    const row = await repository.create({
+    const row = await repositories().sale.create({
       tenant_id: input.tenantId,
       branch_id: input.branchId,
       items_summary: itemsSummary,
@@ -261,7 +259,7 @@ class SaleService {
           i18n.t("sales.void_reason_edited"),
         )
       : null;
-    const row = await repository.update(sale.id, {
+    const row = await repositories().sale.update(sale.id, {
       branch_id: input.branchId,
       items_summary: buildItemsSummary(input.items),
       customer_id: input.customerId,
@@ -294,7 +292,7 @@ class SaleService {
     const alreadyOn = unpaid ? 0 : sale.amountPaid;
     const takeNow = collected - alreadyOn;
     if (takeNow > EPSILON) {
-      const charge = await chargeRepository.findBySaleId(sale.id);
+      const charge = await repositories().charge.findBySaleId(sale.id);
       if (!charge) throw new Error(i18n.t("errors.collect_unknown_item"));
       await collectionService.collect({
         tenantId: sale.tenantId,
@@ -330,13 +328,13 @@ class SaleService {
     endExclusiveIso: string,
     branchFilter: BranchFilter = null,
   ) {
-    return repository.countInRange(startIso, endExclusiveIso, branchFilter);
+    return repositories().sale.countInRange(startIso, endExclusiveIso, branchFilter);
   }
 
   async getMonthlyTotals(
     opts: FindSalesOptions = {},
   ): Promise<Record<string, number>> {
-    const rows = await repository.monthlyTotals(opts);
+    const rows = await repositories().sale.monthlyTotals(opts);
     const totals: Record<string, number> = {};
     for (const r of rows) {
       const key = localMonthKey(r.soldAt);
@@ -348,7 +346,7 @@ class SaleService {
   async voidSale(id: string, voidedBy: string, reason: string): Promise<Sale> {
     const trimmed = reason.trim();
     await this.voidPaymentsForSales([id], voidedBy, trimmed);
-    const row = await repository.voidSale(id, voidedBy, trimmed);
+    const row = await repositories().sale.voidSale(id, voidedBy, trimmed);
     return mapDbSaleToSale(row);
   }
 
@@ -364,7 +362,7 @@ class SaleService {
     await this.voidPaymentsForSales(ids, voidedBy, trimmed);
     for (const id of ids) {
       try {
-        const row = await repository.voidSale(id, voidedBy, trimmed);
+        const row = await repositories().sale.voidSale(id, voidedBy, trimmed);
         voided.push(mapDbSaleToSale(row));
       } catch (e) {
         failed.push({ id, message: (e as Error).message });
@@ -378,13 +376,13 @@ class SaleService {
     voidedBy: string,
     reason: string,
   ): Promise<void> {
-    const charges = await chargeRepository.findBySaleIds(saleIds);
+    const charges = await repositories().charge.findBySaleIds(saleIds);
     if (charges.length === 0) return;
     const paymentIds = await chargeService.paymentIdsForCharges(
       charges.map((c) => c.id),
     );
     if (paymentIds.length === 0) return;
-    await collectionRepository.voidMany(paymentIds, voidedBy, reason || null);
+    await repositories().collection.voidMany(paymentIds, voidedBy, reason || null);
   }
 
   private sameStockFootprint(

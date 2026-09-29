@@ -13,8 +13,8 @@ import { COLORS } from "../../../../shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { Chip, type ChipTone } from "@/src/shared/components/Chip";
 import { activeLines } from "@/src/modules/customer/customer-plans";
-import { lineLabel } from "@/src/modules/customer/customer-plans/utils/lineLabel";
-import { customerFlags, type CustomerFlag } from "../utils/customerFlags";
+import { lineLabel } from "@shared/modules/customer/customer-plans/utils/lineLabel";
+import { customerFlags, type CustomerFlag } from "@shared/modules/customer/customers/utils/customerFlags";
 
 interface Props {
   customer: Customer;

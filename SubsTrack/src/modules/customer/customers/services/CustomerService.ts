@@ -1,10 +1,10 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import type { Customer } from "@shared/core/types";
 import { PAGE_SIZE, type BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
-import repository from "../repository/CustomerRepository";
 import billingService from "@/src/modules/admin/billing/services/BillingService";
-import type { QuotaPair } from "@/src/modules/admin/billing/utils/types";
-import { mapDbCustomerToCustomer } from "../utils/mapper";
+import type { QuotaPair } from "@shared/modules/admin/billing/utils/types";
+import { mapDbCustomerToCustomer } from "@shared/modules/customer/customers/utils/mapper";
 
 export type CustomerInput = Pick<
   Customer,
@@ -30,8 +30,8 @@ class CustomerService {
     branchFilter: BranchFilter = null,
   ): Promise<{ customers: Customer[]; hasMore: boolean; activeCount: number }> {
     const [rows, activeCount] = await Promise.all([
-      repository.findAll(page, searchQuery, branchFilter),
-      repository.countActive(branchFilter),
+      repositories().customer.findAll(page, searchQuery, branchFilter),
+      repositories().customer.countActive(branchFilter),
     ]);
     return {
       customers: rows.map(mapDbCustomerToCustomer),
@@ -41,13 +41,13 @@ class CustomerService {
   }
 
   async getCustomer(id: string): Promise<Customer> {
-    const row = await repository.findById(id);
+    const row = await repositories().customer.findById(id);
     return mapDbCustomerToCustomer(row);
   }
 
   // A null filter is tenant-wide, which is the scope the allowance caps.
   async countActive(branchFilter: BranchFilter = null): Promise<number> {
-    return repository.countActive(branchFilter);
+    return repositories().customer.countActive(branchFilter);
   }
 
   // The service lines drafted alongside the customer are counted BEFORE the
@@ -64,7 +64,7 @@ class CustomerService {
       customers: active.customers + 1,
       plans: active.plans + addingLines,
     });
-    const row = await repository.create({
+    const row = await repositories().customer.create({
       name: data.name.trim(),
       phone_number: data.phoneNumber?.trim() || null,
       address: data.address?.trim() || null,
@@ -84,7 +84,7 @@ class CustomerService {
 
   async updateCustomer(id: string, data: CustomerInput): Promise<Customer> {
     this.validateInput(data);
-    const row = await repository.update(id, {
+    const row = await repositories().customer.update(id, {
       name: data.name.trim(),
       phone_number: data.phoneNumber?.trim() || null,
       address: data.address?.trim() || null,
@@ -100,24 +100,24 @@ class CustomerService {
   }
 
   async deactivateCustomer(id: string): Promise<Customer> {
-    const row = await repository.deactivate(id);
+    const row = await repositories().customer.deactivate(id);
     return mapDbCustomerToCustomer(row);
   }
 
   async deleteCustomer(
     id: string,
   ): Promise<{ mode: "hard" } | { mode: "soft"; customer: Customer }> {
-    const paymentCount = await repository.countPayments(id);
+    const paymentCount = await repositories().customer.countPayments(id);
     if (paymentCount === 0) {
-      await repository.delete(id);
+      await repositories().customer.delete(id);
       return { mode: "hard" };
     }
-    const row = await repository.deactivate(id);
+    const row = await repositories().customer.deactivate(id);
     return { mode: "soft", customer: mapDbCustomerToCustomer(row) };
   }
 
   async reactivateCustomer(id: string): Promise<Customer> {
-    const row = await repository.reactivate(id);
+    const row = await repositories().customer.reactivate(id);
     return mapDbCustomerToCustomer(row);
   }
 
@@ -125,12 +125,12 @@ class CustomerService {
     ids: string[],
   ): Promise<{ hard: string[]; soft: string[] }> {
     if (ids.length === 0) return { hard: [], soft: [] };
-    const withPayments = await repository.customersWithPayments(ids);
+    const withPayments = await repositories().customer.customersWithPayments(ids);
     const soft = ids.filter((id) => withPayments.has(id));
     const hard = ids.filter((id) => !withPayments.has(id));
     await Promise.all([
-      repository.deactivateMany(soft),
-      repository.deleteMany(hard),
+      repositories().customer.deactivateMany(soft),
+      repositories().customer.deleteMany(hard),
     ]);
     return { hard, soft };
   }

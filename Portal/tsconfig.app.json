@@ -34,6 +34,7 @@
       "@/src/shared/lib/supabase": ["./stubs/supabase-client.ts"],
       "react-native": ["./stubs/react-native.ts"],
       "@shared/*": ["../Shared/src/*"],
+      "@edge/*": ["../SubsTrack/supabase/functions/_shared/*"],
       "@/*": ["../SubsTrack/*"]
     }
   },

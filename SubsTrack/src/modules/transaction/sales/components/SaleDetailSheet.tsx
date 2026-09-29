@@ -29,7 +29,7 @@ import {
   BillHistorySheet,
   BillPaymentsList,
 } from "@/src/modules/ledger";
-import type { SaleVoidResult } from "../utils/types";
+import type { SaleVoidResult } from "@shared/modules/transaction/sales/utils/types";
 import { SaleBulkVoidSheet } from "./SaleBulkVoidSheet";
 
 interface Props {

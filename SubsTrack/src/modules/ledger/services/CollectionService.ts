@@ -1,3 +1,4 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import type { BranchFilter } from "@shared/core/constants";
 import type { DbCollection } from "@shared/core/types/db";
 import i18n from "@shared/core/i18n";
@@ -15,21 +16,20 @@ import {
   custodyOf,
   sharedCustody,
   type CustodyValues,
-} from "@/src/modules/wallet/utils/custodyValues";
+} from "@shared/modules/wallet/utils/custodyValues";
 import { chargeService } from "./ChargeService";
-import repository from "../repository/CollectionRepository";
-import type { CreateChargePayload } from "../repository/IChargeRepository";
+import type { CreateChargePayload } from "@shared/modules/ledger/repository/IChargeRepository";
 import type {
   CreateCollectionItemPayload,
   CreateCollectionPayload,
   FindCollectionsOptions,
-} from "../repository/ICollectionRepository";
-import { mapDbCollectionToCollection } from "../utils/mapper";
-import { collectionKind } from "../utils/collectionKind";
-import { hasClosedBill, withoutCollection } from "../utils/correction";
-import { chargeLabel } from "../utils/openItems";
-import { amountByCharge, paidToCharge } from "../utils/paidToCharge";
-import { allocate, keyOf } from "../utils/waterfall";
+} from "@shared/modules/ledger/repository/ICollectionRepository";
+import { mapDbCollectionToCollection } from "@shared/modules/ledger/utils/mapper";
+import { collectionKind } from "@shared/modules/ledger/utils/collectionKind";
+import { hasClosedBill, withoutCollection } from "@shared/modules/ledger/utils/correction";
+import { chargeLabel } from "@shared/modules/ledger/utils/openItems";
+import { amountByCharge, paidToCharge } from "@shared/modules/ledger/utils/paidToCharge";
+import { allocate, keyOf } from "@shared/modules/ledger/utils/waterfall";
 
 export interface CollectInput {
   tenantId: string;
@@ -93,7 +93,7 @@ class CollectionService {
   }
 
   async collect(input: CollectInput): Promise<Collection> {
-    const row = await repository.create(await this.toPayload(input));
+    const row = await repositories().collection.create(await this.toPayload(input));
     return mapDbCollectionToCollection(row);
   }
 
@@ -217,13 +217,13 @@ class CollectionService {
   }
 
   async getById(id: string): Promise<Collection | null> {
-    const row = await repository.findById(id);
+    const row = await repositories().collection.findById(id);
     return row ? mapDbCollectionToCollection(row) : null;
   }
 
   // One hand-over for its detail sheet, each bill named with its plan or sale.
   async getListItem(id: string): Promise<CollectionListItem | null> {
-    const row = await repository.findById(id);
+    const row = await repositories().collection.findById(id);
     if (!row) return null;
     const item = this.toListItem(row);
     const bills = await chargeService.getBills(
@@ -241,7 +241,7 @@ class CollectionService {
   async getHistory(
     opts: FindCollectionsOptions,
   ): Promise<CollectionListItem[]> {
-    const rows = await repository.find({
+    const rows = await repositories().collection.find({
       ...opts,
       includeVoided: opts.includeVoided ?? true,
     });
@@ -283,12 +283,12 @@ class CollectionService {
   getMonthlyTotals(
     opts: FindCollectionsOptions,
   ): Promise<Record<string, number>> {
-    return repository.monthlyTotals(opts);
+    return repositories().collection.monthlyTotals(opts);
   }
 
   async getPaymentsForCharge(chargeId: string): Promise<Collection[]> {
-    const items = await repository.findItemsForCharges([chargeId], true);
-    const collections = await repository.findByIds([
+    const items = await repositories().collection.findItemsForCharges([chargeId], true);
+    const collections = await repositories().collection.findByIds([
       ...new Set(items.map((i) => i.collection_id)),
     ]);
     return collections
@@ -302,7 +302,7 @@ class CollectionService {
 
   /** Every hand-over that ever touched one bill, as audit targets. */
   async getPaymentTargets(chargeId: string): Promise<AuditRecordTarget[]> {
-    const items = await repository.findItemsForCharges([chargeId], true);
+    const items = await repositories().collection.findItemsForCharges([chargeId], true);
     return [...new Set(items.map((i) => i.collection_id))].map((recordId) => ({
       table: "collections" as const,
       recordId,
@@ -314,11 +314,11 @@ class CollectionService {
     voidedBy: string,
     reason: string | null,
   ): Promise<Collection> {
-    const existing = await repository.findById(id);
+    const existing = await repositories().collection.findById(id);
     if (!existing) throw new Error(i18n.t("errors.collection_not_found"));
     if (existing.voided_at)
       throw new Error(i18n.t("errors.collection_already_voided"));
-    const row = await repository.void(id, voidedBy, reason);
+    const row = await repositories().collection.void(id, voidedBy, reason);
     return mapDbCollectionToCollection(row);
   }
 
@@ -328,7 +328,7 @@ class CollectionService {
     reason: string | null,
   ): Promise<Collection[]> {
     if (ids.length === 0) return [];
-    const rows = await repository.voidMany(ids, voidedBy, reason);
+    const rows = await repositories().collection.voidMany(ids, voidedBy, reason);
     return rows.map(mapDbCollectionToCollection);
   }
 
@@ -348,7 +348,7 @@ class CollectionService {
         replacement: await this.keptSlicesOf(payment, chargeId),
       })),
     );
-    await repository.replace(swaps, voidedBy, reason);
+    await repositories().collection.replace(swaps, voidedBy, reason);
     const oldest = payments.reduce((a, b) =>
       a.receivedAt <= b.receivedAt ? a : b,
     );
@@ -434,7 +434,7 @@ class CollectionService {
       lines,
       custody: custodyOf(collection),
     });
-    const { voided, created } = await repository.replace(
+    const { voided, created } = await repositories().collection.replace(
       [
         {
           id: collection.id,
@@ -465,7 +465,7 @@ class CollectionService {
     endExclusiveIso: string,
     branchFilter: BranchFilter,
   ): Promise<CashRow[]> {
-    return repository.collectedInRange(startIso, endExclusiveIso, branchFilter);
+    return repositories().collection.collectedInRange(startIso, endExclusiveIso, branchFilter);
   }
 
   async getHeld(
@@ -473,8 +473,8 @@ class CollectionService {
     holderUserId: string | null,
   ): Promise<CollectionListItem[]> {
     const rows = holderUserId
-      ? await repository.findHeld(holderUserId, branchFilter)
-      : await repository.findAllHeld(branchFilter);
+      ? await repositories().collection.findHeld(holderUserId, branchFilter)
+      : await repositories().collection.findAllHeld(branchFilter);
     return rows.map((row) => this.toListItem(row));
   }
 
@@ -484,7 +484,7 @@ class CollectionService {
     toUserId: string | null,
     actorUserId: string,
   ) {
-    return repository.transferCustody(ids, fromUserId, toUserId, actorUserId);
+    return repositories().collection.transferCustody(ids, fromUserId, toUserId, actorUserId);
   }
 }
 

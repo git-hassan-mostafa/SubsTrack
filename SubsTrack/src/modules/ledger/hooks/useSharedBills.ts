@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { collectionService } from "../services/CollectionService";
-import { sharedBillsAcross } from "../utils/sharedBills";
-import type { SharedBill } from "../utils/sharedBills";
+import { sharedBillsAcross } from "@shared/modules/ledger/utils/sharedBills";
+import type { SharedBill } from "@shared/modules/ledger/utils/sharedBills";
 
 /**
  * The OTHER bills a void would un-pay, for the bills about to be voided.

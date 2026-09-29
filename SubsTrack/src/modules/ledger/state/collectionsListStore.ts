@@ -15,10 +15,10 @@ import {
 import type {
   CollectionSortField,
   SortDirection,
-} from "@/src/modules/ledger/repository/ICollectionRepository";
+} from "@shared/modules/ledger/repository/ICollectionRepository";
 import { collectionService } from "@/src/modules/ledger";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
-import { addMonthTotal } from "@/src/shared/lib/monthSections";
+import { addMonthTotal } from "@shared/shared/lib/monthSections";
 import { getStore } from "@/src/state/globalStore";
 
 /** Money that still counts, or only the reversals. */

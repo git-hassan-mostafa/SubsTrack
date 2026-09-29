@@ -5,8 +5,8 @@ import { upsertFromServer } from "@/src/core/offline/db/dml";
 import { nowIso } from "@shared/core/utils/ids";
 import { isOnline } from "@/src/core/offline/net/connectivity";
 import { RequiresConnectionError } from "@shared/core/errors/offlineErrors";
-import type { CreateUserPayload, IUserRepository } from "./IUserRepository";
-import { UserRepository } from "./UserRepository";
+import type { CreateUserPayload, IUserRepository } from "@shared/modules/admin/users/repository/IUserRepository";
+import { UserRepository } from "@shared/modules/admin/users/repository/UserRepository";
 
 /**
  * SQLite-backed User repository. Reads from the local mirror; field updates and

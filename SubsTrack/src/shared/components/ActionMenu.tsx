@@ -6,7 +6,7 @@ import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
 import { SheetDragArea } from "./SheetDragArea";
-import { sortActions, type ActionGroup } from "@/src/shared/lib/actionOrder";
+import { sortActions, type ActionGroup } from "@shared/shared/lib/actionOrder";
 
 export interface ActionMenuItem {
   key: string;

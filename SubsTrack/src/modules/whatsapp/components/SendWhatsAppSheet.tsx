@@ -26,7 +26,7 @@ import {
   useWhatsAppSlice,
 } from "@/src/state/hooks/useWhatsAppSlice";
 import type { WhatsAppSendOutcome } from "@/src/state/slices/whatsapp/whatsappSlice";
-import { templateLabel } from "../utils/labels";
+import { templateLabel } from "@shared/modules/whatsapp/utils/labels";
 import {
   defaultChoices,
   messageLanguage,
@@ -36,7 +36,7 @@ import {
   previewText,
   type PlaceholderChoices,
   type PlaceholderSource,
-} from "../utils/templateValues";
+} from "@shared/modules/whatsapp/utils/templateValues";
 
 interface SendWhatsAppSheetProps {
   customers: Customer[];

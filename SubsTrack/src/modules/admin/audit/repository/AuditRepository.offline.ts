@@ -7,8 +7,8 @@ import type {
   AuditPage,
   AuditRows,
   IAuditRepository,
-} from "./IAuditRepository";
-import { AuditRepository } from "./AuditRepository";
+} from "@shared/modules/admin/audit/repository/IAuditRepository";
+import { AuditRepository } from "@shared/modules/admin/audit/repository/AuditRepository";
 
 /**
  * Native audit reads: the SERVER is the source, with this device's un-pushed rows

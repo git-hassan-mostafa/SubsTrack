@@ -7,7 +7,7 @@ import { PressableOpacity } from "./PressableOpacity";
 import { BranchSelector } from "./BranchSelector";
 import { SelectionBar, type SelectionAction } from "./SelectionBar";
 import { QuickActionsMenuButton } from "./QuickActionsMenuButton";
-import { sortActions, type ActionGroup } from "@/src/shared/lib/actionOrder";
+import { sortActions, type ActionGroup } from "@shared/shared/lib/actionOrder";
 
 export type { SelectionAction } from "./SelectionBar";
 

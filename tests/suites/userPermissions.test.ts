@@ -2,7 +2,7 @@ import {
   canEditUser,
   canManageUser,
   type UserActor,
-} from "@/src/modules/admin/users/utils/userPermissions";
+} from "@shared/modules/admin/users/utils/userPermissions";
 
 // TC-UP-* — who may edit or deactivate whom, once every branch can SEE the
 // tenant-wide admins. Reading a colleague is not permission to write them.

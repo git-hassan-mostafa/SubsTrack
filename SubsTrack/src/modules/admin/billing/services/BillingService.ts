@@ -1,20 +1,19 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import i18n from "@shared/core/i18n";
 import type { CustomerRequest, Tenant } from "@shared/core/types";
-import repository from "../repository/CustomerRequestRepository";
-import allowanceRepository from "../repository/AllowanceRepository";
 import {
   mapDbCustomerRequestToCustomerRequest,
   mapDbTenantToTenant,
-} from "../utils/mapper";
-import { QuotaExceededError } from "../utils/quotaError";
-import { AllowanceFloorError } from "../utils/allowanceFloorError";
+} from "@shared/modules/admin/billing/utils/mapper";
+import { QuotaExceededError } from "@shared/modules/admin/billing/utils/quotaError";
+import { AllowanceFloorError } from "@shared/modules/admin/billing/utils/allowanceFloorError";
 import {
   ALLOWANCE_FLOOR_CODES,
   MIN_CUSTOMER_ALLOWANCE,
   MIN_CUSTOMER_REQUEST,
   QUOTA_KINDS,
   type QuotaPair,
-} from "../utils/types";
+} from "@shared/modules/admin/billing/utils/types";
 
 class BillingService {
   // Counted on the ALLOWED service lines, never the active ones, so this reads
@@ -89,7 +88,7 @@ class BillingService {
     this.validateDecrease(next, current, active);
     try {
       return mapDbTenantToTenant(
-        await allowanceRepository.lowerAllowances(next),
+        await repositories().allowance.lowerAllowances(next),
       );
     } catch (e) {
       throw this.asFloorError(e, next);
@@ -112,7 +111,7 @@ class BillingService {
   }
 
   async getLatestRequest(tenantId: string): Promise<CustomerRequest | null> {
-    const row = await repository.findLatest(tenantId);
+    const row = await repositories().customerRequest.findLatest(tenantId);
     return row ? mapDbCustomerRequestToCustomerRequest(row) : null;
   }
 
@@ -122,7 +121,7 @@ class BillingService {
     requestedBy: string | null,
   ): Promise<CustomerRequest> {
     this.validateRequest(extra);
-    const row = await repository.create({
+    const row = await repositories().customerRequest.create({
       tenant_id: tenantId,
       requested_count: extra.customers,
       requested_plans: extra.plans,
@@ -133,12 +132,12 @@ class BillingService {
 
   async editRequest(id: string, extra: QuotaPair): Promise<CustomerRequest> {
     this.validateRequest(extra);
-    const row = await repository.updateCounts(id, extra);
+    const row = await repositories().customerRequest.updateCounts(id, extra);
     return mapDbCustomerRequestToCustomerRequest(row);
   }
 
   async cancelRequest(id: string): Promise<CustomerRequest> {
-    const row = await repository.cancel(id);
+    const row = await repositories().customerRequest.cancel(id);
     return mapDbCustomerRequestToCustomerRequest(row);
   }
 }

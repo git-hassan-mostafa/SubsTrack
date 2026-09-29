@@ -5,4 +5,4 @@ export {
   default as tenantSettingService,
   DEFAULT_UNPAID_START_RULE,
 } from "./services/TenantSettingService";
-export { TENANT_SETTING_KEYS } from "./utils/constants";
+export { TENANT_SETTING_KEYS } from "@shared/modules/admin/tenant-settings/utils/constants";

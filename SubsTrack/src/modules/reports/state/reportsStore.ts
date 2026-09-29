@@ -10,10 +10,10 @@ import reportsService from "@/src/modules/reports/services/ReportsService";
 import type {
   DebtsReport,
   MoneyReport,
-} from "@/src/modules/reports/utils/types";
+} from "@shared/modules/reports/utils/types";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
-import { TENANT_SETTING_KEYS } from "@/src/modules/admin/tenant-settings/utils/constants";
+import { TENANT_SETTING_KEYS } from "@shared/modules/admin/tenant-settings/utils/constants";
 import { getStore } from "@/src/state/globalStore";
 
 export type ReportSection = "money" | "debts";

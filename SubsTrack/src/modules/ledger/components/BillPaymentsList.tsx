@@ -17,7 +17,7 @@ import { formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
 import { useUserNames } from "@/src/shared/hooks/useUserNames";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useSendInvoice } from "@/src/modules/invoicing";
-import { paidToCharge } from "../utils/paidToCharge";
+import { paidToCharge } from "@shared/modules/ledger/utils/paidToCharge";
 import { paymentMenu } from "../utils/paymentMenu";
 import {
   collectionService,

@@ -11,7 +11,7 @@ import type {
 } from "@shared/core/types";
 import { chargeService } from "./ChargeService";
 import { mergeOwed } from "../utils/mergeOwed";
-import { keyOf } from "../utils/waterfall";
+import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { groupBy } from "@shared/core/utils/groupBy";
 
 const OWED_BATCH_SIZE = 100;

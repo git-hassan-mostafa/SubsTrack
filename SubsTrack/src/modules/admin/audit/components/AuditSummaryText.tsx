@@ -1,5 +1,5 @@
 import { Text } from "@/src/shared/components/Text";
-import type { SentencePart } from "../utils/sentence";
+import type { SentencePart } from "@shared/modules/admin/audit/utils/sentence";
 
 interface AuditSummaryTextProps {
   parts: SentencePart[];

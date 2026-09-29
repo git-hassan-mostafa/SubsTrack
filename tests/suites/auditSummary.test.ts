@@ -21,13 +21,13 @@ import type {
   AuditTable,
   Currency,
 } from "@shared/core/types";
-import { buildAuditSummary } from "@/src/modules/admin/audit/utils/summary";
+import { buildAuditSummary } from "@shared/modules/admin/audit/utils/summary";
 import { isolate } from "@shared/core/utils/bidi";
-import { bold, toParts } from "@/src/modules/admin/audit/utils/sentence";
+import { bold, toParts } from "@shared/modules/admin/audit/utils/sentence";
 import type {
   AuditFieldContext,
   AuditLookups,
-} from "@/src/modules/admin/audit/utils/valueDisplay";
+} from "@shared/modules/admin/audit/utils/valueDisplay";
 
 function lookupKey(key: string): string | undefined {
   const found = key

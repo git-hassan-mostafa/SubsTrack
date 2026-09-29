@@ -1,17 +1,9 @@
-jest.mock("@/src/modules/ledger/repository/ChargeRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeLedger").fakeChargeRepository,
-}));
-jest.mock("@/src/modules/ledger/repository/CollectionRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeLedger").fakeCollectionRepository,
-}));
 
 import { collectionService } from "@/src/modules/ledger/services/CollectionService";
 import { chargeService } from "@/src/modules/ledger/services/ChargeService";
 import { ledgerService } from "@/src/modules/ledger/services/LedgerService";
 import paymentService from "@/src/modules/customer/customer-payments/services/PaymentService";
-import { allocate } from "@/src/modules/ledger/utils/waterfall";
+import { allocate } from "@shared/modules/ledger/utils/waterfall";
 import type { CollectInput } from "@/src/modules/ledger/services/CollectionService";
 import type { ChargeKind } from "@shared/core/types";
 import { fakeChargeRepository, store } from "../helpers/fakeLedger";

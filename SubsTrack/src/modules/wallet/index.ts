@@ -13,4 +13,4 @@ export {
   receiveBlock,
   walletRank,
   type WalletActor,
-} from "./utils/custody";
+} from "@shared/modules/wallet/utils/custody";

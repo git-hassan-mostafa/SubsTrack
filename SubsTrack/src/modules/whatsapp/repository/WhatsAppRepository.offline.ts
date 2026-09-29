@@ -13,8 +13,8 @@ import type {
   QueueInput,
   SignupCompletion,
   SignupResult,
-} from "./IWhatsAppRepository";
-import { WhatsAppRepository } from "./WhatsAppRepository";
+} from "@shared/modules/whatsapp/repository/IWhatsAppRepository";
+import { WhatsAppRepository } from "@shared/modules/whatsapp/repository/WhatsAppRepository";
 
 // Online-only: WhatsApp tables are never mirrored (docs/offline.md).
 export class OfflineWhatsAppRepository implements IWhatsAppRepository {

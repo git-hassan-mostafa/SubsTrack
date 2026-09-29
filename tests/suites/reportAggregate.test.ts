@@ -6,7 +6,7 @@ import {
   sumByKey,
   sumUsdOf,
   topN,
-} from "@/src/modules/reports/utils/aggregate";
+} from "@shared/modules/reports/utils/aggregate";
 
 // Reports aggregate in memory and re-implement no money rule. What they CAN get
 // wrong is arithmetic no one reads twice: a divide by zero rendering "Infinity%"

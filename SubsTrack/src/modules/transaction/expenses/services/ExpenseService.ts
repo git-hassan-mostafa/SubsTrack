@@ -1,11 +1,11 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import type { Expense, ExpenseItem, ExpensesView } from "@shared/core/types";
 import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
 import { sumUsd } from "@shared/core/utils/currency";
 import productService from "@/src/modules/admin/products/services/ProductService";
-import repository from "../repository/ExpenseRepository";
-import { expenseToItem, mapDbExpenseToExpense } from "../utils/mapper";
-import type { CreateExpenseInput, ExpensesFilter } from "../utils/types";
+import { expenseToItem, mapDbExpenseToExpense } from "@shared/modules/transaction/expenses/utils/mapper";
+import type { CreateExpenseInput, ExpensesFilter } from "@shared/modules/transaction/expenses/utils/types";
 
 /**
  * Money out. Composes the two sources into one uniform view — the same shape as
@@ -22,7 +22,7 @@ class ExpenseService {
   async getExpensesView(filter: ExpensesFilter): Promise<ExpensesView> {
     const branchFilter = filter.branchFilter ?? null;
     const [stored, stockCosts] = await Promise.all([
-      repository.findInRange(
+      repositories().expense.findInRange(
         filter.startIso,
         filter.endExclusiveIso,
         branchFilter,
@@ -76,7 +76,7 @@ class ExpenseService {
     branchFilter: BranchFilter = null,
   ): Promise<{ totalUsd: number; customUsd: number; stockUsd: number }> {
     const [stored, stockCosts] = await Promise.all([
-      repository.totalsInRange(startIso, endExclusiveIso, branchFilter),
+      repositories().expense.totalsInRange(startIso, endExclusiveIso, branchFilter),
       productService.getStockCostsInRange(
         startIso,
         endExclusiveIso,
@@ -93,7 +93,7 @@ class ExpenseService {
     const ratePerUsdSnapshot = input.currency?.ratePerUsd ?? 1;
     if (!(ratePerUsdSnapshot > 0))
       throw new Error(i18n.t("errors.rate_snapshot_positive"));
-    const row = await repository.create({
+    const row = await repositories().expense.create({
       tenant_id: input.tenantId,
       branch_id: input.branchId,
       category: input.category,
@@ -113,7 +113,7 @@ class ExpenseService {
     voidedBy: string,
     reason: string | null,
   ): Promise<Expense> {
-    const row = await repository.void(id, voidedBy, reason?.trim() || null);
+    const row = await repositories().expense.void(id, voidedBy, reason?.trim() || null);
     return mapDbExpenseToExpense(row);
   }
 

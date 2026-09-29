@@ -1,4 +1,4 @@
-import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
+import { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
 import { plan } from "../helpers/factories";
 
 // TC-LP-* — "what does this service line cost?". The amount, its currency and

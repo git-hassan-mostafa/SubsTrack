@@ -29,7 +29,7 @@ import { SaleCard } from "../components/SaleCard";
 import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
 import { useCustomerSalesList } from "../hooks/useCustomerSalesList";
-import type { SaleVoidResult } from "../utils/types";
+import type { SaleVoidResult } from "@shared/modules/transaction/sales/utils/types";
 import { useOwedChanged } from "@/src/modules/ledger";
 import { useSaleActions } from "../hooks/useSaleActions";
 import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";

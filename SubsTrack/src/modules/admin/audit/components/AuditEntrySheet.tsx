@@ -14,13 +14,13 @@ import {
   formatFieldLabel,
   subjectLabel,
   tableLabel,
-} from "../utils/format";
-import { buildAuditSummary } from "../utils/summary";
+} from "@shared/modules/admin/audit/utils/format";
+import { buildAuditSummary } from "@shared/modules/admin/audit/utils/summary";
 import {
   fieldContext,
   showsColumn,
   type AuditContextBase,
-} from "../utils/valueDisplay";
+} from "@shared/modules/admin/audit/utils/valueDisplay";
 import { AuditSummaryText } from "./AuditSummaryText";
 
 interface AuditEntrySheetProps {

@@ -7,7 +7,7 @@ import type {
   CreateExpensePayload,
   ExpenseAmountRow,
   IExpenseRepository,
-} from "./IExpenseRepository";
+} from "@shared/modules/transaction/expenses/repository/IExpenseRepository";
 
 /**
  * SQLite-backed expenses repository. `expenses` owns its branch_id, so reads

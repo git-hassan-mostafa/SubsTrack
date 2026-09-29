@@ -1,5 +1,5 @@
-import { buildBillInvoiceText } from "@/src/modules/invoicing/utils/invoiceText";
-import type { InvoiceContext } from "@/src/modules/invoicing/utils/invoiceText";
+import { buildBillInvoiceText } from "@shared/modules/invoicing/utils/invoiceText";
+import type { InvoiceContext } from "@shared/modules/invoicing/utils/invoiceText";
 import { charge, collection, collectionItem, LBP } from "../helpers/factories";
 
 const t = ((key: string) => key) as InvoiceContext["t"];

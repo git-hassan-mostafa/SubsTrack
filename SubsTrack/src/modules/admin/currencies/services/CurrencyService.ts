@@ -1,12 +1,12 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import type { Currency } from "@shared/core/types";
 import i18n from "@shared/core/i18n";
-import repository from "../repository/CurrencyRepository";
-import { mapDbCurrencyToCurrency } from "../utils/mapper";
-import { CurrencyInput } from "../utils/types";
+import { mapDbCurrencyToCurrency } from "@shared/modules/admin/currencies/utils/mapper";
+import { CurrencyInput } from "@shared/modules/admin/currencies/utils/types";
 
 class CurrencyService {
   async getCurrencies(): Promise<Currency[]> {
-    const rows = await repository.findAll();
+    const rows = await repositories().currency.findAll();
     return rows.map(mapDbCurrencyToCurrency);
   }
 
@@ -16,7 +16,7 @@ class CurrencyService {
   ): Promise<Currency> {
     const normalized = this.validate(data);
     try {
-      const row = await repository.create({
+      const row = await repositories().currency.create({
         tenant_id: tenantId,
         code: normalized.code,
         name: normalized.name,
@@ -34,7 +34,7 @@ class CurrencyService {
   async updateCurrency(id: string, data: CurrencyInput): Promise<Currency> {
     const normalized = this.validate(data);
     try {
-      const row = await repository.update(id, {
+      const row = await repositories().currency.update(id, {
         code: normalized.code,
         name: normalized.name,
         symbol: normalized.symbol,
@@ -48,17 +48,17 @@ class CurrencyService {
   }
 
   async deleteCurrency(id: string): Promise<"hard" | "soft"> {
-    const refs = await repository.countReferences(id);
+    const refs = await repositories().currency.countReferences(id);
     if (refs > 0) {
-      await repository.update(id, { active: false });
+      await repositories().currency.update(id, { active: false });
       return "soft";
     }
-    await repository.delete(id);
+    await repositories().currency.delete(id);
     return "hard";
   }
 
   async reactivateCurrency(id: string): Promise<Currency> {
-    const row = await repository.update(id, { active: true });
+    const row = await repositories().currency.update(id, { active: true });
     return mapDbCurrencyToCurrency(row);
   }
 
@@ -66,12 +66,12 @@ class CurrencyService {
     ids: string[],
   ): Promise<{ hard: string[]; soft: string[] }> {
     if (ids.length === 0) return { hard: [], soft: [] };
-    const referenced = await repository.referencedIds(ids);
+    const referenced = await repositories().currency.referencedIds(ids);
     const soft = ids.filter((id) => referenced.has(id));
     const hard = ids.filter((id) => !referenced.has(id));
     await Promise.all([
-      repository.deactivateMany(soft),
-      repository.deleteMany(hard),
+      repositories().currency.deactivateMany(soft),
+      repositories().currency.deleteMany(hard),
     ]);
     return { hard, soft };
   }

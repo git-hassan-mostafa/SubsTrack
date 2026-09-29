@@ -12,19 +12,19 @@ import type {
   SkippedMonth,
   UnpaidStartRule,
 } from "@shared/core/types";
-import { mapDbCustomerToCustomer } from "@/src/modules/customer/customers/utils/mapper";
-import { mapDbCustomerPlanToCustomerPlan } from "@/src/modules/customer/customer-plans/utils/mapper";
+import { mapDbCustomerToCustomer } from "@shared/modules/customer/customers/utils/mapper";
+import { mapDbCustomerPlanToCustomerPlan } from "@shared/modules/customer/customer-plans/utils/mapper";
 import {
   mapDbChargeToCharge,
   mapDbCollectionToCollection,
-} from "@/src/modules/ledger/utils/mapper";
-import { mapDbSaleToSale } from "@/src/modules/transaction/sales/utils/mapper";
-import { mapDbSkippedMonthToSkippedMonth } from "@/src/modules/customer/customer-payments/utils/mapper";
-import { mapDbCurrencyToCurrency } from "@/src/modules/admin/currencies/utils/mapper";
-import { DEFAULT_UNPAID_START_RULE } from "@/src/modules/admin/tenant-settings/utils/constants";
+} from "@shared/modules/ledger/utils/mapper";
+import { mapDbSaleToSale } from "@shared/modules/transaction/sales/utils/mapper";
+import { mapDbSkippedMonthToSkippedMonth } from "@shared/modules/customer/customer-payments/utils/mapper";
+import { mapDbCurrencyToCurrency } from "@shared/modules/admin/currencies/utils/mapper";
+import { DEFAULT_UNPAID_START_RULE } from "@shared/modules/admin/tenant-settings/utils/constants";
 import paymentService from "@/src/modules/customer/customer-payments/services/PaymentService";
 import { mergeOwed } from "@/src/modules/ledger/utils/mergeOwed";
-import { openItemFromCharge, chargeLabel } from "@/src/modules/ledger/utils/openItems";
+import { openItemFromCharge, chargeLabel } from "@shared/modules/ledger/utils/openItems";
 import type { PortalPayload } from "../repository/PortalRepository";
 
 // What the whole portal renders from. Everything here is produced by

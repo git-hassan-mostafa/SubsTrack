@@ -14,14 +14,14 @@ import {
   snapshotCurrency,
 } from "@shared/core/utils/currency";
 import { formatDate, formatDateTime } from "@shared/core/utils/date";
-import { getBlockRangeLabel } from "@/src/modules/customer/customer-payments/utils/blockRangeLabel";
+import { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/utils/blockRangeLabel";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useUserNames } from "@/src/shared/hooks/useUserNames";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import { COLORS } from "@/src/shared/constants";
-import { billLook, chargeStatusOf } from "../utils/billState";
+import { billLook, chargeStatusOf } from "@shared/modules/ledger/utils/billState";
 import { BillHero } from "./BillHero";
 import { BillPaymentsList } from "./BillPaymentsList";
 import { BillHistorySheet } from "./BillHistorySheet";

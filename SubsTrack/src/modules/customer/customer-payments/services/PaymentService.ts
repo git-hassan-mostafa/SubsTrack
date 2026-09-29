@@ -16,8 +16,8 @@ import {
   isBeforeStartDate,
   isNotDueYet,
   isNotLateYet,
-} from "../utils/monthDueRules";
-import { DEFAULT_UNPAID_START_RULE } from "@/src/modules/admin/tenant-settings/utils/constants";
+} from "@shared/modules/customer/customer-payments/utils/monthDueRules";
+import { DEFAULT_UNPAID_START_RULE } from "@shared/modules/admin/tenant-settings/utils/constants";
 import i18n from "@shared/core/i18n";
 import {
   billingMonthLabel,
@@ -25,7 +25,7 @@ import {
   blockingUnpaidMonths,
   coveredBillingMonths,
   latestTargetYear,
-} from "../utils/payOrder";
+} from "@shared/modules/customer/customer-payments/utils/payOrder";
 
 class PaymentService {
   voidOrderBlocker(

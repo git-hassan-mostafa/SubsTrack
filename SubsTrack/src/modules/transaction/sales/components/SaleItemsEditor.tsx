@@ -24,8 +24,8 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { ProductFormSheet } from "@/src/modules/admin/products";
 import { ServiceFormSheet } from "@/src/modules/admin/service-catalog";
-import { lineQuantity } from "../utils/saleLines";
-import type { CreateSaleItemInput } from "../utils/types";
+import { lineQuantity } from "@shared/modules/transaction/sales/utils/saleLines";
+import type { CreateSaleItemInput } from "@shared/modules/transaction/sales/utils/types";
 
 // One resolved line ready for CreateSaleInput. Same discriminated shape the
 // service consumes, so the cart hands its lines straight through.

@@ -7,7 +7,7 @@ import {
   sortDebts,
   totalUsdOf,
   type AllDebtsFilters,
-} from "@/src/modules/transaction/debts/utils/allDebtsFilter";
+} from "@shared/modules/transaction/debts/utils/allDebtsFilter";
 import type { CustomerDebts, DebtsView, OpenItem } from "@shared/core/types";
 import { openItem } from "../helpers/factories";
 

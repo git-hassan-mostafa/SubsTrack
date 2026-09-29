@@ -5,7 +5,7 @@ import { deterministicId, nowIso } from "@shared/core/utils/ids";
 import type {
   ISkippedMonthRepository,
   SkippedMonthPayload,
-} from "./ISkippedMonthRepository";
+} from "@shared/modules/customer/customer-payments/repository/ISkippedMonthRepository";
 
 /**
  * SQLite-backed skipped months. Writes upsert on the natural key

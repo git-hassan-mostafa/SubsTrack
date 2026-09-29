@@ -1,16 +1,8 @@
-jest.mock("@/src/modules/ledger/repository/ChargeRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeLedger").fakeChargeRepository,
-}));
-jest.mock("@/src/modules/ledger/repository/CollectionRepository", () => ({
-  __esModule: true,
-  default: require("../helpers/fakeLedger").fakeCollectionRepository,
-}));
 
 import { ledgerService } from "@/src/modules/ledger/services/LedgerService";
 import { chargeService } from "@/src/modules/ledger/services/ChargeService";
 import { mergeOwed } from "@/src/modules/ledger/utils/mergeOwed";
-import { keyOf } from "@/src/modules/ledger/utils/waterfall";
+import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { store } from "../helpers/fakeLedger";
 import { customer, line, plan, LBP } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";

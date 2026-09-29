@@ -1,8 +1,8 @@
+import { repositories } from "@shared/core/runtime/repositories";
 import type { Plan } from "@shared/core/types";
 import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
-import repository from "../repository/PlanRepository";
-import { mapDbPlanToPlan } from "../utils/mapper";
+import { mapDbPlanToPlan } from "@shared/modules/admin/plans/utils/mapper";
 
 type PlanInput = Pick<
   Plan,
@@ -16,14 +16,14 @@ type PlanInput = Pick<
 
 class PlanService {
   async getPlans(branchFilter: BranchFilter = null): Promise<Plan[]> {
-    const rows = await repository.findAll(branchFilter);
+    const rows = await repositories().plan.findAll(branchFilter);
     return rows.map(mapDbPlanToPlan);
   }
 
   async createPlan(data: PlanInput, tenantId: string): Promise<Plan> {
     this.validate(data);
     try {
-      const row = await repository.create({
+      const row = await repositories().plan.create({
         name: data.name.trim(),
         price: data.isCustomPrice ? null : data.price,
         is_custom_price: data.isCustomPrice,
@@ -41,7 +41,7 @@ class PlanService {
   async updatePlan(id: string, data: PlanInput): Promise<Plan> {
     this.validate(data);
     try {
-      const row = await repository.update(id, {
+      const row = await repositories().plan.update(id, {
         name: data.name.trim(),
         price: data.isCustomPrice ? null : data.price,
         is_custom_price: data.isCustomPrice,
@@ -56,11 +56,11 @@ class PlanService {
   }
 
   async deletePlan(id: string): Promise<void> {
-    await repository.delete(id);
+    await repositories().plan.delete(id);
   }
 
   async deleteManyPlans(ids: string[]): Promise<void> {
-    await repository.deleteMany(ids);
+    await repositories().plan.deleteMany(ids);
   }
 
   private validate(data: PlanInput): void {

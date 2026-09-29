@@ -2,7 +2,7 @@ import type { DbBranch } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@shared/core/utils/ids";
-import type { IBranchRepository } from "./IBranchRepository";
+import type { IBranchRepository } from "@shared/modules/admin/branches/repository/IBranchRepository";
 
 /**
  * SQLite-backed Branch repository. Reads from the local mirror; writes mutate

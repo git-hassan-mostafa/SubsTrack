@@ -2,7 +2,7 @@ import type { DbCurrency } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@shared/core/utils/ids";
-import type { ICurrencyRepository } from "./ICurrencyRepository";
+import type { ICurrencyRepository } from "@shared/modules/admin/currencies/repository/ICurrencyRepository";
 
 /**
  * SQLite-backed Currency repository. Reads from the local mirror; writes mutate

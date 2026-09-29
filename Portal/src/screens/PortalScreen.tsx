@@ -11,8 +11,8 @@ import { PaymentList } from "../components/PaymentList";
 import { SaleList } from "../components/SaleList";
 import { ServiceLines } from "../components/ServiceLines";
 import { Receipt, type ReceiptTarget } from "../components/Receipt";
-import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
-import { lineLabel } from "@/src/modules/customer/customer-plans/utils/lineLabel";
+import { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
+import { lineLabel } from "@shared/modules/customer/customer-plans/utils/lineLabel";
 
 export function PortalScreen({ model }: { model: PortalModel }) {
   const { t } = useTranslation();

@@ -1,11 +1,10 @@
 export { default as productService } from "./services/ProductService";
-export { mapDbProductToProduct } from "./utils/mapper";
-export type { ProductInput, RestockEntry } from "./utils/types";
-export { default as productRepository } from "./repository/ProductRepository";
+export { mapDbProductToProduct } from "@shared/modules/admin/products/utils/mapper";
+export type { ProductInput, RestockEntry } from "@shared/modules/admin/products/utils/types";
 export type {
   CreateStockMovementPayload,
   StockCostRow,
-} from "./repository/IProductRepository";
+} from "@shared/modules/admin/products/repository/IProductRepository";
 export { ProductCard } from "./components/ProductCard";
 export { ProductFormSheet } from "./components/ProductFormSheet";
 export { ProductStockSheet } from "./components/ProductStockSheet";

@@ -14,7 +14,7 @@ import { Chip, type ChipTone } from "@/src/shared/components/Chip";
 import { COLORS } from "@/src/shared/constants";
 import type { AllocationLine, OpenItem } from "@shared/core/types";
 import { daysLate, formatDate } from "@shared/core/utils/date";
-import { keyOf } from "../utils/waterfall";
+import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 
 interface Props {
   items: OpenItem[];

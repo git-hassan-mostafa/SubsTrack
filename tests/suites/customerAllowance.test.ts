@@ -1,11 +1,11 @@
 import billingService from "@/src/modules/admin/billing/services/BillingService";
-import { QuotaExceededError } from "@/src/modules/admin/billing/utils/quotaError";
-import { AllowanceFloorError } from "@/src/modules/admin/billing/utils/allowanceFloorError";
-import { signedText } from "@/src/modules/admin/billing/utils/allowanceChange";
+import { QuotaExceededError } from "@shared/modules/admin/billing/utils/quotaError";
+import { AllowanceFloorError } from "@shared/modules/admin/billing/utils/allowanceFloorError";
+import { signedText } from "@shared/modules/admin/billing/utils/allowanceChange";
 import {
   MIN_CUSTOMER_ALLOWANCE,
   type QuotaPair,
-} from "@/src/modules/admin/billing/utils/types";
+} from "@shared/modules/admin/billing/utils/types";
 
 // TC-CA-* — what the tenant is billed and whether they may add a customer or a
 // service line. monthlyAmountUsd is an invoice figure shown to the admin, and

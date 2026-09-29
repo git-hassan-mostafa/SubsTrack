@@ -1,12 +1,12 @@
 import type { DbCustomerRequest } from "@shared/core/types/db";
 import { isOnline } from "@/src/core/offline/net/connectivity";
 import { RequiresConnectionError } from "@shared/core/errors/offlineErrors";
-import type { QuotaPair } from "../utils/types";
+import type { QuotaPair } from "@shared/modules/admin/billing/utils/types";
 import type {
   CustomerRequestInput,
   ICustomerRequestRepository,
-} from "./ICustomerRequestRepository";
-import { CustomerRequestRepository } from "./CustomerRequestRepository";
+} from "@shared/modules/admin/billing/repository/ICustomerRequestRepository";
+import { CustomerRequestRepository } from "@shared/modules/admin/billing/repository/CustomerRequestRepository";
 
 /**
  * Online-only: customer_requests is not mirrored, because "one pending row per

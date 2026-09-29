@@ -4,8 +4,8 @@ import { whatsAppService } from "@/src/modules/whatsapp/services/WhatsAppService
 import type {
   SignupCompletion,
   SignupResult,
-} from "@/src/modules/whatsapp/repository/IWhatsAppRepository";
-import { WhatsAppError } from "@/src/modules/whatsapp/utils/whatsappError";
+} from "@shared/modules/whatsapp/repository/IWhatsAppRepository";
+import { WhatsAppError } from "@shared/modules/whatsapp/utils/whatsappError";
 
 export type ConnectPhase = "idle" | "working" | "needs_pin" | "done" | "error";
 

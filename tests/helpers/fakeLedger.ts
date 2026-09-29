@@ -10,21 +10,21 @@ import type {
   DbChargeWithPaid,
   FindChargesOptions,
   UpdateChargePayload,
-} from "@/src/modules/ledger/repository/IChargeRepository";
+} from "@shared/modules/ledger/repository/IChargeRepository";
 import type {
   CollectionSwap,
   CollectionSwapResult,
   CreateCollectionPayload,
   FindCollectionsOptions,
-} from "@/src/modules/ledger/repository/ICollectionRepository";
-import { receivedCustody } from "@/src/modules/wallet/utils/custodyValues";
+} from "@shared/modules/ledger/repository/ICollectionRepository";
+import { receivedCustody } from "@shared/modules/wallet/utils/custodyValues";
 import {
   monthBillKey,
   patchForIncomingCash,
   resolveBillTarget,
-} from "@/src/modules/ledger/repository/chargeRevive";
-import { collectionKind } from "@/src/modules/ledger/utils/collectionKind";
-import { sumByMonth } from "@/src/modules/ledger/utils/monthTotals";
+} from "@shared/modules/ledger/repository/chargeRevive";
+import { collectionKind } from "@shared/modules/ledger/utils/collectionKind";
+import { sumByMonth } from "@shared/modules/ledger/utils/monthTotals";
 
 /**
  * An in-memory ledger that follows the SAME rules the two real repositories

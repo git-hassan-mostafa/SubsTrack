@@ -3,11 +3,11 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import type { ChargeKind, Currency } from "@shared/core/types";
 import { formatMoney } from "@shared/core/utils/currency";
-import { delta, shareOfTotal } from "../../utils/aggregate";
+import { delta, shareOfTotal } from "@shared/modules/reports/utils/aggregate";
 import type {
   DebtsReport as DebtsReportData,
   RecordRow,
-} from "../../utils/types";
+} from "@shared/modules/reports/utils/types";
 import { ReportCard } from "../../components/ReportCard";
 import { KpiRow, type Kpi } from "../../components/KpiRow";
 import { BreakdownList } from "../../components/BreakdownList";

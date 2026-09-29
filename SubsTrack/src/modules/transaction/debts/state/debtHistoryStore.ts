@@ -13,7 +13,7 @@ import {
   type HistoryOutcome,
   type HistoryPeriodPreset,
   type HistorySort,
-} from "../utils/debtHistory";
+} from "@shared/modules/transaction/debts/utils/debtHistory";
 
 export interface DebtHistoryState extends DebtHistoryFilters {
   customer: Customer | null;

@@ -17,7 +17,7 @@ import {
   type UpdateSaleInput,
 } from "@/src/modules/transaction/sales";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
-import { addMonthTotal } from "@/src/shared/lib/monthSections";
+import { addMonthTotal } from "@shared/shared/lib/monthSections";
 import type { GlobalState } from "@/src/state/globalStore";
 
 /**
