@@ -4,13 +4,13 @@ Covers the **Reports** bottom tab (admin-only): the period picker, the Money and
 
 **Reference code:**
 
-- Service (composes existing services/repos): [ReportsService.ts](../SubsTrack/src/modules/reports/services/ReportsService.ts)
-- Period primitive: [dateRange.ts](../SubsTrack/src/core/utils/dateRange.ts) · picker: [PeriodPicker.tsx](../SubsTrack/src/shared/components/PeriodPicker.tsx)
-- Aggregation (pure): [aggregate.ts](../SubsTrack/src/modules/reports/utils/aggregate.ts)
+- Service (composes existing services/repos): [ReportsService.ts](../Shared/src/modules/reports/services/ReportsService.ts)
+- Period primitive: [dateRange.ts](../Shared/src/core/utils/dateRange.ts) · picker: [PeriodPicker.tsx](../SubsTrack/src/shared/components/PeriodPicker.tsx)
+- Aggregation (pure): [aggregate.ts](../Shared/src/modules/reports/utils/aggregate.ts)
 - Screen: [ReportsScreen.tsx](../SubsTrack/src/modules/reports/screens/ReportsScreen.tsx)
 - Sections: [MoneyReport.tsx](../SubsTrack/src/modules/reports/screens/sections/MoneyReport.tsx) · [DebtsReport.tsx](../SubsTrack/src/modules/reports/screens/sections/DebtsReport.tsx)
-- Overdue ageing: `getOverdueMonthCounts` in [PaymentService.ts](../SubsTrack/src/modules/customer/customer-payments/services/PaymentService.ts)
-- Export: [csv.ts](../SubsTrack/src/shared/lib/csv.ts) · [csvRows.ts](../SubsTrack/src/modules/reports/utils/csvRows.ts)
+- Overdue ageing: `getOverdueMonthCounts` in [PaymentService.ts](../Shared/src/modules/customer/customer-payments/services/PaymentService.ts)
+- Export: [csv.ts](../Shared/src/shared/lib/csv.ts) · [csvRows.ts](../Shared/src/modules/reports/utils/csvRows.ts)
 
 **Core rules under test:**
 

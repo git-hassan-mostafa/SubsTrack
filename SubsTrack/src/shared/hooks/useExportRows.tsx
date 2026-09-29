@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import {
   ActionMenu,
   type ActionMenuItem,

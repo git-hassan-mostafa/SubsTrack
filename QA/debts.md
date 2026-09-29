@@ -10,8 +10,8 @@ Covers the **Debts** screen (Transactions → Debts — a single debtors list, n
 - Form: [CustomDebtFormSheet.tsx](../SubsTrack/src/modules/transaction/debts/components/CustomDebtFormSheet.tsx) (writes a `manual` charge)
 - Row actions: [useDebtRowActions.ts](../SubsTrack/src/modules/transaction/debts/hooks/useDebtRowActions.ts) (void / write off)
 - Collecting: [useCollectSheet.tsx](../SubsTrack/src/modules/ledger/hooks/useCollectSheet.tsx) + `CollectSheet`
-- Service: [ChargeService.buildDebtsView](../SubsTrack/src/modules/ledger/services/ChargeService.ts), [LedgerService.getDebtsView](../SubsTrack/src/modules/ledger/services/LedgerService.ts)
-- Slice: [ledgerSlice.ts](../SubsTrack/src/state/slices/ledger/ledgerSlice.ts)
+- Service: [ChargeService.buildDebtsView](../Shared/src/modules/ledger/services/ChargeService.ts), [LedgerService.getDebtsView](../Shared/src/modules/ledger/services/LedgerService.ts)
+- Slice: [ledgerSlice.ts](../Shared/src/state/slices/ledger/ledgerSlice.ts)
 
 ---
 

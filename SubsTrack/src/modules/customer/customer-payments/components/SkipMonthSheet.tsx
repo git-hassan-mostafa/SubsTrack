@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Text } from "@/src/shared/components/Text";
 import type { CustomerPlan, MonthEntry } from "@shared/core/types";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { usePaymentSlice } from "@shared/state/hooks/usePaymentSlice";
 import { getStore } from "@shared/state/globalStore";
 import { COLORS } from "@/src/shared/constants";

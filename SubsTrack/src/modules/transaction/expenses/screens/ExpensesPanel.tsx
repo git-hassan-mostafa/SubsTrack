@@ -25,7 +25,7 @@ import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import { Dropdown } from "@/src/shared/components/Dropdown";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { confirm } from "@shared/shared/lib/confirm";
 import type { ExpenseCategory, ExpenseItem } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";

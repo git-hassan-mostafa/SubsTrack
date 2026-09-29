@@ -12,7 +12,7 @@ import {
   CustomerFormSheet,
 } from "@/src/modules/customer/customers";
 import type { Customer, OpenItem } from "@shared/core/types";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import {

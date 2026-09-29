@@ -42,11 +42,21 @@ npm test                       # ~3s; `npm test -- suites/waterfall.test.ts` for
 npm run typecheck              # tsc over the suites + the app types they assert against
 ```
 
-Jest + Babel over the **money** code: the waterfall, `buildMonthGrid`, the customer badge, the pay/void order rules, `ChargeService` / `CollectionService` / `LedgerService` / `SaleService`, custody, and end-to-end money-conservation invariants. Services run for real against an in-memory ledger (`helpers/fakeLedger.ts`) that follows the two repositories' documented contract; native modules are one-file stubs in `stubs/`. **A stub may fake a platform, never a rule.** The folder carries its **own `tsconfig.json`** — there is none at the repo root, so without it the IDE cannot resolve a single `@/…` import; it aliases `@/*` to `../SubsTrack/*` and includes `nativewind-env.d.ts`, because tsc (unlike Jest) follows the real barrels and one of them re-exports a screen.
+Jest + Babel over the **money** code: the waterfall, `buildMonthGrid`, the customer badge, the pay/void order rules, `ChargeService` / `CollectionService` / `LedgerService` / `SaleService`, custody, and end-to-end money-conservation invariants. Services run for real against an in-memory ledger (`helpers/fakeLedger.ts`) that follows the two repositories' documented contract; native modules are one-file stubs in `stubs/`. **A stub may fake a platform, never a rule.** The folder carries its **own `tsconfig.json`** — there is none at the repo root, so without it the IDE cannot resolve a single import; it aliases `@shared/*` to `../Shared/src/*`, `@edge/*` to `../SubsTrack/supabase/functions/_shared/*` and `@/*` to `../SubsTrack/*` (the offline-layer suites). `helpers/configureRuntime.ts` (a Jest `setupFiles` entry) calls `configureShared()` once: the phone's own ids adapter over the node-crypto stub, memory storage, and `helpers/fakeRepositories.ts` (the in-memory `charge` / `collection` / `sale` fakes; any other repository key throws). `suites/sharedBoundary.test.ts` is the guard that keeps `Shared/src` free of React Native, Expo and app imports.
 
 **It is a separate npm package on purpose, and must never move into `SubsTrack/`** — that `package.json`'s scripts and dependency tree feed the OTA fingerprint, so a devDependency there silently cuts every installed app off from updates (gotcha #53). It is Jest rather than Vitest for a second reason: this laptop's AV blocks spawning vendored tool binaries, so esbuild cannot run; Babel is pure JS. If `npm test` says _Access is denied_, call `node node_modules/jest/bin/jest.js`.
 
 Case numbering, the invariants and the do-not-delete regression list are in [QA/money-unit-tests.md](QA/money-unit-tests.md). Everything else — screens, the Supabase query layer, the SQLite mirror, RLS — is still verified manually via the running app against `QA/`.
+
+### Shared (`Shared/`)
+
+```bash
+cd Shared
+npm install --ignore-scripts   # types for tsc and the editor only — no app loads Shared/node_modules
+npx tsc --noEmit
+```
+
+Source only — nothing builds or publishes it. SubsTrack's Metro bundles its files straight from `../Shared/src` (so a Shared change ships over the air like any `src/` change), and Vite does the same for the Portal. **Adding a library Shared imports:** list it in `Shared/package.json` `peerDependencies` **and** `devDependencies` (pinned to SubsTrack's version), and install it in every app that reaches that file. Metro resolves bare imports only from `SubsTrack/node_modules` and blocks `Shared/node_modules`; Vite dedupes the peer list; either way each app gets ONE copy. Never turn `Shared/` into an npm workspace — hoisting would change the OTA fingerprint (gotcha #53). `Shared/package.json` is **not** a fingerprint input (it sits outside the Expo project), and neither are `metro.config.js`, `babel.config.js` or `tsconfig.json`.
 
 ### Releasing SubsTrack — OTA updates (EAS Update)
 
@@ -62,7 +72,7 @@ npm run build-preview / build-prod      # full rebuild — only when the table b
 
 | Ships over the air ✅                                                                 | Needs a rebuild + reinstall ❌                                     |
 | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| anything in `src/` and `app/`, locale JSON, Tailwind styles, bundled `assets/`        | a new or upgraded **native** library or config plugin              |
+| anything in `src/`, `app/` and `../Shared/src/`, locale JSON, Tailwind styles, bundled `assets/` | a new or upgraded **native** library or config plugin              |
 | additive columns in the SQLite mirror `tables.ts` (`applySchema.ts` `ALTER`s them in) | Expo SDK / React Native upgrade                                    |
 | new Supabase queries and edge-function call sites                                     | app icon, splash, permissions, `android.package`, `newArchEnabled` |
 

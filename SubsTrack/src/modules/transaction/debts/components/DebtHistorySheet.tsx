@@ -19,7 +19,7 @@ import { COLORS } from "@/src/shared/constants";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 import type { ChargeKind, DebtHistoryItem } from "@shared/core/types";
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
-import { useOwedChanged } from "@/src/modules/ledger";
+import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import { useDebtHistoryStore } from "@shared/modules/transaction/debts/state/debtHistoryStore";
 import {
   DEFAULT_DEBT_HISTORY_FILTERS,

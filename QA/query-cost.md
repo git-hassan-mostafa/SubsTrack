@@ -13,11 +13,11 @@ The risk is not "is it faster" — it is **"did a number quietly change"**. Run 
 **Reference code:**
 
 - One-query owed read: [ChargeRepository.offline.ts](SubsTrack/src/modules/ledger/repository/ChargeRepository.offline.ts) (`findOpenWithPaid`, `monthChargesWithPaid`, `PAID_SUM`)
-- Web twin: [ChargeRepository.ts](SubsTrack/src/modules/ledger/repository/ChargeRepository.ts)
+- Web twin: [ChargeRepository.ts](Shared/src/modules/ledger/repository/ChargeRepository.ts)
 - Assembled write returns: [CollectionRepository.offline.ts](SubsTrack/src/modules/ledger/repository/CollectionRepository.offline.ts)
-- A sale's own bill: [SaleService.ts](SubsTrack/src/modules/transaction/sales/services/SaleService.ts) (`chargeFromPayload`)
+- A sale's own bill: [SaleService.ts](Shared/src/modules/transaction/sales/services/SaleService.ts) (`chargeFromPayload`)
 - Mirror pragmas + indexes: [sqlite.ts](SubsTrack/src/core/offline/db/sqlite.ts), [schema.ts](SubsTrack/src/core/offline/db/schema.ts)
-- Fetch / derive split: [paymentSlice.ts](SubsTrack/src/state/slices/payments/paymentSlice.ts), [CustomerPaymentPanel.tsx](SubsTrack/src/modules/customer/customer-payments/components/CustomerPaymentPanel.tsx)
+- Fetch / derive split: [paymentSlice.ts](Shared/src/state/slices/payments/paymentSlice.ts), [CustomerPaymentPanel.tsx](SubsTrack/src/modules/customer/customer-payments/components/CustomerPaymentPanel.tsx)
 - The `charge_balances` view (web): `sql scripts/script.sql`
 - Gotchas #118, #119, #120, #121
 

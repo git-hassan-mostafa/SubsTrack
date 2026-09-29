@@ -4,8 +4,8 @@ Covers the money model that replaced `payments` / `custom_debts` / `debt_payment
 
 **Reference code:**
 
-- Services: [ChargeService.ts](../SubsTrack/src/modules/ledger/services/ChargeService.ts), [CollectionService.ts](../SubsTrack/src/modules/ledger/services/CollectionService.ts), [LedgerService.ts](../SubsTrack/src/modules/ledger/services/LedgerService.ts)
-- The allocation algorithm: [waterfall.ts](../SubsTrack/src/modules/ledger/utils/waterfall.ts) · the debt rule + item builders: [openItems.ts](../SubsTrack/src/modules/ledger/utils/openItems.ts)
+- Services: [ChargeService.ts](../Shared/src/modules/ledger/services/ChargeService.ts), [CollectionService.ts](../Shared/src/modules/ledger/services/CollectionService.ts), [LedgerService.ts](../Shared/src/modules/ledger/services/LedgerService.ts)
+- The allocation algorithm: [waterfall.ts](../Shared/src/modules/ledger/utils/waterfall.ts) · the debt rule + item builders: [openItems.ts](../Shared/src/modules/ledger/utils/openItems.ts)
 - Repositories: `ChargeRepository(.offline)`, `CollectionRepository(.offline)`
 - Sheets: [CollectSheet.tsx](../SubsTrack/src/modules/ledger/components/CollectSheet.tsx), [BillSheet.tsx](../SubsTrack/src/modules/ledger/components/BillSheet.tsx), [CollectQuickActionSheet.tsx](../SubsTrack/src/modules/ledger/components/CollectQuickActionSheet.tsx)
 - History: [CollectionsPanel.tsx](../SubsTrack/src/modules/ledger/screens/CollectionsPanel.tsx) · card: [CollectionCard.tsx](../SubsTrack/src/modules/ledger/components/CollectionCard.tsx)
@@ -417,7 +417,7 @@ settled a month + a sale + a custom fee, and (d) a **voided** row.
 
 What this section tests is **readability**, not new money rules: nothing here changes a balance. The one new stored value is `collections.kind` (what the cash paid for, frozen at collect time), which the type filter reads.
 
-**Reference code:** [CollectionCard.tsx](../SubsTrack/src/modules/ledger/components/CollectionCard.tsx) · [CollectionsPanel.tsx](../SubsTrack/src/modules/ledger/screens/CollectionsPanel.tsx) · [CollectionSplitSheet.tsx](../SubsTrack/src/modules/ledger/components/CollectionSplitSheet.tsx) · [collectionLabel.ts](../SubsTrack/src/modules/ledger/utils/collectionLabel.ts) · [collectionKind.ts](../SubsTrack/src/modules/ledger/utils/collectionKind.ts) · `formatMoneyPair` in [currency.ts](../SubsTrack/src/core/utils/currency.ts)
+**Reference code:** [CollectionCard.tsx](../SubsTrack/src/modules/ledger/components/CollectionCard.tsx) · [CollectionsPanel.tsx](../SubsTrack/src/modules/ledger/screens/CollectionsPanel.tsx) · [CollectionSplitSheet.tsx](../SubsTrack/src/modules/ledger/components/CollectionSplitSheet.tsx) · [collectionLabel.ts](../Shared/src/modules/ledger/utils/collectionLabel.ts) · [collectionKind.ts](../Shared/src/modules/ledger/utils/collectionKind.ts) · `formatMoneyPair` in [currency.ts](../Shared/src/core/utils/currency.ts)
 
 > Run `sql scripts/script.sql` first — this section needs `collections.kind` and its backfill.
 

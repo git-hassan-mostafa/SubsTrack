@@ -1,8 +1,5 @@
 export { HistoryList } from "./components/HistoryList";
 export { HistorySheet } from "./components/HistorySheet";
 export { RecordHistorySheet } from "./components/RecordHistorySheet";
-export { useCustomerHistory, useRecordHistory } from "@shared/modules/admin/audit/hooks/useRecordHistory";
 export { useRecordHistoryAction } from "./hooks/useRecordHistoryAction";
 export { AuditLogScreen } from "./screens/AuditLogScreen";
-export { default as auditService } from "@shared/modules/admin/audit/services/AuditService";
-export { AUDITED_TABLES } from "@shared/modules/admin/audit/utils/constants";

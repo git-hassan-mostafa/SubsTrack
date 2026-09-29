@@ -13,12 +13,12 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 - Row action menu (every per-sale action, shared by all three surfaces): [useSaleActions.tsx](SubsTrack/src/modules/transaction/sales/hooks/useSaleActions.tsx)
 - Customer panel: [CustomerSalesPanel.tsx](SubsTrack/src/modules/transaction/sales/components/CustomerSalesPanel.tsx)
 - Bulk send on WhatsApp: [useSaleInvoiceAction.tsx](SubsTrack/src/modules/transaction/sales/hooks/useSaleInvoiceAction.tsx) + [InlineSelectionToolbar.tsx](SubsTrack/src/shared/components/InlineSelectionToolbar.tsx)
-- Service: [SaleService.ts](SubsTrack/src/modules/transaction/sales/services/SaleService.ts)
-- Repository: [SaleRepository.ts](SubsTrack/src/modules/transaction/sales/repository/SaleRepository.ts)
+- Service: [SaleService.ts](Shared/src/modules/transaction/sales/services/SaleService.ts)
+- Repository: [SaleRepository.ts](Shared/src/modules/transaction/sales/repository/SaleRepository.ts)
 - Customer picker: [AsyncEntityPicker.tsx](SubsTrack/src/shared/components/AsyncEntityPicker.tsx)
 - Route: [transactions/index.tsx](<SubsTrack/app/(app)/(tabs)/transactions/index.tsx>)
-- Dashboard service: [DashboardService.ts](SubsTrack/src/modules/dashboard/services/DashboardService.ts)
-- Currency utils: [currency.ts](SubsTrack/src/core/utils/currency.ts)
+- Dashboard service: [DashboardService.ts](Shared/src/modules/dashboard/services/DashboardService.ts)
+- Currency utils: [currency.ts](Shared/src/core/utils/currency.ts)
 
 ---
 

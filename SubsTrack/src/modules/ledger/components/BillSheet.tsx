@@ -18,7 +18,7 @@ import { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/u
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import { COLORS } from "@/src/shared/constants";
 import { billLook, chargeStatusOf } from "@shared/modules/ledger/utils/billState";

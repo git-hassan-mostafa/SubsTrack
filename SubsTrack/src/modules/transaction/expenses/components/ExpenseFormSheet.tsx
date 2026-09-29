@@ -10,7 +10,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import type { ExpenseCategory } from "@shared/core/types";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useExpenseStore } from "@shared/modules/transaction/expenses/state/expenseStore";
 import { findCurrency } from "@shared/core/utils/currency";

@@ -16,7 +16,7 @@ import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { confirm } from "@shared/shared/lib/confirm";
 import { resetAllDomainStores } from "@shared/shared/lib/storeReset";
 import { refreshActiveData } from "@shared/state/refreshActiveData";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import {
   FileTooLargeError,
   newExportFile,

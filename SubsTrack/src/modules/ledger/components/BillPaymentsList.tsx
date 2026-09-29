@@ -15,7 +15,7 @@ import { formatDateTime } from "@shared/core/utils/date";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useSendInvoice } from "@/src/modules/invoicing";
 import { paidToCharge } from "@shared/modules/ledger/utils/paidToCharge";
 import { paymentMenu } from "../utils/paymentMenu";

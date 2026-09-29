@@ -11,8 +11,8 @@ Multi-currency support. USD is the implicit base — never stored as a `currenci
 - Store: [currencyStore.ts](SubsTrack/src/modules/currencies/store/currencyStore.ts)
 - Repository: [CurrencyRepository.ts](SubsTrack/src/modules/currencies/repository/CurrencyRepository.ts)
 - Reusable input: [CurrencyInput.tsx](SubsTrack/src/shared/components/CurrencyInput.tsx)
-- Conversion utils: [currency.ts](SubsTrack/src/core/utils/currency.ts)
-- Display currency setting: [useTenantSettingSlice.ts](SubsTrack/src/state/hooks/useTenantSettingSlice.ts) (`useDisplayCurrencyId`)
+- Conversion utils: [currency.ts](Shared/src/core/utils/currency.ts)
+- Display currency setting: [useTenantSettingSlice.ts](Shared/src/state/hooks/useTenantSettingSlice.ts) (`useDisplayCurrencyId`)
 - Tenant settings host: [TenantSettingsScreen.tsx](SubsTrack/src/modules/admin/tenant-settings/screens/TenantSettingsScreen.tsx)
 
 **DB constraints:**

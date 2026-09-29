@@ -40,7 +40,7 @@ matching `docs/` file. Dev phase: architecture + DB schema are open to change.
 3. DB row types (snake_case) never escape the repository layer.
 4. No business logic in components or stores.
 5. No Supabase calls outside the repository layer. Sole exception: the sync engine
-   `src/core/offline/sync/`.
+   `SubsTrack/src/core/offline/sync/`.
    5b. Services reach a repository ONLY through `repositories().x`
    (`Shared/src/core/runtime/repositories.ts`), called inside a method, never at
    module load. Each app hands its set to `configureShared()` at startup: the
@@ -88,6 +88,9 @@ matching `docs/` file. Dev phase: architecture + DB schema are open to change.
   its `package.json` would feed the OTA fingerprint and silently cut every
   installed app off from updates (gotcha #53).
 - A stub may fake a platform, never a rule.
+- `tests/suites/sharedBoundary.test.ts` fails the run when a `Shared/src` file
+  imports `react-native`, `expo-*`, `@react-native*` or app code — fix the
+  import, never the guard.
 
 ### 1.4 Reporting completed work
 
@@ -183,13 +186,36 @@ Two Expo apps: `SubsTrack/` (tenant-facing; admin + user roles) and `SuperAdmin/
 READ-ONLY customer portal, a plain React + Vite + Tailwind web app (NOT Expo): a
 customer opens `{CustomerPortalUrl}/{customer id}`, types the password staff set
 on the customer form, and sees their own months, bills, payments and purchases.
-It writes nothing, holds no Supabase client, and **imports SubsTrack's own pure
-logic** (`buildMonthGrid`, `mergeOwed`, `resolveLinePrice`, the waterfall, the
-mappers, `currency.ts`) across a `@/*` alias with three stubs — the same seam
-`tests/` uses. Its one read is the public `customer-portal` edge function, which
-is the ONLY thing that can scope a read to a single customer. Also in the
-workspace: `sql scripts/` (`script.sql` schema+RLS, `reset.sql` teardown),
+It writes nothing, holds no Supabase client, and **imports the same pure logic
+from `Shared/`** (`buildMonthGrid`, `mergeOwed`, `resolveLinePrice`, the
+waterfall, the mappers, `currency.ts`) across the `@shared/*` alias — no stubs.
+Its one read is the public `customer-portal` edge function, which is the ONLY
+thing that can scope a read to a single customer. Also in the workspace:
+`sql scripts/` (`script.sql` schema+RLS, `reset.sql` teardown),
 `new-features.md` (backlog), `Design/`, `QA/`, `tests/` (Jest, money rules).
+
+**`Shared/`** holds every layer below the screens — types, constants, utils,
+i18n (instance + locales), services, the Supabase repositories, the global
+store, slices, module stores and React-only hooks — imported as `@shared/*`
+(`SubsTrack/src/X` moved to `Shared/src/X`). It is a **source-only folder, NOT
+an npm workspace**: a workspace would hoist native packages and change the OTA
+fingerprint (gotcha #53). Its libraries are `peerDependencies`, and each app
+resolves ONE copy of them (Metro `nodeModulesPaths` + `blockList`, Vite
+`resolve.dedupe`). Rules:
+
+- Shared **never imports** `react-native`, `expo-*`, `@react-native*`, `@/…`
+  or any app file — the guard test enforces it. Platform pieces come in once at
+  startup through `configureShared()` (`Shared/src/core/runtime/runtime.ts`):
+  the Supabase client, `repositories`, `ids`, `storage`, `authStorageKey`,
+  `actor()`, `logException`. Read `runtime()` only inside a function, never at
+  module load. Phone wiring: `SubsTrack/src/platform/configurePhone.ts`.
+- **No barrels in Shared** — deep imports only. SubsTrack's module `index.ts`
+  barrels export **UI only** (screens, components, UI hooks); logic is always
+  imported from its `@shared/…` file.
+- `@edge/*` → `SubsTrack/supabase/functions/_shared/*` is the one way Shared
+  reaches edge-function code, and only for **zero-import** files.
+- SubsTrack keeps the UI and the whole **offline layer** (`core/offline/**`,
+  the `*.offline.ts` twins, `platform/offlineRepositories.ts`, `errorLogger`).
 
 **Nothing may be added to `SubsTrack/package.json`** for the portal — its
 `scripts` and dependency tree feed the OTA fingerprint (gotcha #53). The portal
@@ -221,7 +247,9 @@ Presentation → State → Business Logic → Repository → Database
 ```
 
 - **L1 Presentation** — screens, UI components, UI-only hooks. Read store state,
-  dispatch store actions. Zero business logic, zero direct Supabase calls.
+  dispatch store actions. Zero business logic, zero direct Supabase calls. The
+  only layer that lives in the app (`SubsTrack/`, `Portal/`); L2–L5 live in
+  `Shared/src/`.
 - **L2 State** — Zustand slices (`Shared/src/state/slices/`) + immer. Hold data +
   `loading`/`error`/`quotaError`. Async actions call **services, never
   repositories**. Components read via per-slice hooks **always with a selector**.
@@ -236,8 +264,11 @@ Presentation → State → Business Logic → Repository → Database
   imports from none.
 
 **Offline-first (native only; web unchanged, talks to Supabase directly).**
-Contained entirely in the repository layer + `src/core/offline/`; services, slices
-and UI are untouched. Platform switch per repository file. The SQLite mirror
+Contained entirely in SubsTrack: the `*.offline.ts` repository twins +
+`SubsTrack/src/core/offline/`; services, slices and UI are untouched. The platform
+switch is ONE place, the repository set the phone hands to `configureShared()`
+(`configurePhone.ts`; Expo web still gets `createSupabaseRepositories()` until
+the new web app takes over). The SQLite mirror
 returns the **same `Db*` row shapes** (incl. nested joins) the mappers consume.
 Writes mutate the mirror and set `_dirty = 1`; hard deletes are logged in
 `pending_deletes`. Sync pushes dirty rows + logged deletes, then pulls rows changed
@@ -270,8 +301,8 @@ read-through cache so the app boots offline after the first online login.
   (`resetAllDomainStores`) and `refreshActiveData.ts`. Missing the first leaks the
   previous tenant's data to the next login on the same device; missing the second
   leaves stale pre-sync rows on screen.
-- A module store is imported by its own path, **never** re-exported through the
-  module barrel (import cycle).
+- A module store is imported by its own path, **never** re-exported through a
+  barrel (Shared has none; SubsTrack's barrels are UI-only).
 - **A write PATCHES the store from what it returned — it never re-fetches.**
   Create/edit/delete/collect hand back the saved row; `onCreated`/`onUpdated`
   carry the row, not a `fetchX`. Keep a full `fetchX` for arrival paths only

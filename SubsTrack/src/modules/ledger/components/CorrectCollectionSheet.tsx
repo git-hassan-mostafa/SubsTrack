@@ -17,7 +17,7 @@ import {
 import { formatDateTime } from "@shared/core/utils/date";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import {
   collectionService,
   type CollectionCorrection,

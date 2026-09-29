@@ -6,7 +6,7 @@ Covers each tenant connecting **its own** WhatsApp Business account through Meta
 
 - Design and Meta setup: [docs/whatsapp.md](../docs/whatsapp.md)
 - Server: [supabase/functions/whatsapp-*](../SubsTrack/supabase/functions) + shared [_shared/whatsapp/](../SubsTrack/supabase/functions/_shared/whatsapp)
-- App module: [src/modules/whatsapp/](../SubsTrack/src/modules/whatsapp), slice [whatsappSlice.ts](../SubsTrack/src/state/slices/whatsapp/whatsappSlice.ts)
+- App module: [src/modules/whatsapp/](../SubsTrack/src/modules/whatsapp), slice [whatsappSlice.ts](../Shared/src/state/slices/whatsapp/whatsappSlice.ts)
 - Customer entry points: [CustomerListScreen.tsx](../SubsTrack/src/modules/customer/customers/screens/CustomerListScreen.tsx) (row menu + selection), [CustomerDetailScreen.tsx](../SubsTrack/src/modules/customer/customers/screens/CustomerDetailScreen.tsx) (header icon)
 - Signup page: `/whatsapp-connect` on the Sijil **web** build — [WhatsAppConnectPage.tsx](../SubsTrack/src/modules/whatsapp/screens/WhatsAppConnectPage.tsx)
 - Unit tests: `tests/suites/whatsappRules.test.ts`, `sijilTemplates.test.ts`, `whatsappReminder.test.ts`

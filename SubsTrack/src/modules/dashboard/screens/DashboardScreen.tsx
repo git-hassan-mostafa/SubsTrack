@@ -14,7 +14,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useDashboardStore } from "@shared/modules/dashboard/state/dashboardStore";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";

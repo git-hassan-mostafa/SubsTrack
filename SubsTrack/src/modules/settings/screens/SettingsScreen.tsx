@@ -16,7 +16,7 @@ import {
   SUPPORTED_LANGUAGES,
   type SupportedLanguage,
 } from "@/src/core/i18n/languageStore";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { endSession } from "@shared/shared/lib/session";
 import { IS_OFFLINE_CAPABLE, syncNow } from "@/src/core/offline";
 import { useSyncStatus } from "@/src/shared/hooks/useSyncStatus";

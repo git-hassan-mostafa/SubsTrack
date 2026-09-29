@@ -33,7 +33,7 @@ import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/utils/blockRangeLabel";
 import { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
 import { lineLabel } from "@shared/modules/customer/customer-plans/utils/lineLabel";
@@ -56,16 +56,10 @@ import {
 } from "@/src/shared/hooks/useSelection";
 import type { SelectionAction } from "@/src/shared/components/PageHeader";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
-import {
-  BillHistorySheet,
-  BillSheet,
-  chargeService,
-  CollectSheet,
-  monthItemFromEntry,
-  useOwedChanged,
-  useWriteOffActions,
-  VoidConfirmDialog,
-} from "@/src/modules/ledger";
+import { BillHistorySheet, BillSheet, CollectSheet, useWriteOffActions, VoidConfirmDialog } from "@/src/modules/ledger";
+import { chargeService } from "@shared/modules/ledger/services/ChargeService";
+import { monthItemFromEntry } from "@shared/modules/ledger/utils/openItems";
+import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import type { CollectGroupSubmit, WriteOffTarget } from "@/src/modules/ledger";
 import { usePaymentSlice } from "@shared/state/hooks/usePaymentSlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";

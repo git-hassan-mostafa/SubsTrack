@@ -11,8 +11,8 @@ The money model underneath — bills, hand-overs, the waterfall, void vs write-o
 - Undo one hand-over: [VoidCollectionDialog.tsx](../SubsTrack/src/modules/ledger/components/VoidCollectionDialog.tsx)
 - The grid panel: [CustomerPaymentPanel.tsx](../SubsTrack/src/modules/customer/customer-payments/components/CustomerPaymentPanel.tsx)
 - Customer-list quick pay: [CustomerListScreen.tsx](../SubsTrack/src/modules/customer/customers/screens/CustomerListScreen.tsx)
-- The month rules: [PaymentService.ts](../SubsTrack/src/modules/customer/customer-payments/services/PaymentService.ts) (`buildMonthGrid` — no CRUD)
-- The money: [CollectionService.ts](../SubsTrack/src/modules/ledger/services/CollectionService.ts)
+- The month rules: [PaymentService.ts](../Shared/src/modules/customer/customer-payments/services/PaymentService.ts) (`buildMonthGrid` — no CRUD)
+- The money: [CollectionService.ts](../Shared/src/modules/ledger/services/CollectionService.ts)
 - Slices: `payments` (grid state only), `ledger` (the money)
 
 ---

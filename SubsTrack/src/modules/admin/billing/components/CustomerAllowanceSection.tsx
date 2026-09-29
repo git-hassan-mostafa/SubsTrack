@@ -6,7 +6,7 @@ import { CARD_SURFACE } from "@/src/shared/constants";
 import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useBillingSlice } from "@shared/state/hooks/useBillingSlice";
 import { confirm } from "@shared/shared/lib/confirm";
 import billingService from "@shared/modules/admin/billing/services/BillingService";

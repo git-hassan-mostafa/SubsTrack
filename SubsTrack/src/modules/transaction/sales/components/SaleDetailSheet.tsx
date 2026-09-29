@@ -21,14 +21,9 @@ import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice"
 import { formatDate } from "@shared/core/utils/date";
 import { receiptId, saleTitle } from "@shared/core/utils/receiptId";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
-import { useAuth } from "@/src/modules/authentication/auth";
-import {
-  BillHero,
-  billLook,
-  chargeStatusOf,
-  BillHistorySheet,
-  BillPaymentsList,
-} from "@/src/modules/ledger";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
+import { BillHero, BillHistorySheet, BillPaymentsList } from "@/src/modules/ledger";
+import { billLook, chargeStatusOf } from "@shared/modules/ledger/utils/billState";
 import type { SaleVoidResult } from "@shared/modules/transaction/sales/utils/types";
 import { SaleBulkVoidSheet } from "./SaleBulkVoidSheet";
 

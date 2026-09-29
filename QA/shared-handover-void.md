@@ -11,7 +11,7 @@ Covers the **red warning that names the other bills a void un-pays**. Nothing ab
 
 **Reference code:**
 
-- Pure split→rows: [sharedBills.ts](SubsTrack/src/modules/ledger/utils/sharedBills.ts)
+- Pure split→rows: [sharedBills.ts](Shared/src/modules/ledger/utils/sharedBills.ts)
 - The banner: [SharedBillsWarning.tsx](SubsTrack/src/modules/ledger/components/SharedBillsWarning.tsx)
 - Payment void: [VoidCollectionDialog.tsx](SubsTrack/src/modules/ledger/components/VoidCollectionDialog.tsx)
 - Month-bill void: [CustomerPaymentPanel.tsx](SubsTrack/src/modules/customer/customer-payments/components/CustomerPaymentPanel.tsx) (`voidBill`)

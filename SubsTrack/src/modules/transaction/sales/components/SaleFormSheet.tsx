@@ -14,7 +14,7 @@ import { AmountCollectedSection } from "@/src/modules/ledger";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import type { Customer, Sale } from "@shared/core/types";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useSaleSlice } from "@shared/state/hooks/useSaleSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { formatMoney } from "@shared/core/utils/currency";

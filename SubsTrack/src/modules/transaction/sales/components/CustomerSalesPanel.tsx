@@ -14,7 +14,7 @@ import {
 import { COLORS } from "@/src/shared/constants";
 import type { Customer, Sale } from "@shared/core/types";
 import saleService from "@shared/modules/transaction/sales/services/SaleService";
-import { useOwedChanged } from "@/src/modules/ledger";
+import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import { useSaleActions } from "../hooks/useSaleActions";
 import { saleListPatches } from "@shared/modules/transaction/sales/utils/saleListPatch";
 import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";

@@ -5,7 +5,7 @@ import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 
 /** What either confirm needs to name the money — a bill in any shape says it. */
 export interface WriteOffTarget {

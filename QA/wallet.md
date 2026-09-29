@@ -13,8 +13,8 @@ collector (user)  →  branch admin  →  tenant-wide admin  →  owner (superad
 
 ## Reference code
 
-- Rules: `SubsTrack/src/modules/wallet/utils/custody.ts` (`walletRank` / `receiveBlock` / `canCloseOut` / `custodyTargetFor`)
-- Service: `SubsTrack/src/modules/wallet/services/WalletService.ts`
+- Rules: `Shared/src/modules/wallet/utils/custody.ts` (`walletRank` / `receiveBlock` / `canCloseOut` / `custodyTargetFor`)
+- Service: `Shared/src/modules/wallet/services/WalletService.ts`
 - Slice: `SubsTrack/src/state/slices/wallet/walletSlice.ts`
 - Screens: `SubsTrack/src/modules/wallet/screens/WalletsScreen.tsx` (admin), `MyWalletScreen.tsx` (self)
 - Detail body: `SubsTrack/src/modules/wallet/components/WalletDetailView.tsx`

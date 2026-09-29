@@ -1,21 +1,25 @@
 # Offline-First (native)
 
 > Read this before touching **any repository** or the sync engine. Referenced from `CLAUDE.md`.
-> Native only — on web (`Platform.OS === 'web'`) every repository talks to Supabase directly, exactly as before. Zero web behavior change.
+> Native only — Expo web gets `createSupabaseRepositories()` from Shared, so every repository talks to Supabase directly there. Zero web behavior change.
 
 ## Why / what
 
-Staff collect money in the field with unreliable connectivity. The native app therefore works **fully offline** (reads + all tenant-table CRUD) and syncs to Supabase in the background. The change is confined to the **repository layer** + a small infra folder `src/core/offline/`; services, slices, and UI are untouched.
+Staff collect money in the field with unreliable connectivity. The native app therefore works **fully offline** (reads + all tenant-table CRUD) and syncs to Supabase in the background. The change is confined to the **repository layer** + a small infra folder `SubsTrack/src/core/offline/`; services, slices, and UI are untouched. All of it stays in SubsTrack — nothing offline lives in `Shared/`.
 
 ## The seam
 
-Each repository file (`XxxRepository.ts`) is a **platform switch**. The Supabase class stays in that file (`export class … implements IXxxRepository`); a sibling `OfflineXxxRepository` (in `XxxRepository.offline.ts`) implements the same interface against SQLite; the interface lives in `IXxxRepository.ts`:
+The Supabase class lives in Shared (`Shared/src/modules/**/repository/XxxRepository.ts`, `export class … implements IXxxRepository`, the class only); a sibling `OfflineXxxRepository` (in SubsTrack's `XxxRepository.offline.ts`, same folder path) implements the same interface against SQLite; the interface lives in Shared's `IXxxRepository.ts`. Services never import either class — they call `repositories().xxx` inside a method, and the app hands its set over once at startup:
 
 ```ts
-const impl: IXxxRepository =
-  Platform.OS === "web" ? new XxxRepository() : new OfflineXxxRepository();
-export default impl; // services & module index.ts import this — unchanged
+// SubsTrack/src/platform/configurePhone.ts
+repositories:
+  Platform.OS === "web"
+    ? createSupabaseRepositories() // Shared/src/core/runtime/supabaseRepositories.ts
+    : createOfflineRepositories(), // SubsTrack/src/platform/offlineRepositories.ts
 ```
+
+That is the ONLY platform switch; the `Platform.OS` check is temporary and goes when the new web app takes over from Expo web. An offline twin that delegates online (`private online = new XxxRepository()`) imports the class from `@shared/…`. A new repository = a key on `Repositories` (`Shared/src/core/runtime/repositories.ts`) + one line in each factory.
 
 Both classes `implements IXxxRepository` → the compiler guarantees they stay in lockstep. Offline classes return the **same `Db*` row shapes** (snake_case, incl. nested joins like `customer_plans(*, plans(*))`) the services' mappers already consume, so nothing above the repo layer can tell the difference. `monthStatus.buildMonthGrid` is pure, so the month grid works offline for free.
 
@@ -25,7 +29,7 @@ Every local write flags its row `_dirty = 1` (created / edited / soft-deleted); 
 
 **A cycle is network-parallel and DB-sequential.** Round trips, not row counts, are what a sync costs: it used to walk ~27 requests strictly one after another (one per table, plus the delete reconcile) even when nothing had changed. Now the pull fetches every table at once and the push goes up in **dependency waves**, while every SQLite write queues behind one lock — expo-sqlite gives the app a single connection, so two `withTransactionAsync` calls in flight at the same time interleave and fail. See **Parallelism** below.
 
-## `src/core/offline/` layout
+## `SubsTrack/src/core/offline/` layout
 
 | Path                                                  | Role                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -50,7 +54,7 @@ Every local write flags its row `_dirty = 1` (created / edited / soft-deleted); 
 
 ## Local store
 
-- Mirror tables match `src/core/types/db.ts` **exactly** (snake_case). Money/rate columns are **TEXT (exact decimal)** — never SQLite `REAL` (float drift). Read via `Number()` (as the mappers do). **Numeric comparisons in SQL use `CAST(col AS REAL)`** (a TEXT column compared to `0` would otherwise compare by storage class, not value).
+- Mirror tables match `Shared/src/core/types/db.ts` **exactly** (snake_case). Money/rate columns are **TEXT (exact decimal)** — never SQLite `REAL` (float drift). Read via `Number()` (as the mappers do). **Numeric comparisons in SQL use `CAST(col AS REAL)`** (a TEXT column compared to `0` would otherwise compare by storage class, not value).
 - **No mirrored column is server-generated any more.** A bill's balance is not a column at all — it is `SUM(collection_items)` (the `charge_balances` view on the server, the same `GROUP BY` locally), which is exactly what makes it offline-safe: a counter would be clobbered by latest-`updated_at`-wins when two devices collect against the same bill, while additive item rows merge. `sales.total_amount` is app-written (the summed line total), so it is pushed like any normal column. Keep `generated` in `db/tables.ts` empty unless a `GENERATED ALWAYS` column reappears — Postgres rejects a value for one (SQLSTATE `428C9`).
 - One local-only column per table: `_dirty` (1 while a write awaits push), with a **partial index** per tenant table (`… ON t(_dirty) WHERE _dirty = 1`) so the push's per-table scan and `hasUnsyncedWrites`' counts read an almost-always-empty index instead of scanning every payment ever recorded. Two tiny bookkeeping tables: `sync_meta` (`active_tenant_id`, `active_branch_scope`, `active_role_scope`, `last_pulled_at`, `last_sync_at`) and `pending_deletes` (`table_name`, `row_id`).
 - **`journal_mode = WAL` + `synchronous = NORMAL`** (`db/sqlite.ts`). WAL alone left `synchronous` at FULL, which `fsync`s on **every commit** — and one sale is three transactions. NORMAL cannot corrupt the file in WAL; the only exposure is a **power cut** (not an app crash) losing the last commits, which means a hand-over has to be re-entered, never a half-written one. See gotcha #120.
@@ -156,7 +160,7 @@ The cycle is **push → then pull → then prune**, serialized (one in-flight ru
 
 ## Refreshing the stores after a sync (UI refresh)
 
-Sync pulls fresh rows into SQLite, but the **Zustand stores** were already filled from the old local data when each screen first loaded — nothing tells them to reload. `refreshActiveData()` (`src/state/refreshActiveData.ts`) closes that gap, and it is fired **by the caller, not by the engine** — which is what keeps `src/core/` from importing `src/state/`:
+Sync pulls fresh rows into SQLite, but the **Zustand stores** were already filled from the old local data when each screen first loaded — nothing tells them to reload. `refreshActiveData()` (`Shared/src/state/refreshActiveData.ts`) closes that gap, and it is fired **by the caller, not by the engine** — which is what keeps `src/core/` from importing `Shared/src/state/`:
 
 - **Cold start** — `app/_layout.tsx` passes it to `startSync(cb)`, which calls it after the first cycle.
 - **Manual sync** — `SettingsScreen` calls it itself after `syncNow()` resolves.
@@ -221,7 +225,7 @@ A small, deliberately unlayered debug feature, native-only:
   - The mirror has **no foreign keys**, so table order never causes an error — the duplicate-`id` and natural-key checks are what actually make the restore un-failable. `BACKUP_TABLE_ORDER` is kept anyway because it is free and matches the push.
   - The restore runs under `suspendSync()` + `withDbLock` + one transaction: re-check `hasUnsyncedWrites`, delete every table (reverse order), insert from the **live spec's** column list in `inBatches(rows, rowsPerStatement(cols))` (≤999 bound parameters), re-stamp `active_tenant_id` / `active_branch_scope` / `active_role_scope` from the live session, then clear `last_pulled_at` + `last_sync_at`. It never calls `wipeOfflineData()` (that opens its own transaction) and never `DELETE`s `sync_meta` wholesale — an empty scope key makes `ensureTenantScope` silently adopt the next tenant that logs in.
   - **Clearing the pull cursor is mandatory.** It describes the mirror being destroyed, never the file; keeping it would make the next pull ask for `updated_at > <export date>` and permanently strand every server row changed since. Cleared, the next pull re-fetches everything and heals the import.
-  - After the restore the screen calls `resetAllDomainStores()` + `refreshActiveData()` — the engine never fires them, so `core/` still does not import `src/state/`.
+  - After the restore the screen calls `resetAllDomainStores()` + `refreshActiveData()` — the engine never fires them, so `core/` still does not import `Shared/src/state/`.
   - **Importing never writes to the server by itself.** A second confirm asks whether to **also replace the server's copy**: yes marks every restored row `_dirty = 1` (except `tenants`, `app_options`, `users`, `audit_logs`, `exception_logs` — see gotcha #150) and runs `syncNow()`, so the push's unconditional last-writer-wins makes the file win on every row it contains. It **overwrites and adds, it never deletes**, and it is offered only when online. Saying no leaves the import local, and the healing pull may later replace it.
 - **Full re-pull** on the same screen: calls `resyncFromScratch()` — clears the `last_pulled_at` cursor and runs one normal push→pull. Non-destructive (un-pushed local writes go up first and still win the merge); use it to repair a mirror whose incremental pull skipped rows.
 

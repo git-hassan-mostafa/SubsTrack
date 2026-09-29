@@ -15,7 +15,7 @@ Customers can be touched by both `admin` and `user` roles for view + create + ed
 - Service: [CustomerService.ts](SubsTrack/src/modules/customers/services/CustomerService.ts)
 - Store: [customerStore.ts](SubsTrack/src/modules/customers/store/customerStore.ts)
 
-**Pagination:** PAGE_SIZE = 30 (see [constants/index.ts](SubsTrack/src/core/constants/index.ts)).
+**Pagination:** PAGE_SIZE = 30 (see [constants/index.ts](Shared/src/core/constants/index.ts)).
 **Default sort:** by `name` ascending (server-side via `.order('name')`).
 **Default tab on open:** "Active".
 
@@ -57,7 +57,7 @@ Customers can be touched by both `admin` and `user` roles for view + create + ed
 
 ## 2. Search
 
-Search is debounced (see [useDebounce.ts](SubsTrack/src/shared/hooks/useDebounce.ts)) and runs server-side via the customer repository.
+Search is debounced (see [useDebounce.ts](Shared/src/shared/hooks/useDebounce.ts)) and runs server-side via the customer repository.
 
 | #   | Scenario                                 | Steps                                     | Expected result                                                |
 | --- | ---------------------------------------- | ----------------------------------------- | -------------------------------------------------------------- |

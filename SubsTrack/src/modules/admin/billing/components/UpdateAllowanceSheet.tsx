@@ -8,7 +8,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { confirm } from "@shared/shared/lib/confirm";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useBillingSlice } from "@shared/state/hooks/useBillingSlice";
 import { useSupportWhatsAppNumber } from "@shared/state/hooks/useOptionSlice";
 import { openWhatsApp } from "@/src/shared/lib/whatsapp";

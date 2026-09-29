@@ -1,11 +1,5 @@
-export { default as paymentService } from "@shared/modules/customer/customer-payments/services/PaymentService";
-export { default as skippedMonthService } from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
-export type { SetSkipInput } from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
-export type { MultiMonthConflict } from "@shared/modules/customer/customer-payments/utils/types";
 export { SkipMonthSheet } from "./components/SkipMonthSheet";
 export { CustomerPaymentPanel } from "./components/CustomerPaymentPanel";
 export { MonthCell } from "./components/MonthCell";
 export { MonthGrid } from "./components/MonthGrid";
 export { YearNavigator } from "./components/YearNavigator";
-export { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/utils/blockRangeLabel";
-export { chargeToMonthEntry } from "@shared/modules/customer/customer-payments/utils/paymentEntry";

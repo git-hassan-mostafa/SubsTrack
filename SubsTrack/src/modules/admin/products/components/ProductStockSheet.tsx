@@ -23,7 +23,7 @@ import { COLORS } from "@/src/shared/constants";
 import { formatDateTime } from "@shared/core/utils/date";
 import type { Product, StockMovement, StockReason } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";

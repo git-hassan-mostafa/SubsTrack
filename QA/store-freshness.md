@@ -12,14 +12,14 @@ Cross-cutting. Covers the app-wide rule that **a create, an edit or a delete upd
 
 **Reference code:**
 
-- Sale list patches (pure): [saleListPatch.ts](SubsTrack/src/modules/transaction/sales/utils/saleListPatch.ts)
-- Stock deltas from a cart: [saleLines.ts](SubsTrack/src/modules/transaction/sales/utils/saleLines.ts)
-- Section-total patch: [monthSections.ts](SubsTrack/src/shared/lib/monthSections.ts) (`addMonthTotal`)
-- Sales slice: [saleSlice.ts](SubsTrack/src/state/slices/sales/saleSlice.ts)
-- Products slice: [productSlice.ts](SubsTrack/src/state/slices/products/productSlice.ts) (`applyStockDelta`)
+- Sale list patches (pure): [saleListPatch.ts](Shared/src/modules/transaction/sales/utils/saleListPatch.ts)
+- Stock deltas from a cart: [saleLines.ts](Shared/src/modules/transaction/sales/utils/saleLines.ts)
+- Section-total patch: [monthSections.ts](Shared/src/shared/lib/monthSections.ts) (`addMonthTotal`)
+- Sales slice: [saleSlice.ts](Shared/src/state/slices/sales/saleSlice.ts)
+- Products slice: [productSlice.ts](Shared/src/state/slices/products/productSlice.ts) (`applyStockDelta`)
 - Expenses slice: [expenseSlice.ts](SubsTrack/src/state/slices/expenses/expenseSlice.ts)
 - Money-in history slice: [collectionsListSlice.ts](SubsTrack/src/state/slices/collections/collectionsListSlice.ts)
-- Money fan-out: [ledgerSlice.ts](SubsTrack/src/state/slices/ledger/ledgerSlice.ts) (`collect` / `voidCollection`)
+- Money fan-out: [ledgerSlice.ts](Shared/src/state/slices/ledger/ledgerSlice.ts) (`collect` / `voidCollection`)
 
 ---
 

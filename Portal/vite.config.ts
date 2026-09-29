@@ -10,26 +10,26 @@ const sharedPeers = Object.keys(
     .peerDependencies,
 );
 
-// Mirrors tsconfig.app.json paths; the stub entries must precede the prefixes.
+// Mirrors tsconfig.app.json paths.
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: [
-      {
-        find: /^@\/src\/shared\/lib\/supabase$/,
-        replacement: here("./stubs/supabase-client.ts"),
-      },
-      { find: /^react-native$/, replacement: here("./stubs/react-native.ts") },
       { find: /^@shared\//, replacement: here("../Shared/src/") },
       {
         find: /^@edge\//,
         replacement: here("../SubsTrack/supabase/functions/_shared/"),
       },
-      { find: /^@\//, replacement: here("../SubsTrack/") },
     ],
     dedupe: sharedPeers,
   },
   server: {
-    fs: { allow: [here("."), here("../SubsTrack"), here("../Shared")] },
+    fs: {
+      allow: [
+        here("."),
+        here("../Shared"),
+        here("../SubsTrack/supabase/functions/_shared"),
+      ],
+    },
   },
 });

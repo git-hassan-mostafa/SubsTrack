@@ -49,7 +49,7 @@ import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useUserSlice } from "@shared/state/hooks/useUserSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { CollectionCard } from "../components/CollectionCard";
 import { CollectionDetailSheet } from "../components/CollectionDetailSheet";
 import { CollectionsVoidDialog } from "../components/CollectionsVoidDialog";

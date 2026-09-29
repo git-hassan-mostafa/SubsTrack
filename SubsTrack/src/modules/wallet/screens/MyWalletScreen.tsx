@@ -6,7 +6,7 @@ import { PageHeader } from "@/src/shared/components/PageHeader";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { confirm } from "@shared/shared/lib/confirm";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { useWalletStore } from "@shared/modules/wallet/state/walletStore";
 import type { WalletItem } from "@shared/core/types";

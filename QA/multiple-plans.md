@@ -5,11 +5,11 @@ A customer can subscribe to several plans at once, each a **service line** (`cus
 **Reference code:**
 
 - Module: [customer-plans/](../SubsTrack/src/modules/customer-plans/) (repository / service / mapper)
-- Slice: [customerPlanSlice.ts](../SubsTrack/src/state/slices/customer-plans/customerPlanSlice.ts) (`syncLines`)
+- Slice: [customerPlanSlice.ts](../Shared/src/state/slices/customer-plans/customerPlanSlice.ts) (`syncLines`)
 - Plans editor (inline): [CustomerFormSheet.tsx](../SubsTrack/src/modules/customers/components/CustomerFormSheet.tsx)
 - Grid host (view-only tabbed selector): [CustomerPaymentPanel.tsx](../SubsTrack/src/modules/customer-payments/components/CustomerPaymentPanel.tsx)
-- Aggregation: `buildCustomerStatus` / `getCustomerStatuses` in [PaymentService.ts](../SubsTrack/src/modules/customer/customer-payments/services/PaymentService.ts), `countUnpaidForMonth` in [CustomerRepository.ts](../SubsTrack/src/modules/customer/customers/repository/CustomerRepository.ts)
-- Line price resolver (the ONLY answer to "what does this line cost?"): [linePrice.ts](../SubsTrack/src/modules/customer/customer-plans/utils/linePrice.ts)
+- Aggregation: `buildCustomerStatus` / `getCustomerStatuses` in [PaymentService.ts](../Shared/src/modules/customer/customer-payments/services/PaymentService.ts), `countUnpaidForMonth` in [CustomerRepository.ts](../Shared/src/modules/customer/customers/repository/CustomerRepository.ts)
+- Line price resolver (the ONLY answer to "what does this line cost?"): [linePrice.ts](../Shared/src/modules/customer/customer-plans/utils/linePrice.ts)
 - Migration: [migration-customer-plans.sql](../sql%20scripts/migration-customer-plans.sql)
 
 ---

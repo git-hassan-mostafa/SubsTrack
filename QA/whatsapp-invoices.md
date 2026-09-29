@@ -4,12 +4,12 @@ Covers sending a customer their receipt over WhatsApp. The whole feature is a `w
 
 **Reference code:**
 
-- Message format (one file owns it): [invoiceText.ts](../SubsTrack/src/modules/invoicing/utils/invoiceText.ts) — pure builders, `t` arrives in `InvoiceContext`
-- One-recipient rule for a selection: [invoiceRecipient.ts](../SubsTrack/src/modules/invoicing/utils/invoiceRecipient.ts) + `useSendInvoice.resolveRecipient`
+- Message format (one file owns it): [invoiceText.ts](../Shared/src/modules/invoicing/utils/invoiceText.ts) — pure builders, `t` arrives in `InvoiceContext`
+- One-recipient rule for a selection: [invoiceRecipient.ts](../Shared/src/modules/invoicing/utils/invoiceRecipient.ts) + `useSendInvoice.resolveRecipient`
 - Send seam: [useSendInvoice.ts](../SubsTrack/src/modules/invoicing/hooks/useSendInvoice.ts) → [whatsapp.ts](../SubsTrack/src/shared/lib/whatsapp.ts) `openWhatsApp`
 - Button: [SendOnWhatsAppButton.tsx](../SubsTrack/src/modules/invoicing/components/SendOnWhatsAppButton.tsx)
 - Entry points: [the collect sheet.tsx](../SubsTrack/src/modules/customer/customer-payments/components/the collect sheet.tsx), [SaleFormSheet.tsx](../SubsTrack/src/modules/transaction/sales/components/SaleFormSheet.tsx), [CustomerPaymentPanel.tsx](../SubsTrack/src/modules/customer/customer-payments/components/CustomerPaymentPanel.tsx), [CustomerListScreen.tsx](../SubsTrack/src/modules/customer/customers/screens/CustomerListScreen.tsx), [BillSheet.tsx](../SubsTrack/src/modules/customer/customer-payments/components/BillSheet.tsx), [SaleDetailSheet.tsx](../SubsTrack/src/modules/transaction/sales/components/SaleDetailSheet.tsx)
-- Created-record forwarding: [paymentSlice.ts](../SubsTrack/src/state/slices/payments/paymentSlice.ts) (`createPayment`, `createPayments`, `createMultiMonthPayment`, `createMultiMonthPayments`, `bulkPayCustomers`)
+- Created-record forwarding: [paymentSlice.ts](../Shared/src/state/slices/payments/paymentSlice.ts) (`createPayment`, `createPayments`, `createMultiMonthPayment`, `createMultiMonthPayments`, `bulkPayCustomers`)
 - Multi-select toolbar: [InlineSelectionToolbar.tsx](../SubsTrack/src/shared/components/InlineSelectionToolbar.tsx) (shared by the month grid + the customer sales panel), custom-amount sheet [Bulkthe collect sheet.tsx](../SubsTrack/src/modules/customer/customer-payments/components/Bulkthe collect sheet.tsx)
 - Re-send a selection: [CollectionsPanel.tsx](../SubsTrack/src/modules/customer/customer-payments/screens/CollectionsPanel.tsx), [useSaleInvoiceAction.tsx](../SubsTrack/src/modules/transaction/sales/hooks/useSaleInvoiceAction.tsx) (shared by [SalesPanel.tsx](../SubsTrack/src/modules/transaction/sales/screens/SalesPanel.tsx) + [CustomerSalesListScreen.tsx](../SubsTrack/src/modules/transaction/sales/screens/CustomerSalesListScreen.tsx) + [CustomerSalesPanel.tsx](../SubsTrack/src/modules/transaction/sales/components/CustomerSalesPanel.tsx))
 - Strings: the `invoice.*` namespace in `en.json` / `ar.json`

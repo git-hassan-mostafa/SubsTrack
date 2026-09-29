@@ -1,7 +1,7 @@
 import { Platform } from "react-native";
 import { Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { Text } from "@/src/shared/components/Text";

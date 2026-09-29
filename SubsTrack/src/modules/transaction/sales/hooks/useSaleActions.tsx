@@ -5,11 +5,8 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
-import {
-  BillHistorySheet,
-  openItemFromCharge,
-  useCollectSheet,
-} from "@/src/modules/ledger";
+import { BillHistorySheet, useCollectSheet } from "@/src/modules/ledger";
+import { openItemFromCharge } from "@shared/modules/ledger/utils/openItems";
 import { saleTitle } from "@shared/core/utils/receiptId";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";

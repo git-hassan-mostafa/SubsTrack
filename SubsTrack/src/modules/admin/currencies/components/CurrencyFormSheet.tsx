@@ -12,7 +12,7 @@ import {
   upperCaseText,
 } from "@shared/core/utils/inputText";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import type { Currency } from "@shared/core/types";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { getStore } from "@shared/state/globalStore";

@@ -10,8 +10,8 @@ The money model underneath is in [ledger-collections.md](ledger-collections.md) 
 - Read model: [PortalReadModel.ts](../Portal/src/services/PortalReadModel.ts), repository: [PortalRepository.ts](../Portal/src/repository/PortalRepository.ts)
 - Edge function: [customer-portal/index.ts](../SubsTrack/supabase/functions/customer-portal/index.ts)
 - Staff-side field: [PortalAccessField.tsx](../SubsTrack/src/shared/components/PortalAccessField.tsx) inside [CustomerFormSheet.tsx](../SubsTrack/src/modules/customer/customers/components/CustomerFormSheet.tsx)
-- Link builder: [portalLink.ts](../SubsTrack/src/core/utils/portalLink.ts)
-- Shared rule: [mergeOwed.ts](../SubsTrack/src/modules/ledger/utils/mergeOwed.ts) — the portal and the app answer "what is owed?" with the SAME function
+- Link builder: [portalLink.ts](../Shared/src/core/utils/portalLink.ts)
+- Shared rule: [mergeOwed.ts](../Shared/src/modules/ledger/utils/mergeOwed.ts) — the portal and the app answer "what is owed?" with the SAME function
 - Unit tests: [portalReadModel.test.ts](../tests/suites/portalReadModel.test.ts) (TC-PRT-*)
 
 ---

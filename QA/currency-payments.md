@@ -4,7 +4,7 @@ End-to-end coverage of the multi-currency layer as it runs through plans, paymen
 
 **Reference code:**
 
-- Conversion helpers: [currency.ts](SubsTrack/src/core/utils/currency.ts)
+- Conversion helpers: [currency.ts](Shared/src/core/utils/currency.ts)
 - Collect form: [CollectSheet.tsx](../SubsTrack/src/modules/ledger/components/CollectSheet.tsx)
 - Amount-paid section: [PaymentAmountPaidSection.tsx](SubsTrack/src/modules/customer-payments/components/PaymentAmountPaidSection.tsx)
 - The bill and its payments: [BillSheet.tsx](../SubsTrack/src/modules/ledger/components/BillSheet.tsx)
@@ -13,8 +13,8 @@ End-to-end coverage of the multi-currency layer as it runs through plans, paymen
 - Plan form: [PlanFormSheet.tsx](SubsTrack/src/modules/plans/components/PlanFormSheet.tsx)
 - Plan service: [PlanService.ts](SubsTrack/src/modules/plans/services/PlanService.ts)
 - CurrencyInput component: [CurrencyInput.tsx](SubsTrack/src/shared/components/CurrencyInput.tsx)
-- Display-currency preference: [uiPrefStore.ts](SubsTrack/src/shared/lib/uiPrefStore.ts)
-- Dashboard service: [DashboardService.ts](SubsTrack/src/modules/dashboard/services/DashboardService.ts)
+- Display-currency preference: [uiPrefStore.ts](Shared/src/shared/lib/uiPrefStore.ts)
+- Dashboard service: [DashboardService.ts](Shared/src/modules/dashboard/services/DashboardService.ts)
 - Customer payment panel: [CustomerPaymentPanel.tsx](SubsTrack/src/modules/customer-payments/components/CustomerPaymentPanel.tsx)
 
 ---

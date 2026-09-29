@@ -23,11 +23,8 @@ import type { CustomerDebts } from "@shared/core/types";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
-import {
-  useCollectSheet,
-  useOpenBill,
-  useOwedChanged,
-} from "@/src/modules/ledger";
+import { useCollectSheet, useOpenBill } from "@/src/modules/ledger";
+import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import { useDebtRowActions } from "../hooks/useDebtRowActions";
 import { DebtorCard } from "../components/DebtorCard";
 import { DebtorDetailSheet } from "../components/DebtorDetailSheet";

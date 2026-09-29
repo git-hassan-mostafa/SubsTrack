@@ -11,10 +11,10 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import type { Product } from "@shared/core/types";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useActiveBranches } from "@/src/modules/admin/branches";
+import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { getStore } from "@shared/state/globalStore";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 

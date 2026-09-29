@@ -3,4 +3,3 @@ export { useWhatsAppActions } from "./hooks/useWhatsAppActions";
 export { WhatsAppConnectPage } from "./screens/WhatsAppConnectPage";
 export { WhatsAppHistoryScreen } from "./screens/WhatsAppHistoryScreen";
 export { WhatsAppSettingsScreen } from "./screens/WhatsAppSettingsScreen";
-export { whatsAppService } from "@shared/modules/whatsapp/services/WhatsAppService";

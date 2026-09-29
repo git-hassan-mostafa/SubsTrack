@@ -4,13 +4,13 @@ Covers money OUT: hand-typed expenses, the cost of buying stock, and the net-inc
 
 **Reference code:**
 
-- Service (composes both sources): [ExpenseService.ts](../SubsTrack/src/modules/transaction/expenses/services/ExpenseService.ts)
-- Repository (stored rows only): [ExpenseRepository.ts](../SubsTrack/src/modules/transaction/expenses/repository/ExpenseRepository.ts) · [.offline](../SubsTrack/src/modules/transaction/expenses/repository/ExpenseRepository.offline.ts)
-- Derived stock costs: `stockCostsInRange` in [ProductRepository.ts](../SubsTrack/src/modules/admin/products/repository/ProductRepository.ts)
+- Service (composes both sources): [ExpenseService.ts](../Shared/src/modules/transaction/expenses/services/ExpenseService.ts)
+- Repository (stored rows only): [ExpenseRepository.ts](../Shared/src/modules/transaction/expenses/repository/ExpenseRepository.ts) · [.offline](../SubsTrack/src/modules/transaction/expenses/repository/ExpenseRepository.offline.ts)
+- Derived stock costs: `stockCostsInRange` in [ProductRepository.ts](../Shared/src/modules/admin/products/repository/ProductRepository.ts)
 - Panel: [ExpensesPanel.tsx](../SubsTrack/src/modules/transaction/expenses/screens/ExpensesPanel.tsx)
 - Form: [ExpenseFormSheet.tsx](../SubsTrack/src/modules/transaction/expenses/components/ExpenseFormSheet.tsx)
 - Cost entry: [ProductStockSheet.tsx](../SubsTrack/src/modules/admin/products/components/ProductStockSheet.tsx) · [ProductBatchRestockSheet.tsx](../SubsTrack/src/modules/admin/products/components/ProductBatchRestockSheet.tsx) · [ProductFormSheet.tsx](../SubsTrack/src/modules/admin/products/components/ProductFormSheet.tsx)
-- Dashboard: [DashboardService.ts](../SubsTrack/src/modules/dashboard/services/DashboardService.ts) · [DashboardScreen.tsx](../SubsTrack/src/modules/dashboard/screens/DashboardScreen.tsx)
+- Dashboard: [DashboardService.ts](../Shared/src/modules/dashboard/services/DashboardService.ts) · [DashboardScreen.tsx](../SubsTrack/src/modules/dashboard/screens/DashboardScreen.tsx)
 
 **Core rules under test:**
 

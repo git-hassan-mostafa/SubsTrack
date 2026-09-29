@@ -23,7 +23,7 @@ import { decimalDigitsOnly, digitsOnly } from "@shared/core/utils/inputText";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency, Product } from "@shared/core/types";
 import { convert, findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 

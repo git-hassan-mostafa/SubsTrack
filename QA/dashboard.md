@@ -7,14 +7,14 @@ The compact stats card on the Admin landing screen also surfaces a subset of the
 **Reference code:**
 
 - Screen: [DashboardScreen.tsx](SubsTrack/src/modules/dashboard/screens/DashboardScreen.tsx)
-- Service: [DashboardService.ts](SubsTrack/src/modules/dashboard/services/DashboardService.ts)
+- Service: [DashboardService.ts](Shared/src/modules/dashboard/services/DashboardService.ts)
 - Hero card: [RevenueHeroCard.tsx](SubsTrack/src/modules/dashboard/components/RevenueHeroCard.tsx) — the whole purple card, extracted from the screen; the screen only passes `metrics`, `fmt`, `showExpenses` and the press handler
 - Components: [StatTile.tsx](SubsTrack/src/shared/components/StatTile.tsx) (shared, re-exported from the dashboard module)
 - Slice: [dashboardSlice.ts](SubsTrack/src/state/slices/dashboard/dashboardSlice.ts)
 - Range queries: `paidAmountsForMonth` (payment repo), `totalsForMonth` (sale repo), `paidAmountsInRange` (debt repo), `countCreatedInRange` / `countCancelledInRange` (customer repo) — each with a Supabase + Offline SQLite impl
 - Admin home (compact stats card): [admin/index.tsx](<SubsTrack/app/(app)/(tabs)/admin/index.tsx>)
-- Currency conversion: [currency.ts](SubsTrack/src/core/utils/currency.ts)
-- Display currency setting: [useTenantSettingSlice.ts](SubsTrack/src/state/hooks/useTenantSettingSlice.ts) (`useDisplayCurrencyId`)
+- Currency conversion: [currency.ts](Shared/src/core/utils/currency.ts)
+- Display currency setting: [useTenantSettingSlice.ts](Shared/src/state/hooks/useTenantSettingSlice.ts) (`useDisplayCurrencyId`)
 
 ---
 

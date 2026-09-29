@@ -11,7 +11,7 @@ The status logic lives in exactly one place: `monthStatus.buildMonthGrid`. Verif
 - Cell: [MonthCell.tsx](SubsTrack/src/modules/customer-payments/components/MonthCell.tsx)
 - Year navigator: [YearNavigator.tsx](SubsTrack/src/modules/customer-payments/components/YearNavigator.tsx)
 - Customer panel (host): [CustomerPaymentPanel.tsx](SubsTrack/src/modules/customer-payments/components/CustomerPaymentPanel.tsx)
-- Date utils: [date.ts](SubsTrack/src/core/utils/date.ts) · month due/late rules: [monthDueRules.ts](SubsTrack/src/modules/customer/customer-payments/utils/monthDueRules.ts)
+- Date utils: [date.ts](Shared/src/core/utils/date.ts) · month due/late rules: [monthDueRules.ts](Shared/src/modules/customer/customer-payments/utils/monthDueRules.ts)
 
 ---
 

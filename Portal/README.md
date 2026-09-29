@@ -24,20 +24,25 @@ why `deploy-function` lives here.
 ## It reimplements no rule
 
 The portal's main screen is computed, not stored: months are never rows, and
-`PaymentService.buildMonthGrid()` is the single source of truth for their status.
-So the portal imports SubsTrack's own code across a `@/*` alias rather than
-copying it — `buildMonthGrid`, `buildCustomerStatus`, `mergeOwed`,
-`resolveLinePrice`, the waterfall, every `Db* → domain` mapper, and the money
-formatters. A figure that disagrees with the staff app means a rule was restated
-somewhere instead of imported.
+`monthStatus.buildMonthGrid()` (`Shared/src/modules/customer/customer-payments/utils/monthStatus.ts`)
+is the single source of truth for their status. So the portal imports the staff
+app's own logic from `Shared/` across the `@shared/*` alias rather than copying
+it — `buildMonthGrid`, `buildCustomerStatus`, `mergeOwed`, `resolveLinePrice`,
+the waterfall, every `Db* → domain` mapper, and the money formatters. A figure
+that disagrees with the staff app means a rule was restated somewhere instead of
+imported.
 
-Three stubs cut the native edges those files reach (`stubs/`), the same seam
-`tests/jest.config.js` uses. **Import deep paths, never module barrels** — the
-barrels re-export screens and repositories, and one barrel import drags React
-Native and Supabase into the bundle. `npm run typecheck` is what catches it.
+It needs **no stubs**: Shared never imports React Native, Expo or app code
+(`tests/suites/sharedBoundary.test.ts` enforces that), and the pure files the
+portal reaches never read Shared's runtime, so the portal calls no
+`configureShared()`. **Import deep paths** — Shared has no barrels, and each
+import names the file that defines the thing. `npm run typecheck` is what
+catches a wrong one. The only other alias is `@edge/*`, for the zero-import
+WhatsApp files under `SubsTrack/supabase/functions/_shared/`.
 
-`stubs/i18n.ts` loads SubsTrack's **own** locale files, so month names and bill
-labels read identically to the app instead of being a second copy.
+`src/core/i18n/setup.ts` initialises Shared's i18next instance with Shared's
+**own** locale files, so month names and bill labels read identically to the
+app instead of being a second copy.
 
 ## Running it
 

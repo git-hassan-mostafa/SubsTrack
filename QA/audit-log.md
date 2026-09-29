@@ -8,14 +8,14 @@ The device keeps a rolling **30-day window**; the server keeps everything.
 
 **Reference code:**
 
-- Row builder: [buildAuditRow.ts](../SubsTrack/src/core/audit/buildAuditRow.ts) (diff, actor, `null` when nothing changed), [describe.ts](../SubsTrack/src/core/audit/describe.ts) (the frozen `label`)
-- Call helpers: [BaseRepository.ts](../SubsTrack/src/core/utils/BaseRepository.ts) (`audit`, `auditedUpdate`, `auditedDelete`), [OfflineBaseRepository.ts](../SubsTrack/src/core/offline/OfflineBaseRepository.ts) (`auditIn` — inside the caller's transaction)
+- Row builder: [buildAuditRow.ts](../Shared/src/core/audit/buildAuditRow.ts) (diff, actor, `null` when nothing changed), [describe.ts](../Shared/src/core/audit/describe.ts) (the frozen `label`)
+- Call helpers: [BaseRepository.ts](../Shared/src/core/utils/BaseRepository.ts) (`audit`, `auditedUpdate`, `auditedDelete`), [OfflineBaseRepository.ts](../SubsTrack/src/core/offline/OfflineBaseRepository.ts) (`auditIn` — inside the caller's transaction)
 - Sync flags: [tables.ts](../SubsTrack/src/core/offline/db/tables.ts) (`appendOnly`, `pullDays`, `ColType: 'json'`), [sync/push.ts](../SubsTrack/src/core/offline/sync/push.ts) (`ignoreDuplicates`) + [sync/pull.ts](../SubsTrack/src/core/offline/sync/pull.ts) (window filter, `pruneWindowedTables`)
-- Read path: [AuditRepository.ts](../SubsTrack/src/modules/admin/audit/repository/AuditRepository.ts) / [.offline.ts](../SubsTrack/src/modules/admin/audit/repository/AuditRepository.offline.ts), [AuditService.ts](../SubsTrack/src/modules/admin/audit/services/AuditService.ts)
+- Read path: [AuditRepository.ts](../Shared/src/modules/admin/audit/repository/AuditRepository.ts) / [.offline.ts](../SubsTrack/src/modules/admin/audit/repository/AuditRepository.offline.ts), [AuditService.ts](../Shared/src/modules/admin/audit/services/AuditService.ts)
 - UI: [AuditLogScreen.tsx](../SubsTrack/src/modules/admin/audit/screens/AuditLogScreen.tsx), [AuditEntrySheet.tsx](../SubsTrack/src/modules/admin/audit/components/AuditEntrySheet.tsx), [HistorySheet.tsx](../SubsTrack/src/modules/admin/audit/components/HistorySheet.tsx) (the shared shell), [RecordHistorySheet.tsx](../SubsTrack/src/modules/admin/audit/components/RecordHistorySheet.tsx), [CustomerHistorySheet.tsx](../SubsTrack/src/modules/customer/customers/components/CustomerHistorySheet.tsx)
-- Timeline hooks: [useRecordHistory.ts](../SubsTrack/src/modules/admin/audit/hooks/useRecordHistory.ts) (`useRecordHistory` + `useCustomerHistory`), table set in [constants.ts](../SubsTrack/src/modules/admin/audit/utils/constants.ts) (`CUSTOMER_HISTORY_TABLES`)
+- Timeline hooks: [useRecordHistory.ts](../Shared/src/modules/admin/audit/hooks/useRecordHistory.ts) (`useRecordHistory` + `useCustomerHistory`), table set in [constants.ts](../Shared/src/modules/admin/audit/utils/constants.ts) (`CUSTOMER_HISTORY_TABLES`)
 - Per-list History action: [useRecordHistoryAction.tsx](../SubsTrack/src/modules/admin/audit/hooks/useRecordHistoryAction.tsx), wired in the products / plans / users / branches / currencies list screens and in [SaleDetailSheet.tsx](../SubsTrack/src/modules/transaction/sales/components/SaleDetailSheet.tsx), plus the stock history rows in [ProductStockSheet.tsx](../SubsTrack/src/modules/admin/products/components/ProductStockSheet.tsx)
-- Display: [valueDisplay.ts](../SubsTrack/src/modules/admin/audit/utils/valueDisplay.ts) (per-column display registry), [format.ts](../SubsTrack/src/modules/admin/audit/utils/format.ts) (generic fallback), [useAuditLookups.ts](../SubsTrack/src/modules/admin/audit/hooks/useAuditLookups.ts) (id → name)
+- Display: [valueDisplay.ts](../Shared/src/modules/admin/audit/utils/valueDisplay.ts) (per-column display registry), [format.ts](../Shared/src/modules/admin/audit/utils/format.ts) (generic fallback), [useAuditLookups.ts](../Shared/src/modules/admin/audit/hooks/useAuditLookups.ts) (id → name)
 - Server: `sql scripts/script.sql` → `AUDIT LOGS` section + the `audit_logs_select` / `audit_logs_insert` policies
 - Strings: the `audit.*` group in `en.json` / `ar.json`
 
@@ -318,7 +318,7 @@ The id is frozen at write time next to the name. It is what 6b filters on, so a 
 
 ### 6c. Displayed values (the per-column display registry)
 
-Raw columns are stored, human text is shown — declared once per column in [valueDisplay.ts](../SubsTrack/src/modules/admin/audit/utils/valueDisplay.ts): `DISPLAY` for a column's **value**, `FIELD_LABELS` for its **name** when a sibling column decides it (`tenant_settings.value` is named after the setting). An unregistered column must still render exactly as before.
+Raw columns are stored, human text is shown — declared once per column in [valueDisplay.ts](../Shared/src/modules/admin/audit/utils/valueDisplay.ts): `DISPLAY` for a column's **value**, `FIELD_LABELS` for its **name** when a sibling column decides it (`tenant_settings.value` is named after the setting). An unregistered column must still render exactly as before.
 
 | #    | Scenario                    | Steps                                                                          | Expected result                                                                                                                                          |
 | ---- | --------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |

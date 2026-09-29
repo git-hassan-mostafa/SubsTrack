@@ -22,9 +22,6 @@
   "include": [
     "suites/**/*.ts",
     "helpers/**/*.ts",
-    "stubs/**/*.ts",
-    "../SubsTrack/nativewind-env.d.ts",
-    "../SubsTrack/expo-env.d.ts",
-    "../SubsTrack/.expo/types/**/*.ts"
+    "stubs/**/*.ts"
   ]
 }

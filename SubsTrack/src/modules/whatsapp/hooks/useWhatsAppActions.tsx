@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Customer, WhatsAppTemplatePurpose } from "@shared/core/types";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useWhatsApp } from "@/src/modules/invoicing/hooks/useWhatsApp";
 import type { ActionMenuItem } from "@/src/shared/components/ActionMenu";
 import type { SelectionAction } from "@/src/shared/components/SelectionBar";

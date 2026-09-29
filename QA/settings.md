@@ -6,8 +6,8 @@ Covers the **user-level** Settings tab: profile card, language switcher (with re
 
 - Screen: [SettingsScreen.tsx](SubsTrack/src/modules/settings/screens/SettingsScreen.tsx)
 - Language store: [languageStore.ts](SubsTrack/src/core/i18n/languageStore.ts)
-- i18n init: [i18n/index.ts](SubsTrack/src/core/i18n/index.ts)
-- Locales: [en.json](SubsTrack/src/core/i18n/locales/en.json), [ar.json](SubsTrack/src/core/i18n/locales/ar.json)
+- i18n init: [i18n/index.ts](Shared/src/core/i18n/index.ts)
+- Locales: [en.json](Shared/src/core/i18n/locales/en.json), [ar.json](Shared/src/core/i18n/locales/ar.json)
 
 ---
 

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { AuditRecordTarget } from "@shared/core/types";
-import { HistorySheet, useRecordHistory } from "@/src/modules/admin/audit";
+import { HistorySheet } from "@/src/modules/admin/audit";
+import { useRecordHistory } from "@shared/modules/admin/audit/hooks/useRecordHistory";
 import { collectionService } from "@shared/modules/ledger/services/CollectionService";
 
 interface Props {

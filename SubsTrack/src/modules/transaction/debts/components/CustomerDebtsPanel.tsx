@@ -11,13 +11,10 @@ import type { Customer, OpenItem } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
-import {
-  chargeService,
-  isDebtItem,
-  useCollectSheet,
-  useOpenBill,
-  useOwedChanged,
-} from "@/src/modules/ledger";
+import { useCollectSheet, useOpenBill } from "@/src/modules/ledger";
+import { chargeService } from "@shared/modules/ledger/services/ChargeService";
+import { isDebtItem } from "@shared/modules/ledger/utils/openItems";
+import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import { useDebtRowActions } from "../hooks/useDebtRowActions";
 import {
   useWrittenOffDebts,

@@ -7,11 +7,11 @@ A service is **sold as a line on a sale**, never as its own record. Recording, e
 **Reference code:**
 
 - Screen: [ServiceListScreen.tsx](SubsTrack/src/modules/admin/service-catalog/screens/ServiceListScreen.tsx)
-- Service: [ServiceCatalogService.ts](SubsTrack/src/modules/admin/service-catalog/services/ServiceCatalogService.ts)
-- Repository: [ServiceRepository.ts](SubsTrack/src/modules/admin/service-catalog/repository/ServiceRepository.ts) (+ `.offline`)
+- Service: [ServiceCatalogService.ts](Shared/src/modules/admin/service-catalog/services/ServiceCatalogService.ts)
+- Repository: [ServiceRepository.ts](Shared/src/modules/admin/service-catalog/repository/ServiceRepository.ts) (+ `.offline`)
 - Form sheet: [ServiceFormSheet.tsx](SubsTrack/src/modules/admin/service-catalog/components/ServiceFormSheet.tsx)
 - Card: [ServiceCard.tsx](SubsTrack/src/modules/admin/service-catalog/components/ServiceCard.tsx)
-- Slice: [serviceSlice.ts](SubsTrack/src/state/slices/services/serviceSlice.ts)
+- Slice: [serviceSlice.ts](Shared/src/state/slices/services/serviceSlice.ts)
 - Route: [admin/services.tsx](<SubsTrack/app/(app)/(tabs)/admin/services.tsx>)
 
 ---

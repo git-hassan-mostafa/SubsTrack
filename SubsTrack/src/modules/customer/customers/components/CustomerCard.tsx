@@ -12,7 +12,7 @@ import type { Customer, CustomerStatus } from "@shared/core/types";
 import { COLORS } from "../../../../shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { Chip, type ChipTone } from "@/src/shared/components/Chip";
-import { activeLines } from "@/src/modules/customer/customer-plans";
+import { activeLines } from "@shared/modules/customer/customer-plans/utils/activeLines";
 import { lineLabel } from "@shared/modules/customer/customer-plans/utils/lineLabel";
 import { customerFlags, type CustomerFlag } from "@shared/modules/customer/customers/utils/customerFlags";
 

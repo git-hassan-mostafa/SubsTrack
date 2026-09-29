@@ -16,7 +16,7 @@ New tenants created via SuperAdmin auto-get a `"Default Branch"` so the tenant i
 - Branch-aware policies on `users`, `customers`, `plans`, `payments`
 - BranchSelector chip: [BranchSelector.tsx](SubsTrack/src/shared/components/BranchSelector.tsx)
 - BranchPicker (form picker): [BranchPicker.tsx](SubsTrack/src/shared/components/BranchPicker.tsx)
-- Filter helpers: [branchFilter.ts](SubsTrack/src/shared/lib/branchFilter.ts)
+- Filter helpers: [branchFilter.ts](Shared/src/shared/lib/branchFilter.ts)
 - Edge function branch validation: [supabase/functions/create-user/index.ts](SubsTrack/supabase/functions/create-user/index.ts)
 - SuperAdmin tenant creation: [SuperAdmin TenantService](SuperAdmin/src/modules/tenants/services/TenantService.ts)
 

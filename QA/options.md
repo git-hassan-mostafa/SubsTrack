@@ -10,7 +10,7 @@ A single **global** key/value table `app_options` (NOT tenant-scoped) holds app-
 - SuperAdmin tab bar: [_layout.tsx](<SuperAdmin/app/(tabs)/_layout.tsx>)
 - LBP seeding (SuperAdmin): [TenantService.ts](SuperAdmin/src/modules/tenants/services/TenantService.ts), [TenantRepository.ts](SuperAdmin/src/modules/tenants/repository/TenantRepository.ts) (`getLiraRate` + `createLbpCurrency`)
 - LBP seeding (self-service): [create-tenant/index.ts](SubsTrack/supabase/functions/create-tenant/index.ts)
-- SubsTrack read-only module: [OptionService.ts](SubsTrack/src/modules/options/services/OptionService.ts), [OptionRepository.ts](SubsTrack/src/modules/options/repository/OptionRepository.ts), [optionSlice.ts](SubsTrack/src/state/slices/options/optionSlice.ts), [useOptionSlice.ts](SubsTrack/src/state/hooks/useOptionSlice.ts)
+- SubsTrack read-only module: [OptionService.ts](Shared/src/modules/options/services/OptionService.ts), [OptionRepository.ts](Shared/src/modules/options/repository/OptionRepository.ts), [optionSlice.ts](Shared/src/state/slices/options/optionSlice.ts), [useOptionSlice.ts](Shared/src/state/hooks/useOptionSlice.ts)
 - Schema: [script.sql](<sql scripts/script.sql>) (table `app_options`, policy `app_options_select`, seed `LiraRate`)
 
 **DB constraints:**
@@ -112,7 +112,7 @@ A single **global** key/value table `app_options` (NOT tenant-scoped) holds app-
 
 ## 9. Support number (`SupportWhatsAppNumber`)
 
-Digits, international format. Its only consumer is the **"Send request + WhatsApp"** button on the customer-allowance request sheet — the option is read through `useSupportWhatsAppNumber()`, and a blank/absent value hides that button rather than producing a dead link. Reference: [CustomerRequestSheet.tsx](SubsTrack/src/modules/admin/billing/components/CustomerRequestSheet.tsx), [useOptionSlice.ts](SubsTrack/src/state/hooks/useOptionSlice.ts), [whatsapp.ts](SubsTrack/src/shared/lib/whatsapp.ts). The flow itself is [customer-allowance.md](customer-allowance.md) §3.
+Digits, international format. Its only consumer is the **"Send request + WhatsApp"** button on the customer-allowance request sheet — the option is read through `useSupportWhatsAppNumber()`, and a blank/absent value hides that button rather than producing a dead link. Reference: [CustomerRequestSheet.tsx](SubsTrack/src/modules/admin/billing/components/CustomerRequestSheet.tsx), [useOptionSlice.ts](Shared/src/state/hooks/useOptionSlice.ts), [whatsapp.ts](SubsTrack/src/shared/lib/whatsapp.ts). The flow itself is [customer-allowance.md](customer-allowance.md) §3.
 
 | #   | Scenario                  | Steps                                                                                                 | Expected result                                                                                                               |
 | --- | ------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |

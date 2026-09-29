@@ -1,6 +1,6 @@
 # Project Structure
 
-> Detailed directory trees for both apps. Referenced from `CLAUDE.md`.
+> Directory trees for Shared and the apps. Referenced from `CLAUDE.md`.
 > These trees go stale easily — when in doubt, derive the current layout with a file search rather than trusting this verbatim. Update this file whenever the structure changes.
 
 ## Workspace top level
@@ -9,16 +9,75 @@
 App/
 ├── CLAUDE.md            # Source-of-truth project context (lean core)
 ├── docs/                # Detailed reference docs (this folder)
-│   ├── project-structure.md
-│   ├── features.md
-│   ├── gotchas.md
-│   └── edge-functions.md
 ├── new-features.md      # Feature backlog (mark items done when implemented)
-├── SubsTrack/           # Main tenant-facing Expo app
+├── Shared/              # Logic shared by every app: types → services → repositories → stores (source only, not a workspace)
+├── SubsTrack/           # Main tenant-facing Expo app — UI + the offline layer
+├── Portal/              # Read-only customer portal (React + Vite), imports Shared's pure code
 ├── SuperAdmin/          # Internal SaaS-owner admin Expo app
-├── sql scripts/         # script.sql (schema + RLS), reset.sql (teardown)
+├── tests/               # Jest money-rule tests — its own package, never inside SubsTrack/
+├── sql scripts/         # script.sql (schema + RLS), migration.sql (one-offs), reset.sql (teardown)
 ├── Design/              # Design assets
 └── QA/                  # QA materials
+```
+
+Each module keeps the SAME folder path in both halves: its logic under
+`Shared/src/modules/<group>/<module>/`, its screens and components under
+`SubsTrack/src/modules/<group>/<module>/`. Groups: `admin/` (audit, billing,
+branches, currencies, plans, products, service-catalog, tenant-settings, users),
+`authentication/` (auth, signup), `customer/` (customers, customer-plans,
+customer-payments), `transaction/` (sales, debts, expenses, transactions), and
+the top-level `dashboard`, `invoicing`, `ledger`, `options`, `reports`,
+`wallet`, `whatsapp` (+ SubsTrack-only `quick-actions`, `settings`).
+
+---
+
+## Directory Structure: Shared
+
+```
+Shared/
+├── package.json                   # peerDependencies = the libraries each app must resolve ONE copy of
+├── tsconfig.json                  # strictest of all consumers (+ erasableSyntaxOnly, noUnused*)
+└── src/                           # imported as @shared/* — never imports react-native, expo-*, or app code
+    ├── core/
+    │   ├── types/{index,db}.ts    # domain models (camelCase) / DB rows (snake_case — never leave a repository)
+    │   ├── constants/index.ts
+    │   ├── utils/                 # BaseRepository, currency, date, ids, receiptId, searchTerm, billingMonth, …
+    │   ├── runtime/               # configureShared() + runtime(), Repositories, createSupabaseRepositories(),
+    │   │                          #   runtimeStorage, webCryptoIds, reportException
+    │   ├── i18n/                  # the i18next instance + resources + locales/{en,ar}.json (each app inits it)
+    │   ├── audit/                 # buildAuditRow, describe — the actor comes from runtime().actor()
+    │   └── errors/offlineErrors.ts  # RequiresConnectionError & co. (i18n only)
+    │
+    ├── state/                     # Global store: CROSS-MODULE state only (slice pattern, immer)
+    │   ├── globalStore.ts         # GlobalState + getStore() singleton (stashed on globalThis)
+    │   ├── refreshActiveData.ts   # post-sync re-fetch — lists every loaded slice AND module store
+    │   ├── hooks/use<Feature>Slice.ts  # one overloaded hook per slice + useGlobalStore
+    │   └── slices/                # auth, billing, branches, currencies, customers, customer-plans,
+    │                              #   ledger, options, payments, plans, products, sales, services,
+    │                              #   tenantSettings, users, whatsapp
+    │
+    ├── modules/<group>/<module>/
+    │   ├── repository/            # I<X>Repository.ts (the interface) + <X>Repository.ts (Supabase class only)
+    │   ├── services/              # pure TS classes; reach a repository only through repositories().x
+    │   ├── utils/                 # pure rules + mappers (Db* → domain)
+    │   ├── state/                 # MODULE STORES (dashboard, reports, ledger/collectionsList, expenses,
+    │   │                          #   wallet, audit, signup, debts, whatsapp) — out of GlobalState
+    │   └── hooks/                 # React-only hooks (no RN): useAuth, useActiveBranches, useOwedChanged, …
+    │
+    │   Key files:
+    │     customer/customer-payments/utils/monthStatus.ts   # buildMonthGrid / buildCustomerStatus — the ONLY month rules
+    │     customer/customer-payments/utils/monthDueRules.ts # isNotDueYet / isNotLateYet (#83)
+    │     customer/customer-payments/services/PaymentService.ts  # pay / void / unskip ORDER gates only
+    │     ledger/utils/waterfall.ts                         # PURE oldest-first allocation
+    │     ledger/utils/openItems.ts                         # isDebtItem + the OpenItem builders
+    │     ledger/utils/mergeOwed.ts                         # stored bills + virtual unpaid months
+    │     wallet/utils/custody.ts                           # the custody chain rules
+    │
+    └── shared/
+        ├── lib/                   # uiPrefStore, confirmStore + confirm, uiStore, storeReset, session,
+        │                          #   dataEpoch, branchFilter, csv (toCsv), actionOrder, monthSections
+        └── hooks/                 # useDebounce, useDirtyForm, useHoldRepeat, useUserNames,
+                                   #   useEffectiveBranchFilter, loadAllPages, exportRowFormat
 ```
 
 ---
@@ -28,267 +87,48 @@ App/
 ```
 SubsTrack/
 ├── app/                           # Expo Router navigation
-│   ├── _layout.tsx                # Root layout (font loading, GestureHandler, KeyboardProvider)
+│   ├── _layout.tsx                # Root layout — calls configurePhone() first; fonts, GestureHandler, KeyboardProvider
 │   ├── index.tsx                  # Entry: redirects to login or home
-│   ├── (auth)/
-│   │   ├── _layout.tsx
-│   │   ├── login.tsx                 # Login route (also exposes "Create a new organization" CTA)
-│   │   ├── signup-organization.tsx   # Step 1 of self-service signup (organization name + code)
-│   │   └── signup-account.tsx        # Step 2 (owner account); creates tenant + auto-logs in
+│   ├── (auth)/                    # login, signup-organization, signup-account
 │   └── (app)/
-│       ├── _layout.tsx            # Auth guard (checks authStore, tenantActive)
-│       └── (tabs)/
-│           ├── _layout.tsx        # Bottom tab bar (role-aware)
-│           ├── home/
-│           │   └── index.tsx      # Home tab (admin only) — renders DashboardScreen
-│           ├── admin/
-│           │   ├── plans.tsx          # Plans list route
-│           │   ├── products.tsx       # Products catalog route (admin-only)
-│           │   ├── services.tsx       # Service price list route
-│           │   ├── users.tsx          # Users list route
-│           │   └── index.tsx          # Admin menu (manage section)
-│           ├── customers/
-│           │   ├── index.tsx      # Customer list
-│           │   └── [id]/
-│           │       ├── index.tsx  # Customer detail + payment grid + sales panel
-│           │       └── sales.tsx  # All sales for one customer (full paginated list)
-│           ├── transactions/
-│           │   └── index.tsx      # Transactions hub tab — renders TransactionsScreen (Sales / Payments / Services segments)
-│           └── settings/
-│               └── index.tsx      # Language & user info
+│       ├── _layout.tsx            # Auth guard (session, tenantActive)
+│       └── (tabs)/                # home, customers ([id]/index, [id]/sales), transactions, reports,
+│                                  #   admin/*, settings — role-aware tab bar in _layout.tsx
 │
 ├── src/
-│   ├── core/                      # Shared — imported by all layers
-│   │   ├── types/
-│   │   │   ├── index.ts           # Domain models (camelCase)
-│   │   │   └── db.ts              # DB row types (snake_case) — never leave repository
-│   │   ├── constants/index.ts     # PAGE_SIZE=30, MONTHS array, EXPOSED_ROLES
-│   │   ├── utils/
-│   │   │   ├── BaseRepository.ts  # Abstract base class; holds supabase client + handleError()
-│   │   │   └── date.ts            # generic only: toBillingMonth, getCurrentYearMonth, formatDate*
-│   │   │                          #   (month due/late rules → customer-payments/utils/monthDueRules.ts)
-│   │   └── i18n/
-│   │       ├── index.ts           # i18next setup
-│   │       ├── languageStore.ts   # Zustand store for language preference
-│   │       ├── useAppFont.ts      # Font loader hook (Cairo for Arabic, System for English)
-│   │       └── locales/{en,ar}.json
+│   ├── platform/                  # what the phone hands to Shared
+│   │   ├── configurePhone.ts      # configureShared({ supabase, repositories, ids, storage, actor, … })
+│   │   ├── offlineRepositories.ts # createOfflineRepositories() — the *.offline.ts twins
+│   │   └── phoneIds.ts            # expo-crypto adapter for runtime.ids
 │   │
-│   ├── state/                     # Global store: CROSS-MODULE state only (slice pattern, immer)
-│   │   ├── globalStore.ts         # GlobalState + getStore() singleton (stashed on globalThis)
-│   │   ├── refreshActiveData.ts   # post-sync re-fetch — lists every loaded slice AND module store
-│   │   ├── hooks/
-│   │   │   ├── useGlobalStore.ts  # Overloaded wrapper around useStore(getStore(), sel)
-│   │   │   └── use<Feature>Slice.ts × 15  # Per-slice overloaded hooks (e.g. useCustomerSlice)
-│   │   └── slices/                # 15 slices — each read by a peer slice or by 2+ modules
-│   │       ├── auth/authSlice.ts
-│   │       ├── billing/billingSlice.ts               # customer allowance + price + the pending request
-│   │       ├── customers/customerSlice.ts
-│   │       ├── customer-plans/customerPlanSlice.ts
-│   │       ├── payments/paymentSlice.ts            # per-customer month-GRID state only (bills + skips + the gate lists)
-│   │       ├── ledger/ledgerSlice.ts               # the money: debts view, one customer's owed pool, collect / void / write off
-│   │       ├── plans/planSlice.ts
-│   │       ├── users/userSlice.ts
-│   │       ├── branches/branchSlice.ts
-│   │       ├── currencies/currencySlice.ts
-│   │       ├── products/productSlice.ts
-│   │       ├── services/serviceSlice.ts
-│   │       ├── sales/saleSlice.ts
-│   │       ├── tenantSettings/tenantSettingSlice.ts
-│   │       └── options/optionSlice.ts
+│   ├── core/
+│   │   ├── offline/               # the whole offline layer — see docs/offline.md
+│   │   │   ├── db/, sync/, bootstrap/, backup/, net/
+│   │   │   ├── OfflineBaseRepository.ts, dbLock.ts, batch.ts, scope.ts
+│   │   │   └── platform.ts        # IS_OFFLINE_CAPABLE
+│   │   ├── errorLog/              # SQLite error logger (passed as runtime.logException) + global handler
+│   │   ├── i18n/                  # setup.ts (initI18n, RTL, device language, reload), languageStore, useAppFont
+│   │   └── utils/portalPassword.ts
 │   │
-│   │   # MODULE STORES — standalone create()(immer()) stores, out of GlobalState.
-│   │   # Each is read by exactly one module and by no slice; both cross-cutting
-│   │   # lists (storeReset + refreshActiveData) name them explicitly.
-│   │   #   modules/dashboard/state/dashboardStore.ts
-│   │   #   modules/reports/state/reportsStore.ts             # period + section filter session
-│   │   #   modules/ledger/state/collectionsListStore.ts      # the paginated money-in history
-│   │   #   modules/transaction/expenses/state/expenseStore.ts
-│   │   #   modules/wallet/state/walletStore.ts
-│   │   #   modules/admin/audit/state/auditStore.ts           # the screen's filter session
-│   │   #   modules/authentication/signup/state/signupStore.ts
-│   │   # App-wide seams with NO owning module stay standalone under shared/lib:
-│   │   #   shared/lib/confirmStore.ts  shared/lib/uiStore.ts
-│   │
-│   ├── modules/                   # Feature modules (state moved out — see src/state/)
-│   │   ├── auth/
-│   │   │   ├── repository/AuthRepository.ts    # signIn, getSession, getUserProfile, getTenant, signOut
-│   │   │   ├── services/AuthService.ts         # login(), restoreSession(), logout()
-│   │   │   ├── screens/LoginScreen.tsx         # also routes into the signup flow
-│   │   │   ├── screens/TenantInactiveScreen.tsx
-│   │   │   └── hooks/useAuth.ts
-│   │   │
-│   │   ├── signup/                             # public self-service tenant creation
-│   │   │   ├── repository/SignupRepository.ts  # calls is_tenant_code_available RPC + create-tenant edge fn
-│   │   │   ├── services/SignupService.ts       # organization + account validation (no Supabase)
-│   │   │   ├── components/StepIndicator.tsx    # fillable dot progress (1/2, 2/2)
-│   │   │   └── screens/{SignupOrganizationScreen, SignupAccountScreen}.tsx
-│   │   │
-│   │   │
-│   │   ├── currencies/
-│   │   │   ├── repository/CurrencyRepository.ts  # CRUD + countReferences (joins plans + payments)
-│   │   │   ├── services/CurrencyService.ts       # validation; deleteCurrency() hard- or soft-deletes
-│   │   │   └── components/{CurrencyCard, UsdBaseCard, CurrencyFormSheet}.tsx
-│   │   │
-│   │   ├── branches/
-│   │   │   ├── repository/BranchRepository.ts    # CRUD + countReferences (joins users + customers + plans)
-│   │   │   ├── services/BranchService.ts         # validation; deleteBranch() hard- or soft-deletes
-│   │   │   ├── hooks/{useActiveBranches, useIsMultiBranchActive}.ts
-│   │   │   └── components/{BranchCard, BranchFormSheet}.tsx
-│   │   │
-│   │   ├── billing/                            # what the tenant pays the SaaS owner
-│   │   │   ├── repository/CustomerRequestRepository.ts  # findLatest/create/updateCount/cancel — online-only
-│   │   │   ├── services/BillingService.ts     # monthlyAmountUsd, assertQuotas, validateRequest
-│   │   │   └── components/{CustomerAllowanceSection, UpdateAllowanceSheet, AllowanceField, UsageBar, QuotaReachedModal}.tsx
-│   │   ├── tenant-settings/
-│   │   │   └── screens/TenantSettingsScreen.tsx  # admin-only: display currency + branches CRUD + currencies CRUD
-│   │   │
-│   │   ├── customers/
-│   │   │   ├── repository/CustomerRepository.ts   # joins customer_plans(*, plans(*)); no plan_id
-│   │   │   ├── services/CustomerService.ts        # createCustomer also creates the initial service line
-│   │   │   ├── screens/CustomerListScreen.tsx
-│   │   │   ├── screens/CustomerDetailScreen.tsx
-│   │   │   └── components/{CustomerCard, CustomerDetailsCard, CustomerFormSheet}.tsx
-│   │   │
-│   │   ├── customer-plans/                        # service lines (multiple plans per customer)
-│   │   │   ├── repository/CustomerPlanRepository.ts
-│   │   │   ├── services/CustomerPlanService.ts    # createLine/updateLine/deleteLine + syncLines
-│   │   │   └── utils/mapper.ts                     # managed inline from CustomerFormSheet's Plans section
-│   │   │
-│   │   ├── customer-payments/                    # the MONTH GRID only — money lives in modules/ledger
-│   │   │   ├── repository/SkippedMonthRepository.ts  # the one table this module still owns (+ .offline sibling)
-│   │   │   ├── services/PaymentService.ts        # ← buildMonthGrid() lives here ONLY. No CRUD: it takes MonthBill[] in
-│   │   │   ├── services/SkippedMonthService.ts
-│   │   │   ├── utils/monthDueRules.ts            # is a month started / owed / late (isNotDueYet, isNotLateYet) — #83
-│   │   │   ├── utils/{payOrder, monthSelection, blockRangeLabel, paymentEntry, mapper, types}.ts
-│   │   │   └── components/{MonthGrid, MonthCell, YearNavigator, SkipMonthSheet,
-│   │   │                    CustomerPaymentPanel}.tsx
-│   │   │
-│   │   ├── plans/
-│   │   │   ├── repository/PlanRepository.ts
-│   │   │   ├── services/PlanService.ts
-│   │   │   ├── screens/PlanListScreen.tsx
-│   │   │   └── components/{PlanCard, PlanFormSheet}.tsx
-│   │   │
-│   │   ├── users/
-│   │   │   ├── repository/UserRepository.ts    # create calls edge function create-user
-│   │   │   ├── services/UserService.ts
-│   │   │   ├── screens/UserListScreen.tsx
-│   │   │   └── components/{UserCard, UserFormSheet}.tsx
-│   │   │
-│   │   ├── dashboard/
-│   │   │   ├── services/DashboardService.ts    # Promise.all() for metrics including monthly sales sum (USD)
-│   │   │   ├── screens/DashboardScreen.tsx     # Revenue card now combines subscriptions + sales with sub-breakdown
-│   │   │
-│   │   ├── reports/                             # Reports tab (admin-only) — app/(app)/(tabs)/reports/
-│   │   │   ├── services/ReportsService.ts      # composes existing services/repos; one query per stream per window
-│   │   │   ├── screens/ReportsScreen.tsx       # chrome: PeriodPicker + SegmentedTabs + CSV export
-│   │   │   ├── screens/sections/{MoneyReport, DebtsReport}.tsx   # phase 1 (Customers + Staff/Products = phase 2)
-│   │   │   ├── hooks/useReportExport.ts        # section → CSV → share sheet
-│   │   │   ├── components/{ReportSection, ReportCard, KpiRow, ComparisonPill, BreakdownList, RankedList, CurrencySplit, RecordsSheet}.tsx
-│   │   │   └── utils/{types, aggregate, csvRows, reportColors}.ts  # pure aggregation over CashRow[] / ExpenseItem[] (no charts — see features.md)
-│   │   │
-│   │   ├── products/                            # One-off sellable items catalog
-│   │   │   ├── repository/ProductRepository.ts # CRUD + countAll + countReferences (sales)
-│   │   │   ├── services/ProductService.ts      # validate, createProduct, deleteProduct (soft if referenced)
-│   │   │   ├── screens/ProductListScreen.tsx   # admin-only at app/(app)/(tabs)/admin/products.tsx
-│   │   │   └── components/{ProductCard, ProductFormSheet}.tsx
-│   │   │
-│   │   ├── service-catalog/                     # The LABOUR price list — products' twin, no stock and no cost
-│   │   │   ├── repository/ServiceRepository.ts # CRUD + countAll + countReferences (sale_items.service_id) (+ .offline)
-│   │   │   ├── services/ServiceCatalogService.ts # validate, create/update, deleteService (soft if referenced)
-│   │   │   ├── screens/ServiceListScreen.tsx   # at app/(app)/(tabs)/admin/services.tsx
-│   │   │   └── components/{ServiceCard, ServiceFormSheet}.tsx  # ServiceFormSheet is also opened inline from a sale line
-│   │   │
-│   │   ├── transactions/                        # Transactions hub — parent of the Debts/Sales/Expenses segments
-│   │   │   └── screens/TransactionsScreen.tsx  # owns chrome + SegmentedTabs (Expenses admin-only). No Services segment: a service is a sale LINE
-│   │   │
-│   │   ├── sales/                               # One-off sale ledger (separate from subscription payments)
-│   │   │   ├── repository/SaleRepository.ts    # paginated findAll w/ search, findByCustomer, voidSale, totalsForMonth (drift-free USD)
-│   │   │   ├── services/SaleService.ts         # createSale snapshots the line name + unitAmount + ratePerUsd; voidSale; sumForMonthUsd
-│   │   │   ├── utils/saleLines.ts               # PURE: lineName / productLines / savedProductLines / toItemPayload — the ONE narrowing from "a line" to "a line that moves stock"
-│   │   │   ├── hooks/useCustomerSalesList.ts    # paginated customer-scoped sales-list state, independent of saleSlice (avoids Sales-tab collision)
-│   │   │   ├── screens/SalesPanel.tsx               # Sales segment of the Transactions hub (body only — no page chrome)
-│   │   │   ├── screens/CustomerSalesListScreen.tsx  # full per-customer sales list at customers/[id]/sales
-│   │   │   └── components/{SaleCard, SaleFormSheet, SaleItemsEditor, SaleDetailSheet, CustomerSalesPanel}.tsx  # SaleItemsEditor: one row = Product | Service (catalog or one-off)
-│   │   │
-│   │   ├── invoicing/                           # WhatsApp receipt/invoice — a wa.me deep link, no native module
-│   │   │   ├── utils/invoiceText.ts             # PURE builders (t arrives in InvoiceContext); owns the whole message format
-│   │   │   ├── hooks/useSendInvoice.ts          # gathers ctx from the stores → openWhatsApp; { canSend, sendCollectionInvoice, sendSaleInvoice }
-│   │   │   └── components/SendOnWhatsAppButton.tsx  # the app's single green button (+ disabled caption); also used by ContactToUpgradeButton
-│   │   │
-│   │   ├── ledger/                              # THE MONEY MODEL: charges (owed) + collections (received)
-│   │   │   ├── repository/{IChargeRepository, ChargeRepository, ChargeRepository.offline}.ts
-│   │   │   ├── repository/{ICollectionRepository, CollectionRepository, CollectionRepository.offline}.ts
-│   │   │   ├── services/ChargeService.ts        # bills: raise / correct / void / write off / open items / debts view
-│   │   │   ├── services/CollectionService.ts    # money: collect / void / history / wallet passthroughs
-│   │   │   ├── services/LedgerService.ts        # "what does this customer owe?" — stored bills + virtual unpaid months
-│   │   │   ├── utils/waterfall.ts               # PURE oldest-first allocation (no I/O, no clock)
-│   │   │   ├── utils/openItems.ts               # THE debt rule (isDebtItem) + the OpenItem builders
-│   │   │   ├── utils/collectionKind.ts          # what the cash PAID FOR ('mixed' when it disagrees) - frozen at collect, derived for old rows
-│   │   │   ├── utils/collectionLabel.ts         # the bills a hand-over paid, in words ("Jan 2026 · Internet, Sale #12 +1")
-│   │   │   ├── utils/kindStyle.ts               # one icon + colour per kind; the row's kind is its ICON, not a badge
-│   │   │   ├── utils/{monthTotals, mapper}.ts
-│   │   │   ├── hooks/useCollectSheet.tsx        # the one way a list opens the collect sheet
-│   │   │   ├── screens/CollectionsPanel.tsx     # the money-in history (one list, was payments + debt payments)
-│   │   │   └── components/{CollectSheet, BillSheet, BillPaymentsList, CollectionCard,
-│   │   │                    CollectionDetailSheet, CollectionItemCard, CollectionsHistorySheet,
-│   │   │                    CollectQuickActionSheet, VoidCollectionDialog, CollectionsVoidDialog,
-│   │   │                    AmountCollectedSection}.tsx
-│   │   │
-│   │   ├── debts/                               # The DEBTS SCREENS. The money model itself is modules/ledger
-│   │   │   ├── hooks/useDebtRowActions.ts       # the two corrections a bill takes: void a mistake / write off a loss
-│   │   │   ├── screens/DebtsPanel.tsx           # Debts segment of the hub: one row per customer who owes, worst-behind first
-│   │   │   └── components/{DebtItemCard, DebtList, DebtorCard, DebtorDetailSheet,
-│   │   │                    CustomerDebtsPanel, CustomDebtFormSheet}.tsx   # DebtList = shared body (debtor sheet + customer detail)
-│   │   │
-│   │   ├── expenses/                            # Money OUT — admin-only (Transactions → Expenses)
-│   │   │   ├── repository/ExpenseRepository.ts # the STORED expenses table only (+ .offline sibling); branch scope 'owned'
-│   │   │   ├── services/ExpenseService.ts       # composes stored rows + DERIVED stock costs (stock_movements.unit_cost) → ExpenseItem[] + USD summary
-│   │   │   ├── utils/expenseCategories.ts       # the one code list → i18n key + Ionicons glyph (dropdown, card, future report)
-│   │   │   ├── screens/ExpensesPanel.tsx        # Expenses segment of the hub: date window (this month), category/search chips, month sections
-│   │   │   └── components/{ExpenseCard, ExpenseFormSheet}.tsx
-│   │   │
-│   │   ├── options/                             # Read-only global app config (key/value)
-│   │   │   ├── repository/OptionRepository.ts  # findAll + findByKey (authenticated SELECT only)
-│   │   │   └── services/OptionService.ts        # getOptions, getOptionValue, OPTION_KEYS
-│   │   │
-│   │   └── settings/
-│   │       └── screens/SettingsScreen.tsx
+│   ├── modules/<group>/<module>/  # UI ONLY — same paths as Shared/src/modules
+│   │   ├── index.ts               # barrel: screens, components, UI hooks — never logic
+│   │   ├── screens/, components/  # e.g. customers/screens/CustomerListScreen.tsx
+│   │   ├── hooks/                 # hooks that need RN / expo-router / components (useCollectSheet, …)
+│   │   ├── repository/*.offline.ts  # the SQLite twin of the Shared Supabase class
+│   │   └── utils/                 # presentation only: ledger/kindStyle, ledger/paymentMenu,
+│   │                              #   debts/kindIcon, reports/reportColors, expenses/expenseCategoryIcon
 │   │
 │   └── shared/
-│       ├── components/
-│       │   ├── Button.tsx, Input.tsx, Text.tsx  # Custom primitives
-│       │   ├── CurrencyInput.tsx  # Numeric input + embedded currency dropdown (USD + tenant currencies)
-│       │   ├── BranchSelector.tsx # Header chip for tenant-wide admins; self-conceals otherwise
-│       │   ├── AppBottomSheet.tsx # @gorhom/bottom-sheet core — declarative visible/onDismiss bridge (variant "auto"|"full")
-│       │   ├── BottomSheetScaffold.tsx # Auto-height popup shell (dropdowns/pickers/menus) on AppBottomSheet
-│       │   ├── FormSheet.tsx      # Full-height form/detail sheet shell on AppBottomSheet (replaced the deleted SheetModal)
-│       │   ├── InfoRows.tsx      # A record's label→value block for the detail sheets; empty values drop out
-│       │   ├── ErrorBanner.tsx    # Inline error display (never toast/alert)
-│       │   ├── Dropdown.tsx, DatePickerInput.tsx
-│       │   ├── AsyncEntityPicker.tsx # Searchable + paginated picker for large entity lists (used for customer picker in SaleFormSheet)
-│       │   ├── SearchTextBox.tsx, EmptyState.tsx
-│       │   ├── PageHeader.tsx, LoadingScreen.tsx
-│       │   ├── SelectionBar.tsx      # Page-level selection row (X · "N selected" · icon actions + optional select-all); hosted by PageHeader or inline
-│       │   ├── InlineSelectionToolbar.tsx # Compact in-panel twin of SelectionBar (month grid year header, customer detail sales section)
-│       │   ├── ResponsiveContainer.tsx  # Caps + centers body width on wide web/desktop; no-op on phones
-│       │   ├── SegmentedTabs.tsx    # iOS-style pill segmented control (primary in-page tabs, e.g. the Transactions hub)
-│       │   ├── PillTabs.tsx         # Dark-pill toggle row (secondary tabs/filters: customer-list filters, Debts sub-tabs)
-│       │   ├── ConfirmDialog.tsx, ErrorBoundary.tsx
-│       │   └── DirectionalIcon.tsx  # RTL-aware icon wrapper
-│       ├── hooks/useDebounce.ts
+│       ├── components/            # Button, Input, AppTextInput, CurrencyInput, AppBottomSheet, FormSheet,
+│       │                          #   PageHeader, ErrorBanner, ConfirmDialog, SelectionBar, … (see ui-patterns.md)
+│       ├── hooks/                 # RN hooks: useTextField, useUnsavedChangesGuard, useSelection,
+│       │                          #   useExportRows, useSyncStatus, useSwipeableTabs, useAppUpdate, …
 │       ├── constants/colors.ts    # Design tokens
-│       └── lib/
-│           ├── supabase.ts        # Supabase singleton (reads EXPO_PUBLIC_ env vars)
-│           ├── storage.ts         # AsyncStorage adapter for Supabase + RTL reload guard
-│           ├── uiPrefStore.ts     # Persisted UI prefs (last-used currency, currentBranchId) — display currency is a tenant setting, not here
-│           └── branchFilter.ts    # resolveBranchFilter(user) / useEffectiveBranchFilter() / applyBranchFilter(query) / ownedRowMatchesFilter(branchId, filter)
+│       └── lib/                   # supabase.ts (client), storage.ts, exportCsv, shareFile, clipboard, maps, whatsapp
 │
 └── supabase/
     └── functions/                 # Edge functions — see docs/edge-functions.md
-        ├── create-user/index.ts
-        ├── update-user-password/index.ts
-        └── create-tenant/index.ts
+        └── _shared/               # whatsapp/{rules,sijilTemplates}.ts reach Shared as @edge/* (zero-import files only)
 ```
 
 ---

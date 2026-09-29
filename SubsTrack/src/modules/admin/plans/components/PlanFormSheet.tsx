@@ -10,12 +10,12 @@ import { Input } from "@/src/shared/components/Input";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import type { Plan } from "@shared/core/types";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { getStore } from "@shared/state/globalStore";
 import { COLORS } from "@/src/shared/constants";
-import { useActiveBranches } from "@/src/modules/admin/branches";
+import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 
 interface Props {

@@ -1,5 +1,5 @@
 import { Redirect } from "expo-router";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { WhatsAppHistoryScreen } from "@/src/modules/whatsapp/screens/WhatsAppHistoryScreen";
 
 export default function WhatsAppHistoryRoute() {

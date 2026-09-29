@@ -12,7 +12,7 @@ import type { Customer } from "@shared/core/types";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { buildPortalLink } from "@shared/core/utils/portalLink";
 import { isolate } from "@shared/core/utils/bidi";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useBranchSlice } from "@shared/state/hooks/useBranchSlice";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 import { useCustomerPortalUrl } from "@shared/state/hooks/useOptionSlice";

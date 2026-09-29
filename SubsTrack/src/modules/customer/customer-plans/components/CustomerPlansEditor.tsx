@@ -6,10 +6,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer } from "@shared/core/types";
-import type {
-  LineDraft,
-  RemovedLine,
-} from "@/src/modules/customer/customer-plans";
+import type { LineDraft, RemovedLine } from "@shared/modules/customer/customer-plans/services/CustomerPlanService";
 import { PlanLineCard, type PlanRow } from "./PlanLineCard";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { getTodayDateString } from "@shared/core/utils/date";

@@ -5,7 +5,7 @@ import { useRouter, type Href } from "expo-router";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import type { QuotaErrorPayload } from "@shared/modules/admin/billing/utils/types";
 
 interface Props {

@@ -6,7 +6,7 @@ The admin-only "Tenant Settings" hub is reachable from the Admin tab. It collect
 
 - Screen: [TenantSettingsScreen.tsx](SubsTrack/src/modules/admin/tenant-settings/screens/TenantSettingsScreen.tsx)
 - Display currency section: [DisplayCurrencySection.tsx](SubsTrack/src/modules/admin/tenant-settings/components/DisplayCurrencySection.tsx)
-- Setting read hook: [useTenantSettingSlice.ts](SubsTrack/src/state/hooks/useTenantSettingSlice.ts) (`useDisplayCurrencyId`)
+- Setting read hook: [useTenantSettingSlice.ts](Shared/src/state/hooks/useTenantSettingSlice.ts) (`useDisplayCurrencyId`)
 - Tenant Settings tab route: `app/(app)/(tabs)/admin/tenant-settings.tsx`
 - Currencies tab route: `app/(app)/(tabs)/admin/currencies.tsx` (deep dive: [currencies.md](currencies.md))
 - Branches tab route: `app/(app)/(tabs)/admin/branches.tsx` (deep dive: [branches.md](branches.md))
@@ -57,7 +57,7 @@ Tenant-wide setting stored in the `tenant_settings` table (key `UnpaidStartRule`
 - **When the CURRENT month turns red.** `month_start` (default) — from day 1. `customer_start_day` — the current month stays grey **"Not due yet"** until that line's own start day-of-month arrives.
 - **When the customer starts reading "Overdue".** Under `customer_start_day`, an unpaid **last month** is red on the grid and counts as owed (card shows the red "Unpaid" pill) but is **not late** until this month's start day arrives; on that day the card becomes "Overdue". **Anything older than last month is late immediately.** Past cells are never held back — only the badge waits.
 
-**Reference code:** [UnpaidRuleSection.tsx](SubsTrack/src/modules/admin/tenant-settings/components/UnpaidRuleSection.tsx) · [TenantSettingService.ts](SubsTrack/src/modules/admin/tenant-settings/services/TenantSettingService.ts) · rule helpers `isNotDueYet` / `isNotLateYet` in [monthDueRules.ts](SubsTrack/src/modules/customer/customer-payments/utils/monthDueRules.ts) · grid in [PaymentService.ts](SubsTrack/src/modules/customer/customer-payments/services/PaymentService.ts)
+**Reference code:** [UnpaidRuleSection.tsx](SubsTrack/src/modules/admin/tenant-settings/components/UnpaidRuleSection.tsx) · [TenantSettingService.ts](Shared/src/modules/admin/tenant-settings/services/TenantSettingService.ts) · rule helpers `isNotDueYet` / `isNotLateYet` in [monthDueRules.ts](Shared/src/modules/customer/customer-payments/utils/monthDueRules.ts) · grid in [PaymentService.ts](Shared/src/modules/customer/customer-payments/services/PaymentService.ts)
 
 | #      | Scenario                                     | Steps                                                                                                                                     | Expected result                                                                                                                                                                                             |
 | ------ | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

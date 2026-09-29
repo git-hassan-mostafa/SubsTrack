@@ -12,14 +12,14 @@ import {
   CustomerPlansEditor,
   type CustomerPlansEditorHandle,
 } from "@/src/modules/customer/customer-plans";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { useUiPrefStore } from "@shared/shared/lib/uiPrefStore";
 import { BRANCH_FILTER_UNASSIGNED } from "@shared/core/constants";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 import { useCustomerPlanSlice } from "@shared/state/hooks/useCustomerPlanSlice";
 import { getStore } from "@shared/state/globalStore";
-import { useActiveBranches } from "@/src/modules/admin/branches";
+import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { QuotaReachedModal } from "@/src/modules/admin/billing";
 import { useBillingSlice } from "@shared/state/hooks/useBillingSlice";
 import { LocationField } from "@/src/shared/components/LocationField";

@@ -18,7 +18,7 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import type { AppUser } from "@shared/core/types";
-import { useAuth } from "@/src/modules/authentication/auth";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { UserCard } from "../components/UserCard";
 import { canEditUser, canManageUser } from "@shared/modules/admin/users/utils/userPermissions";
