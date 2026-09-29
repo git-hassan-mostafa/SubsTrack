@@ -24,15 +24,8 @@ import { currentMonthDays } from "@shared/core/utils/dateRange";
 import { showsOlderThanThisMonth } from "@shared/modules/admin/audit/utils/exportWindow";
 import { HistoryList } from "../components/HistoryList";
 import { AUDITED_TABLES } from "@shared/modules/admin/audit/utils/constants";
+import { AUDIT_ACTIONS } from "@shared/modules/admin/audit/utils/filter";
 import { actionLabel, tableLabel } from "@shared/modules/admin/audit/utils/format";
-
-const ACTIONS: AuditAction[] = [
-  "create",
-  "update",
-  "delete",
-  "void",
-  "restore",
-];
 
 /**
  * Admin screen: every change staff made — who, when, and what moved. Reads the
@@ -115,7 +108,7 @@ export function AuditLogScreen() {
     [t],
   );
   const actionOptions: DropdownOption<string>[] = useMemo(
-    () => ACTIONS.map((a) => ({ label: actionLabel(t, a), value: a })),
+    () => AUDIT_ACTIONS.map((a) => ({ label: actionLabel(t, a), value: a })),
     [t],
   );
   const actorOptions: DropdownOption<string>[] = useMemo(

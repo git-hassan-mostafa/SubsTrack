@@ -1,5 +1,6 @@
 import type {
   AuditFilter,
+  AuditPageQuery,
   AuditRecordTarget,
   AuditSource,
 } from "@shared/core/types";
@@ -16,6 +17,11 @@ export interface AuditPage extends AuditRows {
   hasMore: boolean;
 }
 
+// A numbered page for a table: the rows plus how many match in all.
+export interface AuditRowPage extends AuditRows {
+  total: number;
+}
+
 /**
  * The audit-trail READ contract. Writes are not here: entries are appended by
  * each repository next to the change it made (BaseRepository.audit /
@@ -30,6 +36,7 @@ export interface AuditPage extends AuditRows {
  */
 export interface IAuditRepository {
   findRecent(filter: AuditFilter, page: number): Promise<AuditPage>;
+  findPage(query: AuditPageQuery): Promise<AuditRowPage>;
   findForRecord(table: string, recordId: string): Promise<AuditRows>;
   findForRecords(targets: AuditRecordTarget[]): Promise<AuditRows>;
   findForCustomer(customerId: string, tables: string[]): Promise<AuditRows>;

@@ -1,10 +1,15 @@
-import type { AuditFilter, AuditRecordTarget } from "@shared/core/types";
+import type {
+  AuditFilter,
+  AuditPageQuery,
+  AuditRecordTarget,
+} from "@shared/core/types";
 import type { DbAuditLog } from "@shared/core/types/db";
 import { OFFLINE_PAGE_SIZE } from "@shared/core/constants";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { isOnline } from "@/src/core/offline/net/connectivity";
 import type {
   AuditPage,
+  AuditRowPage,
   AuditRows,
   IAuditRepository,
 } from "@shared/modules/admin/audit/repository/IAuditRepository";
@@ -73,10 +78,11 @@ export class OfflineAuditRepository
     where: string,
     params: unknown[],
     limit = "",
+    limitParams: unknown[] = [],
   ): Promise<DbAuditLog[]> {
     const rows = await this.all(
-      `SELECT * FROM audit_logs ${where} ORDER BY occurred_at DESC ${limit}`,
-      params,
+      `SELECT * FROM audit_logs ${where} ORDER BY occurred_at DESC, id DESC ${limit}`,
+      [...params, ...limitParams],
     );
     return this.decodeAll<DbAuditLog>("audit_logs", rows);
   }
@@ -110,6 +116,34 @@ export class OfflineAuditRepository
       source: "local",
       hasMore: rows.length === OFFLINE_PAGE_SIZE,
     };
+  }
+
+  // Un-pushed rows ride on top of the first page, like findRecent.
+  async findPage(query: AuditPageQuery): Promise<AuditRowPage> {
+    if (await isOnline()) {
+      try {
+        const server = await this.online.findPage(query);
+        if (query.offset > 0) return server;
+        const seen = new Set(server.rows.map((r) => r.id));
+        const unpushed = (await this.pending(query)).filter(
+          (r) => !seen.has(r.id),
+        );
+        return {
+          ...server,
+          rows: OfflineAuditRepository.merge(server.rows, unpushed),
+          total: server.total + unpushed.length,
+        };
+      } catch {}
+    }
+    const { sql, params } = this.where(query);
+    const [rows, total] = await Promise.all([
+      this.localRows(sql, params, "LIMIT ? OFFSET ?", [
+        query.limit,
+        query.offset,
+      ]),
+      this.count(`SELECT COUNT(*) AS n FROM audit_logs ${sql}`, params),
+    ]);
+    return { rows, total, source: "local" };
   }
 
   private async timeline(

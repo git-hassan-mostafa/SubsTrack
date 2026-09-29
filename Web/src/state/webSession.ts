@@ -1,4 +1,5 @@
 import { endSession } from "@shared/shared/lib/session";
+import { useAuditTable } from "./auditTable";
 import { useBranchesTable } from "./branchesTable";
 import { useCurrenciesTable } from "./currenciesTable";
 import { usePlansTable } from "./plansTable";
@@ -13,6 +14,7 @@ const WEB_STORE_RESETS: readonly (() => void)[] = [
   () => usePlansTable.getState().reset(),
   () => useProductsTable.getState().reset(),
   () => useUsersTable.getState().reset(),
+  () => useAuditTable.getState().reset(),
 ];
 
 // The ONE web session end: Shared's reset, then every Web/src/state store.

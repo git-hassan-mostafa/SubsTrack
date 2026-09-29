@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { FormSheet } from "@/src/shared/components/FormSheet";
@@ -6,21 +5,14 @@ import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
-import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
-import { confirm } from "@shared/shared/lib/confirm";
-import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useBillingSlice } from "@shared/state/hooks/useBillingSlice";
 import { useSupportWhatsAppNumber } from "@shared/state/hooks/useOptionSlice";
+import { useAllowanceForm } from "@shared/modules/admin/billing/hooks/useAllowanceForm";
 import { openWhatsApp } from "@/src/shared/lib/whatsapp";
-import billingService from "@shared/modules/admin/billing/services/BillingService";
 import {
   MIN_CUSTOMER_ALLOWANCE,
   MIN_CUSTOMER_REQUEST,
-  QUOTA_KINDS,
-  type QuotaKind,
-  type QuotaPair,
 } from "@shared/modules/admin/billing/utils/types";
-import { askText, requestedPair } from "@shared/modules/admin/billing/utils/requestAsk";
 import { AllowanceField } from "./AllowanceField";
 
 interface Props {
@@ -28,115 +20,25 @@ interface Props {
   onDismiss: () => void;
 }
 
-const NO_CHANGE: QuotaPair = { customers: 0, plans: 0 };
-
 export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
   const { t } = useTranslation();
-  const { user } = useAuth();
-  const request = useBillingSlice((s) => s.request);
-  const editRequest = useBillingSlice((s) => s.editRequest);
-  const limits = useBillingSlice((s) => s.limits);
-  const active = useBillingSlice((s) => s.active);
-  const price = useBillingSlice((s) => s.pricePerPlanUsd);
   const saving = useBillingSlice((s) => s.saving);
   const error = useBillingSlice((s) => s.error);
   const clearError = useBillingSlice((s) => s.clearError);
-  const lowerAllowances = useBillingSlice((s) => s.lowerAllowances);
-  const requestMore = useBillingSlice((s) => s.requestMore);
   const supportNumber = useSupportWhatsAppNumber();
-
-  // Editing a pending request re-opens on the numbers already asked for; the
-  // limits themselves have not moved, so that path can only ever be a raise.
-  const pendingAsk = request && editing ? requestedPair(request) : NO_CHANGE;
-  const [total, setTotal] = useState<QuotaPair>({
-    customers: limits.customers + pendingAsk.customers,
-    plans: limits.plans + pendingAsk.plans,
-  });
-  const dirty = useDirtyForm({ ...total });
-
-  const deltas: QuotaPair = {
-    customers: total.customers - limits.customers,
-    plans: total.plans - limits.plans,
-  };
-  const raising = QUOTA_KINDS.some((kind) => deltas[kind] > 0);
-  const lowering = !editing && QUOTA_KINDS.some((kind) => deltas[kind] < 0);
-  const mixed = raising && lowering;
-  const totalDelta = deltas.customers + deltas.plans;
-  const tooSmallRaise =
-    (editing || raising) && totalDelta < MIN_CUSTOMER_REQUEST;
-  const belowMinimum = !editing && total.customers < MIN_CUSTOMER_ALLOWANCE;
-  const overCap = QUOTA_KINDS.filter(
-    (kind) => !editing && total[kind] < active[kind],
-  );
-  const valid =
-    (editing || raising || lowering) &&
-    !mixed &&
-    !belowMinimum &&
-    !tooSmallRaise &&
-    overCap.length === 0;
-
-  // Service lines can never be fewer than customers, so raising the customer
-  // box carries the line box up with it rather than showing an error.
-  function setCustomers(next: number) {
-    setTotal((prev) => ({
-      customers: next,
-      plans: Math.max(prev.plans, next),
-    }));
-  }
-
-  function fieldError(kind: QuotaKind): string | null {
-    if (!editing && total[kind] < active[kind])
-      return t(`billing.decrease_floor_error_${kind}`, {
-        count: active[kind],
-        requested: total[kind],
-        excess: active[kind] - total[kind],
-      });
-    if (kind === "customers" && belowMinimum)
-      return t("billing.decrease_min_error", { min: MIN_CUSTOMER_ALLOWANCE });
-    return null;
-  }
-
-  function formError(): string | null {
-    if (mixed) return t("billing.mixed_change_error");
-    if (tooSmallRaise)
-      return t("billing.request_min_error", { min: MIN_CUSTOMER_REQUEST });
-    return null;
-  }
+  const form = useAllowanceForm(editing);
+  const { total, limits, active, draft } = form;
+  const overKind = draft.overCap[0];
 
   async function submitLower() {
-    let lowered = false;
-    await confirm({
-      title: t("billing.decrease_confirm_title"),
-      message: t("billing.decrease_confirm_body", {
-        customers: total.customers,
-        plans: total.plans,
-      }),
-      confirmLabel: t("billing.decrease_save"),
-      onConfirm: async () => {
-        lowered = await lowerAllowances(total);
-      },
-    });
-    if (lowered) onDismiss();
+    if (await form.lower()) onDismiss();
   }
 
   async function submitRaise(alsoWhatsApp: boolean) {
-    if (!user) return;
-    const extra: QuotaPair = {
-      customers: Math.max(0, deltas.customers),
-      plans: Math.max(0, deltas.plans),
-    };
-    const ok = editing
-      ? await editRequest(extra)
-      : await requestMore(user.tenantId, extra, user.id);
-    if (!ok) return;
+    const extra = await form.send();
+    if (!extra) return;
     if (alsoWhatsApp && supportNumber) {
-      void openWhatsApp(
-        supportNumber,
-        t("billing.whatsapp_request_message", {
-          org: user.tenant.name,
-          ask: askText(t, extra),
-        }),
-      );
+      void openWhatsApp(supportNumber, form.requestMessage(extra));
     }
     onDismiss();
   }
@@ -144,7 +46,7 @@ export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
   return (
     <FormSheet
       onDismiss={onDismiss}
-      dirty={dirty}
+      dirty={form.dirty}
       title={editing ? t("billing.edit_request") : t("billing.update_number")}
     >
       {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
@@ -171,9 +73,9 @@ export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
         label={t("billing.allowed_customers")}
         current={limits.customers}
         value={total.customers}
-        floor={editing ? limits.customers : MIN_CUSTOMER_ALLOWANCE}
-        error={fieldError("customers")}
-        onChange={setCustomers}
+        floor={form.floor("customers")}
+        error={form.fieldError("customers")}
+        onChange={form.setCustomers}
         onFocus={clearError}
       />
 
@@ -181,14 +83,14 @@ export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
         label={t("billing.allowed_plans")}
         current={limits.plans}
         value={total.plans}
-        floor={editing ? limits.plans : total.customers}
-        error={fieldError("plans")}
-        onChange={(next) => setTotal((prev) => ({ ...prev, plans: next }))}
+        floor={form.floor("plans")}
+        error={form.fieldError("plans")}
+        onChange={form.setPlans}
         onFocus={clearError}
       />
 
-      {formError() ? (
-        <Text className="mb-3 text-sm text-danger">{formError()}</Text>
+      {form.formError ? (
+        <Text className="mb-3 text-sm text-danger">{form.formError}</Text>
       ) : (
         <Text className="text-xs text-gray-400 mb-3">
           {editing
@@ -200,37 +102,30 @@ export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
         </Text>
       )}
 
-      {overCap.length > 0 ? (
+      {overKind ? (
         <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
           <Text fontWeight="SemiBold" className="text-sm text-amber-900 mb-0.5">
             {t("billing.decrease_deactivate_title")}
           </Text>
           <Text className="text-xs text-amber-800">
-            {t(`billing.decrease_deactivate_body_${overCap[0]}`, {
-              count: active[overCap[0]] - total[overCap[0]],
+            {t(`billing.decrease_deactivate_body_${overKind}`, {
+              count: active[overKind] - total[overKind],
             })}
           </Text>
         </View>
       ) : null}
 
-      {lowering && overCap.length === 0 ? (
+      {draft.lowering && !overKind ? (
         <Text className="text-xs text-gray-500 mb-4">
           {t("billing.decrease_billing_note", {
-            amount: billingService
-              .monthlyAmountUsd(total.plans, price)
-              .toFixed(2),
+            amount: form.loweredAmountUsd.toFixed(2),
           })}
         </Text>
       ) : null}
 
-      {raising && !tooSmallRaise && !mixed ? (
+      {draft.raising && !draft.tooSmallRaise && !draft.mixed ? (
         <Text className="text-xs text-gray-500 mb-4">
-          {t("billing.raise_needs_approval", {
-            ask: askText(t, {
-              customers: Math.max(0, deltas.customers),
-              plans: Math.max(0, deltas.plans),
-            }),
-          })}
+          {t("billing.raise_needs_approval", { ask: form.askText })}
         </Text>
       ) : null}
 
@@ -238,22 +133,22 @@ export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
         label={
           editing
             ? t("billing.save_request")
-            : raising
+            : draft.raising
               ? t("billing.send_request")
               : t("billing.decrease_save")
         }
         onPress={() =>
-          void (editing || raising ? submitRaise(false) : submitLower())
+          void (form.sendsRequest ? submitRaise(false) : submitLower())
         }
         loading={saving}
-        disabled={!valid || saving}
+        disabled={!draft.valid || saving}
         fullWidth
       />
 
-      {(editing || raising) && supportNumber ? (
+      {form.sendsRequest && supportNumber ? (
         <PressableOpacity
           onPress={() => void submitRaise(true)}
-          disabled={!valid || saving}
+          disabled={!draft.valid || saving}
           className="border border-green-200 rounded-xl py-3.5 items-center mt-3"
         >
           <Text fontWeight="SemiBold" className="text-green-700">

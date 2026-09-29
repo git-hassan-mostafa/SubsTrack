@@ -62,5 +62,19 @@
     "role_all": "All roles",
     "role_admins": "Admins",
     "role_staff": "Staff"
+  },
+  "audit": {
+    "change": "Change",
+    "details": "Details",
+    "record_history": "History of this record",
+    "before": "Before: {{value}}",
+    "after": "After: {{value}}",
+    "no_branch": "Whole organization"
+  },
+  "organization": {
+    "limits_title": "Limits and billing",
+    "decrease": "Lower by one",
+    "increase": "Raise by one",
+    "no_change": "Change one of the numbers first."
   }
 }

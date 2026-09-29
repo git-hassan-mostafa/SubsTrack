@@ -8,6 +8,7 @@ import type {
   AuditTable,
 } from "@shared/core/types";
 import auditService from "@shared/modules/admin/audit/services/AuditService";
+import { toAuditFilter } from "@shared/modules/admin/audit/utils/filter";
 import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
 import { getStore } from "@shared/state/globalStore";
 
@@ -52,14 +53,16 @@ function buildFilter(
   state: AuditState,
   branchFilter: ReturnType<typeof resolveBranchFilter>,
 ): AuditFilter {
-  return {
-    table: state.tableFilter ?? undefined,
-    action: state.actionFilter ?? undefined,
-    actorUserId: state.actorFilter ?? undefined,
-    from: state.from ? `${state.from}T00:00:00.000Z` : undefined,
-    to: state.to ? `${state.to}T23:59:59.999Z` : undefined,
+  return toAuditFilter(
+    {
+      table: state.tableFilter,
+      action: state.actionFilter,
+      actor: state.actorFilter,
+      from: state.from,
+      to: state.to,
+    },
     branchFilter,
-  };
+  );
 }
 
 export const useAuditStore = create<AuditState>()(

@@ -1,9 +1,14 @@
 import { BaseRepository } from "@shared/core/utils/BaseRepository";
 import { PAGE_SIZE } from "@shared/core/constants";
-import type { AuditFilter, AuditRecordTarget } from "@shared/core/types";
+import type {
+  AuditFilter,
+  AuditPageQuery,
+  AuditRecordTarget,
+} from "@shared/core/types";
 import type { DbAuditLog } from "@shared/core/types/db";
 import type {
   AuditPage,
+  AuditRowPage,
   AuditRows,
   IAuditRepository,
 } from "@shared/modules/admin/audit/repository/IAuditRepository";
@@ -51,6 +56,23 @@ export class AuditRepository
     if (error) this.handleError(error);
     const rows = (data ?? []) as DbAuditLog[];
     return { rows, source: "server", hasMore: rows.length === PAGE_SIZE };
+  }
+
+  async findPage(query: AuditPageQuery): Promise<AuditRowPage> {
+    let request = this.db
+      .from("audit_logs")
+      .select("*", { count: "exact" })
+      .order("occurred_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(query.offset, query.offset + query.limit - 1);
+    request = this.applyFilter(request, query);
+    const { data, error, count } = await request;
+    if (error) this.handleError(error);
+    return {
+      rows: (data ?? []) as DbAuditLog[],
+      total: count ?? 0,
+      source: "server",
+    };
   }
 
   async findForRecord(table: string, recordId: string): Promise<AuditRows> {

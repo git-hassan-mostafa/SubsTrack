@@ -12,13 +12,13 @@ import {
   changedFieldsLabel,
   formatField,
   formatFieldLabel,
+  shownSnapshotFields,
   subjectLabel,
   tableLabel,
 } from "@shared/modules/admin/audit/utils/format";
 import { buildAuditSummary } from "@shared/modules/admin/audit/utils/summary";
 import {
   fieldContext,
-  showsColumn,
   type AuditContextBase,
 } from "@shared/modules/admin/audit/utils/valueDisplay";
 import { AuditSummaryText } from "./AuditSummaryText";
@@ -41,11 +41,7 @@ export function AuditEntrySheet({
   const summary = useMemo(() => buildAuditSummary(entry, ctx), [entry, ctx]);
   const changedFields = changedFieldsLabel(entry, ctx);
 
-  const snapshotRows = entry.snapshot
-    ? Object.entries(entry.snapshot).filter(([k]) =>
-        showsColumn(entry.table, k),
-      )
-    : [];
+  const snapshotRows = shownSnapshotFields(entry);
 
   return (
     <FormSheet

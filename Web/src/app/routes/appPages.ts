@@ -18,11 +18,13 @@ import SettingsOutlined from "@mui/icons-material/SettingsOutlined";
 import StoreOutlined from "@mui/icons-material/StoreOutlined";
 import TrendingDownOutlined from "@mui/icons-material/TrendingDownOutlined";
 import WhatsApp from "@mui/icons-material/WhatsApp";
+import { AuditLogPage } from "@/modules/admin/audit/AuditLogPage";
 import { BranchesPage } from "@/modules/admin/branches/BranchesPage";
 import { CurrenciesPage } from "@/modules/admin/currencies/CurrenciesPage";
 import { PlansPage } from "@/modules/admin/plans/PlansPage";
 import { ProductsPage } from "@/modules/admin/products/ProductsPage";
 import { ServicesPage } from "@/modules/admin/services/ServicesPage";
+import { OrganizationPage } from "@/modules/admin/tenant-settings/OrganizationPage";
 import { UsersPage } from "@/modules/admin/users/UsersPage";
 import type { RouteAccess } from "./access";
 
@@ -152,6 +154,7 @@ export const APP_PAGES: readonly AppPage[] = [
     access: { role: "tenantWideAdmin" },
     icon: SettingsOutlined,
     nav: "admin",
+    component: OrganizationPage,
   },
   {
     path: "admin/audit",
@@ -159,6 +162,7 @@ export const APP_PAGES: readonly AppPage[] = [
     access: ADMIN,
     icon: HistoryOutlined,
     nav: "admin",
+    component: AuditLogPage,
   },
   {
     path: "admin/whatsapp",

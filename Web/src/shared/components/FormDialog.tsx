@@ -21,6 +21,7 @@ interface FormDialogProps {
   error?: string | null;
   onDismissError?: () => void;
   submitLabel?: string;
+  secondarySubmit?: { label: string; onSubmit: () => void | Promise<void> };
   maxWidth?: DialogProps["maxWidth"];
   children: ReactNode;
 }
@@ -35,6 +36,7 @@ export function FormDialog({
   error = null,
   onDismissError,
   submitLabel,
+  secondarySubmit,
   maxWidth = "sm",
   children,
 }: FormDialogProps) {
@@ -47,12 +49,16 @@ export function FormDialog({
     if (!saving) guardedClose();
   };
 
-  const handleSubmit = (event: SyntheticEvent) => {
-    event.preventDefault();
+  const run = (submit: () => void | Promise<void>) => {
     if (saving) return;
     setSaving(true);
     const stopSaving = () => setSaving(false);
-    void Promise.resolve(onSubmit()).then(stopSaving, stopSaving);
+    void Promise.resolve(submit()).then(stopSaving, stopSaving);
+  };
+
+  const handleSubmit = (event: SyntheticEvent) => {
+    event.preventDefault();
+    run(onSubmit);
   };
 
   return (
@@ -92,6 +98,15 @@ export function FormDialog({
           <Button onClick={close} disabled={saving}>
             {t("common.cancel")}
           </Button>
+          {secondarySubmit ? (
+            <Button
+              variant="outlined"
+              disabled={saving}
+              onClick={() => run(secondarySubmit.onSubmit)}
+            >
+              {secondarySubmit.label}
+            </Button>
+          ) : null}
           <Button type="submit" variant="contained" loading={saving}>
             {submitLabel ?? t("common.save")}
           </Button>

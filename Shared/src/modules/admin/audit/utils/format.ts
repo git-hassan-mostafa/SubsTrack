@@ -4,6 +4,7 @@ import { formatDateTime, isValidDateString } from "@shared/core/utils/date";
 import {
   displayFieldLabel,
   displayValue,
+  showsColumn,
   type AuditFieldContext,
 } from "./valueDisplay";
 
@@ -67,6 +68,14 @@ export function changedFieldsLabel(
 ): string | null {
   if (entry.changes.length === 0) return null;
   return entry.changes.map((c) => formatFieldLabel(c.field, ctx)).join(", ");
+}
+
+// The whole-row fields a create/delete entry shows, hidden columns left out.
+export function shownSnapshotFields(entry: AuditEntry): [string, unknown][] {
+  if (!entry.snapshot) return [];
+  return Object.entries(entry.snapshot).filter(([field]) =>
+    showsColumn(entry.table, field),
+  );
 }
 
 /**

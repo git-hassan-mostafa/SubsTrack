@@ -1,4 +1,4 @@
-import { useId, useMemo } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -9,9 +9,10 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
+import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import Typography from "@mui/material/Typography";
-import type { AuditTable } from "@shared/core/types";
+import type { AuditEntry, AuditTable } from "@shared/core/types";
 import { formatDateTimeShort } from "@shared/core/utils/date";
 import { useRecordHistory } from "@shared/modules/admin/audit/hooks/useRecordHistory";
 import { useAuditLookups } from "@shared/modules/admin/audit/hooks/useAuditLookups";
@@ -23,6 +24,7 @@ import {
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import { AuditEntryDialog } from "./AuditEntryDialog";
 import { AuditSummaryText } from "./AuditSummaryText";
 
 interface RecordHistoryDialogProps {
@@ -68,6 +70,7 @@ function HistoryEntries({ table, recordId }: { table: AuditTable; recordId: stri
   const timeline = useRecordHistory(targets);
   const lookups = useAuditLookups();
   const base = useMemo<AuditContextBase>(() => ({ t, lookups }), [t, lookups]);
+  const [opened, setOpened] = useState<AuditEntry | null>(null);
 
   if (timeline.loading) {
     return (
@@ -81,19 +84,28 @@ function HistoryEntries({ table, recordId }: { table: AuditTable; recordId: stri
     return <EmptyState title={t("audit.record_empty_title")} hint={t("audit.record_empty_desc")} />;
   }
   return (
-    <List disablePadding>
-      {timeline.entries.map((entry) => (
-        <ListItem key={entry.id} divider disableGutters>
-          <ListItemText
-            primary={
-              <AuditSummaryText
-                parts={buildAuditSummary(entry, fieldContext(base, entry), { showSubject: false })}
+    <>
+      <List disablePadding>
+        {timeline.entries.map((entry) => (
+          <ListItem key={entry.id} divider disablePadding>
+            <ListItemButton onClick={() => setOpened(entry)}>
+              <ListItemText
+                primary={
+                  <AuditSummaryText
+                    parts={buildAuditSummary(entry, fieldContext(base, entry), {
+                      showSubject: false,
+                    })}
+                  />
+                }
+                secondary={formatDateTimeShort(entry.occurredAt)}
               />
-            }
-            secondary={formatDateTimeShort(entry.occurredAt)}
-          />
-        </ListItem>
-      ))}
-    </List>
+            </ListItemButton>
+          </ListItem>
+        ))}
+      </List>
+      {opened ? (
+        <AuditEntryDialog entry={opened} base={base} onClose={() => setOpened(null)} />
+      ) : null}
+    </>
   );
 }

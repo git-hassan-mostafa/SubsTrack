@@ -5,7 +5,7 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { AppTextInput } from "@/src/shared/components/AppTextInput";
 import { useTextField } from "@/src/shared/hooks/useTextField";
-import { digitsOnly } from "@shared/core/utils/inputText";
+import { digitsOnly, signedDigitsOnly } from "@shared/core/utils/inputText";
 import { COLORS } from "@/src/shared/constants";
 import { useHoldRepeat } from "@shared/shared/hooks/useHoldRepeat";
 import { signedText } from "@shared/modules/admin/billing/utils/allowanceChange";
@@ -20,12 +20,7 @@ interface Props {
   onFocus: () => void;
 }
 
-// A minus may be typed or pasted into the change field; the total never takes one.
-const signedDigits = (next: string): string =>
-  (next.startsWith("-") ? "-" : "") + digitsOnly(next);
-
-// Both boxes are a fixed h-12 so they line up; Android drifts a fixed-height
-// field's text to the top without this.
+// Android drifts a fixed-height field's text to the top without this.
 const CENTERED_FIELD_TEXT: TextStyle = { textAlignVertical: "center" };
 
 // One limit as a new-total box beside a signed change box — the two mirror the
@@ -55,7 +50,7 @@ export function AllowanceField({
     signedText(delta),
     (next) => onChange(Math.max(floor, current + (Number(next) || 0))),
     {
-      sanitize: signedDigits,
+      sanitize: signedDigitsOnly,
       expectedEcho: (next) =>
         signedText(Math.max(floor, current + (Number(next) || 0)) - current),
     },

@@ -3,6 +3,11 @@ export function digitsOnly(next: string): string {
   return next.replace(/[^0-9]/g, "");
 }
 
+// A change box: digits, with one leading minus allowed.
+export function signedDigitsOnly(next: string): string {
+  return (next.startsWith("-") ? "-" : "") + digitsOnly(next);
+}
+
 /** Digits and the decimal point, for an amount the user types. */
 export function decimalDigitsOnly(next: string): string {
   return next.replace(/[^0-9.]/g, "");

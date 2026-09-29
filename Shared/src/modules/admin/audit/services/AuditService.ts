@@ -2,8 +2,10 @@ import { repositories } from "@shared/core/runtime/repositories";
 import type {
   AuditEntry,
   AuditFilter,
+  AuditPageQuery,
   AuditRecordTarget,
   AuditSource,
+  Page,
 } from "@shared/core/types";
 import { CUSTOMER_HISTORY_TABLES } from "@shared/modules/admin/audit/utils/constants";
 import { mapDbAuditLogToAuditEntry } from "@shared/modules/admin/audit/utils/mapper";
@@ -17,6 +19,10 @@ export interface AuditEntries {
 /** One page of the trail. `hasMore` comes from the repository (see AuditPage). */
 export interface AuditEntryPage extends AuditEntries {
   hasMore: boolean;
+}
+
+export interface AuditEntryTablePage extends Page<AuditEntry> {
+  source: AuditSource;
 }
 
 /** One day's entries, for a section-grouped list. */
@@ -38,6 +44,11 @@ class AuditService {
   async getEntries(filter: AuditFilter, page = 0): Promise<AuditEntryPage> {
     const { rows, source, hasMore } = await repositories().audit.findRecent(filter, page);
     return { entries: rows.map(mapDbAuditLogToAuditEntry), source, hasMore };
+  }
+
+  async getEntryTablePage(query: AuditPageQuery): Promise<AuditEntryTablePage> {
+    const { rows, total, source } = await repositories().audit.findPage(query);
+    return { rows: rows.map(mapDbAuditLogToAuditEntry), total, source };
   }
 
   async getRecordHistory(

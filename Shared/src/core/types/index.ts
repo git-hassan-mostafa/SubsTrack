@@ -780,6 +780,8 @@ export interface AuditFilter {
   branchFilter?: BranchFilter;
 }
 
+export interface AuditPageQuery extends AuditFilter, PageWindow {}
+
 // When an unbilled month flips to "unpaid" in the month grid.
 //   month_start        — on the 1st of the month (the original behavior)
 //   customer_start_day — on the service line's own start day-of-month; before

@@ -23,6 +23,7 @@ import { useTableExport, type TableExport } from "./useTableExport";
 
 const ACTIONS_FIELD = "__actions";
 const NO_IDS: ReadonlySet<GridRowId> = new Set();
+const AUTO_ROW_HEIGHT = () => "auto" as const;
 
 interface TableEmpty {
   title: string;
@@ -51,6 +52,7 @@ export interface DataTableProps<T extends GridValidRowModel & { id: string }> {
   empty: TableEmpty;
   filtered: boolean;
   onClearFilters?: () => void;
+  autoRowHeight?: boolean;
   error?: string | null;
   onDismissError?: () => void;
   onRetry?: () => void;
@@ -79,6 +81,7 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
   empty,
   filtered,
   onClearFilters,
+  autoRowHeight = false,
   error,
   onDismissError,
   onRetry,
@@ -201,10 +204,15 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
           disableColumnSelector
           disableColumnResize
           autoHeight
+          getRowHeight={autoRowHeight ? AUTO_ROW_HEIGHT : undefined}
           slotProps={{
             loadingOverlay: { variant: "linear-progress", noRowsVariant: "linear-progress" },
           }}
-          sx={{ bgcolor: "background.paper", "--DataGrid-overlayHeight": "160px" }}
+          sx={{
+            bgcolor: "background.paper",
+            "--DataGrid-overlayHeight": "160px",
+            ...(autoRowHeight ? { "& .MuiDataGrid-cell": { py: 1.5 } } : {}),
+          }}
         />
       )}
     </Stack>
