@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect } from "react";
 import { View } from "react-native";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,15 +15,15 @@ import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Dropdown } from "@/src/shared/components/Dropdown";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
-import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { AppTextInput } from "@/src/shared/components/AppTextInput";
 import { useTextField } from "@/src/shared/hooks/useTextField";
 import { useHoldRepeat } from "@shared/shared/hooks/useHoldRepeat";
 import { decimalDigitsOnly, digitsOnly } from "@shared/core/utils/inputText";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency, Product } from "@shared/core/types";
-import { convert, findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { formatMoney } from "@shared/core/utils/currency";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
+import { useBatchRestockForm } from "@shared/modules/admin/products/hooks/useBatchRestockForm";
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 
@@ -31,30 +31,7 @@ interface Props {
   onDismiss: () => void;
 }
 
-/** A typed cost → the number to store. Anything not a real amount is "no cost". */
-function parseCost(text: string | undefined): number | null {
-  if (!text) return null;
-  const value = Number(text);
-  return Number.isFinite(value) && value > 0 ? value : null;
-}
-
-/** "31500.00" → "31500", "0.350" → "0.35" — a tidier starting value. */
-function trimZeros(text: string): string {
-  return text.includes(".") ? text.replace(/\.?0+$/, "") : text;
-}
-
-/**
- * Adds stock to several products in one go — a whole delivery, one save. Each
- * product with a quantity becomes its own 'restock' ledger row (written in a
- * single call), so the per-product history stays exactly as detailed as when the
- * stock sheet is used one product at a time.
- *
- * Built on {@link AppBottomSheet} rather than `FormSheet` because the body IS the
- * product list: a virtualized `BottomSheetFlatList` keeps a large catalog cheap,
- * with the search / note / save chrome as its header and footer. Those are passed
- * as ELEMENTS, never as inline function components — a new function identity each
- * render would remount the footer and steal focus from the note field.
- */
+// Header and footer are ELEMENTS: a component identity per render steals focus.
 export function ProductBatchRestockSheet({ onDismiss }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -67,12 +44,9 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
   const clearError = useProductSlice((s) => s.clearError);
 
   const currencies = useCurrencySlice((s) => s.items);
-
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [costs, setCosts] = useState<Record<string, string>>({});
-  const [currencyId, setCurrencyId] = useState<string | null>(null);
-  const [note, setNote] = useState("");
-  const [search, setSearch] = useState("");
+  const form = useBatchRestockForm(products, currencies);
+  const { entries, visible, deliveryCurrency, totalUnits, totalCost } = form;
+  const hasProducts = form.activeProducts.length > 0;
 
   useEffect(() => {
     clearError();
@@ -80,94 +54,9 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
     return clearError;
   }, [clearError, getProducts]);
 
-  const activeProducts = useMemo(
-    () => products.filter((p) => p.active),
-    [products],
-  );
-
-  const visible = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) return activeProducts;
-    return activeProducts.filter((p) => p.name.toLowerCase().includes(term));
-  }, [activeProducts, search]);
-
-  const deliveryCurrency = findCurrency(currencies, currencyId);
-
-  const entries = useMemo(
-    () =>
-      Object.entries(quantities)
-        .filter(([, quantity]) => quantity > 0)
-        .map(([productId, quantity]) => ({
-          productId,
-          quantity,
-          unitCost: parseCost(costs[productId]),
-        })),
-    [quantities, costs],
-  );
-  const totalUnits = entries.reduce((sum, e) => sum + e.quantity, 0);
-  const totalCost = entries.reduce(
-    (sum, e) => sum + (e.unitCost ?? 0) * e.quantity,
-    0,
-  );
-  const hasProducts = activeProducts.length > 0;
-
-  const dirty = useDirtyForm({
-    lineCount: entries.length,
-    totalUnits,
-    totalCost,
-    note,
-  });
-
-  // A product's catalog cost, expressed in the delivery currency and rendered
-  // as the text the field starts with (converting can leave float noise, so it
-  // is rounded to the target currency's own precision).
-  function seedCost(product: Product, target: Currency | null): string {
-    if (product.costPrice == null) return "";
-    const value = convert(
-      product.costPrice,
-      findCurrency(currencies, product.costCurrencyId),
-      target,
-    );
-    return trimZeros(value.toFixed(target?.decimals ?? 2));
-  }
-
   function setQuantity(productId: string, quantity: number) {
     clearError();
-    const next = Math.max(0, quantity);
-    setQuantities((prev) => ({ ...prev, [productId]: next }));
-    if (next > 0 && costs[productId] === undefined) {
-      const product = activeProducts.find((p) => p.id === productId);
-      if (!product) return;
-      const noneYet = !Object.values(quantities).some((q) => q > 0);
-      const target =
-        noneYet && currencyId === null && product.costCurrencyId
-          ? findCurrency(currencies, product.costCurrencyId)
-          : deliveryCurrency;
-      if (noneYet && currencyId === null && product.costCurrencyId) {
-        setCurrencyId(product.costCurrencyId);
-      }
-      setCosts((prev) => ({ ...prev, [productId]: seedCost(product, target) }));
-    }
-  }
-
-  // Changing the delivery currency re-prices every picked row from its catalog
-  // cost — the same rule SaleItemsEditor uses when the sale currency changes.
-  function changeCurrency(next: string | null) {
-    setCurrencyId(next);
-    const target = findCurrency(currencies, next);
-    setCosts((prev) => {
-      const out: Record<string, string> = {};
-      for (const id of Object.keys(prev)) {
-        const product = activeProducts.find((p) => p.id === id);
-        out[id] = product ? seedCost(product, target) : "";
-      }
-      return out;
-    });
-  }
-
-  function clearAll() {
-    setQuantities({});
-    setCosts({});
+    form.setQuantity(productId, quantity);
   }
 
   async function handleSubmit() {
@@ -175,7 +64,7 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
     const ok = await batchRestock(
       entries,
       user.tenantId,
-      note,
+      form.note,
       user.id,
       deliveryCurrency,
     );
@@ -194,8 +83,8 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
       {hasProducts ? (
         <>
           <SearchTextBox
-            searchText={search}
-            setSearchText={setSearch}
+            searchText={form.search}
+            setSearchText={form.setSearch}
             placeholder={t("products.batch_restock_search")}
           />
           <View className="flex-row items-center justify-between mt-4 mb-2">
@@ -203,7 +92,7 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
               {t("products.batch_restock_products", { count: visible.length })}
             </Text>
             {entries.length > 0 ? (
-              <PressableOpacity onPress={clearAll} hitSlop={8}>
+              <PressableOpacity onPress={form.clearAll} hitSlop={8}>
                 <Text fontWeight="Medium" className="text-xs text-primary">
                   {t("common.clear")}
                 </Text>
@@ -217,28 +106,25 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
 
   const footer = hasProducts ? (
     <View className="pt-4">
-      {/* One currency for the whole delivery — it is what freezes each row's
-          rate, so the costs above are all typed in it. */}
       <Dropdown<string>
         label={t("products.delivery_currency_label")}
         options={currencies
           .filter((c) => c.active)
           .map((c) => ({ label: `${c.code} — ${c.name}`, value: c.id }))}
-        value={currencyId}
-        onChange={changeCurrency}
+        value={form.currencyId}
+        onChange={form.changeCurrency}
         nullable
         nullLabel="USD"
       />
 
       <Input
         label={t("products.batch_restock_note_label")}
-        value={note}
-        onChangeText={setNote}
+        value={form.note}
+        onChangeText={form.setNote}
         placeholder={t("products.stock_note_placeholder")}
         onFocus={clearError}
       />
 
-      {/* Summary — a one-glance answer to "what am I about to save?" */}
       <View className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 mb-4">
         <View className="flex-row items-center justify-between">
           <Text className="text-sm text-gray-500">
@@ -291,7 +177,7 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
       visible
       onDismiss={onDismiss}
       variant="full"
-      dirty={dirty}
+      dirty={form.dirty}
       dismissOnBackdropPress={false}
     >
       {(dismiss) => (
@@ -326,13 +212,11 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
             renderItem={({ item }) => (
               <RestockRow
                 product={item}
-                quantity={quantities[item.id] ?? 0}
-                unitCost={costs[item.id] ?? ""}
+                quantity={form.quantities[item.id] ?? 0}
+                unitCost={form.costs[item.id] ?? ""}
                 currency={deliveryCurrency}
                 onChange={(q) => setQuantity(item.id, q)}
-                onCostChange={(c) =>
-                  setCosts((prev) => ({ ...prev, [item.id]: c }))
-                }
+                onCostChange={(c) => form.setCost(item.id, c)}
               />
             )}
           />
@@ -355,11 +239,7 @@ interface RowProps {
   onCostChange: (unitCost: string) => void;
 }
 
-// One product line: name + current stock on the left, a stepper on the right.
-// A row with a quantity turns indigo and previews the resulting stock, so the
-// picked products stand out without reordering the list while the user types.
-// A picked row also opens a second line for what each unit cost — the number
-// that turns this delivery into an expense.
+// A picked row turns indigo and previews its stock without reordering the list.
 function RestockRow({
   product,
   quantity,
@@ -451,8 +331,6 @@ function RestockRow({
         </View>
       </View>
 
-      {/* Cost — only for a picked row, so the list stays compact. Leaving it
-          empty records the stock with no cost, adding no expense. */}
       {picked ? (
         <View className="flex-row items-center justify-between mt-2 pt-2 border-t border-indigo-100">
           <Text className="text-xs text-gray-500">

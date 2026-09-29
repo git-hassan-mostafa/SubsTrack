@@ -1,4 +1,5 @@
 import type { BranchFilter } from "@shared/core/constants";
+import type { Page } from "@shared/core/types";
 import type { DbUser } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { upsertFromServer } from "@/src/core/offline/db/dml";
@@ -7,14 +8,10 @@ import { isOnline } from "@/src/core/offline/net/connectivity";
 import { RequiresConnectionError } from "@shared/core/errors/offlineErrors";
 import type { CreateUserPayload, IUserRepository } from "@shared/modules/admin/users/repository/IUserRepository";
 import { UserRepository } from "@shared/modules/admin/users/repository/UserRepository";
+import type { UserPageQuery } from "@shared/modules/admin/users/utils/types";
+import { rolesForFilter } from "@shared/modules/admin/users/utils/userRules";
 
-/**
- * SQLite-backed User repository. Reads from the local mirror; field updates and
- * active toggles mutate the mirror and flag the row `_dirty` for the next sync.
- * create / delete / updatePassword run edge functions and are online-only — they
- * delegate to the Supabase sibling (throwing offline).
- * Returns the same `DbUser` shapes as the Supabase repository.
- */
+// Mirror reads + dirty writes; the edge-function writes delegate online-only.
 export class OfflineUserRepository
   extends OfflineBaseRepository
   implements IUserRepository
@@ -30,6 +27,26 @@ export class OfflineUserRepository
       where.params,
     );
     return this.decodeAll<DbUser>("users", rows);
+  }
+
+  async findPage(query: UserPageQuery): Promise<Page<DbUser>> {
+    const roles = rolesForFilter(query.role);
+    const where = this.combineWhere([
+      this.branchWhere(query.branch, this.BRANCH_SCOPES.users, "users"),
+      this.searchWhere(["username", "full_name", "phone_number"], query.search),
+      this.activeWhere(query.status),
+      roles
+        ? { clause: `role IN (${roles.map(() => "?").join(", ")})`, params: roles }
+        : { clause: "", params: [] },
+    ]);
+    const [rows, total] = await Promise.all([
+      this.all(
+        `SELECT * FROM users ${where.sql} ORDER BY active DESC, full_name ASC, id ASC LIMIT ? OFFSET ?`,
+        [...where.params, query.limit, query.offset],
+      ),
+      this.count(`SELECT COUNT(*) AS n FROM users ${where.sql}`, where.params),
+    ]);
+    return { rows: this.decodeAll<DbUser>("users", rows), total };
   }
 
   async create(payload: CreateUserPayload): Promise<DbUser> {

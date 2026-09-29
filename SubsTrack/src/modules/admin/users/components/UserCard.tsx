@@ -5,7 +5,8 @@ import {
   CardTitle,
 } from "@/src/shared/components/CardText";
 import { Chip, type ChipTone } from "@/src/shared/components/Chip";
-import type { AppUser } from "@shared/core/types";
+import type { AppUser, UserRole } from "@shared/core/types";
+import { roleLabelKey } from "@shared/modules/admin/users/utils/userRules";
 import { useTranslation } from "react-i18next";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { COLORS } from "@/src/shared/constants";
@@ -20,10 +21,10 @@ interface Props {
   onEnterSelection?: (user: AppUser) => void;
 }
 
-const roleBadgeStyle: Record<string, { tone: ChipTone; label: string }> = {
-  admin: { tone: "indigo", label: "Admin" },
-  user: { tone: "teal", label: "Staff" },
-  superadmin: { tone: "violet", label: "Super" },
+const ROLE_TONES: Record<UserRole, ChipTone> = {
+  admin: "indigo",
+  user: "teal",
+  superadmin: "violet",
 };
 
 export function UserCard({
@@ -35,7 +36,6 @@ export function UserCard({
   onToggleSelect,
   onEnterSelection,
 }: Props) {
-  const badge = roleBadgeStyle[user.role] ?? roleBadgeStyle.user;
   const { t } = useTranslation();
 
   return (
@@ -60,10 +60,7 @@ export function UserCard({
           {user.phoneNumber ? ` · ${user.phoneNumber}` : ""}
         </CardSubtitle>
         <CardChips>
-          <Chip
-            text={t(`users.${badge.label.toLowerCase()}`)}
-            tone={badge.tone}
-          />
+          <Chip text={t(roleLabelKey(user.role))} tone={ROLE_TONES[user.role]} />
           {!user.active ? (
             <Chip text={t("common.inactive")} tone="gray" />
           ) : null}

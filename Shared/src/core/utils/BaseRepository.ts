@@ -3,6 +3,7 @@ import type { ActiveFilter } from "@shared/core/types";
 import i18n from "@shared/core/i18n";
 import { BRANCH_FILTER_UNASSIGNED, BranchFilter } from "@shared/core/constants";
 import { readFunctionsErrorBody } from "@shared/core/utils/functionsError";
+import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
 import { reportException } from "@shared/core/runtime/reportException";
 import { buildAuditRow, type AuditInput } from "@shared/core/audit/buildAuditRow";
 import { runtime } from "@shared/core/runtime/runtime";
@@ -255,5 +256,29 @@ export abstract class BaseRepository {
       return query.or(`${column}.is.null,${column}.eq.${filter}`);
     }
     return query.eq(path, filter);
+  }
+
+  // One or() per query: a shared-branch filter and the search fold into and().
+  protected applyBranchAndSearch<T extends { or(filters: string): T }>(
+    query: T,
+    filter: BranchFilter,
+    scope: BranchScope,
+    columns: string[],
+    search: string,
+  ): T {
+    const term = sanitizeSearchTerm(search);
+    if (!term) return this.applyBranchFilter(query, filter, scope);
+    const matches = columns.map((c) => `${c}.ilike.%${term}%`).join(",");
+    const column = scope.column ?? "branch_id";
+    const sharedBranch =
+      scope.kind === "shared" &&
+      filter !== null &&
+      filter !== BRANCH_FILTER_UNASSIGNED;
+    if (sharedBranch) {
+      return query.or(
+        `and(or(${column}.is.null,${column}.eq.${filter}),or(${matches}))`,
+      );
+    }
+    return this.applyBranchFilter(query, filter, scope).or(matches);
   }
 }

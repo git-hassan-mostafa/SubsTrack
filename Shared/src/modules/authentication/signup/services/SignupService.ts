@@ -4,6 +4,10 @@ import {
   type CreateTenantInput,
   type CreateTenantResult,
 } from "@shared/modules/authentication/signup/utils/types";
+import {
+  isLongEnoughPassword,
+  isValidUsername,
+} from "@shared/modules/admin/users/utils/userRules";
 
 interface OrganizationForm {
   name: string;
@@ -18,7 +22,6 @@ interface AccountForm {
 }
 
 const TENANT_CODE_REGEX = /^[a-z0-9]+$/;
-const USERNAME_REGEX = /^[a-z0-9._]+$/;
 const RESERVED_TENANT_CODES = new Set(["usd", "www", "admin", "api"]);
 
 class SignupService {
@@ -42,11 +45,11 @@ class SignupService {
     const username = form.adminUserName.trim().toLowerCase();
     const fullName = form.adminFullName.trim();
     if (!username) throw new Error(i18n.t("errors.username_required"));
-    if (!USERNAME_REGEX.test(username)) {
+    if (!isValidUsername(username)) {
       throw new Error(i18n.t("errors.username_invalid_chars"));
     }
     if (!fullName) throw new Error(i18n.t("errors.fullname_required"));
-    if (form.adminPassword.length < 8) {
+    if (!isLongEnoughPassword(form.adminPassword)) {
       throw new Error(i18n.t("errors.password_too_short"));
     }
     if (form.adminPassword !== form.confirmPassword) {

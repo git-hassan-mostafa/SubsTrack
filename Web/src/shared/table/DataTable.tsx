@@ -43,6 +43,7 @@ export interface DataTableProps<T extends GridValidRowModel & { id: string }> {
   filters?: ReactNode;
   summary?: ReactNode;
   add?: { label: string; onClick: () => void };
+  toolbarActions?: ReactNode;
   exportConfig?: TableExport;
   rowLabel: (row: T) => string;
   rowActions?: (row: T) => TableAction[];
@@ -70,6 +71,7 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
   filters,
   summary,
   add,
+  toolbarActions,
   exportConfig,
   rowLabel,
   rowActions,
@@ -144,6 +146,7 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
           <Box sx={{ flexGrow: 1 }} />
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             {tableExport.button}
+            {toolbarActions}
             {add ? (
               <Button variant="contained" startIcon={<AddIcon />} onClick={add.onClick}>
                 {add.label}

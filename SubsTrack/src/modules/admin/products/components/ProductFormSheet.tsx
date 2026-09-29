@@ -16,7 +16,6 @@ import { useProductSlice } from "@shared/state/hooks/useProductSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
-import { getStore } from "@shared/state/globalStore";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 
 interface Props {
@@ -93,17 +92,15 @@ export function ProductFormSheet({
       costCurrencyId: form.costCurrencyId,
       branchId: form.branchId,
     };
-    if (product) {
-      await updateProduct(product.id, payload);
-    } else {
-      await createProduct(
-        { ...payload, initialStock: Number(form.initialStock) || 0 },
-        user.tenantId,
-        user.id,
-        currencies.find((c) => c.id === form.costCurrencyId) ?? null,
-      );
-    }
-    if (!getStore().getState().products.error) onDismiss();
+    const saved = product
+      ? await updateProduct(product.id, payload)
+      : await createProduct(
+          { ...payload, initialStock: Number(form.initialStock) || 0 },
+          user.tenantId,
+          user.id,
+          currencies.find((c) => c.id === form.costCurrencyId) ?? null,
+        );
+    if (saved) onDismiss();
   }
 
   const submitDisabled =
@@ -153,8 +150,6 @@ export function ProductFormSheet({
         onFocus={clearError}
       />
 
-      {/* What it costs to buy — optional. It pre-fills the restock sheet, and
-          on create it prices the opening stock into Expenses. */}
       <CurrencyInput
         label={t("products.cost_price_label")}
         amount={form.costPrice}
@@ -171,8 +166,6 @@ export function ProductFormSheet({
         onFocus={clearError}
       />
 
-      {/* Stock: typed once on create, then only ever changed through the
-          stock sheet so every movement is on the record. */}
       {product ? (
         <View className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 mb-4 flex-row items-center justify-between">
           <View>

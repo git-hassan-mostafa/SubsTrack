@@ -1,4 +1,5 @@
-import { Product } from "@shared/core/types";
+import type { BranchFilter } from "@shared/core/constants";
+import type { ActiveFilter, PageWindow, Product } from "@shared/core/types";
 
 export type ProductInput = Pick<
   Product,
@@ -14,10 +15,15 @@ export type ProductInput = Pick<
   initialStockUnitCost?: number | null;
 };
 
-// One line of a batch restock: how many units arrived for a product, and what
-// each cost (in the delivery's single currency). A null cost records no expense.
+// A null unit cost records the stock with no expense.
 export type RestockEntry = {
   productId: string;
   quantity: number;
   unitCost?: number | null;
 };
+
+export interface ProductPageQuery extends PageWindow {
+  search: string;
+  status: ActiveFilter;
+  branch: BranchFilter;
+}

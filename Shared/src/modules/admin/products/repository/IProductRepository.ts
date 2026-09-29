@@ -1,5 +1,7 @@
 import type { BranchFilter } from "@shared/core/constants";
+import type { Page } from "@shared/core/types";
 import type { DbProduct, DbStockMovement } from "@shared/core/types/db";
+import type { ProductPageQuery } from "@shared/modules/admin/products/utils/types";
 
 /** A ledger row to append. `id`, timestamps and the void fields are filled in
  *  by the repository — a movement is never born voided. */
@@ -38,12 +40,9 @@ export interface StockCostRow {
   recordedByUserId: string | null;
 }
 
-/**
- * The Product repository contract. Both the Supabase (online/web) class and the
- * offline SQLite class implement this — the compiler keeps the two in lockstep.
- */
 export interface IProductRepository {
   findAll(branchFilter?: BranchFilter): Promise<DbProduct[]>;
+  findPage(query: ProductPageQuery): Promise<Page<DbProduct>>;
   create(
     payload: Omit<DbProduct, "id" | "created_at" | "updated_at">,
   ): Promise<DbProduct>;

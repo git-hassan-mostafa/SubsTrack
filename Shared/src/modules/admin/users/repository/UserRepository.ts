@@ -1,7 +1,10 @@
 import { BaseRepository } from "@shared/core/utils/BaseRepository";
 import type { BranchFilter } from "@shared/core/constants";
+import type { Page } from "@shared/core/types";
 import type { DbUser } from "@shared/core/types/db";
 import type { CreateUserPayload, IUserRepository } from "@shared/modules/admin/users/repository/IUserRepository";
+import type { UserPageQuery } from "@shared/modules/admin/users/utils/types";
+import { rolesForFilter } from "@shared/modules/admin/users/utils/userRules";
 
 export class UserRepository extends BaseRepository implements IUserRepository {
   async findAll(branchFilter: BranchFilter = null): Promise<DbUser[]> {
@@ -14,6 +17,29 @@ export class UserRepository extends BaseRepository implements IUserRepository {
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbUser[];
+  }
+
+  async findPage(query: UserPageQuery): Promise<Page<DbUser>> {
+    let request = this.db
+      .from("users")
+      .select("*", { count: "exact" })
+      .order("active", { ascending: false })
+      .order("full_name")
+      .order("id")
+      .range(query.offset, query.offset + query.limit - 1);
+    request = this.applyBranchAndSearch(
+      request,
+      query.branch,
+      this.BRANCH_SCOPES.users,
+      ["username", "full_name", "phone_number"],
+      query.search,
+    );
+    request = this.applyActiveFilter(request, query.status);
+    const roles = rolesForFilter(query.role);
+    if (roles) request = request.in("role", roles);
+    const { data, error, count } = await request;
+    if (error) this.handleError(error);
+    return { rows: (data ?? []) as DbUser[], total: count ?? 0 };
   }
 
   async create(payload: CreateUserPayload): Promise<DbUser> {

@@ -30,7 +30,7 @@ Web/src/
 ├── core/i18n/             # web i18n init + web.en.json (web-only keys under web.*)
 ├── app/
 │   ├── routes/            # appPages.ts (THE page list: path, title, access, icon, nav, component), guards, router
-│   ├── layout/            # AppFrame, SideNav, AppHeader, QuickActions, UserMenu
+│   ├── layout/            # AppFrame, SideNav, AppHeader, QuickActions + QuickActionDialogs, UserMenu
 │   └── theme/
 ├── shared/
 │   ├── components/        # ErrorBanner, FormDialog, ConfirmDialogHost, BranchSelector, BranchPicker, inputs, MoneyText, EmptyState, StatusChip…
@@ -39,7 +39,7 @@ Web/src/
 │   ├── hooks/             # useMoneyPair
 │   └── lib/               # downloadCsv
 ├── state/                 # web-only stores: createPagedStore + one table store per list, webSession.ts
-└── modules/<group>/<module>/  # pages + dialogs (admin/{branches,currencies,services,plans,audit} so far)
+└── modules/<group>/<module>/  # pages + dialogs (admin/{branches,currencies,services,plans,products,users,audit} so far)
 ```
 
 Each module keeps the SAME folder path in both halves: its logic under

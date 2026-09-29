@@ -9,6 +9,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { handleText } from "@shared/core/utils/inputText";
 import { useSignupStore } from "@shared/modules/authentication/signup/state/signupStore";
+import { isLongEnoughPassword } from "@shared/modules/admin/users/utils/userRules";
 import { getStore } from "@shared/state/globalStore";
 import { StepIndicator } from "../components/StepIndicator";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
@@ -31,8 +32,8 @@ export function SignupAccountScreen() {
   const canSubmit =
     adminUserName.trim().length > 0 &&
     adminFullName.trim().length > 0 &&
-    adminPassword.length >= 8 &&
-    confirmPassword.length >= 8;
+    isLongEnoughPassword(adminPassword) &&
+    isLongEnoughPassword(confirmPassword);
 
   async function handleCreate() {
     if (!canSubmit) return;

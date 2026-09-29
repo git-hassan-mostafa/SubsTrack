@@ -1,0 +1,276 @@
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import MenuItem from "@mui/material/MenuItem";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
+import EditOutlined from "@mui/icons-material/EditOutlined";
+import PauseCircleOutlined from "@mui/icons-material/PauseCircleOutlined";
+import PlayCircleOutlined from "@mui/icons-material/PlayCircleOutlined";
+import type { GridColDef } from "@mui/x-data-grid";
+import type { AppUser, UserRole } from "@shared/core/types";
+import type { UserRoleFilter } from "@shared/modules/admin/users/utils/types";
+import { canEditUser, canManageUser } from "@shared/modules/admin/users/utils/userPermissions";
+import { roleLabelKey } from "@shared/modules/admin/users/utils/userRules";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
+import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
+import { confirm } from "@shared/shared/lib/confirm";
+import { useUserSlice } from "@shared/state/hooks/useUserSlice";
+import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import { StatusChip, type ChipTone } from "@/shared/components/StatusChip";
+import { ActiveFilterSelect } from "@/shared/table/ActiveFilterSelect";
+import { activeStatusColumn } from "@/shared/table/activeStatusColumn";
+import { DataTable } from "@/shared/table/DataTable";
+import { RowLink } from "@/shared/table/RowLink";
+import type { TableAction } from "@/shared/table/tableAction";
+import { useBranchColumn } from "@/shared/table/useBranchColumn";
+import { readAllUsers, useUsersTable } from "@/state/usersTable";
+import { useRecordHistoryAction } from "@/modules/admin/audit/useRecordHistoryAction";
+import { UserFormDialog } from "./UserFormDialog";
+
+const ROLE_TONES: Record<UserRole, ChipTone> = {
+  admin: "indigo",
+  user: "teal",
+  superadmin: "violet",
+};
+
+const ROLE_FILTERS: { value: UserRoleFilter; labelKey: string }[] = [
+  { value: "all", labelKey: "web.users.role_all" },
+  { value: "admin", labelKey: "web.users.role_admins" },
+  { value: "user", labelKey: "web.users.role_staff" },
+];
+
+// A row outside the viewer's branch is readable but never writable (RLS).
+export function UsersPage() {
+  const { t } = useTranslation();
+  const { user: viewer } = useAuth();
+  const rows = useUsersTable((s) => s.rows);
+  const total = useUsersTable((s) => s.total);
+  const loaded = useUsersTable((s) => s.loaded);
+  const loading = useUsersTable((s) => s.loading);
+  const tableError = useUsersTable((s) => s.error);
+  const query = useUsersTable((s) => s.query);
+  const load = useUsersTable((s) => s.load);
+  const open = useUsersTable((s) => s.open);
+  const setPage = useUsersTable((s) => s.setPage);
+  const setSearch = useUsersTable((s) => s.setSearch);
+  const setFilters = useUsersTable((s) => s.setFilters);
+  const clearFilters = useUsersTable((s) => s.clearFilters);
+  const clearTableError = useUsersTable((s) => s.clearError);
+  const writeError = useUserSlice((s) => s.error);
+  const clearWriteError = useUserSlice((s) => s.clearError);
+  const deactivateUser = useUserSlice((s) => s.deactivateUser);
+  const activateUser = useUserSlice((s) => s.activateUser);
+  const deleteUser = useUserSlice((s) => s.deleteUser);
+  const bulkDeleteUsers = useUserSlice((s) => s.bulkDeleteUsers);
+  const branch = useEffectiveBranchFilter();
+  const branchColumn = useBranchColumn<AppUser>(t("branches.tenant_wide_admin"));
+  const history = useRecordHistoryAction("users");
+  const [form, setForm] = useState<{ user: AppUser | null } | null>(null);
+
+  useEffect(() => {
+    void open(branch);
+  }, [open, branch]);
+
+  const reload = () => void load();
+  const canEdit = (target: AppUser) => !!viewer && canEditUser(viewer, target);
+  const canManage = (target: AppUser) => !!viewer && canManageUser(viewer, target);
+
+  const confirmToggle = (target: AppUser) =>
+    confirm({
+      title: target.active ? t("users.deactivate") : t("users.activate"),
+      message: target.active
+        ? t("customers.deactivate_message", { name: target.fullName })
+        : t("customers.reactivate_message", { name: target.fullName }),
+      destructive: target.active,
+      onConfirm: async () => {
+        if (!viewer) return;
+        const toggle = target.active ? deactivateUser : activateUser;
+        if (await toggle(target.id, viewer.id, viewer.role, target.role)) reload();
+      },
+    });
+
+  const confirmDelete = (selected: AppUser[]) => {
+    const manageable = selected.filter(canManage);
+    const skipped = selected.length - manageable.length;
+    const single = manageable.length === 1 && skipped === 0 ? manageable[0] : null;
+    return confirm({
+      title: single
+        ? t("users.delete_title")
+        : t("users.bulk_delete_title", { count: manageable.length }),
+      message: single
+        ? t("users.delete_message", { name: single.fullName })
+        : t("users.bulk_delete_message", { count: manageable.length }) +
+          (skipped > 0 ? "\n\n" + t("users.bulk_delete_skipped", { count: skipped }) : ""),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+      onConfirm: async () => {
+        if (!viewer) return;
+        const done = single
+          ? (await deleteUser(single.id, viewer.id, viewer.role, single.role)) !== null
+          : await bulkDeleteUsers(
+              manageable.map((u) => ({ id: u.id, role: u.role })),
+              viewer.id,
+              viewer.role,
+            );
+        if (done) reload();
+      },
+    });
+  };
+
+  const editAction = (target: AppUser): TableAction => ({
+    key: "edit",
+    group: "manage",
+    label: t("common.edit"),
+    icon: EditOutlined,
+    onClick: () => setForm({ user: target }),
+  });
+
+  const toggleAction = (target: AppUser): TableAction => ({
+    key: "toggle-active",
+    group: "status",
+    label: target.active ? t("users.deactivate") : t("users.activate"),
+    icon: target.active ? PauseCircleOutlined : PlayCircleOutlined,
+    destructive: target.active,
+    onClick: () => void confirmToggle(target),
+  });
+
+  const deleteAction = (selected: AppUser[]): TableAction => ({
+    key: "delete",
+    group: "danger",
+    label: t("common.delete"),
+    icon: DeleteOutlined,
+    destructive: true,
+    onClick: () => void confirmDelete(selected),
+  });
+
+  const rowActions = (target: AppUser): TableAction[] => [
+    ...(canEdit(target) ? [editAction(target)] : []),
+    history.action(target.id, target.fullName),
+    ...(canManage(target) ? [toggleAction(target), deleteAction([target])] : []),
+  ];
+
+  const bulkActions = (selected: AppUser[]): TableAction[] => {
+    const actions: TableAction[] = [];
+    if (selected.length === 1) {
+      const one = selected[0];
+      if (canEdit(one)) actions.push(editAction(one));
+      if (canManage(one)) actions.push(toggleAction(one));
+    }
+    if (selected.some(canManage)) actions.push(deleteAction(selected));
+    return actions;
+  };
+
+  const columns: GridColDef<AppUser>[] = [
+    {
+      field: "fullName",
+      headerName: t("web.users.name"),
+      flex: 1,
+      minWidth: 180,
+      renderCell: (params) =>
+        canEdit(params.row) ? (
+          <RowLink
+            label={params.row.fullName}
+            tabIndex={params.tabIndex}
+            onClick={() => setForm({ user: params.row })}
+          />
+        ) : (
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {params.row.fullName}
+          </Typography>
+        ),
+    },
+    {
+      field: "username",
+      headerName: t("users.username_label"),
+      flex: 0.8,
+      minWidth: 140,
+      valueGetter: (_value, row) => `@${row.username}`,
+    },
+    {
+      field: "phoneNumber",
+      headerName: t("web.users.phone"),
+      width: 160,
+      valueGetter: (_value, row) => row.phoneNumber ?? "",
+    },
+    ...(branchColumn ? [branchColumn] : []),
+    {
+      field: "role",
+      headerName: t("users.role_label"),
+      width: 140,
+      renderCell: (params) => (
+        <StatusChip label={t(roleLabelKey(params.row.role))} tone={ROLE_TONES[params.row.role]} />
+      ),
+    },
+    activeStatusColumn<AppUser>(t),
+  ];
+
+  return (
+    <Stack spacing={2}>
+      <ErrorBanner message={form ? null : writeError} onDismiss={clearWriteError} />
+      <DataTable<AppUser>
+        label={t("users.title")}
+        columns={columns}
+        rows={rows}
+        total={total}
+        loaded={loaded}
+        loading={loading}
+        page={query.page}
+        pageSize={query.pageSize}
+        onPageChange={setPage}
+        search={{
+          value: query.search,
+          onSearch: setSearch,
+          placeholder: t("web.users.search"),
+        }}
+        filters={
+          <>
+            <TextField
+              select
+              size="small"
+              label={t("users.role_label")}
+              value={query.filters.role}
+              onChange={(event) => setFilters({ role: event.target.value as UserRoleFilter })}
+              sx={{ minWidth: 160 }}
+            >
+              {ROLE_FILTERS.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {t(option.labelKey)}
+                </MenuItem>
+              ))}
+            </TextField>
+            <ActiveFilterSelect
+              value={query.filters.status}
+              onChange={(status) => setFilters({ status })}
+            />
+          </>
+        }
+        add={{ label: t("web.users.add"), onClick: () => setForm({ user: null }) }}
+        exportConfig={{ nameKey: "users.title", loadAll: () => readAllUsers(query) }}
+        rowLabel={(target) => target.fullName}
+        rowActions={rowActions}
+        bulkActions={bulkActions}
+        empty={{ title: t("users.no_staff"), hint: t("web.users.empty_hint") }}
+        filtered={
+          query.search !== "" || query.filters.status !== "all" || query.filters.role !== "all"
+        }
+        onClearFilters={clearFilters}
+        error={tableError}
+        onDismissError={clearTableError}
+        onRetry={reload}
+      />
+      {form ? (
+        <UserFormDialog
+          user={form.user}
+          onClose={() => setForm(null)}
+          onSaved={() => {
+            setForm(null);
+            reload();
+          }}
+        />
+      ) : null}
+      {history.dialog}
+    </Stack>
+  );
+}

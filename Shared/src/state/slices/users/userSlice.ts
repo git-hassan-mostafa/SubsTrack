@@ -1,28 +1,15 @@
 import type { StateCreator } from "zustand";
 import type { AppUser, UserRole } from "@shared/core/types";
 import userService from "@shared/modules/admin/users/services/UserService";
+import type {
+  UserCreateInput,
+  UserUpdateInput,
+} from "@shared/modules/admin/users/utils/types";
 import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
 import type { GlobalState } from "@shared/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
 
-interface UserCreateInput {
-  username: string;
-  fullName: string;
-  password: string;
-  phone: string | null;
-  role: "admin" | "user";
-  branchId: string | null;
-}
-
-interface UserUpdateInput {
-  username: string;
-  fullName: string;
-  phone: string | null;
-  role: "admin" | "user";
-  branchId: string | null;
-  newPassword?: string;
-}
-
+// Writes resolve to the saved user, or null when refused or failed.
 export interface UserSlice {
   items: AppUser[];
   loaded: boolean;
@@ -30,25 +17,25 @@ export interface UserSlice {
   error: string | null;
   getUsers: () => Promise<void>;
   fetchUsers: () => Promise<void>;
-  createUser: (data: UserCreateInput, tenantId: string) => Promise<void>;
+  createUser: (data: UserCreateInput, tenantId: string) => Promise<AppUser | null>;
   updateUser: (
     id: string,
     currentUserId: string,
     currentUserRole: string,
     data: UserUpdateInput,
-  ) => Promise<void>;
+  ) => Promise<AppUser | null>;
   deactivateUser: (
     id: string,
     callerId: string,
     callerRole: UserRole,
     targetRole: UserRole,
-  ) => Promise<void>;
+  ) => Promise<AppUser | null>;
   activateUser: (
     id: string,
     callerId: string,
     callerRole: UserRole,
     targetRole: UserRole,
-  ) => Promise<void>;
+  ) => Promise<AppUser | null>;
   deleteUser: (
     id: string,
     callerId: string,
@@ -71,6 +58,25 @@ export const createUserSlice: StateCreator<
   UserSlice
 > = (set, get) => {
   const tenantHasBranches = () => get().branches.items.some((b) => b.active);
+
+  const startWrite = () =>
+    set((state) => {
+      state.users.loading = true;
+      state.users.error = null;
+    });
+
+  const failWrite = (e: unknown) =>
+    set((state) => {
+      state.users.error = (e as Error).message;
+      state.users.loading = false;
+    });
+
+  const replaceItem = (user: AppUser) =>
+    set((state) => {
+      const i = state.users.items.findIndex((u) => u.id === user.id);
+      if (i !== -1) state.users.items[i] = user;
+      state.users.loading = false;
+    });
 
   return {
     items: [],
@@ -101,18 +107,12 @@ export const createUserSlice: StateCreator<
         });
       } catch (e) {
         if (isStaleEpoch(epoch)) return;
-        set((state) => {
-          state.users.error = (e as Error).message;
-          state.users.loading = false;
-        });
+        failWrite(e);
       }
     },
 
     createUser: async (data, tenantId) => {
-      set((state) => {
-        state.users.loading = true;
-        state.users.error = null;
-      });
+      startWrite();
       try {
         const user = await userService.createUser(
           data,
@@ -123,19 +123,15 @@ export const createUserSlice: StateCreator<
           state.users.items.push(user);
           state.users.loading = false;
         });
+        return user;
       } catch (e) {
-        set((state) => {
-          state.users.error = (e as Error).message;
-          state.users.loading = false;
-        });
+        failWrite(e);
+        return null;
       }
     },
 
     updateUser: async (id, currentUserId, currentUserRole, data) => {
-      set((state) => {
-        state.users.loading = true;
-        state.users.error = null;
-      });
+      startWrite();
       try {
         const updated = await userService.updateUser(
           id,
@@ -144,24 +140,16 @@ export const createUserSlice: StateCreator<
           data,
           tenantHasBranches(),
         );
-        set((state) => {
-          const i = state.users.items.findIndex((u) => u.id === id);
-          if (i !== -1) state.users.items[i] = updated;
-          state.users.loading = false;
-        });
+        replaceItem(updated);
+        return updated;
       } catch (e) {
-        set((state) => {
-          state.users.error = (e as Error).message;
-          state.users.loading = false;
-        });
+        failWrite(e);
+        return null;
       }
     },
 
     deactivateUser: async (id, callerId, callerRole, targetRole) => {
-      set((state) => {
-        state.users.loading = true;
-        state.users.error = null;
-      });
+      startWrite();
       try {
         const updated = await userService.deactivateUser(
           id,
@@ -169,24 +157,16 @@ export const createUserSlice: StateCreator<
           callerRole,
           targetRole,
         );
-        set((state) => {
-          const i = state.users.items.findIndex((u) => u.id === id);
-          if (i !== -1) state.users.items[i] = updated;
-          state.users.loading = false;
-        });
+        replaceItem(updated);
+        return updated;
       } catch (e) {
-        set((state) => {
-          state.users.error = (e as Error).message;
-          state.users.loading = false;
-        });
+        failWrite(e);
+        return null;
       }
     },
 
     activateUser: async (id, callerId, callerRole, targetRole) => {
-      set((state) => {
-        state.users.loading = true;
-        state.users.error = null;
-      });
+      startWrite();
       try {
         const updated = await userService.activateUser(
           id,
@@ -194,24 +174,16 @@ export const createUserSlice: StateCreator<
           callerRole,
           targetRole,
         );
-        set((state) => {
-          const i = state.users.items.findIndex((u) => u.id === id);
-          if (i !== -1) state.users.items[i] = updated;
-          state.users.loading = false;
-        });
+        replaceItem(updated);
+        return updated;
       } catch (e) {
-        set((state) => {
-          state.users.error = (e as Error).message;
-          state.users.loading = false;
-        });
+        failWrite(e);
+        return null;
       }
     },
 
     deleteUser: async (id, callerId, callerRole, targetRole) => {
-      set((state) => {
-        state.users.loading = true;
-        state.users.error = null;
-      });
+      startWrite();
       try {
         const result = await userService.deleteUser(
           id,
@@ -225,28 +197,18 @@ export const createUserSlice: StateCreator<
             state.users.loading = false;
           });
         } else {
-          set((state) => {
-            const i = state.users.items.findIndex((u) => u.id === id);
-            if (i !== -1) state.users.items[i] = result.user;
-            state.users.loading = false;
-          });
+          replaceItem(result.user);
         }
         return result.mode;
       } catch (e) {
-        set((state) => {
-          state.users.error = (e as Error).message;
-          state.users.loading = false;
-        });
+        failWrite(e);
         return null;
       }
     },
 
     bulkDeleteUsers: async (targets, callerId, callerRole) => {
       if (targets.length === 0) return true;
-      set((state) => {
-        state.users.loading = true;
-        state.users.error = null;
-      });
+      startWrite();
       try {
         const { hard, soft } = await userService.deleteUsers(
           targets,
@@ -266,10 +228,7 @@ export const createUserSlice: StateCreator<
         });
         return true;
       } catch (e) {
-        set((state) => {
-          state.users.error = (e as Error).message;
-          state.users.loading = false;
-        });
+        failWrite(e);
         return false;
       }
     },

@@ -21,7 +21,9 @@ import WhatsApp from "@mui/icons-material/WhatsApp";
 import { BranchesPage } from "@/modules/admin/branches/BranchesPage";
 import { CurrenciesPage } from "@/modules/admin/currencies/CurrenciesPage";
 import { PlansPage } from "@/modules/admin/plans/PlansPage";
+import { ProductsPage } from "@/modules/admin/products/ProductsPage";
 import { ServicesPage } from "@/modules/admin/services/ServicesPage";
+import { UsersPage } from "@/modules/admin/users/UsersPage";
 import type { RouteAccess } from "./access";
 
 export type NavSection = "main" | "admin";
@@ -95,6 +97,7 @@ export const APP_PAGES: readonly AppPage[] = [
     access: ADMIN,
     icon: GroupOutlined,
     nav: "admin",
+    component: UsersPage,
   },
   {
     path: "admin/wallets",
@@ -117,6 +120,7 @@ export const APP_PAGES: readonly AppPage[] = [
     access: ADMIN,
     icon: Inventory2Outlined,
     nav: "admin",
+    component: ProductsPage,
   },
   {
     path: "admin/services",

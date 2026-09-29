@@ -43,5 +43,24 @@
     "empty_hint": "Add the plans your customers pay for.",
     "every_n_months": "Every {{count}} months",
     "billing": "Billing"
+  },
+  "products": {
+    "add": "Add product",
+    "search": "Search products",
+    "stock": "Stock",
+    "cost": "Cost",
+    "restock_several": "Restock several",
+    "new_stock": "New stock",
+    "pick_one": "Type a quantity for at least one product."
+  },
+  "users": {
+    "add": "Add staff member",
+    "search": "Search by name, username or phone",
+    "empty_hint": "Add the people who collect money and serve customers.",
+    "name": "Name",
+    "phone": "Phone",
+    "role_all": "All roles",
+    "role_admins": "Admins",
+    "role_staff": "Staff"
   }
 }

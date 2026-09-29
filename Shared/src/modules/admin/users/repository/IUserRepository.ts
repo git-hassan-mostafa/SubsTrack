@@ -1,23 +1,22 @@
 import type { BranchFilter } from "@shared/core/constants";
+import type { Page } from "@shared/core/types";
 import type { DbUser } from "@shared/core/types/db";
+import type { StaffRole, UserPageQuery } from "@shared/modules/admin/users/utils/types";
 
 export interface CreateUserPayload {
   username: string;
   fullName: string;
   password: string;
   phone: string | null;
-  role: "admin" | "user";
+  role: StaffRole;
   tenantId: string;
   branchId: string | null;
 }
 
-/**
- * The User repository contract. Both the Supabase (online/web) class and the
- * offline SQLite class implement this — the compiler keeps the two in lockstep.
- * create / delete / updatePassword run edge functions and are online-only.
- */
+// create / delete / updatePassword run edge functions and are online-only.
 export interface IUserRepository {
   findAll(branchFilter?: BranchFilter): Promise<DbUser[]>;
+  findPage(query: UserPageQuery): Promise<Page<DbUser>>;
   create(payload: CreateUserPayload): Promise<DbUser>;
   update(
     id: string,

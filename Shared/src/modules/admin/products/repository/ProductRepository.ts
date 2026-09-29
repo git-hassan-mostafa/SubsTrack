@@ -1,6 +1,8 @@
 import { BaseRepository } from "@shared/core/utils/BaseRepository";
 import type { BranchFilter } from "@shared/core/constants";
+import type { Page } from "@shared/core/types";
 import type { DbProduct, DbStockMovement } from "@shared/core/types/db";
+import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
 import type {
   CreateStockMovementPayload,
   IProductRepository,
@@ -8,6 +10,7 @@ import type {
   UpdateStockMovementPayload,
 } from "@shared/modules/admin/products/repository/IProductRepository";
 import { toStockCostRow } from "@shared/modules/admin/products/utils/mapper";
+import type { ProductPageQuery } from "@shared/modules/admin/products/utils/types";
 
 export class ProductRepository
   extends BaseRepository
@@ -27,6 +30,27 @@ export class ProductRepository
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbProduct[];
+  }
+
+  async findPage(query: ProductPageQuery): Promise<Page<DbProduct>> {
+    let request = this.db
+      .from("products")
+      .select("*", { count: "exact" })
+      .order("active", { ascending: false })
+      .order("name")
+      .order("id")
+      .range(query.offset, query.offset + query.limit - 1);
+    request = this.applyBranchFilter(
+      request,
+      query.branch,
+      this.BRANCH_SCOPES.products,
+    );
+    const term = sanitizeSearchTerm(query.search);
+    if (term) request = request.ilike("name", `%${term}%`);
+    request = this.applyActiveFilter(request, query.status);
+    const { data, error, count } = await request;
+    if (error) this.handleError(error);
+    return { rows: (data ?? []) as DbProduct[], total: count ?? 0 };
   }
 
   async create(

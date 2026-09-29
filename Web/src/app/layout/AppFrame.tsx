@@ -5,6 +5,7 @@ import Drawer from "@mui/material/Drawer";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { AppHeader } from "./AppHeader";
+import { QuickActionDialogs } from "./QuickActionDialogs";
 import { SideNav } from "./SideNav";
 
 const NAV_WIDTH = 248;
@@ -33,6 +34,7 @@ export function AppFrame() {
           <Outlet />
         </Box>
       </Box>
+      <QuickActionDialogs />
     </Box>
   );
 }

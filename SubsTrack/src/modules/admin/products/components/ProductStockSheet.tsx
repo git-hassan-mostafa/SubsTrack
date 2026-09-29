@@ -27,7 +27,11 @@ import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
-import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
+import { useStockEntryForm } from "@shared/modules/admin/products/hooks/useStockEntryForm";
+import {
+  signedQuantity,
+  stockEntryLabel,
+} from "@shared/modules/admin/products/utils/stockText";
 import productService from "@shared/modules/admin/products/services/ProductService";
 
 interface Props {
@@ -42,20 +46,7 @@ const REASON_ICON: Record<StockReason, keyof typeof Ionicons.glyphMap> = {
   sale: "cart-outline",
 };
 
-// The two cost fields fill each other at the 8 decimals `stock_movements.unit_cost`
-// stores. Rounding a divided unit cost any shorter would make the saved expense
-// disagree with the total that was typed (100 over 3 units -> 33.33 x 3 = 99.99).
-const round8 = (n: number) => Number(n.toFixed(8));
-
-type CostChange = { amount: number | null; currencyId: string | null };
-
-/**
- * Adds stock to one product, and shows the recent history. Stock is never typed
- * as a total — each save appends one ledger movement, so who changed what stays
- * on the record. A manual change can only ADD: stock that never arrived, or went
- * back, is corrected on the entry itself (Edit / Revert in the history menu), so
- * the fix lands in the month the mistake was made.
- */
+// A manual change only ADDS; a wrong entry is fixed on itself — see gotcha #94.
 export function ProductStockSheet({ product, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -73,22 +64,13 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   );
 
   const currencies = useCurrencySlice((s) => s.items);
+  const form = useStockEntryForm(product, currencies);
+  const { editing, adding, costEffect, costCurrency } = form;
 
-  const [quantity, setQuantity] = useState("");
-  const [note, setNote] = useState("");
-  const [unitCost, setUnitCost] = useState<number | null>(product.costPrice);
-  const [totalCost, setTotalCost] = useState<number | null>(null);
-  const [costCurrencyId, setCostCurrencyId] = useState<string | null>(
-    product.costCurrencyId,
-  );
   const [history, setHistory] = useState<StockMovement[]>([]);
-  const [editing, setEditing] = useState<StockMovement | null>(null);
   const [menuFor, setMenuFor] = useState<StockMovement | null>(null);
   const recordHistory = useRecordHistoryAction("stock_movements");
   const scrollBody = useRef<SheetScrollTo | null>(null);
-  const costAnchor = useRef<"unit" | "total">("unit");
-
-  const dirty = useDirtyForm({ quantity, note, unitCost, totalCost });
 
   const loadHistory = useCallback(async () => {
     try {
@@ -102,88 +84,26 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
     return clearError;
   }, [clearError, loadHistory]);
 
-  const parsed = Number(quantity);
-  const validQuantity = Number.isInteger(parsed) && parsed > 0;
-  const costCurrency = findCurrency(currencies, costCurrencyId);
-  const adding = editing ? editing.quantityDelta > 0 : true;
-  const costEffect =
-    validQuantity && totalCost != null && totalCost > 0 ? totalCost : null;
-  const projected = validQuantity
-    ? (editing ? onHand - editing.quantityDelta : onHand) +
-      (adding ? parsed : -parsed)
-    : null;
-
-  // Both cost fields always move together: the per-unit amount is what gets
-  // saved, the total is only its product with the quantity. `qty` is passed in
-  // because every caller changes the quantity in the same handler.
-  function applyUnitCost(unit: number | null, qty: number) {
-    costAnchor.current = "unit";
-    setUnitCost(unit);
-    setTotalCost(unit != null && qty > 0 ? round8(unit * qty) : null);
-  }
-
-  function changeQuantity(text: string) {
-    setQuantity(text);
-    const qty = Number(text);
-    if (qty <= 0) return;
-    if (costAnchor.current === "total") {
-      if (totalCost != null) setUnitCost(round8(totalCost / qty));
-    } else if (unitCost != null) {
-      setTotalCost(round8(unitCost * qty));
-    }
-  }
-
-  function changeUnitCost({ amount, currencyId }: CostChange) {
-    setCostCurrencyId(currencyId);
-    if (amount === unitCost) return;
-    applyUnitCost(amount, parsed);
-  }
-
-  function changeTotalCost({ amount }: CostChange) {
-    if (amount === totalCost) return;
-    costAnchor.current = "total";
-    setTotalCost(amount);
-    if (parsed > 0)
-      setUnitCost(amount == null ? null : round8(amount / parsed));
-  }
-
-  // Back to "record a new change", which is also the sheet's first-render state —
-  // so a saved or abandoned edit leaves nothing for the unsaved-changes guard.
-  function resetForm() {
-    setEditing(null);
-    setQuantity("");
-    setNote("");
-    applyUnitCost(product.costPrice, 0);
-    setCostCurrencyId(product.costCurrencyId);
-  }
+  const projected = form.projectedStock(onHand);
 
   function startEdit(m: StockMovement) {
-    const qty = Math.abs(m.quantityDelta);
-    setEditing(m);
-    setQuantity(String(qty));
-    applyUnitCost(m.unitCost, qty);
-    setCostCurrencyId(m.currencyId);
-    setNote(m.note ?? "");
+    form.startEdit(m);
     clearError();
     scrollBody.current?.(0);
   }
 
-  // The other correction door: the entry should never have existed. It stops
-  // counting in stock and in Expenses for its OWN month, and stays in the
-  // history marked reversed — see docs/features.md → Reverting a stock entry.
   async function handleRevert(m: StockMovement) {
     await confirm({
       title: t("products.revert_stock_title"),
       message: t("products.revert_stock_message", {
-        entry: `${t(`products.stock_reason_${m.reason}`)} ${
-          m.quantityDelta > 0 ? `+${m.quantityDelta}` : m.quantityDelta
-        }`,
+        entry: stockEntryLabel(t, m),
       }),
       confirmLabel: t("products.revert_stock_confirm"),
       destructive: true,
       onConfirm: async () => {
-        if (!(await revertStockMovement(m.id, user?.id ?? null))) return;
-        if (editing?.id === m.id) resetForm();
+        if ((await revertStockMovement(m.id, user?.id ?? null)) === null)
+          return;
+        if (editing?.id === m.id) form.reset();
         await loadHistory();
       },
     });
@@ -214,40 +134,40 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   }
 
   async function handleSubmit() {
-    if (!user || !validQuantity) return;
+    if (!user || !form.validQuantity) return;
+    const cost = { unitCost: form.unitCost, currency: costCurrency };
     if (editing) {
-      const ok = await updateStockMovement(editing.id, {
-        quantity: parsed,
-        note,
-        cost: { unitCost, currency: costCurrency },
+      const saved = await updateStockMovement(editing.id, {
+        quantity: form.parsed,
+        note: form.note,
+        cost,
       });
-      if (!ok) return;
-      resetForm();
+      if (saved === null) return;
+      form.reset();
       await loadHistory();
       return;
     }
-    const ok = await addStock(
+    const saved = await addStock(
       product.id,
       user.tenantId,
-      parsed,
-      note,
+      form.parsed,
+      form.note,
       user.id,
-      { unitCost, currency: costCurrency },
+      cost,
     );
-    if (!ok) return;
+    if (saved === null) return;
     onDismiss();
   }
 
   return (
     <FormSheet
       onDismiss={onDismiss}
-      dirty={dirty}
+      dirty={form.dirty}
       title={t("products.adjust_stock_title")}
       scrollRef={scrollBody}
     >
       {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
-      {/* Current stock */}
       <View className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 mb-5">
         <Text className="text-xs text-gray-400">{product.name}</Text>
         <Text
@@ -261,8 +181,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
         </Text>
       </View>
 
-      {/* The banner only shows while a row is being corrected; a new change needs
-          no chrome, since adding is the only thing it can do. */}
       {editing ? (
         <View className="mb-4 flex-row rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3">
           <Ionicons name="create-outline" size={16} color={COLORS.primary} />
@@ -271,15 +189,15 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
               {t("products.editing_entry")}
             </Text>
             <Text className="text-xs text-gray-600 mt-0.5">
-              {`${t(`products.stock_reason_${editing.reason}`)} · ${
-                adding ? `+${editing.quantityDelta}` : editing.quantityDelta
-              } · ${formatDateTime(editing.occurredAt)}`}
+              {`${t(`products.stock_reason_${editing.reason}`)} · ${signedQuantity(
+                editing.quantityDelta,
+              )} · ${formatDateTime(editing.occurredAt)}`}
             </Text>
             <Text className="text-xs text-gray-500 mt-1">
               {t("products.editing_entry_hint")}
             </Text>
           </View>
-          <PressableOpacity onPress={resetForm} hitSlop={8} className="ms-1">
+          <PressableOpacity onPress={form.reset} hitSlop={8} className="ms-1">
             <Ionicons name="close" size={18} color={COLORS.gray500} />
           </PressableOpacity>
         </View>
@@ -287,24 +205,21 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
 
       <Input
         label={t("products.stock_quantity_label") + " *"}
-        value={quantity}
-        onChangeText={changeQuantity}
+        value={form.quantity}
+        onChangeText={form.changeQuantity}
         sanitize={digitsOnly}
         keyboardType="number-pad"
         placeholder="0"
         onFocus={clearError}
       />
 
-      {/* What the stock cost: an expense in the month of the buy, or none at all
-          when left empty. Per unit or per delivery, whichever the invoice says —
-          each fills the other from the quantity. */}
       <View className="flex-row items-end gap-3">
         <View className="flex-1">
           <CurrencyInput
             label={t("products.cost_per_unit_label")}
-            amount={unitCost}
-            currencyId={costCurrencyId}
-            onChange={changeUnitCost}
+            amount={form.unitCost}
+            currencyId={form.costCurrencyId}
+            onChange={form.changeUnitCost}
             currencies={currencies}
             placeholder="0.00"
             onFocus={clearError}
@@ -313,9 +228,9 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
         <View className="flex-1">
           <CurrencyInput
             label={t("products.total_cost_label")}
-            amount={totalCost}
-            currencyId={costCurrencyId}
-            onChange={changeTotalCost}
+            amount={form.totalCost}
+            currencyId={form.costCurrencyId}
+            onChange={form.changeTotalCost}
             currencies={currencies}
             placeholder="0.00"
             lockCurrency
@@ -323,8 +238,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
           />
         </View>
       </View>
-      {/* Names what the money does, since the amount is already in the field
-          above — green for the credit an edited removal gives back. */}
       {costEffect != null ? (
         <Text
           className={`-mt-2 mb-4 text-xs ${adding ? "text-amber-700" : "text-green-700"}`}
@@ -340,13 +253,11 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
 
       <Input
         label={t("products.stock_note_label")}
-        value={note}
-        onChangeText={setNote}
+        value={form.note}
+        onChangeText={form.setNote}
         placeholder={t("products.stock_note_placeholder")}
       />
 
-      {/* Not a blocker: the DB accepts negative stock on purpose, so staff are told
-          what the correction does and decide. */}
       {projected != null && projected < 0 ? (
         <View className="mb-4 flex-row rounded-xl bg-amber-50 px-3 py-2">
           <Ionicons
@@ -355,8 +266,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
             color={COLORS.warning}
           />
           <Text className="flex-1 ms-2 text-xs text-amber-800">
-            {/* `value`, not `count` — a negative count would go through i18next's
-                plural rules and pick a form that doesn't exist. */}
             {t("products.stock_goes_negative", { value: projected })}
           </Text>
         </View>
@@ -368,11 +277,10 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
         )}
         onPress={handleSubmit}
         loading={loading}
-        disabled={!validQuantity || loading}
+        disabled={!form.validQuantity || loading}
         fullWidth
       />
 
-      {/* History */}
       <View className="flex-row items-center justify-between mt-8 mb-2">
         <Text fontWeight="SemiBold" className="text-base text-gray-900">
           {t("products.stock_history")}
@@ -448,7 +356,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
                             : "text-danger"
                       }`}
                     >
-                      {added ? `+${m.quantityDelta}` : m.quantityDelta}
+                      {signedQuantity(m.quantityDelta)}
                     </Text>
                     {hasMenu ? (
                       <PressableOpacity
@@ -469,8 +377,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
                     {formatDateTime(m.occurredAt)}
                   </Text>
 
-                  {/* The money side, so it's visible which rows moved Expenses
-                      — a costed removal gives money back. */}
                   {m.unitCost != null && !voided ? (
                     <Text
                       className={`text-xs mt-0.5 ${added ? "text-gray-500" : "text-green-700"}`}
@@ -533,9 +439,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
 
       <View className="h-24" />
 
-      {/* One menu for the whole list, not one per row. Both sheets sit in the body
-          like PaymentDetailSheet's history sheet — Gorhom portals them out, so the
-          position in the tree costs nothing. */}
       <ActionMenu
         visible={menuFor !== null}
         title={

@@ -1,10 +1,12 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 import type { BranchFilter } from "@shared/core/constants";
+import type { Page } from "@shared/core/types";
 import type { DbProduct, DbStockMovement } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, markDeleted } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@shared/core/utils/ids";
 import { toStockCostRow } from "@shared/modules/admin/products/utils/mapper";
+import type { ProductPageQuery } from "@shared/modules/admin/products/utils/types";
 import type {
   CreateStockMovementPayload,
   IProductRepository,
@@ -12,12 +14,7 @@ import type {
   UpdateStockMovementPayload,
 } from "@shared/modules/admin/products/repository/IProductRepository";
 
-/**
- * SQLite-backed Product repository. Reads from the local mirror; writes mutate
- * the mirror and flag the row `_dirty` (hard deletes are logged in
- * `pending_deletes`) so the next sync pushes them. Returns the same `DbProduct`
- * shapes as the Supabase repository.
- */
+// The local mirror's products, as DbProduct rows — see docs/offline.md.
 export class OfflineProductRepository
   extends OfflineBaseRepository
   implements IProductRepository
@@ -31,6 +28,22 @@ export class OfflineProductRepository
       where.params,
     );
     return this.decodeAll<DbProduct>("products", rows);
+  }
+
+  async findPage(query: ProductPageQuery): Promise<Page<DbProduct>> {
+    const where = this.combineWhere([
+      this.branchWhere(query.branch, this.BRANCH_SCOPES.products, "products"),
+      this.searchWhere(["name"], query.search),
+      this.activeWhere(query.status),
+    ]);
+    const [rows, total] = await Promise.all([
+      this.all(
+        `SELECT * FROM products ${where.sql} ORDER BY active DESC, name ASC, id ASC LIMIT ? OFFSET ?`,
+        [...where.params, query.limit, query.offset],
+      ),
+      this.count(`SELECT COUNT(*) AS n FROM products ${where.sql}`, where.params),
+    ]);
+    return { rows: this.decodeAll<DbProduct>("products", rows), total };
   }
 
   async create(

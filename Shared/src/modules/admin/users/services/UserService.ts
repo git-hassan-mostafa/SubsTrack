@@ -1,26 +1,17 @@
 import { repositories } from "@shared/core/runtime/repositories";
-import type { AppUser, UserRole } from "@shared/core/types";
+import type { AppUser, Page, UserRole } from "@shared/core/types";
 import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
 import { mapDbUserToAppUser } from "@shared/modules/admin/users/utils/mapper";
-
-interface CreateUserInput {
-  username: string;
-  fullName: string;
-  password: string;
-  phone: string | null;
-  role: "admin" | "user";
-  branchId: string | null;
-}
-
-interface UpdateUserInput {
-  username: string;
-  fullName: string;
-  phone: string | null;
-  role: "admin" | "user";
-  branchId: string | null;
-  newPassword?: string;
-}
+import type {
+  UserCreateInput,
+  UserPageQuery,
+  UserUpdateInput,
+} from "@shared/modules/admin/users/utils/types";
+import {
+  isLongEnoughPassword,
+  isValidUsername,
+} from "@shared/modules/admin/users/utils/userRules";
 
 class UserService {
   async getUsers(branchFilter: BranchFilter = null): Promise<AppUser[]> {
@@ -28,22 +19,27 @@ class UserService {
     return rows.map(mapDbUserToAppUser);
   }
 
+  async getUserPage(query: UserPageQuery): Promise<Page<AppUser>> {
+    const page = await repositories().user.findPage(query);
+    return { rows: page.rows.map(mapDbUserToAppUser), total: page.total };
+  }
+
   private validateUsername(username: string): void {
     if (!username.trim()) throw new Error(i18n.t("errors.username_required"));
-    if (!/^[a-zA-Z0-9._]+$/.test(username.trim())) {
+    if (!isValidUsername(username)) {
       throw new Error(i18n.t("errors.username_invalid_chars"));
     }
   }
 
   async createUser(
-    data: CreateUserInput,
+    data: UserCreateInput,
     tenantId: string,
     tenantHasBranches: boolean,
   ): Promise<AppUser> {
     this.validateUsername(data.username);
     if (!data.fullName.trim())
       throw new Error(i18n.t("errors.fullname_required"));
-    if (data.password.length < 8)
+    if (!isLongEnoughPassword(data.password))
       throw new Error(i18n.t("errors.password_too_short"));
     if (!["admin", "user"].includes(data.role))
       throw new Error(i18n.t("errors.role_invalid"));
@@ -69,7 +65,7 @@ class UserService {
     id: string,
     currentUserId: string,
     currentUserRole: string,
-    data: UpdateUserInput,
+    data: UserUpdateInput,
     tenantHasBranches: boolean,
   ): Promise<AppUser> {
     this.validateUsername(data.username);
@@ -78,7 +74,7 @@ class UserService {
     if (id === currentUserId && data.role !== currentUserRole) {
       throw new Error(i18n.t("errors.cannot_change_own_role"));
     }
-    if (data.newPassword !== undefined && data.newPassword.length < 8) {
+    if (data.newPassword !== undefined && !isLongEnoughPassword(data.newPassword)) {
       throw new Error(i18n.t("errors.password_too_short"));
     }
     this.validateBranchAssignment(data.role, data.branchId, tenantHasBranches);
@@ -102,7 +98,7 @@ class UserService {
   }
 
   private validateBranchAssignment(
-    role: "admin" | "user",
+    role: UserRole,
     branchId: string | null,
     tenantHasBranches: boolean,
   ): void {

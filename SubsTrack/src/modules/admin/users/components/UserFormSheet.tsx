@@ -12,12 +12,15 @@ import { confirm } from "@shared/shared/lib/confirm";
 import type { AppUser } from "@shared/core/types";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useUserSlice } from "@shared/state/hooks/useUserSlice";
-import { getStore } from "@shared/state/globalStore";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
 import { useBranchSlice } from "@shared/state/hooks/useBranchSlice";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { canManageUser } from "@shared/modules/admin/users/utils/userPermissions";
+import {
+  isLongEnoughPassword,
+  isValidUsername,
+} from "@shared/modules/admin/users/utils/userRules";
 
 interface Props {
   user?: AppUser | null;
@@ -99,18 +102,18 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
   }
 
   const usernameInvalid =
-    form.username.length > 0 && !/^[a-zA-Z0-9._]+$/.test(form.username);
+    form.username.length > 0 && !isValidUsername(form.username);
 
   const passwordMismatch =
     !editUser &&
-    form.password.length >= 8 &&
+    isLongEnoughPassword(form.password) &&
     form.confirmPassword.length > 0 &&
     form.password !== form.confirmPassword;
 
   const newPasswordMismatch =
     !!editUser &&
     form.changePassword &&
-    form.newPassword.length >= 8 &&
+    isLongEnoughPassword(form.newPassword) &&
     form.confirmNewPassword.length > 0 &&
     form.newPassword !== form.confirmNewPassword;
 
@@ -130,29 +133,27 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
 
   async function handleSubmit() {
     if (!currentUser) return;
-    if (editUser) {
-      await updateUser(editUser.id, currentUser.id, currentUser.role, {
-        username: form.username,
-        fullName: form.fullName,
-        phone: form.phoneNumber || null,
-        role: form.role,
-        branchId: form.branchId,
-        newPassword: form.changePassword ? form.newPassword : undefined,
-      });
-    } else {
-      await createUser(
-        {
+    const saved = editUser
+      ? await updateUser(editUser.id, currentUser.id, currentUser.role, {
           username: form.username,
           fullName: form.fullName,
-          password: form.password,
           phone: form.phoneNumber || null,
           role: form.role,
           branchId: form.branchId,
-        },
-        currentUser.tenantId,
-      );
-    }
-    if (!getStore().getState().users.error) onDismiss();
+          newPassword: form.changePassword ? form.newPassword : undefined,
+        })
+      : await createUser(
+          {
+            username: form.username,
+            fullName: form.fullName,
+            password: form.password,
+            phone: form.phoneNumber || null,
+            role: form.role,
+            branchId: form.branchId,
+          },
+          currentUser.tenantId,
+        );
+    if (saved) onDismiss();
   }
 
   const canSubmit =
@@ -163,9 +164,10 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     !branchMissingForStaff &&
     (!!editUser
       ? !form.changePassword ||
-        (form.newPassword.length >= 8 &&
+        (isLongEnoughPassword(form.newPassword) &&
           form.newPassword === form.confirmNewPassword)
-      : form.password.length >= 8 && form.password === form.confirmPassword);
+      : isLongEnoughPassword(form.password) &&
+        form.password === form.confirmPassword);
 
   return (
     <FormSheet
@@ -346,22 +348,14 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
         <PressableOpacity
           onPress={async () => {
             if (!currentUser) return;
-            if (editUser.active) {
-              await deactivateUser(
-                editUser.id,
-                currentUser.id,
-                currentUser.role,
-                editUser.role,
-              );
-            } else {
-              await activateUser(
-                editUser.id,
-                currentUser.id,
-                currentUser.role,
-                editUser.role,
-              );
-            }
-            if (!getStore().getState().users.error) onDismiss();
+            const toggle = editUser.active ? deactivateUser : activateUser;
+            const saved = await toggle(
+              editUser.id,
+              currentUser.id,
+              currentUser.role,
+              editUser.role,
+            );
+            if (saved) onDismiss();
           }}
           className={`mt-3 rounded-xl py-3.5 items-center mb-3 border ${
             editUser.active

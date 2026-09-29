@@ -14,6 +14,7 @@ import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { EntityCard } from "@/src/shared/components/EntityCard";
+import { stockLevelLabel } from "@shared/modules/admin/products/utils/stockText";
 
 interface Props {
   product: Product;
@@ -41,11 +42,7 @@ export function ProductCard({
   const target = findCurrency(currencies, displayCurrencyId);
   const priceLabel = formatMoney(product.price, source, target);
   const inStock = product.stockOnHand > 0;
-  const stockLabel = inStock
-    ? t("products.in_stock", { quantity: product.stockOnHand })
-    : product.stockOnHand < 0
-      ? t("products.oversold", { quantity: -product.stockOnHand })
-      : t("products.out_of_stock");
+  const stockLabel = stockLevelLabel(t, product.stockOnHand);
 
   return (
     <EntityCard

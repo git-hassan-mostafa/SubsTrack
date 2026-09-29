@@ -1,5 +1,5 @@
 import { repositories } from "@shared/core/runtime/repositories";
-import type { Currency, Product, StockMovement } from "@shared/core/types";
+import type { Currency, Page, Product, StockMovement } from "@shared/core/types";
 import type { DbStockMovement } from "@shared/core/types/db";
 import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
@@ -11,7 +11,11 @@ import {
   mapDbProductToProduct,
   mapDbStockMovementToStockMovement,
 } from "@shared/modules/admin/products/utils/mapper";
-import { ProductInput, RestockEntry } from "@shared/modules/admin/products/utils/types";
+import type {
+  ProductInput,
+  ProductPageQuery,
+  RestockEntry,
+} from "@shared/modules/admin/products/utils/types";
 
 class ProductService {
   async getProducts(branchFilter: BranchFilter = null): Promise<Product[]> {
@@ -20,6 +24,17 @@ class ProductService {
       repositories().product.stockOnHand(),
     ]);
     return rows.map((r) => mapDbProductToProduct(r, stock[r.id] ?? 0));
+  }
+
+  async getProductPage(query: ProductPageQuery): Promise<Page<Product>> {
+    const page = await repositories().product.findPage(query);
+    const stock = await repositories().product.stockOnHand(
+      page.rows.map((r) => r.id),
+    );
+    return {
+      rows: page.rows.map((r) => mapDbProductToProduct(r, stock[r.id] ?? 0)),
+      total: page.total,
+    };
   }
 
   async createProduct(
