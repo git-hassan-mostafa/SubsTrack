@@ -1,4 +1,4 @@
-import type { UnpaidStartRule } from "@/src/core/types";
+import type { UnpaidStartRule } from "@shared/core/types";
 import {
   hasReachedStartDay,
   isBeforeStartDate,

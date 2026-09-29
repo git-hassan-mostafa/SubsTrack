@@ -5,7 +5,7 @@ import {
   CardTitle,
 } from "@/src/shared/components/CardText";
 import { Chip, type ChipTone } from "@/src/shared/components/Chip";
-import type { AppUser } from "@/src/core/types";
+import type { AppUser } from "@shared/core/types";
 import { useTranslation } from "react-i18next";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { COLORS } from "@/src/shared/constants";

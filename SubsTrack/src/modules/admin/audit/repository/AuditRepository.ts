@@ -1,8 +1,8 @@
 import { Platform } from "react-native";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import { PAGE_SIZE } from "@/src/core/constants";
-import type { AuditFilter, AuditRecordTarget } from "@/src/core/types";
-import type { DbAuditLog } from "@/src/core/types/db";
+import { PAGE_SIZE } from "@shared/core/constants";
+import type { AuditFilter, AuditRecordTarget } from "@shared/core/types";
+import type { DbAuditLog } from "@shared/core/types/db";
 import type {
   AuditPage,
   AuditRows,

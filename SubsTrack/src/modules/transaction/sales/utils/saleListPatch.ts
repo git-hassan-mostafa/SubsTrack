@@ -1,4 +1,4 @@
-import type { Collection, Sale } from "@/src/core/types";
+import type { Collection, Sale } from "@shared/core/types";
 import { amountByCharge } from "@/src/modules/ledger/utils/paidToCharge";
 
 /** Newest first, which is how every sales list is sorted. */

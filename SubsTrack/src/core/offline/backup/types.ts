@@ -1,4 +1,4 @@
-import type { UserRole } from "@/src/core/types";
+import type { UserRole } from "@shared/core/types";
 
 export const BACKUP_FORMAT = "sijil-local-backup";
 export const BACKUP_VERSION = 1;

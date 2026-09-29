@@ -1,4 +1,4 @@
-import type { ReceiveBlock, UserRole } from "@/src/core/types";
+import type { ReceiveBlock, UserRole } from "@shared/core/types";
 
 /** The parts of a user that decide their place in the chain. */
 export interface WalletActor {

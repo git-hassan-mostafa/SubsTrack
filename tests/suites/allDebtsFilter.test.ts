@@ -8,7 +8,7 @@ import {
   totalUsdOf,
   type AllDebtsFilters,
 } from "@/src/modules/transaction/debts/utils/allDebtsFilter";
-import type { CustomerDebts, DebtsView, OpenItem } from "@/src/core/types";
+import type { CustomerDebts, DebtsView, OpenItem } from "@shared/core/types";
 import { openItem } from "../helpers/factories";
 
 // TC-AD-* — the all-debts sheet's pure view over the DebtsView the screen

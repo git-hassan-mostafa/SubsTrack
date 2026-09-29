@@ -6,7 +6,7 @@ import { Text } from "@/src/shared/components/Text";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { PlanPicker } from "@/src/shared/components/PlanPicker";
 import { COLORS } from "@/src/shared/constants";
-import type { Currency, Plan } from "@/src/core/types";
+import type { Currency, Plan } from "@shared/core/types";
 import { PlanLinePriceField } from "./PlanLinePriceField";
 
 // One row in the inline Plans editor. `id` present = an existing line being

@@ -17,7 +17,7 @@ import {
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
-import type { Plan } from "@/src/core/types";
+import type { Plan } from "@shared/core/types";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { PlanCard } from "../components/PlanCard";
 import { PlanFormSheet } from "../components/PlanFormSheet";

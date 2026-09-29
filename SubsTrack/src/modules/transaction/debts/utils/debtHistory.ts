@@ -1,4 +1,4 @@
-import type { ChargeKind, ChargeStatus, DebtHistoryItem } from "@/src/core/types";
+import type { ChargeKind, ChargeStatus, DebtHistoryItem } from "@shared/core/types";
 import type {
   BalanceScope,
   ChargeSortField,
@@ -6,8 +6,8 @@ import type {
 } from "@/src/modules/ledger/repository/IChargeRepository";
 import type { SortDirection } from "@/src/modules/ledger/repository/ICollectionRepository";
 import { chargeStatusOf } from "@/src/modules/ledger/utils/billState";
-import { daysLate } from "@/src/core/utils/date";
-import { periodFromPreset, type ReportPeriod } from "@/src/core/utils/dateRange";
+import { daysLate } from "@shared/core/utils/date";
+import { periodFromPreset, type ReportPeriod } from "@shared/core/utils/dateRange";
 
 export type HistoryOutcome = "settled" | "partial" | "open" | "written_off";
 export type HistorySort =

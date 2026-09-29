@@ -8,7 +8,7 @@ import { DropdownModal, type DropdownOption } from "./Dropdown";
 import {
   BRANCH_FILTER_UNASSIGNED,
   type BranchFilter,
-} from "@/src/core/constants";
+} from "@shared/core/constants";
 import { COLORS } from "@/src/shared/constants";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";

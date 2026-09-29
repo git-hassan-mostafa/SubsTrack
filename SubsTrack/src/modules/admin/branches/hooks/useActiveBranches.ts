@@ -1,4 +1,4 @@
-import { Branch } from "@/src/core/types";
+import { Branch } from "@shared/core/types";
 import { useEffect } from "react";
 import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
 

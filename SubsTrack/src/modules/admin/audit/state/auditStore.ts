@@ -6,7 +6,7 @@ import type {
   AuditFilter,
   AuditSource,
   AuditTable,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import auditService from "@/src/modules/admin/audit/services/AuditService";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import { getStore } from "@/src/state/globalStore";

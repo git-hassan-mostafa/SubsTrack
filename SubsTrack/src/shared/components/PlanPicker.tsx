@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Dropdown, type DropdownOption } from "./Dropdown";
-import type { Plan } from "@/src/core/types";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import type { Plan } from "@shared/core/types";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";

@@ -26,7 +26,7 @@ import type {
   CustomerPlan,
   CustomerStatus,
   OpenItem,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import {
   useSendInvoice,
   useWhatsApp,
@@ -52,8 +52,8 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useAuth } from "../../../authentication/auth/hooks/useAuth";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
 import { isBeforeStartDate } from "@/src/modules/customer/customer-payments/utils/monthDueRules";
 import { activeLines } from "@/src/modules/customer/customer-plans/utils/activeLines";
 import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";

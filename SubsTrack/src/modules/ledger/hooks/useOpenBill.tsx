@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactNode } from "react";
-import type { Charge, Collection, OpenItem } from "@/src/core/types";
+import type { Charge, Collection, OpenItem } from "@shared/core/types";
 import { chargeService } from "../services/ChargeService";
 import { BillSheet } from "../components/BillSheet";
 

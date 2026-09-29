@@ -18,13 +18,13 @@ import {
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
 import { confirm } from "@/src/shared/lib/confirm";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 import { useWalletStore } from "../state/walletStore";
-import type { ReceiveBlock, UserWallet, WalletItem } from "@/src/core/types";
+import type { ReceiveBlock, UserWallet, WalletItem } from "@shared/core/types";
 import { WalletCard } from "../components/WalletCard";
 import {
   WalletDetailView,

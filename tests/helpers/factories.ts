@@ -9,7 +9,7 @@ import type {
   OpenItem,
   Plan,
   SkippedMonth,
-} from "@/src/core/types";
+} from "@shared/core/types";
 
 // Tiny builders so a test says only what it is about. Every default is the
 // boring case: USD, one month, nothing voided, nothing collected.

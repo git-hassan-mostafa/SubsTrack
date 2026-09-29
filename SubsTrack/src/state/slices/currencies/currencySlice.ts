@@ -1,5 +1,5 @@
 import type { StateCreator } from "zustand";
-import type { Currency } from "@/src/core/types";
+import type { Currency } from "@shared/core/types";
 import {
   currencyService,
   type CurrencyInput,

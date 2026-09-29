@@ -5,8 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
-import { MONTHS } from "@/src/core/constants";
-import type { DashboardMetrics } from "@/src/core/types";
+import { MONTHS } from "@shared/core/constants";
+import type { DashboardMetrics } from "@shared/core/types";
 
 interface Props {
   metrics: DashboardMetrics | null;

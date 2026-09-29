@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import type { DbCustomerRequest } from "@/src/core/types/db";
+import type { DbCustomerRequest } from "@shared/core/types/db";
 import type { QuotaPair } from "../utils/types";
 import type {
   CustomerRequestInput,

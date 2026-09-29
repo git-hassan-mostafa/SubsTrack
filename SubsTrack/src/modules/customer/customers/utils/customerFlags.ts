@@ -1,4 +1,4 @@
-import type { CustomerMonthStatus, CustomerStatus } from "@/src/core/types";
+import type { CustomerMonthStatus, CustomerStatus } from "@shared/core/types";
 
 /**
  * A payment pill on a customer card: the customer's settle status, plus the

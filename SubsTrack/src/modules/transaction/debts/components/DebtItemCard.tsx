@@ -15,17 +15,17 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
-import type { OpenItem } from "@/src/core/types";
+import type { OpenItem } from "@shared/core/types";
 import { KIND_ICON } from "../utils/kindIcon";
 import {
   findCurrency,
   formatMoneyPair,
   formatPaidFraction,
   snapshotCurrency,
-} from "@/src/core/utils/currency";
+} from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { daysLate, formatDate } from "@/src/core/utils/date";
+import { daysLate, formatDate } from "@shared/core/utils/date";
 
 interface Props {
   item: OpenItem;

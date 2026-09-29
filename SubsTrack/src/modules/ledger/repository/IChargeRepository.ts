@@ -1,5 +1,5 @@
-import type { BranchFilter } from "@/src/core/constants";
-import type { DbCharge, DbChargeBalance } from "@/src/core/types/db";
+import type { BranchFilter } from "@shared/core/constants";
+import type { DbCharge, DbChargeBalance } from "@shared/core/types/db";
 import type { SortDirection } from "./ICollectionRepository";
 
 /**

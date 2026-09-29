@@ -1,5 +1,5 @@
-import type { BranchFilter } from "@/src/core/constants";
-import type { DbService } from "@/src/core/types/db";
+import type { BranchFilter } from "@shared/core/constants";
+import type { DbService } from "@shared/core/types/db";
 
 /**
  * The Service (price list) repository contract. Both the Supabase (online/web)

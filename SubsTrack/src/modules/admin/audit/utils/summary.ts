@@ -3,10 +3,10 @@ import type {
   AuditChange,
   AuditEntry,
   AuditTable,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import { formatField, formatFieldLabel, tableLabel } from "./format";
 import { recordDetail, type RecordDetail } from "./recordDetail";
-import { isolate } from "@/src/core/utils/bidi";
+import { isolate } from "@shared/core/utils/bidi";
 import { bold, toParts, type SentencePart } from "./sentence";
 import type { AuditFieldContext } from "./valueDisplay";
 

@@ -1,5 +1,5 @@
 import type { StateCreator } from "zustand";
-import type { AppUser, UserRole } from "@/src/core/types";
+import type { AppUser, UserRole } from "@shared/core/types";
 import { userService } from "@/src/modules/admin/users";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import type { GlobalState } from "@/src/state/globalStore";

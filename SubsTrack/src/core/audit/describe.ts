@@ -1,4 +1,4 @@
-import type { AuditTable } from "@/src/core/types";
+import type { AuditTable } from "@shared/core/types";
 
 /**
  * A short, frozen one-liner identifying the touched record — the audit row's

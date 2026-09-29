@@ -1,4 +1,4 @@
-import type { DbCustomerPlan, DbPlan } from "@/src/core/types/db";
+import type { DbCustomerPlan, DbPlan } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import {
   insertDirty,

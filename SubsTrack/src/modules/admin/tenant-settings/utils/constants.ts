@@ -1,4 +1,4 @@
-import type { UnpaidStartRule, WhatsAppLanguage } from "@/src/core/types";
+import type { UnpaidStartRule, WhatsAppLanguage } from "@shared/core/types";
 
 export const DEFAULT_UNPAID_START_RULE: UnpaidStartRule = "month_start";
 

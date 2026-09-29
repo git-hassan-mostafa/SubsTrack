@@ -1,5 +1,5 @@
 import paymentService from "@/src/modules/customer/customer-payments/services/PaymentService";
-import type { MonthEntry, MonthStatus } from "@/src/core/types";
+import type { MonthEntry, MonthStatus } from "@shared/core/types";
 import { bill, line, plan, skip } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
 

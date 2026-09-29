@@ -1,5 +1,5 @@
-import type { AuditChange, AuditEntry, AuditTable } from "@/src/core/types";
-import type { DbAuditLog } from "@/src/core/types/db";
+import type { AuditChange, AuditEntry, AuditTable } from "@shared/core/types";
+import type { DbAuditLog } from "@shared/core/types/db";
 import { isHiddenColumn } from "./valueDisplay";
 
 /** NULL, undefined and '' all mean "no value" — see `isNoOp`. */

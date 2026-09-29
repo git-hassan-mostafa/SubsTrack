@@ -1,5 +1,5 @@
-import { BranchFilter } from "@/src/core/constants";
-import { Currency, Product, Sale, Service } from "@/src/core/types";
+import { BranchFilter } from "@shared/core/constants";
+import { Currency, Product, Sale, Service } from "@shared/core/types";
 
 export interface FindSalesOptions {
   page?: number;

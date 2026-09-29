@@ -10,10 +10,10 @@ import {
   CardTitle,
 } from "@/src/shared/components/CardText";
 import { Chip } from "@/src/shared/components/Chip";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import type { UserWallet } from "@/src/core/types";
+import type { UserWallet } from "@shared/core/types";
 
 interface Props {
   wallet: UserWallet;

@@ -2,9 +2,9 @@ import type {
   ChargeKind,
   DashboardMetrics,
   UnpaidStartRule,
-} from "@/src/core/types";
-import type { BranchFilter } from "@/src/core/constants";
-import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
+} from "@shared/core/types";
+import type { BranchFilter } from "@shared/core/constants";
+import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
 import { customerRepository as customerRepo } from "@/src/modules/customer/customers";
 import { planRepository as planRepo } from "@/src/modules/admin/plans";
 import { userRepository as userRepo } from "@/src/modules/admin/users";

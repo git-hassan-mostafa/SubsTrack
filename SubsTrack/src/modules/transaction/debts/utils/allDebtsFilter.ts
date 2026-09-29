@@ -1,6 +1,6 @@
-import type { ChargeKind, DebtsView, OpenItem } from "@/src/core/types";
+import type { ChargeKind, DebtsView, OpenItem } from "@shared/core/types";
 import { compareOpenItems } from "@/src/modules/ledger/utils/waterfall";
-import { daysLate } from "@/src/core/utils/date";
+import { daysLate } from "@shared/core/utils/date";
 
 export type AllDebtsStatus = "late" | "not_late" | "partial";
 export type AllDebtsSort =

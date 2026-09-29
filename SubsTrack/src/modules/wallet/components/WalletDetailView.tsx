@@ -33,8 +33,8 @@ import {
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelection";
 import { COLORS } from "@/src/shared/constants";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import { formatDate } from "@/src/core/utils/date";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { formatDate } from "@shared/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { CollectionDetailSheet } from "@/src/modules/ledger/components/CollectionDetailSheet";
@@ -42,7 +42,7 @@ import type {
   UserWalletDetail,
   WalletItem,
   WalletSource,
-} from "@/src/core/types";
+} from "@shared/core/types";
 
 const SOURCE_META: Record<
   WalletSource,

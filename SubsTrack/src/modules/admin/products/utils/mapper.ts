@@ -1,5 +1,5 @@
-import { Product, StockMovement } from "@/src/core/types";
-import { DbProduct, DbStockMovement } from "@/src/core/types/db";
+import { Product, StockMovement } from "@shared/core/types";
+import { DbProduct, DbStockMovement } from "@shared/core/types/db";
 import type { StockCostRow } from "../repository/IProductRepository";
 
 // stockOnHand has no DB column — the caller passes the ledger sum.

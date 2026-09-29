@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import type { DbAppOption } from "@/src/core/types/db";
+import type { DbAppOption } from "@shared/core/types/db";
 import type { IOptionRepository } from "./IOptionRepository";
 import { OfflineOptionRepository } from "./OptionRepository.offline";
 

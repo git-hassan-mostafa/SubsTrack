@@ -12,7 +12,7 @@ import type {
   WhatsAppSkipReason,
   WhatsAppTemplate,
   WhatsAppTemplatePurpose,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import { newId } from "@/src/core/offline/ids";
 import skippedMonthService from "@/src/modules/customer/customer-payments/services/SkippedMonthService";
 import { ledgerService } from "@/src/modules/ledger/services/LedgerService";

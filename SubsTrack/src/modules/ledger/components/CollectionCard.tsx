@@ -11,13 +11,13 @@ import {
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { Chip } from "@/src/shared/components/Chip";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
-import type { CollectionListItem } from "@/src/core/types";
+import type { CollectionListItem } from "@shared/core/types";
 import {
   findCurrency,
   formatMoneyPair,
   snapshotCurrency,
-} from "@/src/core/utils/currency";
-import { formatDateTime } from "@/src/core/utils/date";
+} from "@shared/core/utils/currency";
+import { formatDateTime } from "@shared/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useUserNames } from "@/src/shared/hooks/useUserNames";

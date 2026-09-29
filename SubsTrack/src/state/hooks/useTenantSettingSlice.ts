@@ -1,6 +1,6 @@
 import { useGlobalStore } from "@/src/state/hooks/useGlobalStore";
 import type { TenantSettingSlice } from "@/src/state/slices/tenantSettings/tenantSettingSlice";
-import type { UnpaidStartRule, WhatsAppLanguage } from "@/src/core/types";
+import type { UnpaidStartRule, WhatsAppLanguage } from "@shared/core/types";
 import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
 import { TENANT_SETTING_KEYS } from "@/src/modules/admin/tenant-settings/utils/constants";
 

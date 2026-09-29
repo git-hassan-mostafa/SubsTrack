@@ -1,7 +1,7 @@
 import { Platform } from "react-native";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import type { BranchFilter } from "@/src/core/constants";
-import type { DbProduct, DbStockMovement } from "@/src/core/types/db";
+import type { BranchFilter } from "@shared/core/constants";
+import type { DbProduct, DbStockMovement } from "@shared/core/types/db";
 import type {
   CreateStockMovementPayload,
   IProductRepository,

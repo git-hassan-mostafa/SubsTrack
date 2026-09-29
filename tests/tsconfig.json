@@ -13,7 +13,10 @@
     "skipLibCheck": true,
     "jsx": "react-jsx",
     "baseUrl": ".",
-    "paths": { "@/*": ["../SubsTrack/*"] }
+    "paths": {
+      "@/*": ["../SubsTrack/*"],
+      "@shared/*": ["../Shared/src/*"]
+    }
   },
   "include": [
     "suites/**/*.ts",

@@ -1,4 +1,4 @@
-import { OFFLINE_PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
+import { OFFLINE_PAGE_SIZE, type BranchFilter } from "@shared/core/constants";
 import type {
   DbCharge,
   DbChargeBalance,
@@ -6,7 +6,7 @@ import type {
   DbCustomerPlan,
   DbPlan,
   DbSale,
-} from "@/src/core/types/db";
+} from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, updateDirty } from "@/src/core/offline/db/dml";
 import { nowIso } from "@/src/core/offline/ids";

@@ -1,4 +1,4 @@
-import type { DbCurrency } from "@/src/core/types/db";
+import type { DbCurrency } from "@shared/core/types/db";
 
 /**
  * The Currency repository contract. Both the Supabase (online/web) class and the

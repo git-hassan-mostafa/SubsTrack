@@ -3,9 +3,9 @@ import { useTranslation } from "react-i18next";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { Text } from "@/src/shared/components/Text";
 import { EmptyState } from "@/src/shared/components/EmptyState";
-import type { Currency } from "@/src/core/types";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import { formatDate } from "@/src/core/utils/date";
+import type { Currency } from "@shared/core/types";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { formatDate } from "@shared/core/utils/date";
 import type { RecordRow } from "../utils/types";
 
 interface Props {

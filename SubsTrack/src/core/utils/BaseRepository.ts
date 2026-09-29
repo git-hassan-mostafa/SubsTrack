@@ -1,8 +1,8 @@
 import { supabase } from "@/src/shared/lib/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import i18n from "@/src/core/i18n";
-import { BRANCH_FILTER_UNASSIGNED, BranchFilter } from "../constants";
-import { readFunctionsErrorBody } from "./functionsError";
+import { BRANCH_FILTER_UNASSIGNED, BranchFilter } from "@shared/core/constants";
+import { readFunctionsErrorBody } from "@shared/core/utils/functionsError";
 import { logException } from "../errorLog/errorLogger";
 import { buildAuditRow, type AuditInput } from "../audit";
 

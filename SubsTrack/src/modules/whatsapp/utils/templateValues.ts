@@ -1,4 +1,4 @@
-import type { WhatsAppTemplate } from "@/src/core/types";
+import type { WhatsAppTemplate } from "@shared/core/types";
 import {
   DEFAULT_PARAM_MAX_LENGTH,
   renderTemplate,

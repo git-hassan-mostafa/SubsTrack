@@ -1,4 +1,4 @@
-import { OFFLINE_PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
+import { OFFLINE_PAGE_SIZE, type BranchFilter } from "@shared/core/constants";
 import type {
   DbCharge,
   DbCustomer,
@@ -7,7 +7,7 @@ import type {
   DbSaleItem,
   DbService,
   DbStockMovement,
-} from "@/src/core/types/db";
+} from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, updateDirty } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@/src/core/offline/ids";
@@ -17,13 +17,13 @@ import type {
   ISaleRepository,
   UpdateSalePayload,
 } from "./ISaleRepository";
-import { dayStartIso, nextDayStartIso } from "@/src/core/utils/dateRange";
+import { dayStartIso, nextDayStartIso } from "@shared/core/utils/dateRange";
 import {
   isReceiptIdTerm,
   receiptIdTerm,
   RECEIPT_ID_LENGTH,
-} from "@/src/core/utils/receiptId";
-import { sanitizeSearchTerm } from "@/src/core/utils/searchTerm";
+} from "@shared/core/utils/receiptId";
+import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
 
 // SQL can do here in one statement what PostgREST cannot express: the customer
 // name is reached over the caller's LEFT JOIN (so a WALK-IN sale, which has no

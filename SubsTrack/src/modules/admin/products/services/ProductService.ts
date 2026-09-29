@@ -1,6 +1,6 @@
-import type { Currency, Product, StockMovement } from "@/src/core/types";
-import type { DbStockMovement } from "@/src/core/types/db";
-import type { BranchFilter } from "@/src/core/constants";
+import type { Currency, Product, StockMovement } from "@shared/core/types";
+import type { DbStockMovement } from "@shared/core/types/db";
+import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@/src/core/i18n";
 import repository from "../repository/ProductRepository";
 import type {

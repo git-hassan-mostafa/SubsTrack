@@ -1,5 +1,5 @@
-import type { BranchFilter } from "@/src/core/constants";
-import type { DbProduct, DbStockMovement } from "@/src/core/types/db";
+import type { BranchFilter } from "@shared/core/constants";
+import type { DbProduct, DbStockMovement } from "@shared/core/types/db";
 
 /** A ledger row to append. `id`, timestamps and the void fields are filled in
  *  by the repository — a movement is never born voided. */

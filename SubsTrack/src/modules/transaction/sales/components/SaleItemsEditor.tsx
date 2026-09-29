@@ -16,8 +16,8 @@ import type {
   Product,
   SaleLineType,
   Service,
-} from "@/src/core/types";
-import { convert, findCurrency, formatMoney } from "@/src/core/utils/currency";
+} from "@shared/core/types";
+import { convert, findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 import { useServiceSlice } from "@/src/state/hooks/useServiceSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";

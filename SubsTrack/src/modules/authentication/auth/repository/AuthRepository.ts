@@ -2,7 +2,7 @@ import type { Session } from "@supabase/supabase-js";
 import { Platform } from "react-native";
 import { AUTH_STORAGE_KEY, supabase } from "@/src/shared/lib/supabase";
 import { supabaseStorage } from "@/src/shared/lib/storage";
-import type { DbTenant, DbUser } from "@/src/core/types/db";
+import type { DbTenant, DbUser } from "@shared/core/types/db";
 import type { IAuthRepository } from "./IAuthRepository";
 import { OfflineAuthRepository } from "./AuthRepository.offline";
 

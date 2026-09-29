@@ -16,7 +16,7 @@ import {
 } from "@/src/modules/ledger/utils/currencyGroups";
 import { collectionService } from "@/src/modules/ledger/services/CollectionService";
 import type { CollectInput } from "@/src/modules/ledger/services/CollectionService";
-import type { AllocationLine, Currency, OpenItem } from "@/src/core/types";
+import type { AllocationLine, Currency, OpenItem } from "@shared/core/types";
 import { store } from "../helpers/fakeLedger";
 import { LBP, openItem } from "../helpers/factories";
 

@@ -1,8 +1,8 @@
-import type { AuthUser, Branch } from "@/src/core/types";
+import type { AuthUser, Branch } from "@shared/core/types";
 import {
   type BranchFilter,
   BRANCH_FILTER_UNASSIGNED,
-} from "@/src/core/constants";
+} from "@shared/core/constants";
 import { useUiPrefStore } from "./uiPrefStore";
 
 /** Can the branch selector still offer this stored filter? See gotcha #157. */

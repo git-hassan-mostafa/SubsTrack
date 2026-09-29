@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactNode } from "react";
-import type { Sale } from "@/src/core/types";
+import type { Sale } from "@shared/core/types";
 import saleService from "../services/SaleService";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
 

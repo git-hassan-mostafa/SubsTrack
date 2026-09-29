@@ -2,7 +2,7 @@ import type {
   TenantSetting,
   UnpaidStartRule,
   WhatsAppLanguage,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import repository from "../repository/TenantSettingRepository";
 import { mapDbTenantSettingToTenantSetting } from "../utils/mapper";
 import {

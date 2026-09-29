@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import type { DbTenant } from "@/src/core/types/db";
+import type { DbTenant } from "@shared/core/types/db";
 import type { QuotaPair } from "../utils/types";
 import type { IAllowanceRepository } from "./IAllowanceRepository";
 import { OfflineAllowanceRepository } from "./AllowanceRepository.offline";

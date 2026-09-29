@@ -1,4 +1,4 @@
-import { isolate } from "@/src/core/utils/bidi";
+import { isolate } from "@shared/core/utils/bidi";
 
 export interface SentencePart {
   text: string;

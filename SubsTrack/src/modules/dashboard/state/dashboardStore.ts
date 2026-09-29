@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
-import type { DashboardMetrics } from "@/src/core/types";
+import type { DashboardMetrics } from "@shared/core/types";
 import { dashboardService } from "@/src/modules/dashboard";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";

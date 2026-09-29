@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import type { DbBranch } from "@/src/core/types/db";
+import type { DbBranch } from "@shared/core/types/db";
 import type { IBranchRepository } from "./IBranchRepository";
 import { OfflineBranchRepository } from "./BranchRepository.offline";
 

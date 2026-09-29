@@ -1,4 +1,4 @@
-import type { Collection, CollectionItem } from "@/src/core/types";
+import type { Collection, CollectionItem } from "@shared/core/types";
 
 // What ONE hand-over put against ONE bill — it may have covered others too.
 export function paidToCharge(

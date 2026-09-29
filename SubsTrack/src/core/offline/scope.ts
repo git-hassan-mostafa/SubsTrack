@@ -1,4 +1,4 @@
-import type { UserRole } from "@/src/core/types";
+import type { UserRole } from "@shared/core/types";
 
 export const BRANCH_SCOPE_ALL = "__all__";
 

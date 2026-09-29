@@ -4,8 +4,8 @@ import {
   receiptId,
   receiptIdTerm,
   saleTitle,
-} from "@/src/core/utils/receiptId";
-import { sanitizeSearchTerm } from "@/src/core/utils/searchTerm";
+} from "@shared/core/utils/receiptId";
+import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
 
 // A sale has no sequence column and must not grow one — an offline device raises
 // one with no server round trip. The UUID tail IS the sale's name everywhere a

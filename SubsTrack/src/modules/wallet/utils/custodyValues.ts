@@ -1,4 +1,4 @@
-import type { Collection } from "@/src/core/types";
+import type { Collection } from "@shared/core/types";
 
 // The columns a custody move writes on `collections` — the one table that
 // carries custody — identical on both platforms. Kept in one place so the two

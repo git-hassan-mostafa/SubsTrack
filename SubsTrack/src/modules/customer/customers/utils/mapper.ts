@@ -1,4 +1,4 @@
-import { Customer } from "@/src/core/types";
+import { Customer } from "@shared/core/types";
 import { mapDbCustomerPlanToCustomerPlan } from "@/src/modules/customer/customer-plans/utils/mapper";
 import type { DbCustomerWithLines } from "../utils/types";
 

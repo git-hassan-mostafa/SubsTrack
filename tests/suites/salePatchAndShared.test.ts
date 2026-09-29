@@ -19,7 +19,7 @@ import {
   sharedBillsAcross,
   sharedBillsOf,
 } from "@/src/modules/ledger/utils/sharedBills";
-import type { Product, Sale, SaleItem } from "@/src/core/types";
+import type { Product, Sale, SaleItem } from "@shared/core/types";
 import { charge, collection, collectionItem, LBP } from "../helpers/factories";
 
 // TC-SP-* — the pure patches every sales list applies instead of re-reading.

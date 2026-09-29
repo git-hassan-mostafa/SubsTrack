@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Currency } from "@/src/core/types";
-import type { ReportPeriod } from "@/src/core/utils/dateRange";
+import type { Currency } from "@shared/core/types";
+import type { ReportPeriod } from "@shared/core/utils/dateRange";
 import { exportCsv } from "@/src/shared/lib/csv";
 import type { ReportSection } from "@/src/modules/reports/state/reportsStore";
 import { debtsCsv, moneyCsv } from "../utils/csvRows";

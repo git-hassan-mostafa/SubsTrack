@@ -1,6 +1,6 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import type { WhatsAppTemplate } from "@/src/core/types";
+import type { WhatsAppTemplate } from "@shared/core/types";
 import { Button } from "@/src/shared/components/Button";
 import { Chip, type ChipTone } from "@/src/shared/components/Chip";
 import { Text } from "@/src/shared/components/Text";

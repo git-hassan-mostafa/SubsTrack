@@ -7,7 +7,7 @@ import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
-import { handleText } from "@/src/core/utils/inputText";
+import { handleText } from "@shared/core/utils/inputText";
 import { useSignupStore } from "@/src/modules/authentication/signup/state/signupStore";
 import { StepIndicator } from "../components/StepIndicator";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";

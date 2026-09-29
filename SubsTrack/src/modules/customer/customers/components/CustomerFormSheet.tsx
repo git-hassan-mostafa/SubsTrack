@@ -7,7 +7,7 @@ import { Button } from "@/src/shared/components/Button";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
-import type { Customer } from "@/src/core/types";
+import type { Customer } from "@shared/core/types";
 import {
   CustomerPlansEditor,
   type CustomerPlansEditorHandle,
@@ -15,7 +15,7 @@ import {
 import { useAuth } from "@/src/modules/authentication/auth";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
-import { BRANCH_FILTER_UNASSIGNED } from "@/src/core/constants";
+import { BRANCH_FILTER_UNASSIGNED } from "@shared/core/constants";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 import { useCustomerPlanSlice } from "@/src/state/hooks/useCustomerPlanSlice";
 import { getStore } from "@/src/state/globalStore";

@@ -17,7 +17,7 @@ import {
 import { CustomerPicker } from "@/src/modules/customer/customers";
 import { COLORS } from "@/src/shared/constants";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
-import type { ChargeKind, DebtHistoryItem } from "@/src/core/types";
+import type { ChargeKind, DebtHistoryItem } from "@shared/core/types";
 import { keyOf } from "@/src/modules/ledger/utils/waterfall";
 import { useOwedChanged } from "@/src/modules/ledger";
 import { useDebtHistoryStore } from "../state/debtHistoryStore";

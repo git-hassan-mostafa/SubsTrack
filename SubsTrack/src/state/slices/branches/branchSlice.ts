@@ -1,5 +1,5 @@
 import type { StateCreator } from "zustand";
-import type { Branch } from "@/src/core/types";
+import type { Branch } from "@shared/core/types";
 import { branchService, type BranchInput } from "@/src/modules/admin/branches";
 import type { GlobalState } from "@/src/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";

@@ -8,13 +8,13 @@ import {
 } from "@/src/shared/components/CardText";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { COLORS } from "@/src/shared/constants";
-import type { CollectionItem } from "@/src/core/types";
+import type { CollectionItem } from "@shared/core/types";
 import {
   findCurrency,
   formatMoney,
   snapshotCurrency,
-} from "@/src/core/utils/currency";
-import { formatDate, formatDateTime } from "@/src/core/utils/date";
+} from "@shared/core/utils/currency";
+import { formatDate, formatDateTime } from "@shared/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { KIND_STYLE } from "../utils/kindStyle";

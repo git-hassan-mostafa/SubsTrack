@@ -6,7 +6,7 @@ import type {
   WhatsAppQueueResult,
   WhatsAppSkipReason,
   WhatsAppTemplate,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import {
   whatsAppService,
   type RecipientBuildArgs,

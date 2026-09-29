@@ -1,7 +1,7 @@
 import { Platform } from "react-native";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import { PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
-import type { DbSale, DbSaleItem } from "@/src/core/types/db";
+import { PAGE_SIZE, type BranchFilter } from "@shared/core/constants";
+import type { DbSale, DbSaleItem } from "@shared/core/types/db";
 import type { CreateStockMovementPayload } from "@/src/modules/admin/products";
 import { FindSalesOptions } from "../utils/types";
 import type {
@@ -11,9 +11,9 @@ import type {
   UpdateSalePayload,
 } from "./ISaleRepository";
 import { OfflineSaleRepository } from "./SaleRepository.offline";
-import { dayStartIso, nextDayStartIso } from "@/src/core/utils/dateRange";
-import { isReceiptIdTerm, receiptIdTerm } from "@/src/core/utils/receiptId";
-import { sanitizeSearchTerm } from "@/src/core/utils/searchTerm";
+import { dayStartIso, nextDayStartIso } from "@shared/core/utils/dateRange";
+import { isReceiptIdTerm, receiptIdTerm } from "@shared/core/utils/receiptId";
+import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
 
 const SALE_SELECT = "*, sale_items(*, products(*), services(*)), customers(*)";
 const SALE_ITEM_SELECT = "*, products(*), services(*)";

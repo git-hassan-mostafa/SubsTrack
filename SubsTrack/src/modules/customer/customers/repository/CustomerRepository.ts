@@ -1,9 +1,9 @@
 import { Platform } from "react-native";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import { PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
-import type { UnpaidStartRule } from "@/src/core/types";
-import type { DbCustomer } from "@/src/core/types/db";
-import { sanitizeSearchTerm } from "@/src/core/utils/searchTerm";
+import { PAGE_SIZE, type BranchFilter } from "@shared/core/constants";
+import type { UnpaidStartRule } from "@shared/core/types";
+import type { DbCustomer } from "@shared/core/types/db";
+import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
 import { isNotDueYet } from "@/src/modules/customer/customer-payments/utils/monthDueRules";
 import type {
   CreateCustomerPayload,

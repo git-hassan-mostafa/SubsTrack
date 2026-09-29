@@ -1,8 +1,8 @@
 import { memo, useMemo } from "react";
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import type { AuditAction, AuditEntry } from "@/src/core/types";
-import { formatDateTimeShort } from "@/src/core/utils/date";
+import type { AuditAction, AuditEntry } from "@shared/core/types";
+import { formatDateTimeShort } from "@shared/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { CardMeta } from "@/src/shared/components/CardText";

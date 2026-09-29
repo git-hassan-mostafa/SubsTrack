@@ -3,13 +3,13 @@ import i18n from "@/src/core/i18n";
 import {
   BRANCH_FILTER_UNASSIGNED,
   type BranchFilter,
-} from "@/src/core/constants";
+} from "@shared/core/constants";
 import { getDb } from "./db/sqlite";
 import { decodeRow, decodeRows } from "./db/codec";
 import { insertDirty, markDeleted, updateDirty } from "./db/dml";
 import { withDbLock } from "./dbLock";
 import { logException } from "../errorLog/errorLogger";
-import { sanitizeSearchTerm } from "../utils/searchTerm";
+import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
 import { buildAuditRow, type AuditInput } from "../audit";
 
 /** Mirror of BaseRepository.BranchScope — same three semantics, SQL-side. */

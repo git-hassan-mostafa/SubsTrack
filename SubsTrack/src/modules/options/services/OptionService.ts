@@ -1,4 +1,4 @@
-import type { AppOption } from "@/src/core/types";
+import type { AppOption } from "@shared/core/types";
 import repository from "../repository/OptionRepository";
 import { mapDbAppOptionToAppOption } from "../utils/mapper";
 

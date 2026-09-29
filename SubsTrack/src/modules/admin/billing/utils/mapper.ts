@@ -1,5 +1,5 @@
-import { CustomerRequest, Tenant } from "@/src/core/types";
-import { DbCustomerRequest, DbTenant } from "@/src/core/types/db";
+import { CustomerRequest, Tenant } from "@shared/core/types";
+import { DbCustomerRequest, DbTenant } from "@shared/core/types/db";
 
 export function mapDbTenantToTenant(db: DbTenant): Tenant {
   return {

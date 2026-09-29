@@ -1,5 +1,5 @@
-import type { DbCurrency } from "@/src/core/types/db";
-import type { Currency } from "@/src/core/types";
+import type { DbCurrency } from "@shared/core/types/db";
+import type { Currency } from "@shared/core/types";
 
 export function mapDbCurrencyToCurrency(db: DbCurrency): Currency {
   return {

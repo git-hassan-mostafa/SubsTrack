@@ -1,5 +1,5 @@
-import type { BranchFilter } from "@/src/core/constants";
-import type { DbUser } from "@/src/core/types/db";
+import type { BranchFilter } from "@shared/core/constants";
+import type { DbUser } from "@shared/core/types/db";
 
 export interface CreateUserPayload {
   username: string;

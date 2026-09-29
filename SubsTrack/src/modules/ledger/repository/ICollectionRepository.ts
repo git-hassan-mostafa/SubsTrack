@@ -1,6 +1,6 @@
-import type { BranchFilter } from "@/src/core/constants";
-import type { CashRow, WalletSource } from "@/src/core/types";
-import type { DbCollection, DbCollectionItem } from "@/src/core/types/db";
+import type { BranchFilter } from "@shared/core/constants";
+import type { CashRow, WalletSource } from "@shared/core/types";
+import type { DbCollection, DbCollectionItem } from "@shared/core/types/db";
 import type { CustodyValues } from "@/src/modules/wallet/utils/custodyValues";
 import type { CreateChargePayload } from "./IChargeRepository";
 

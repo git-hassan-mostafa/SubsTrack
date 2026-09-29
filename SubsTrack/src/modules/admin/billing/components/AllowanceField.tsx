@@ -5,7 +5,7 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { AppTextInput } from "@/src/shared/components/AppTextInput";
 import { useTextField } from "@/src/shared/hooks/useTextField";
-import { digitsOnly } from "@/src/core/utils/inputText";
+import { digitsOnly } from "@shared/core/utils/inputText";
 import { COLORS } from "@/src/shared/constants";
 import { useHoldRepeat } from "@/src/shared/hooks/useHoldRepeat";
 import { signedText } from "../utils/allowanceChange";

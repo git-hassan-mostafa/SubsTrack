@@ -1,8 +1,8 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
-import type { Currency } from "@/src/core/types";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import type { Currency } from "@shared/core/types";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 
 interface Props {
   rows: { currencyId: string | null; amount: number; usd: number }[];

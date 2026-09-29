@@ -1,7 +1,7 @@
 import type { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import type { ChipTone } from "@/src/shared/components/Chip";
-import type { WalletSource } from "@/src/core/types";
+import type { WalletSource } from "@shared/core/types";
 
 export interface KindStyle {
   icon: keyof typeof Ionicons.glyphMap;

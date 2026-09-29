@@ -1,4 +1,4 @@
-import { localMonthKey } from "@/src/core/utils/date";
+import { localMonthKey } from "@shared/core/utils/date";
 
 /**
  * "YYYY-MM" → USD, over rows that each froze their own rate.

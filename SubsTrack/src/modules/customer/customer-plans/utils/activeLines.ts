@@ -1,4 +1,4 @@
-import type { Customer, CustomerPlan } from "@/src/core/types";
+import type { Customer, CustomerPlan } from "@shared/core/types";
 
 // The lines a customer is billed and capped on — a cancelled line owes nothing.
 export function activeLines(

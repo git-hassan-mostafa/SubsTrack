@@ -1,5 +1,5 @@
 import type { StateCreator } from "zustand";
-import type { AuthUser } from "@/src/core/types";
+import type { AuthUser } from "@shared/core/types";
 import { authService } from "@/src/modules/authentication/auth";
 import { reconcileBranchPref } from "@/src/shared/lib/branchFilter";
 import type { GlobalState } from "@/src/state/globalStore";

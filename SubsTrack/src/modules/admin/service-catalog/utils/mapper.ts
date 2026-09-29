@@ -1,5 +1,5 @@
-import { Service } from "@/src/core/types";
-import { DbService } from "@/src/core/types/db";
+import { Service } from "@shared/core/types";
+import { DbService } from "@shared/core/types/db";
 
 export function mapDbServiceToService(db: DbService): Service {
   return {

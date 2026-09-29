@@ -1,4 +1,4 @@
-import { queueEcho, resolveEcho } from "@/src/core/utils/textEcho";
+import { queueEcho, resolveEcho } from "@shared/core/utils/textEcho";
 
 // TC-TE-* — who owns the text while someone types. Every value the field sends
 // up comes back as a prop one render later; a value that arrives LATE is an old

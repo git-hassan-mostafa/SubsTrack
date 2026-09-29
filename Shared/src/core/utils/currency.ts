@@ -1,5 +1,5 @@
-import { isolate } from "@/src/core/utils/bidi";
-import type { Currency } from "@/src/core/types";
+import { isolate } from "@shared/core/utils/bidi";
+import type { Currency } from "@shared/core/types";
 
 export function toUsd(amount: number, source: Currency | null): number {
   if (source === null) return amount;

@@ -1,13 +1,13 @@
 import { Platform } from "react-native";
-import type { WhatsAppQueueResult } from "@/src/core/types";
+import type { WhatsAppQueueResult } from "@shared/core/types";
 import type {
   DbWhatsAppAccount,
   DbWhatsAppMessage,
   DbWhatsAppOptOut,
   DbWhatsAppTemplate,
-} from "@/src/core/types/db";
+} from "@shared/core/types/db";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import { readFunctionsErrorBody } from "@/src/core/utils/functionsError";
+import { readFunctionsErrorBody } from "@shared/core/utils/functionsError";
 import { WHATSAPP_FUNCTIONS } from "../utils/constants";
 import { WhatsAppError } from "../utils/whatsappError";
 import type {

@@ -1,4 +1,4 @@
-import type { CustomerPlan } from "@/src/core/types";
+import type { CustomerPlan } from "@shared/core/types";
 
 // A line may have no plan (plan_id NULL = custom amounts), so it needs a stand-in name.
 export function lineLabel(

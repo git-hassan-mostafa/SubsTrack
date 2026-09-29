@@ -1,5 +1,5 @@
 import { applyWriteOffToSales } from "@/src/modules/transaction/sales/utils/saleListPatch";
-import type { Sale } from "@/src/core/types";
+import type { Sale } from "@shared/core/types";
 
 const sale = (over: Partial<Sale> = {}) =>
   ({

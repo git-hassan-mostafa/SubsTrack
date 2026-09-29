@@ -5,7 +5,7 @@ import {
   findCurrency,
   formatMoney,
   snapshotCurrency,
-} from "@/src/core/utils/currency";
+} from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import type { SharedBill } from "../utils/sharedBills";

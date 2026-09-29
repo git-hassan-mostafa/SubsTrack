@@ -285,8 +285,8 @@ read-through cache so the app boots offline after the first online login.
 
 ## 6. Data Models
 
-Domain types (camelCase) → `src/core/types/index.ts`. DB row types (snake_case) →
-`src/core/types/db.ts`, **never leave the repository layer**. The source files are
+Domain types (camelCase) → `Shared/src/core/types/index.ts`. DB row types (snake_case) →
+`Shared/src/core/types/db.ts`, **never leave the repository layer**. The source files are
 authoritative for exact shapes. Feature-level meaning of every model:
 `docs/domain-notes.md`. Columns + constraints: `docs/db-schema.md`.
 
@@ -400,7 +400,7 @@ Facts that change how you code and are easy to get wrong:
   total that is not the line sum — nothing is refused, because no rule can tell a
   discount from a typo.
 - **A sale is identified by its RECEIPT NUMBER** — last 6 chars of `id`,
-  uppercased, via `receiptId()` in `src/core/utils/receiptId.ts`. There is **no
+  uppercased, via `receiptId()` in `Shared/src/core/utils/receiptId.ts`. There is **no
   sequence column and must not be one** (an offline device raises a sale with no
   server round trip). It is the sale card's **title** (items summary drops to a
   subtitle), the receipt's "Receipt ID" row, the History sheet header (both entry
@@ -424,7 +424,7 @@ Facts that change how you code and are easy to get wrong:
   for `customers!inner`**: it makes the embed filterable but INNER-joins away
   every WALK-IN sale. Offline needs none of this — SQL ORs `c.name` over its LEFT
   JOIN directly. Every typed term goes through `sanitizeSearchTerm()`
-  (`core/utils/searchTerm.ts`), which strips `, ( ) % * \` — one unescaped `%`
+  (`Shared/src/core/utils/searchTerm.ts`), which strips `, ( ) % * \` — one unescaped `%`
   also breaks the logic tree, and it 400s the whole list rather than just missing.
 - **Expenses = stored `expenses` rows + DERIVED stock purchases** (computed at read
   time from `stock_movements.unit_cost × quantity_delta`). A restock **never**

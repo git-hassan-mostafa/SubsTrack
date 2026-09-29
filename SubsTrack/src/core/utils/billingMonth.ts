@@ -1,4 +1,4 @@
-import { MONTHS } from "@/src/core/constants";
+import { MONTHS } from "@shared/core/constants";
 import i18n from "@/src/core/i18n";
 
 /** "Mar 2026" for a YYYY-MM-01 billing month; `long` gives "March 2026". */

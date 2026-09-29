@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { CustomerRequest } from "@/src/core/types";
+import type { CustomerRequest } from "@shared/core/types";
 import type { QuotaPair } from "./types";
 
 // A stored request read back as the pair every screen and validator works in.

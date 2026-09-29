@@ -1,6 +1,6 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import type { WhatsAppLanguage } from "@/src/core/types";
+import type { WhatsAppLanguage } from "@shared/core/types";
 import {
   Dropdown,
   type DropdownOption,

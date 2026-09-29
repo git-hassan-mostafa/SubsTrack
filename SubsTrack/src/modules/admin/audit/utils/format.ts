@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
-import type { AuditAction, AuditEntry, AuditTable } from "@/src/core/types";
-import { formatDateTime, isValidDateString } from "@/src/core/utils/date";
+import type { AuditAction, AuditEntry, AuditTable } from "@shared/core/types";
+import { formatDateTime, isValidDateString } from "@shared/core/utils/date";
 import {
   displayFieldLabel,
   displayValue,

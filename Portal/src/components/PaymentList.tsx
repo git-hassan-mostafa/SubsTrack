@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { formatDate } from "@/src/core/utils/date";
-import { receiptId } from "@/src/core/utils/receiptId";
+import { formatDate } from "@shared/core/utils/date";
+import { receiptId } from "@shared/core/utils/receiptId";
 import type { PortalModel } from "../services/PortalReadModel";
 import type { ReceiptTarget } from "./Receipt";
 import { Money } from "./Money";

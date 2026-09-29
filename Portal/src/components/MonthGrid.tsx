@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { MonthEntry, MonthStatus } from "@/src/core/types";
+import type { MonthEntry, MonthStatus } from "@shared/core/types";
 
 // The same colours MonthCell uses in the staff app, so a customer checking their
 // months against what staff read out sees the identical picture.

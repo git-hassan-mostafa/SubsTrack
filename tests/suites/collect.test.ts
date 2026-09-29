@@ -10,7 +10,7 @@ jest.mock("@/src/modules/ledger/repository/CollectionRepository", () => ({
 import { chargeService } from "@/src/modules/ledger/services/ChargeService";
 import { collectionService } from "@/src/modules/ledger/services/CollectionService";
 import type { CollectInput } from "@/src/modules/ledger/services/CollectionService";
-import type { AllocationLine, OpenItem } from "@/src/core/types";
+import type { AllocationLine, OpenItem } from "@shared/core/types";
 import { collectionPlanId } from "@/src/modules/ledger/utils/collectionPlan";
 import { store } from "../helpers/fakeLedger";
 import { openItem } from "../helpers/factories";

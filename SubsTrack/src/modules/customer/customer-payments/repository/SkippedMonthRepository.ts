@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import type { DbSkippedMonth } from "@/src/core/types/db";
+import type { DbSkippedMonth } from "@shared/core/types/db";
 import type {
   ISkippedMonthRepository,
   SkippedMonthPayload,

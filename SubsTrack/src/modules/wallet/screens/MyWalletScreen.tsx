@@ -9,7 +9,7 @@ import { confirm } from "@/src/shared/lib/confirm";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { useWalletStore } from "../state/walletStore";
-import type { WalletItem } from "@/src/core/types";
+import type { WalletItem } from "@shared/core/types";
 import { WalletDetailView } from "../components/WalletDetailView";
 import { canCloseOut } from "../utils/custody";
 

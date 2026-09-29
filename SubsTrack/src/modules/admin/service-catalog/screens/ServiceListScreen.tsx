@@ -31,7 +31,7 @@ import {
   useSelection,
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelection";
-import type { Service } from "@/src/core/types";
+import type { Service } from "@shared/core/types";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { ServiceCard } from "../components/ServiceCard";
 import { ServiceFormSheet } from "../components/ServiceFormSheet";

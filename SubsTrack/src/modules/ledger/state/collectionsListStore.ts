@@ -5,13 +5,13 @@ import type {
   CollectionListItem,
   Customer,
   WalletSource,
-} from "@/src/core/types";
-import { PAGE_SIZE } from "@/src/core/constants";
+} from "@shared/core/types";
+import { PAGE_SIZE } from "@shared/core/constants";
 import {
   periodFromPreset,
   toRange,
   type ReportPeriod,
-} from "@/src/core/utils/dateRange";
+} from "@shared/core/utils/dateRange";
 import type {
   CollectionSortField,
   SortDirection,

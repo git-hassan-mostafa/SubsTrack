@@ -2,13 +2,13 @@ import type {
   WhatsAppMessageStatus,
   WhatsAppQueueResult,
   WhatsAppRecipient,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import type {
   DbWhatsAppAccount,
   DbWhatsAppMessage,
   DbWhatsAppOptOut,
   DbWhatsAppTemplate,
-} from "@/src/core/types/db";
+} from "@shared/core/types/db";
 
 export interface QueueInput {
   requestId: string;

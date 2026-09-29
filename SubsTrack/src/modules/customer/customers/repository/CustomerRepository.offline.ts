@@ -1,7 +1,7 @@
-import type { BranchFilter } from "@/src/core/constants";
-import { OFFLINE_PAGE_SIZE } from "@/src/core/constants";
-import type { UnpaidStartRule } from "@/src/core/types";
-import type { DbCustomer, DbCustomerPlan, DbPlan } from "@/src/core/types/db";
+import type { BranchFilter } from "@shared/core/constants";
+import { OFFLINE_PAGE_SIZE } from "@shared/core/constants";
+import type { UnpaidStartRule } from "@shared/core/types";
+import type { DbCustomer, DbCustomerPlan, DbPlan } from "@shared/core/types/db";
 import { isNotDueYet } from "@/src/modules/customer/customer-payments/utils/monthDueRules";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import {

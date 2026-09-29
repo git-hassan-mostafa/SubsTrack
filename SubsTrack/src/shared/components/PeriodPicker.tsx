@@ -4,13 +4,13 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "./PressableOpacity";
 import { DatePickerInput } from "./DatePickerInput";
-import { formatDate } from "@/src/core/utils/date";
+import { formatDate } from "@shared/core/utils/date";
 import {
   PERIOD_PRESETS,
   periodFromPreset,
   type PeriodPreset,
   type ReportPeriod,
-} from "@/src/core/utils/dateRange";
+} from "@shared/core/utils/dateRange";
 
 interface Props {
   value: ReportPeriod;

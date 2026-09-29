@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { Customer } from "@/src/core/types";
+import type { Customer } from "@shared/core/types";
 import { HistorySheet, useCustomerHistory } from "@/src/modules/admin/audit";
 
 interface CustomerHistorySheetProps {

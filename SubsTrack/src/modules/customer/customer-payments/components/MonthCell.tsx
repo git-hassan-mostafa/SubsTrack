@@ -4,10 +4,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
-import { getCurrentYearMonth } from "@/src/core/utils/date";
+import { getCurrentYearMonth } from "@shared/core/utils/date";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
-import type { MonthEntry, MonthStatus } from "@/src/core/types";
+import type { MonthEntry, MonthStatus } from "@shared/core/types";
 
 interface Props {
   entry: MonthEntry;

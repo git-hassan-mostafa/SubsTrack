@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
-import type { UnpaidStartRule } from "@/src/core/types";
+import type { UnpaidStartRule } from "@shared/core/types";
 import {
   periodFromPreset,
   type PeriodPreset,
   type ReportPeriod,
-} from "@/src/core/utils/dateRange";
+} from "@shared/core/utils/dateRange";
 import reportsService from "@/src/modules/reports/services/ReportsService";
 import type {
   DebtsReport,

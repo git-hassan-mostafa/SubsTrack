@@ -12,7 +12,7 @@ import {
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelection";
 import { COLORS } from "@/src/shared/constants";
-import type { Customer, Sale } from "@/src/core/types";
+import type { Customer, Sale } from "@shared/core/types";
 import saleService from "../services/SaleService";
 import { useOwedChanged } from "@/src/modules/ledger";
 import { useSaleActions } from "../hooks/useSaleActions";

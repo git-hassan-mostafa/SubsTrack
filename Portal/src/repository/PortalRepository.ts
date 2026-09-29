@@ -6,7 +6,7 @@ import type {
   DbCustomerPlan,
   DbSale,
   DbSkippedMonth,
-} from "@/src/core/types/db";
+} from "@shared/core/types/db";
 
 // The raw response of the customer-portal edge function: snake_case Db* rows,
 // because that function IS this app's database. Mapping to domain types happens

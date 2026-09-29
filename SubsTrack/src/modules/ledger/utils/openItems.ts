@@ -1,7 +1,7 @@
 import i18n from "@/src/core/i18n";
-import type { Charge, MonthBill, MonthEntry, OpenItem } from "@/src/core/types";
-import type { DbCharge } from "@/src/core/types/db";
-import { receiptId } from "@/src/core/utils/receiptId";
+import type { Charge, MonthBill, MonthEntry, OpenItem } from "@shared/core/types";
+import type { DbCharge } from "@shared/core/types/db";
+import { receiptId } from "@shared/core/utils/receiptId";
 import { getBlockRangeLabel } from "@/src/modules/customer/customer-payments/utils/blockRangeLabel";
 
 /**

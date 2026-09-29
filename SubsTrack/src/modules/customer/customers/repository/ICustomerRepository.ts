@@ -1,6 +1,6 @@
-import type { BranchFilter } from "@/src/core/constants";
-import type { UnpaidStartRule } from "@/src/core/types";
-import type { DbCustomer } from "@/src/core/types/db";
+import type { BranchFilter } from "@shared/core/constants";
+import type { UnpaidStartRule } from "@shared/core/types";
+import type { DbCustomer } from "@shared/core/types/db";
 
 // A customer row with its service lines (each carrying its joined plan).
 export type CustomerWithLines = DbCustomer;

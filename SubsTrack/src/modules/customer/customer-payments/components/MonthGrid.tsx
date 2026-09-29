@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import type { Charge, MonthEntry } from "@/src/core/types";
+import type { Charge, MonthEntry } from "@shared/core/types";
 import { MonthCell } from "./MonthCell";
 
 interface Props {

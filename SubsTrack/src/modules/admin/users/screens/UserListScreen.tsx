@@ -17,7 +17,7 @@ import {
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
-import type { AppUser } from "@/src/core/types";
+import type { AppUser } from "@shared/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { UserCard } from "../components/UserCard";

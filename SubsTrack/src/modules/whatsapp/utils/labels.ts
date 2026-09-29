@@ -1,4 +1,4 @@
-import type { WhatsAppTemplate } from "@/src/core/types";
+import type { WhatsAppTemplate } from "@shared/core/types";
 
 export function templateLabel(
   template: Pick<WhatsAppTemplate, "isSijil" | "purpose" | "name" | "language">,

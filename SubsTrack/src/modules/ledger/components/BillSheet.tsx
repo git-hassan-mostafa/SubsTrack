@@ -5,15 +5,15 @@ import { FormSheet } from "@/src/shared/components/FormSheet";
 import type { ActionMenuItem } from "@/src/shared/components/ActionMenu";
 import { Button } from "@/src/shared/components/Button";
 import { InfoRows } from "@/src/shared/components/InfoRows";
-import type { Charge, Collection } from "@/src/core/types";
+import type { Charge, Collection } from "@shared/core/types";
 import {
   findCurrency,
   formatMoney,
   formatMoneyPair,
   formatPaidFraction,
   snapshotCurrency,
-} from "@/src/core/utils/currency";
-import { formatDate, formatDateTime } from "@/src/core/utils/date";
+} from "@shared/core/utils/currency";
+import { formatDate, formatDateTime } from "@shared/core/utils/date";
 import { getBlockRangeLabel } from "@/src/modules/customer/customer-payments/utils/blockRangeLabel";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";

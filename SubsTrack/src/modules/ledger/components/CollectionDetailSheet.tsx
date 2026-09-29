@@ -7,13 +7,13 @@ import { InfoRows } from "@/src/shared/components/InfoRows";
 import { Chip } from "@/src/shared/components/Chip";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { COLORS } from "@/src/shared/constants";
-import type { CollectionItem, CollectionListItem } from "@/src/core/types";
+import type { CollectionItem, CollectionListItem } from "@shared/core/types";
 import {
   findCurrency,
   formatMoneyPair,
   snapshotCurrency,
-} from "@/src/core/utils/currency";
-import { formatDateTime } from "@/src/core/utils/date";
+} from "@shared/core/utils/currency";
+import { formatDateTime } from "@shared/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useUserNames } from "@/src/shared/hooks/useUserNames";

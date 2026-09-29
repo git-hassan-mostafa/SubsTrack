@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { WhatsAppTemplate, WhatsAppTemplatePurpose } from "@/src/core/types";
+import type { WhatsAppTemplate, WhatsAppTemplatePurpose } from "@shared/core/types";
 import { whatsAppService } from "@/src/modules/whatsapp/services/WhatsAppService";
 import { useWhatsAppLanguage } from "@/src/state/hooks/useTenantSettingSlice";
 import { useGlobalStore } from "@/src/state/hooks/useGlobalStore";

@@ -1,4 +1,4 @@
-import type { DbAppOption } from "@/src/core/types/db";
+import type { DbAppOption } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import type { IOptionRepository } from "./IOptionRepository";
 

@@ -1,7 +1,7 @@
-import type { Expense, ExpenseItem, ExpensesView } from "@/src/core/types";
-import type { BranchFilter } from "@/src/core/constants";
+import type { Expense, ExpenseItem, ExpensesView } from "@shared/core/types";
+import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@/src/core/i18n";
-import { sumUsd } from "@/src/core/utils/currency";
+import { sumUsd } from "@shared/core/utils/currency";
 import productService from "@/src/modules/admin/products/services/ProductService";
 import repository from "../repository/ExpenseRepository";
 import { expenseToItem, mapDbExpenseToExpense } from "../utils/mapper";

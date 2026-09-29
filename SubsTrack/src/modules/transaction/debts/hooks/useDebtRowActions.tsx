@@ -1,8 +1,8 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { CustomerDebts, OpenItem } from "@/src/core/types";
+import type { CustomerDebts, OpenItem } from "@shared/core/types";
 import { confirm } from "@/src/shared/lib/confirm";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";

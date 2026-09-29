@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { CashStream, Currency, ExpenseCategory } from "@/src/core/types";
-import { formatMoney } from "@/src/core/utils/currency";
+import type { CashStream, Currency, ExpenseCategory } from "@shared/core/types";
+import { formatMoney } from "@shared/core/utils/currency";
 import { expenseCategoryLabelKey } from "@/src/modules/transaction/expenses/utils/expenseCategories";
 import { delta, shareOfTotal } from "../../utils/aggregate";
 import { REPORT_COLORS } from "../../utils/reportColors";

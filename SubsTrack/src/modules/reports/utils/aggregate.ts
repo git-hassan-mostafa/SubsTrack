@@ -1,4 +1,4 @@
-import { groupBy } from "@/src/core/utils/groupBy";
+import { groupBy } from "@shared/core/utils/groupBy";
 
 export { groupBy };
 

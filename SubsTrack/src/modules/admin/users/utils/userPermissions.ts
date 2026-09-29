@@ -1,4 +1,4 @@
-import type { UserRole } from "@/src/core/types";
+import type { UserRole } from "@shared/core/types";
 
 /** Role alone cannot tell a branch admin from a tenant-wide one — see custody.ts. */
 export interface UserActor {

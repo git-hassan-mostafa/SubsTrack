@@ -1,5 +1,5 @@
-import { AuthUser } from "@/src/core/types";
-import type { DbTenant, DbUser } from "@/src/core/types/db";
+import { AuthUser } from "@shared/core/types";
+import type { DbTenant, DbUser } from "@shared/core/types/db";
 import { mapDbBranchToBranch } from "@/src/modules/admin/branches";
 import { mapDbTenantToTenant } from "@/src/modules/admin/billing/utils/mapper";
 

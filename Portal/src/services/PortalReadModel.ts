@@ -11,7 +11,7 @@ import type {
   Sale,
   SkippedMonth,
   UnpaidStartRule,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import { mapDbCustomerToCustomer } from "@/src/modules/customer/customers/utils/mapper";
 import { mapDbCustomerPlanToCustomerPlan } from "@/src/modules/customer/customer-plans/utils/mapper";
 import {

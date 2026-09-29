@@ -9,7 +9,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import { confirm } from "@/src/shared/lib/confirm";
-import type { AppUser } from "@/src/core/types";
+import type { AppUser } from "@shared/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import { getStore } from "@/src/state/globalStore";

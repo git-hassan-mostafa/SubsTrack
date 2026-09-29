@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { useTranslation } from "react-i18next";
-import type { AuditEntry, AuditSource } from "@/src/core/types";
+import type { AuditEntry, AuditSource } from "@shared/core/types";
 import { IS_OFFLINE_CAPABLE } from "@/src/core/offline";
 import { COLORS } from "@/src/shared/constants";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";

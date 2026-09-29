@@ -1,5 +1,5 @@
-import type { UnpaidStartRule } from "@/src/core/types";
-import { getCurrentYearMonth } from "@/src/core/utils/date";
+import type { UnpaidStartRule } from "@shared/core/types";
+import { getCurrentYearMonth } from "@shared/core/utils/date";
 
 export function isBeforeStartDate(
   year: number,

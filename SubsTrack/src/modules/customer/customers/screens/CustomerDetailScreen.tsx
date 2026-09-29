@@ -12,7 +12,7 @@ import { COLORS } from "@/src/shared/constants";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { formatDate } from "@/src/core/utils/date";
+import { formatDate } from "@shared/core/utils/date";
 import { CustomerPaymentPanel } from "@/src/modules/customer/customer-payments";
 import {
   CustomerSalesPanel,

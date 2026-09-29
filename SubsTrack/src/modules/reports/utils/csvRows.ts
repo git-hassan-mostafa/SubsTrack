@@ -1,6 +1,6 @@
 import i18n from "@/src/core/i18n";
-import type { Currency } from "@/src/core/types";
-import { findCurrency } from "@/src/core/utils/currency";
+import type { Currency } from "@shared/core/types";
+import { findCurrency } from "@shared/core/utils/currency";
 import { expenseCategoryLabelKey } from "@/src/modules/transaction/expenses/utils/expenseCategories";
 import type { CsvTable } from "@/src/shared/lib/csv";
 import type { DebtsReport, MoneyReport } from "./types";

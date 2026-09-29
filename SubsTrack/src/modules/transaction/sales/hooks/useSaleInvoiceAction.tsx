@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { Sale } from "@/src/core/types";
+import type { Sale } from "@shared/core/types";
 import type { SelectionAction } from "@/src/shared/components/SelectionBar";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 

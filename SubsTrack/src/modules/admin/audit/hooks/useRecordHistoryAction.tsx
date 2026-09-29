@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { AuditTable } from "@/src/core/types";
+import type { AuditTable } from "@shared/core/types";
 import type { ActionMenuItem } from "@/src/shared/components/ActionMenu";
 import { RecordHistorySheet } from "../components/RecordHistorySheet";
 

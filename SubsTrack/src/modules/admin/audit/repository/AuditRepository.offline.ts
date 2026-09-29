@@ -1,6 +1,6 @@
-import type { AuditFilter, AuditRecordTarget } from "@/src/core/types";
-import type { DbAuditLog } from "@/src/core/types/db";
-import { OFFLINE_PAGE_SIZE } from "@/src/core/constants";
+import type { AuditFilter, AuditRecordTarget } from "@shared/core/types";
+import type { DbAuditLog } from "@shared/core/types/db";
+import { OFFLINE_PAGE_SIZE } from "@shared/core/constants";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { isOnline } from "@/src/core/offline/net/connectivity";
 import type {

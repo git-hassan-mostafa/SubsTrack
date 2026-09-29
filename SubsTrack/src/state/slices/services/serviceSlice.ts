@@ -1,5 +1,5 @@
 import type { StateCreator } from "zustand";
-import type { Service } from "@/src/core/types";
+import type { Service } from "@shared/core/types";
 import {
   serviceCatalogService,
   type ServiceInput,

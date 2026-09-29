@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
-import type { AuthUser, UserWallet, UserWalletDetail } from "@/src/core/types";
+import type { AuthUser, UserWallet, UserWalletDetail } from "@shared/core/types";
 import walletService from "@/src/modules/wallet/services/WalletService";
 import type { WalletActor } from "@/src/modules/wallet/utils/custody";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";

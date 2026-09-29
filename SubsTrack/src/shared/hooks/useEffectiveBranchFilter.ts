@@ -1,4 +1,4 @@
-import { BranchFilter } from "@/src/core/constants";
+import { BranchFilter } from "@shared/core/constants";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { useUiPrefStore } from "../lib/uiPrefStore";
 

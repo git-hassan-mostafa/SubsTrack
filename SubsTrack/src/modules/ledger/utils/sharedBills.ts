@@ -1,4 +1,4 @@
-import type { Collection, CollectionItem } from "@/src/core/types";
+import type { Collection, CollectionItem } from "@shared/core/types";
 import { getBlockRangeLabel } from "@/src/modules/customer/customer-payments/utils/blockRangeLabel";
 
 /** One other bill a hand-over settled, ready to print in a void warning. */

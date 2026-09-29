@@ -1,4 +1,4 @@
-import type { Charge, Collection } from "@/src/core/types";
+import type { Charge, Collection } from "@shared/core/types";
 
 export interface MonthReceiptPayment {
   collection: Collection;

@@ -13,8 +13,8 @@ import {
   findCurrency,
   formatMoney,
   snapshotCurrency,
-} from "@/src/core/utils/currency";
-import { formatDateTime } from "@/src/core/utils/date";
+} from "@shared/core/utils/currency";
+import { formatDateTime } from "@shared/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { useAuth } from "@/src/modules/authentication/auth";

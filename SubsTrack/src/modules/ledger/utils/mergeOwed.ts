@@ -6,9 +6,9 @@ import type {
   OpenItem,
   SkippedMonth,
   UnpaidStartRule,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
-import { findCurrency } from "@/src/core/utils/currency";
+import { findCurrency } from "@shared/core/utils/currency";
 import paymentService from "@/src/modules/customer/customer-payments/services/PaymentService";
 import { virtualMonthItem } from "./openItems";
 import { sortByDue } from "./waterfall";

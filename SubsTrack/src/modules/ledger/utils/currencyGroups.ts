@@ -1,5 +1,5 @@
-import type { AllocationLine, Currency, OpenItem } from "@/src/core/types";
-import { findCurrency, toUsd } from "@/src/core/utils/currency";
+import type { AllocationLine, Currency, OpenItem } from "@shared/core/types";
+import { findCurrency, toUsd } from "@shared/core/utils/currency";
 import { allocate, keyOf, sortByDue, totalOwed } from "./waterfall";
 
 export interface CurrencyGroup {

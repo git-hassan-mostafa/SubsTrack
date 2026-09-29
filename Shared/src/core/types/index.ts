@@ -1,4 +1,4 @@
-import type { BranchFilter } from "@/src/core/constants";
+import type { BranchFilter } from "@shared/core/constants";
 
 export type UserRole = "superadmin" | "admin" | "user";
 // A partially-paid month (a payment exists but `balance > 0`) is reported as

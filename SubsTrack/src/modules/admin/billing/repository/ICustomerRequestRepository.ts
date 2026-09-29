@@ -1,4 +1,4 @@
-import type { DbCustomerRequest } from "@/src/core/types/db";
+import type { DbCustomerRequest } from "@shared/core/types/db";
 import type { QuotaPair } from "../utils/types";
 
 export interface CustomerRequestInput {

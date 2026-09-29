@@ -30,11 +30,11 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
 
-    /* Mirrors vite.config.ts - the two must always agree. */
     "paths": {
       "@/src/core/i18n": ["./stubs/i18n.ts"],
       "@/src/shared/lib/supabase": ["./stubs/supabase-client.ts"],
       "react-native": ["./stubs/react-native.ts"],
+      "@shared/*": ["../Shared/src/*"],
       "@/*": ["../SubsTrack/*"]
     }
   },

@@ -1,4 +1,4 @@
-import type { DbBranch } from "@/src/core/types/db";
+import type { DbBranch } from "@shared/core/types/db";
 
 /**
  * The Branch repository contract. Both the Supabase (online/web) class and the

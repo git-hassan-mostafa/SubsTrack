@@ -1,4 +1,4 @@
-import type { Plan } from "@/src/core/types";
+import type { Plan } from "@shared/core/types";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import {
@@ -7,7 +7,7 @@ import {
   CardTitle,
 } from "@/src/shared/components/CardText";
 import { Chip } from "@/src/shared/components/Chip";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { EntityCard } from "@/src/shared/components/EntityCard";

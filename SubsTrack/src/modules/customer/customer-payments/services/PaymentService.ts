@@ -8,10 +8,10 @@ import type {
   MonthStatus,
   SkippedMonth,
   UnpaidStartRule,
-} from "@/src/core/types";
-import { MONTHS } from "@/src/core/constants";
-import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
-import { groupBy } from "@/src/core/utils/groupBy";
+} from "@shared/core/types";
+import { MONTHS } from "@shared/core/constants";
+import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
+import { groupBy } from "@shared/core/utils/groupBy";
 import {
   isBeforeStartDate,
   isNotDueYet,

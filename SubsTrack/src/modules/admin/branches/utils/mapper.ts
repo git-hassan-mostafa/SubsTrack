@@ -1,5 +1,5 @@
-import type { DbBranch } from "@/src/core/types/db";
-import type { Branch } from "@/src/core/types";
+import type { DbBranch } from "@shared/core/types/db";
+import type { Branch } from "@shared/core/types";
 
 export function mapDbBranchToBranch(db: DbBranch): Branch {
   return {

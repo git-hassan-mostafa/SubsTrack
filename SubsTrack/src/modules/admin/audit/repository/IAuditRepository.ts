@@ -2,8 +2,8 @@ import type {
   AuditFilter,
   AuditRecordTarget,
   AuditSource,
-} from "@/src/core/types";
-import type { DbAuditLog } from "@/src/core/types/db";
+} from "@shared/core/types";
+import type { DbAuditLog } from "@shared/core/types/db";
 
 /** Rows plus where they came from, so the UI can say which it is showing. */
 export interface AuditRows {

@@ -1,9 +1,9 @@
-import type { BranchFilter } from "@/src/core/constants";
+import type { BranchFilter } from "@shared/core/constants";
 import type {
   UserWallet,
   UserWalletDetail,
   WalletItem,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import i18n from "@/src/core/i18n";
 import { collectionService } from "@/src/modules/ledger";
 import { userService } from "@/src/modules/admin/users";
@@ -14,7 +14,7 @@ import {
   receiveBlock,
   type WalletActor,
 } from "../utils/custody";
-import { groupByCurrency, sumUsd } from "@/src/core/utils/currency";
+import { groupByCurrency, sumUsd } from "@shared/core/utils/currency";
 
 /** One holder, resolved from the user list — what the chain rules need. */
 type HolderInfo = WalletActor & { fullName: string; active: boolean };

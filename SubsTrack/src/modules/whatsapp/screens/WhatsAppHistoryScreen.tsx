@@ -3,8 +3,8 @@ import { ActivityIndicator, FlatList, RefreshControl, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter } from "expo-router";
-import type { WhatsAppMessage, WhatsAppMessageStatus } from "@/src/core/types";
-import { formatDateTime } from "@/src/core/utils/date";
+import type { WhatsAppMessage, WhatsAppMessageStatus } from "@shared/core/types";
+import { formatDateTime } from "@shared/core/utils/date";
 import { Chip, type ChipTone } from "@/src/shared/components/Chip";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";

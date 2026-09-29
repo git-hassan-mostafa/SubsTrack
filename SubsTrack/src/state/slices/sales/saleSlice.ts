@@ -1,6 +1,6 @@
 import type { StateCreator } from "zustand";
-import type { Collection, Customer, Product, Sale } from "@/src/core/types";
-import { PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
+import type { Collection, Customer, Product, Sale } from "@shared/core/types";
+import { PAGE_SIZE, type BranchFilter } from "@shared/core/constants";
 import {
   addSale,
   applyCollectionToSales,

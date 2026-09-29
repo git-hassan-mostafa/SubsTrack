@@ -28,7 +28,7 @@ import {
   useSelection,
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelection";
-import type { Currency } from "@/src/core/types";
+import type { Currency } from "@shared/core/types";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { CurrencyCard, UsdBaseCard } from "../components/CurrencyCard";

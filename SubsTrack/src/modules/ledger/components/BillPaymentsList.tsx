@@ -10,10 +10,10 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { COLORS } from "@/src/shared/constants";
-import type { Collection } from "@/src/core/types";
-import { formatDateTime } from "@/src/core/utils/date";
+import type { Collection } from "@shared/core/types";
+import { formatDateTime } from "@shared/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { formatMoney, snapshotCurrency } from "@/src/core/utils/currency";
+import { formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
 import { useUserNames } from "@/src/shared/hooks/useUserNames";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useSendInvoice } from "@/src/modules/invoicing";

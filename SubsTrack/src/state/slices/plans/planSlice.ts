@@ -1,5 +1,5 @@
 import type { StateCreator } from "zustand";
-import type { Plan } from "@/src/core/types";
+import type { Plan } from "@shared/core/types";
 import { planService } from "@/src/modules/admin/plans";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import type { GlobalState } from "@/src/state/globalStore";

@@ -1,4 +1,4 @@
-import type { WhatsAppMessageStatus } from "@/src/core/types";
+import type { WhatsAppMessageStatus } from "@shared/core/types";
 
 export const WHATSAPP_FUNCTIONS = {
   admin: "whatsapp-admin",

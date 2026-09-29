@@ -26,7 +26,7 @@ import {
   useSelection,
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelection";
-import type { Branch } from "@/src/core/types";
+import type { Branch } from "@shared/core/types";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
 import { BranchCard } from "../components/BranchCard";

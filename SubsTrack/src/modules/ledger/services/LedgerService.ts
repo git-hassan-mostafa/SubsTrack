@@ -1,4 +1,4 @@
-import type { BranchFilter } from "@/src/core/constants";
+import type { BranchFilter } from "@shared/core/constants";
 import type {
   Currency,
   Customer,
@@ -8,11 +8,11 @@ import type {
   OpenItem,
   SkippedMonth,
   UnpaidStartRule,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import { chargeService } from "./ChargeService";
 import { mergeOwed } from "../utils/mergeOwed";
 import { keyOf } from "../utils/waterfall";
-import { groupBy } from "@/src/core/utils/groupBy";
+import { groupBy } from "@shared/core/utils/groupBy";
 
 const OWED_BATCH_SIZE = 100;
 

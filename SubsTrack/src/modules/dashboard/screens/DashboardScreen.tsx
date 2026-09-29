@@ -13,7 +13,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useDashboardStore } from "@/src/modules/dashboard/state/dashboardStore";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";

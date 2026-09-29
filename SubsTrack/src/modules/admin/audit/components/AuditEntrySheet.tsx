@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import type { AuditEntry } from "@/src/core/types";
-import { formatDateTime } from "@/src/core/utils/date";
+import type { AuditEntry } from "@shared/core/types";
+import { formatDateTime } from "@shared/core/utils/date";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { Text } from "@/src/shared/components/Text";
 import { FormSheet } from "@/src/shared/components/FormSheet";

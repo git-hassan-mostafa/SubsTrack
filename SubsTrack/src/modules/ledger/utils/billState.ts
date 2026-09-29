@@ -1,4 +1,4 @@
-import type { ChargeStatus } from "@/src/core/types";
+import type { ChargeStatus } from "@shared/core/types";
 
 export interface BillState {
   labelKey: string;

@@ -1,10 +1,10 @@
-import type { WhatsAppQueueResult } from "@/src/core/types";
+import type { WhatsAppQueueResult } from "@shared/core/types";
 import type {
   DbWhatsAppAccount,
   DbWhatsAppMessage,
   DbWhatsAppOptOut,
   DbWhatsAppTemplate,
-} from "@/src/core/types/db";
+} from "@shared/core/types/db";
 import { RequiresConnectionError } from "@/src/core/offline/errors";
 import { isOnline } from "@/src/core/offline/net/connectivity";
 import type {

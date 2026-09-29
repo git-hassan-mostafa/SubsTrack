@@ -4,7 +4,7 @@ import type {
   ExpenseCategory,
   ExpenseItem,
   ExpenseSummary,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import {
   expenseService,
   expenseToItem,
@@ -14,7 +14,7 @@ import {
   ownedRowMatchesFilter,
   resolveBranchFilter,
 } from "@/src/shared/lib/branchFilter";
-import { currentMonthDays, rangeFromDays } from "@/src/core/utils/dateRange";
+import { currentMonthDays, rangeFromDays } from "@shared/core/utils/dateRange";
 import { getStore } from "@/src/state/globalStore";
 
 const EMPTY_SUMMARY: ExpenseSummary = {

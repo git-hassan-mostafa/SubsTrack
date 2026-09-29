@@ -4,7 +4,7 @@ import type {
   MonthEntry,
   SkippedMonth,
   UnpaidStartRule,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import { paymentService } from "@/src/modules/customer/customer-payments";
 
 /** The viewed year's grids plus the two gate lists the UI reads. */

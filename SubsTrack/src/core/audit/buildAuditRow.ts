@@ -1,5 +1,5 @@
-import type { AuditAction, AuditTable } from "@/src/core/types";
-import type { DbAuditLog } from "@/src/core/types/db";
+import type { AuditAction, AuditTable } from "@shared/core/types";
+import type { DbAuditLog } from "@shared/core/types/db";
 import { newId, nowIso } from "../offline/ids";
 import type { getStore as GetStore } from "@/src/state/globalStore";
 import { describeAudit } from "./describe";

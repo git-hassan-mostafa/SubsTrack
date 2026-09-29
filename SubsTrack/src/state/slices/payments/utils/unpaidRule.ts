@@ -1,4 +1,4 @@
-import type { UnpaidStartRule } from "@/src/core/types";
+import type { UnpaidStartRule } from "@shared/core/types";
 import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
 import { TENANT_SETTING_KEYS } from "@/src/modules/admin/tenant-settings/utils/constants";
 import type { GlobalState } from "@/src/state/globalStore";

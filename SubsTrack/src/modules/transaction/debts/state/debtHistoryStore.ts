@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
-import type { ChargeKind, Customer, DebtHistoryItem } from "@/src/core/types";
-import { PAGE_SIZE } from "@/src/core/constants";
+import type { ChargeKind, Customer, DebtHistoryItem } from "@shared/core/types";
+import { PAGE_SIZE } from "@shared/core/constants";
 import { chargeService } from "@/src/modules/ledger";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import { getStore } from "@/src/state/globalStore";

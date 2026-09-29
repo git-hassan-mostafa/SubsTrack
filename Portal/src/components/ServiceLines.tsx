@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
 import { lineLabel } from "@/src/modules/customer/customer-plans/utils/lineLabel";
-import { formatDate } from "@/src/core/utils/date";
+import { formatDate } from "@shared/core/utils/date";
 import type { PortalModel } from "../services/PortalReadModel";
 import { Money } from "./Money";
 

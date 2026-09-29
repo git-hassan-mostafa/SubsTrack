@@ -1,5 +1,5 @@
 import type { SQLiteDatabase } from "expo-sqlite";
-import type { UserRole } from "@/src/core/types";
+import type { UserRole } from "@shared/core/types";
 import { getDb, wipeOfflineData } from "../db/sqlite";
 import { roleScopeOf, scopeKeyOf } from "../scope";
 import { TABLES } from "../db/tables";

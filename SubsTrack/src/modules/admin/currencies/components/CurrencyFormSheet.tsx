@@ -10,10 +10,10 @@ import {
   decimalDigitsOnly,
   digitsOnly,
   upperCaseText,
-} from "@/src/core/utils/inputText";
+} from "@shared/core/utils/inputText";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useAuth } from "@/src/modules/authentication/auth";
-import type { Currency } from "@/src/core/types";
+import type { Currency } from "@shared/core/types";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { getStore } from "@/src/state/globalStore";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";

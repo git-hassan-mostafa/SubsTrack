@@ -1,5 +1,5 @@
 import type { StateCreator } from "zustand";
-import type { AppOption } from "@/src/core/types";
+import type { AppOption } from "@shared/core/types";
 import { optionService } from "@/src/modules/options";
 import type { GlobalState } from "@/src/state/globalStore";
 

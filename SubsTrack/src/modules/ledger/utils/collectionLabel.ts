@@ -1,4 +1,4 @@
-import type { CollectionListItem } from "@/src/core/types";
+import type { CollectionListItem } from "@shared/core/types";
 
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 

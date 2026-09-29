@@ -9,8 +9,8 @@ import type {
   CustomerPlan,
   DebtsView,
   OpenItem,
-} from "@/src/core/types";
-import type { BranchFilter } from "@/src/core/constants";
+} from "@shared/core/types";
+import type { BranchFilter } from "@shared/core/constants";
 import {
   chargeService,
   collectionService,

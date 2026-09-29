@@ -1,4 +1,4 @@
-import type { DbCurrency } from "@/src/core/types/db";
+import type { DbCurrency } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@/src/core/offline/ids";

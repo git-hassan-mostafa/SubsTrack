@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import type { BranchFilter } from "@/src/core/constants";
+import type { BranchFilter } from "@shared/core/constants";
 import { chargeService } from "@/src/modules/ledger";
 import { useWrittenOffRead } from "./useWrittenOffRead";
 

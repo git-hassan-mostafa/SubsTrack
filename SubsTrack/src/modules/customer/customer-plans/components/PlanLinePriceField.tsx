@@ -4,8 +4,8 @@ import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import type { Currency, Plan } from "@/src/core/types";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import type { Currency, Plan } from "@shared/core/types";
 
 interface Props {
   plan: Plan | null;

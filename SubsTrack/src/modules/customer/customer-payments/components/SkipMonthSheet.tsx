@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Text } from "@/src/shared/components/Text";
-import type { CustomerPlan, MonthEntry } from "@/src/core/types";
+import type { CustomerPlan, MonthEntry } from "@shared/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { getStore } from "@/src/state/globalStore";

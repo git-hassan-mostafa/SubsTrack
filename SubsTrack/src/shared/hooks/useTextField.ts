@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { queueEcho, resolveEcho } from "@/src/core/utils/textEcho";
+import { queueEcho, resolveEcho } from "@shared/core/utils/textEcho";
 
 interface TextFieldOptions {
   sanitize?: (next: string) => string;

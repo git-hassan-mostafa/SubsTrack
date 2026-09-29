@@ -1,5 +1,5 @@
-import type { CustomerPlan, MonthEntry } from "@/src/core/types";
-import { toBillingMonth } from "@/src/core/utils/date";
+import type { CustomerPlan, MonthEntry } from "@shared/core/types";
+import { toBillingMonth } from "@shared/core/utils/date";
 
 // Absolute month index (year * 12 + zero-based month) — lets us reason about
 // consecutive months across year boundaries with plain integer arithmetic.

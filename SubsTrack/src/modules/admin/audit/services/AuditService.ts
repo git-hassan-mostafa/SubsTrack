@@ -3,7 +3,7 @@ import type {
   AuditFilter,
   AuditRecordTarget,
   AuditSource,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import repository from "../repository/AuditRepository";
 import { CUSTOMER_HISTORY_TABLES } from "../utils/constants";
 import { mapDbAuditLogToAuditEntry } from "../utils/mapper";

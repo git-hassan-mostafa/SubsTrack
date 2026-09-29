@@ -1,7 +1,7 @@
-import type { Currency, OpenItem } from "@/src/core/types";
-import { MONTHS } from "@/src/core/constants";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import { getTodayDateString } from "@/src/core/utils/date";
+import type { Currency, OpenItem } from "@shared/core/types";
+import { MONTHS } from "@shared/core/constants";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { getTodayDateString } from "@shared/core/utils/date";
 import { getBlockRangeLabel } from "@/src/modules/customer/customer-payments/utils/blockRangeLabel";
 import { sortByDue } from "@/src/modules/ledger/utils/waterfall";
 import { PERIOD_LABEL_LIMIT } from "./constants";

@@ -7,10 +7,10 @@ import {
   CardSubtitle,
   CardTitle,
 } from "@/src/shared/components/CardText";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import type { CustomerDebts } from "@/src/core/types";
+import type { CustomerDebts } from "@shared/core/types";
 
 interface Props {
   debtor: CustomerDebts;

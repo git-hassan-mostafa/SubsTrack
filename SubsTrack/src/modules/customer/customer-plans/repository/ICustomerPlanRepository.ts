@@ -1,4 +1,4 @@
-import type { DbCustomerPlan } from "@/src/core/types/db";
+import type { DbCustomerPlan } from "@shared/core/types/db";
 
 export type CreateCustomerPlanPayload = Pick<
   DbCustomerPlan,

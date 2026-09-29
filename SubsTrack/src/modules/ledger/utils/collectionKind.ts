@@ -1,4 +1,4 @@
-import type { ChargeKind, WalletSource } from "@/src/core/types";
+import type { ChargeKind, WalletSource } from "@shared/core/types";
 
 /**
  * What a hand-over PAID FOR: the one kind every line shares, or 'mixed'.

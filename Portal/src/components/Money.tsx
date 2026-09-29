@@ -1,5 +1,5 @@
-import { findCurrency, formatMoneyPair } from "@/src/core/utils/currency";
-import type { Currency } from "@/src/core/types";
+import { findCurrency, formatMoneyPair } from "@shared/core/utils/currency";
+import type { Currency } from "@shared/core/types";
 
 interface Props {
   amount: number;

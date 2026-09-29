@@ -1,4 +1,4 @@
-import type { DbTenantSetting } from "@/src/core/types/db";
+import type { DbTenantSetting } from "@shared/core/types/db";
 
 /**
  * The TenantSetting repository contract. Both the Supabase (online/web) class

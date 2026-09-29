@@ -1,5 +1,5 @@
-import { Sale, SaleItem } from "@/src/core/types";
-import { DbSale, DbSaleItem } from "@/src/core/types/db";
+import { Sale, SaleItem } from "@shared/core/types";
+import { DbSale, DbSaleItem } from "@shared/core/types/db";
 import { mapDbProductToProduct } from "@/src/modules/admin/products/utils/mapper";
 import { mapDbServiceToService } from "@/src/modules/admin/service-catalog/utils/mapper";
 import { mapDbCustomerToCustomer } from "@/src/modules/customer/customers/utils/mapper";

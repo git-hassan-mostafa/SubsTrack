@@ -1,4 +1,4 @@
-import type { AuditTable } from "@/src/core/types";
+import type { AuditTable } from "@shared/core/types";
 
 export const CUSTOMER_HISTORY_TABLES: AuditTable[] = [
   "customers",

@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import type { DbTenantSetting } from "@/src/core/types/db";
+import type { DbTenantSetting } from "@shared/core/types/db";
 import type { ITenantSettingRepository } from "./ITenantSettingRepository";
 import { OfflineTenantSettingRepository } from "./TenantSettingRepository.offline";
 

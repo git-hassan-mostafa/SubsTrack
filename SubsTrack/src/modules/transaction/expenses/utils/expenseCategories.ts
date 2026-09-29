@@ -1,5 +1,5 @@
 import type { Ionicons } from "@expo/vector-icons";
-import type { ExpenseCategory } from "@/src/core/types";
+import type { ExpenseCategory } from "@shared/core/types";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 

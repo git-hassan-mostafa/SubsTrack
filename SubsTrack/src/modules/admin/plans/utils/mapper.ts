@@ -1,5 +1,5 @@
-import { Plan } from "@/src/core/types";
-import { DbPlan } from "@/src/core/types/db";
+import { Plan } from "@shared/core/types";
+import { DbPlan } from "@shared/core/types/db";
 
 export function mapDbPlanToPlan(db: DbPlan): Plan {
   return {

@@ -9,7 +9,7 @@ import {
   toReadScopes,
   type DebtHistoryFilters,
 } from "@/src/modules/transaction/debts/utils/debtHistory";
-import type { Charge, DebtHistoryItem } from "@/src/core/types";
+import type { Charge, DebtHistoryItem } from "@shared/core/types";
 import { openItem } from "../helpers/factories";
 
 // TC-DH-* — the debt history's pure half: what became of a bill, how late the

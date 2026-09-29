@@ -1,4 +1,4 @@
-import type { BranchFilter } from "@/src/core/constants";
+import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@/src/core/i18n";
 import type {
   Charge,
@@ -7,10 +7,10 @@ import type {
   DebtsView,
   MonthBill,
   OpenItem,
-} from "@/src/core/types";
-import type { DbCharge } from "@/src/core/types/db";
+} from "@shared/core/types";
+import type { DbCharge } from "@shared/core/types/db";
 import { deterministicId, newId, nowIso } from "@/src/core/offline/ids";
-import { daysLate } from "@/src/core/utils/date";
+import { daysLate } from "@shared/core/utils/date";
 import repository from "../repository/ChargeRepository";
 import type {
   FindChargeHistoryOptions,

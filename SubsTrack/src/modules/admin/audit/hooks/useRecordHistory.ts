@@ -3,7 +3,7 @@ import type {
   AuditEntry,
   AuditRecordTarget,
   AuditSource,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import auditService, { type AuditEntries } from "../services/AuditService";
 
 export interface RecordHistoryState {

@@ -7,14 +7,14 @@ import {
   snapshotCurrency,
   sumUsd,
   toUsd,
-} from "@/src/core/utils/currency";
+} from "@shared/core/utils/currency";
 import {
   dayToInstantIso,
   daysLate,
   getTodayDateString,
   localMonthKey,
   toBillingMonth,
-} from "@/src/core/utils/date";
+} from "@shared/core/utils/date";
 import { sumByMonth } from "@/src/modules/ledger/utils/monthTotals";
 import { LBP } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";

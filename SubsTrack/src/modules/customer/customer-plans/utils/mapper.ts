@@ -1,5 +1,5 @@
-import type { CustomerPlan } from "@/src/core/types";
-import type { DbCustomerPlan } from "@/src/core/types/db";
+import type { CustomerPlan } from "@shared/core/types";
+import type { DbCustomerPlan } from "@shared/core/types/db";
 import { mapDbPlanToPlan } from "@/src/modules/admin/plans/utils/mapper";
 
 export function mapDbCustomerPlanToCustomerPlan(

@@ -10,7 +10,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
-import { digitsOnly } from "@/src/core/utils/inputText";
+import { digitsOnly } from "@shared/core/utils/inputText";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import {
@@ -20,9 +20,9 @@ import {
 import { confirm } from "@/src/shared/lib/confirm";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { COLORS } from "@/src/shared/constants";
-import { formatDateTime } from "@/src/core/utils/date";
-import type { Product, StockMovement, StockReason } from "@/src/core/types";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { formatDateTime } from "@shared/core/utils/date";
+import type { Product, StockMovement, StockReason } from "@shared/core/types";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";

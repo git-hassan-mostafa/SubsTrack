@@ -1,5 +1,5 @@
-import type { BranchFilter } from "@/src/core/constants";
-import type { DbCollection } from "@/src/core/types/db";
+import type { BranchFilter } from "@shared/core/constants";
+import type { DbCollection } from "@shared/core/types/db";
 import i18n from "@/src/core/i18n";
 import type {
   AllocationLine,
@@ -9,7 +9,7 @@ import type {
   CollectionListItem,
   OpenItem,
   WalletSource,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import { deterministicId, nowIso } from "@/src/core/offline/ids";
 import {
   custodyOf,

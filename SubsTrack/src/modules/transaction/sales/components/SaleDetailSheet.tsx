@@ -9,17 +9,17 @@ import type { ActionMenuItem } from "@/src/shared/components/ActionMenu";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
-import type { Collection, Sale, SaleItem } from "@/src/core/types";
+import type { Collection, Sale, SaleItem } from "@shared/core/types";
 import {
   findCurrency,
   formatMoney,
   formatPaidFraction,
   snapshotCurrency,
-} from "@/src/core/utils/currency";
+} from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { formatDate } from "@/src/core/utils/date";
-import { receiptId, saleTitle } from "@/src/core/utils/receiptId";
+import { formatDate } from "@shared/core/utils/date";
+import { receiptId, saleTitle } from "@shared/core/utils/receiptId";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import { useAuth } from "@/src/modules/authentication/auth";
 import {

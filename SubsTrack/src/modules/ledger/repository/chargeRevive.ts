@@ -1,4 +1,4 @@
-import type { DbCharge } from "@/src/core/types/db";
+import type { DbCharge } from "@shared/core/types/db";
 import type { CreateChargePayload } from "./IChargeRepository";
 
 /**

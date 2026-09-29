@@ -1,4 +1,4 @@
-import type { Collection, MonthBill } from "@/src/core/types";
+import type { Collection, MonthBill } from "@shared/core/types";
 
 /**
  * Move one hand-over's money in or out of the bills in the store.

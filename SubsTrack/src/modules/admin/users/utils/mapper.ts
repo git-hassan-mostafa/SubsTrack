@@ -1,5 +1,5 @@
-import { AppUser } from "@/src/core/types";
-import { DbUser } from "@/src/core/types/db";
+import { AppUser } from "@shared/core/types";
+import { DbUser } from "@shared/core/types/db";
 
 export function mapDbUserToAppUser(db: DbUser): AppUser {
   return {

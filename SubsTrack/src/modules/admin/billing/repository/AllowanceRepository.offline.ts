@@ -1,4 +1,4 @@
-import type { DbTenant } from "@/src/core/types/db";
+import type { DbTenant } from "@shared/core/types/db";
 import { isOnline } from "@/src/core/offline/net/connectivity";
 import { RequiresConnectionError } from "@/src/core/offline/errors";
 import type { QuotaPair } from "../utils/types";

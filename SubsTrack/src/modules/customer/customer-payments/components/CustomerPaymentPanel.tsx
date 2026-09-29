@@ -28,9 +28,9 @@ import type {
   CustomerPlan,
   MonthEntry,
   OpenItem,
-} from "@/src/core/types";
-import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+} from "@shared/core/types";
+import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useAuth } from "@/src/modules/authentication/auth";

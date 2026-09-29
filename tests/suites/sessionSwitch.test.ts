@@ -24,13 +24,13 @@ jest.mock("@/src/core/offline/db/sqlite", () => ({
 import { ensureTenantScope } from "@/src/core/offline/bootstrap/tenant";
 import { roleScopeOf, scopeKeyOf } from "@/src/core/offline/scope";
 import { isPickableBranchFilter } from "@/src/shared/lib/branchFilter";
-import { BRANCH_FILTER_UNASSIGNED } from "@/src/core/constants";
+import { BRANCH_FILTER_UNASSIGNED } from "@shared/core/constants";
 import {
   bumpDataEpoch,
   currentDataEpoch,
   isStaleEpoch,
 } from "@/src/shared/lib/dataEpoch";
-import type { Branch } from "@/src/core/types";
+import type { Branch } from "@shared/core/types";
 
 const TENANT = "tenant-a";
 const OTHER = "tenant-b";

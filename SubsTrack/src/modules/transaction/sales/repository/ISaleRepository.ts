@@ -1,5 +1,5 @@
-import type { BranchFilter } from "@/src/core/constants";
-import type { DbSale, DbSaleItem } from "@/src/core/types/db";
+import type { BranchFilter } from "@shared/core/constants";
+import type { DbSale, DbSaleItem } from "@shared/core/types/db";
 import type { CreateStockMovementPayload } from "@/src/modules/admin/products";
 import type {
   CreateChargePayload,

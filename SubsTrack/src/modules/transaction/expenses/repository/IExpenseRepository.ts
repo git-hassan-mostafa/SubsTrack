@@ -1,5 +1,5 @@
-import type { BranchFilter } from "@/src/core/constants";
-import type { DbExpense } from "@/src/core/types/db";
+import type { BranchFilter } from "@shared/core/constants";
+import type { DbExpense } from "@shared/core/types/db";
 
 /** A hand-typed expense to store. `id`, timestamps and the void fields are
  *  filled in by the repository — an expense is never born voided. */

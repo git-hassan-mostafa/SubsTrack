@@ -1,0 +1,27 @@
+{
+  "name": "substrack-shared",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Logic shared by SubsTrack, Web, Portal and tests. Source-only, never an npm workspace: SubsTrack/package.json feeds the OTA fingerprint, so hoisting its packages would cut installed apps off from updates (gotcha #53). Each app resolves the peerDependencies from its own node_modules; the devDependencies are for tsc and the editor only.",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@supabase/supabase-js": "^2.105.1",
+    "i18next": "^26.0.8",
+    "immer": "^11.1.8",
+    "react": "^19.1.0",
+    "react-i18next": "^17.0.6",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "2.105.1",
+    "@types/react": "19.1.17",
+    "i18next": "26.0.8",
+    "immer": "11.1.8",
+    "react": "19.1.0",
+    "react-i18next": "17.0.6",
+    "typescript": "5.9.3",
+    "zustand": "5.0.12"
+  }
+}

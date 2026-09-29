@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { OpenItem } from "@/src/core/types";
+import type { OpenItem } from "@shared/core/types";
 import { useOwedChanged } from "@/src/modules/ledger";
 
 // Read on mount beside the live bills, so the written-off tab never waits.

@@ -7,7 +7,7 @@ import type {
   MonthBill,
   MonthEntry,
   SkippedMonth,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import {
   paymentService,
   skippedMonthService,

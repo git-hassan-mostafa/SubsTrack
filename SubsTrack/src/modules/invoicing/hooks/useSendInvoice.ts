@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import type { Charge, Collection, Sale } from "@/src/core/types";
+import type { Charge, Collection, Sale } from "@shared/core/types";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { confirm } from "@/src/shared/lib/confirm";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";

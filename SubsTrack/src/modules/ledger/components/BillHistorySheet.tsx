@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { AuditRecordTarget } from "@/src/core/types";
+import type { AuditRecordTarget } from "@shared/core/types";
 import { HistorySheet, useRecordHistory } from "@/src/modules/admin/audit";
 import { collectionService } from "../services/CollectionService";
 

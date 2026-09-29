@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { Collection, Sale } from "@/src/core/types";
+import type { Collection, Sale } from "@shared/core/types";
 import {
   ActionMenu,
   type ActionMenuItem,
@@ -10,7 +10,7 @@ import {
   openItemFromCharge,
   useCollectSheet,
 } from "@/src/modules/ledger";
-import { saleTitle } from "@/src/core/utils/receiptId";
+import { saleTitle } from "@shared/core/utils/receiptId";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";
 import type { SaleVoidResult } from "../utils/types";

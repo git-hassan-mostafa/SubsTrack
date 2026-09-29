@@ -5,7 +5,7 @@ import type {
   Customer,
   WhatsAppQueueResult,
   WhatsAppTemplatePurpose,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import { Button } from "@/src/shared/components/Button";
 import {
   Dropdown,

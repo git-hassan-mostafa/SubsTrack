@@ -1,10 +1,10 @@
-import type { CashRow } from "@/src/core/types";
+import type { CashRow } from "@shared/core/types";
 import type {
   DbCharge,
   DbChargeBalance,
   DbCollection,
   DbCollectionItem,
-} from "@/src/core/types/db";
+} from "@shared/core/types/db";
 import type {
   CreateChargePayload,
   DbChargeWithPaid,

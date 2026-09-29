@@ -5,14 +5,14 @@ import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
-import type { Customer } from "@/src/core/types";
+import type { Customer } from "@shared/core/types";
 import type {
   LineDraft,
   RemovedLine,
 } from "@/src/modules/customer/customer-plans";
 import { PlanLineCard, type PlanRow } from "./PlanLineCard";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { getTodayDateString } from "@/src/core/utils/date";
+import { getTodayDateString } from "@shared/core/utils/date";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
 import { useCustomerPlanSlice } from "@/src/state/hooks/useCustomerPlanSlice";
 import { confirm } from "@/src/shared/lib/confirm";

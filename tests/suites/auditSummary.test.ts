@@ -20,9 +20,9 @@ import type {
   AuditEntry,
   AuditTable,
   Currency,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import { buildAuditSummary } from "@/src/modules/admin/audit/utils/summary";
-import { isolate } from "@/src/core/utils/bidi";
+import { isolate } from "@shared/core/utils/bidi";
 import { bold, toParts } from "@/src/modules/admin/audit/utils/sentence";
 import type {
   AuditFieldContext,

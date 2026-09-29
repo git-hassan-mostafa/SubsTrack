@@ -10,16 +10,16 @@ import {
 import { COLORS } from "@/src/shared/constants";
 import { Chip, type ChipTone } from "@/src/shared/components/Chip";
 import { EntityCard } from "@/src/shared/components/EntityCard";
-import type { DebtHistoryItem } from "@/src/core/types";
+import type { DebtHistoryItem } from "@shared/core/types";
 import {
   findCurrency,
   formatMoney,
   formatPaidFraction,
   snapshotCurrency,
-} from "@/src/core/utils/currency";
+} from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { formatDate } from "@/src/core/utils/date";
+import { formatDate } from "@shared/core/utils/date";
 import {
   daysLateSettling,
   daysOverdue,

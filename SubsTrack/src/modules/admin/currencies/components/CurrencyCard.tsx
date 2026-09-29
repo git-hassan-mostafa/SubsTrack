@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
-import type { Currency } from "@/src/core/types";
+import type { Currency } from "@shared/core/types";
 import {
   CardAmount,
   CardChips,

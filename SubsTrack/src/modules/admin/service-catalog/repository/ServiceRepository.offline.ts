@@ -1,5 +1,5 @@
-import type { BranchFilter } from "@/src/core/constants";
-import type { DbService } from "@/src/core/types/db";
+import type { BranchFilter } from "@shared/core/constants";
+import type { DbService } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, markDeleted } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@/src/core/offline/ids";

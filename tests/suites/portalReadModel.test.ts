@@ -14,7 +14,7 @@ import { keyOf } from "@/src/modules/ledger/utils/waterfall";
 import { store } from "../helpers/fakeLedger";
 import { customer, line, plan, LBP } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
-import type { Charge, Collection } from "@/src/core/types";
+import type { Charge, Collection } from "@shared/core/types";
 import { buildMonthReceipt } from "../../Portal/src/services/monthReceipt";
 
 // TC-PRT-* — the seam the customer portal stands on. The portal holds its rows

@@ -1,6 +1,6 @@
-import type { AuditEntry } from "@/src/core/types";
+import type { AuditEntry } from "@shared/core/types";
 import { billingMonthLabel } from "@/src/core/utils/billingMonth";
-import { receiptId } from "@/src/core/utils/receiptId";
+import { receiptId } from "@shared/core/utils/receiptId";
 import { formatField } from "./format";
 import type { AuditFieldContext } from "./valueDisplay";
 

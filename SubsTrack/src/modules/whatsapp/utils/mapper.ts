@@ -6,13 +6,13 @@ import type {
   WhatsAppOptOut,
   WhatsAppTemplate,
   WhatsAppTemplatePurpose,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import type {
   DbWhatsAppAccount,
   DbWhatsAppMessage,
   DbWhatsAppOptOut,
   DbWhatsAppTemplate,
-} from "@/src/core/types/db";
+} from "@shared/core/types/db";
 
 export function mapDbWhatsAppAccount(db: DbWhatsAppAccount): WhatsAppAccount {
   return {

@@ -1,5 +1,5 @@
-import type { Customer, CustomerPlan } from "@/src/core/types";
-import { getCurrentYearMonth } from "@/src/core/utils/date";
+import type { Customer, CustomerPlan } from "@shared/core/types";
+import { getCurrentYearMonth } from "@shared/core/utils/date";
 
 export type YearMonth = { year: number; month: number };
 

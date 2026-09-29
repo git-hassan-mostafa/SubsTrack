@@ -1,5 +1,5 @@
 import type { StateCreator } from "zustand";
-import type { Customer, CustomerPlan } from "@/src/core/types";
+import type { Customer, CustomerPlan } from "@shared/core/types";
 import {
   customerService,
   type CustomerInput,

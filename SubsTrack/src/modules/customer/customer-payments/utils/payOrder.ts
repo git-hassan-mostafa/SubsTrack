@@ -1,4 +1,4 @@
-import { toBillingMonth } from "@/src/core/utils/date";
+import { toBillingMonth } from "@shared/core/utils/date";
 
 export { billingMonthLabel } from "@/src/core/utils/billingMonth";
 

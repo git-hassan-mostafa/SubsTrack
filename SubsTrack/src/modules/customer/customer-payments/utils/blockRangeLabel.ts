@@ -1,4 +1,4 @@
-import { MONTHS } from "@/src/core/constants";
+import { MONTHS } from "@shared/core/constants";
 
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 

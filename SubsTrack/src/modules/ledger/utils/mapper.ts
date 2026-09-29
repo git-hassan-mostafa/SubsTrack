@@ -1,9 +1,9 @@
-import type { Charge, Collection, CollectionItem } from "@/src/core/types";
+import type { Charge, Collection, CollectionItem } from "@shared/core/types";
 import type {
   DbCharge,
   DbCollection,
   DbCollectionItem,
-} from "@/src/core/types/db";
+} from "@shared/core/types/db";
 
 export function mapDbChargeToCharge(row: DbCharge): Charge {
   return {

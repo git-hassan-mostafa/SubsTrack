@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import type { Customer } from "@/src/core/types";
+import type { Customer } from "@shared/core/types";
 import {
   AsyncEntityPicker,
   type AsyncEntityPickerTriggerStyle,

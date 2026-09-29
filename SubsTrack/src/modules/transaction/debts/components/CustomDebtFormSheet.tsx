@@ -11,7 +11,7 @@ import {
   CustomerPicker,
   CustomerFormSheet,
 } from "@/src/modules/customer/customers";
-import type { Customer, OpenItem } from "@/src/core/types";
+import type { Customer, OpenItem } from "@shared/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
@@ -19,8 +19,8 @@ import {
   findCurrency,
   formatMoney,
   snapshotCurrency,
-} from "@/src/core/utils/currency";
-import { getTodayDateString } from "@/src/core/utils/date";
+} from "@shared/core/utils/currency";
+import { getTodayDateString } from "@shared/core/utils/date";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 

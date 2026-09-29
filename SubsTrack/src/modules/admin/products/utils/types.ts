@@ -1,4 +1,4 @@
-import { Product } from "@/src/core/types";
+import { Product } from "@shared/core/types";
 
 export type ProductInput = Pick<
   Product,

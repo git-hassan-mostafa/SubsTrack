@@ -17,8 +17,8 @@ import {
 import { COLORS } from "@/src/shared/constants";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
-import type { ChargeKind, DebtsView, OpenItem } from "@/src/core/types";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import type { ChargeKind, DebtsView, OpenItem } from "@shared/core/types";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";

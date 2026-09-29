@@ -1,5 +1,5 @@
-import { TenantSetting } from "@/src/core/types";
-import { DbTenantSetting } from "@/src/core/types/db";
+import { TenantSetting } from "@shared/core/types";
+import { DbTenantSetting } from "@shared/core/types/db";
 
 export function mapDbTenantSettingToTenantSetting(
   db: DbTenantSetting,

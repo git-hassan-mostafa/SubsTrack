@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PAGE_SIZE } from "@/src/core/constants";
-import type { Sale } from "@/src/core/types";
+import { PAGE_SIZE } from "@shared/core/constants";
+import type { Sale } from "@shared/core/types";
 import saleService from "../services/SaleService";
 import { saleListPatches, type SalePatches } from "../utils/saleListPatch";
 

@@ -1,4 +1,4 @@
-import type { DbSale, DbSaleItem } from "@/src/core/types/db";
+import type { DbSale, DbSaleItem } from "@shared/core/types/db";
 import type {
   CreateSalePayload,
   UpdateSalePayload,

@@ -1,5 +1,5 @@
-import { MONTHS } from "@/src/core/constants";
-import type { Charge, MonthEntry } from "@/src/core/types";
+import { MONTHS } from "@shared/core/constants";
+import type { Charge, MonthEntry } from "@shared/core/types";
 
 /**
  * Wraps a month bill in the MonthEntry shape the grid sheets read, for surfaces

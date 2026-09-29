@@ -1,16 +1,16 @@
 import type { SQLiteDatabase } from "expo-sqlite";
-import { OFFLINE_PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
-import type { CashRow, CashStream, WalletSource } from "@/src/core/types";
+import { OFFLINE_PAGE_SIZE, type BranchFilter } from "@shared/core/constants";
+import type { CashRow, CashStream, WalletSource } from "@shared/core/types";
 import type {
   DbCharge,
   DbCollection,
   DbCollectionItem,
   DbCustomer,
-} from "@/src/core/types/db";
+} from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, updateDirty } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@/src/core/offline/ids";
-import { sanitizeSearchTerm } from "@/src/core/utils/searchTerm";
+import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
 import {
   custodyValues,
   receivedCustody,

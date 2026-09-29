@@ -9,7 +9,7 @@ import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
-import type { Service } from "@/src/core/types";
+import type { Service } from "@shared/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useServiceSlice } from "@/src/state/hooks/useServiceSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";

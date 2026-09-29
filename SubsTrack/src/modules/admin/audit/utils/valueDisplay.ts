@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
-import type { AuditEntry, AuditTable, Currency } from "@/src/core/types";
-import { formatMoney } from "@/src/core/utils/currency";
+import type { AuditEntry, AuditTable, Currency } from "@shared/core/types";
+import { formatMoney } from "@shared/core/utils/currency";
 import { TENANT_SETTING_KEYS } from "@/src/modules/admin/tenant-settings/utils/constants";
 
 /** Id → display name. `null` = not found (deleted, or the list isn't loaded). */

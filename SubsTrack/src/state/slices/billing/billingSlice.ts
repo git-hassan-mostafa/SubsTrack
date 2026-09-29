@@ -1,5 +1,5 @@
 import type { StateCreator } from "zustand";
-import type { CustomerRequest } from "@/src/core/types";
+import type { CustomerRequest } from "@shared/core/types";
 import billingService from "@/src/modules/admin/billing/services/BillingService";
 import { AllowanceFloorError } from "@/src/modules/admin/billing/utils/allowanceFloorError";
 import type { QuotaExceededError } from "@/src/modules/admin/billing/utils/quotaError";

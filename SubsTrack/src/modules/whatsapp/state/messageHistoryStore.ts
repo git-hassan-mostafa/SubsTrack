@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
-import type { WhatsAppMessage, WhatsAppMessageStatus } from "@/src/core/types";
+import type { WhatsAppMessage, WhatsAppMessageStatus } from "@shared/core/types";
 import { whatsAppService } from "@/src/modules/whatsapp/services/WhatsAppService";
 import { HISTORY_PAGE_SIZE } from "@/src/modules/whatsapp/utils/constants";
 import { getStore } from "@/src/state/globalStore";

@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import type { DbCurrency } from "@/src/core/types/db";
+import type { DbCurrency } from "@shared/core/types/db";
 import type { ICurrencyRepository } from "./ICurrencyRepository";
 import { OfflineCurrencyRepository } from "./CurrencyRepository.offline";
 

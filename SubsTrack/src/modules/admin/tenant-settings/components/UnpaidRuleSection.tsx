@@ -7,7 +7,7 @@ import {
   Dropdown,
   type DropdownOption,
 } from "@/src/shared/components/Dropdown";
-import type { UnpaidStartRule } from "@/src/core/types";
+import type { UnpaidStartRule } from "@shared/core/types";
 import {
   useTenantSettingSlice,
   useUnpaidStartRule,

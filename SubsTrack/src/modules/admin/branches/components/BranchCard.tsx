@@ -1,6 +1,6 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import type { Branch } from "@/src/core/types";
+import type { Branch } from "@shared/core/types";
 import { CardChips, CardTitle } from "@/src/shared/components/CardText";
 import { Chip } from "@/src/shared/components/Chip";
 import { EntityCard } from "@/src/shared/components/EntityCard";

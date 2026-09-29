@@ -33,12 +33,12 @@ import {
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { CustomerPicker } from "@/src/modules/customer/customers";
 import { useSendInvoice } from "@/src/modules/invoicing";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import type {
   CollectionItem,
   CollectionListItem,
   WalletSource,
-} from "@/src/core/types";
+} from "@shared/core/types";
 import type {
   CollectionSortField,
   SortDirection,

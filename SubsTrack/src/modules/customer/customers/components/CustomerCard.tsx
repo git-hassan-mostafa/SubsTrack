@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from "@/src/shared/components/CardText";
 import type { TFunction } from "i18next";
-import type { Customer, CustomerStatus } from "@/src/core/types";
+import type { Customer, CustomerStatus } from "@shared/core/types";
 import { COLORS } from "../../../../shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { Chip, type ChipTone } from "@/src/shared/components/Chip";

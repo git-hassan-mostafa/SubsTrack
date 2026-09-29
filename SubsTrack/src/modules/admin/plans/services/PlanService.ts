@@ -1,5 +1,5 @@
-import type { Plan } from "@/src/core/types";
-import type { BranchFilter } from "@/src/core/constants";
+import type { Plan } from "@shared/core/types";
+import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@/src/core/i18n";
 import repository from "../repository/PlanRepository";
 import { mapDbPlanToPlan } from "../utils/mapper";

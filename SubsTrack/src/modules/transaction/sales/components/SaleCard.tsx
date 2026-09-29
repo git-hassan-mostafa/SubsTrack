@@ -1,17 +1,17 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { COLORS } from "@/src/shared/constants";
-import type { Sale } from "@/src/core/types";
+import type { Sale } from "@shared/core/types";
 import {
   findCurrency,
   formatMoney,
   formatPaidFraction,
   snapshotCurrency,
-} from "@/src/core/utils/currency";
+} from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { formatDate } from "@/src/core/utils/date";
-import { receiptId } from "@/src/core/utils/receiptId";
+import { formatDate } from "@shared/core/utils/date";
+import { receiptId } from "@shared/core/utils/receiptId";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import {
   CardAmount,

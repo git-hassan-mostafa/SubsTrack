@@ -1,4 +1,4 @@
-import type { SaleItem } from "@/src/core/types";
+import type { SaleItem } from "@shared/core/types";
 import type { CreateSaleItemPayload } from "../repository/ISaleRepository";
 import type { CreateSaleItemInput } from "./types";
 

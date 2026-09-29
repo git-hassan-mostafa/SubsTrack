@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 import { supabase } from "@/src/shared/lib/supabase";
-import { readFunctionsErrorBody } from "@/src/core/utils/functionsError";
+import { readFunctionsErrorBody } from "@shared/core/utils/functionsError";
 import { CreateTenantInput, CreateTenantResult } from "../utils/types";
 import type { ISignupRepository } from "./ISignupRepository";
 import { OfflineSignupRepository } from "./SignupRepository.offline";

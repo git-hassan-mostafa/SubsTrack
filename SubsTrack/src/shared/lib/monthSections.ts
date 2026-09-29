@@ -1,10 +1,10 @@
 import type { TFunction } from "i18next";
-import { MONTHS } from "@/src/core/constants";
+import { MONTHS } from "@shared/core/constants";
 import {
   getCurrentYearMonth,
   getTodayDateString,
   localMonthKey,
-} from "@/src/core/utils/date";
+} from "@shared/core/utils/date";
 
 // A section of a transaction list. Most sections are one calendar month
 // (`key` = `YYYY-MM`), but the two newest buckets are day/week-scoped:

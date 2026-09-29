@@ -1,5 +1,5 @@
-import { AppOption } from "@/src/core/types";
-import { DbAppOption } from "@/src/core/types/db";
+import { AppOption } from "@shared/core/types";
+import { DbAppOption } from "@shared/core/types/db";
 
 export function mapDbAppOptionToAppOption(db: DbAppOption): AppOption {
   return {

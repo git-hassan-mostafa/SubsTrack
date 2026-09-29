@@ -1,4 +1,4 @@
-import type { DbSkippedMonth } from "@/src/core/types/db";
+import type { DbSkippedMonth } from "@shared/core/types/db";
 
 // One skip state to write. `skipped: false` removes the skip — the row stays so
 // the change reaches other devices (see script.sql → SKIPPED MONTHS).

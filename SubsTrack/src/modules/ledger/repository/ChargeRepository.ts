@@ -1,7 +1,7 @@
 import { Platform } from "react-native";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import { PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
-import type { DbCharge, DbChargeBalance } from "@/src/core/types/db";
+import { PAGE_SIZE, type BranchFilter } from "@shared/core/constants";
+import type { DbCharge, DbChargeBalance } from "@shared/core/types/db";
 import type {
   CreateChargePayload,
   DbChargeHistoryRow,

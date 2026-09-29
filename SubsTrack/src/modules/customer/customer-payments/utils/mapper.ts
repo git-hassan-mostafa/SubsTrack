@@ -1,5 +1,5 @@
-import type { DbSkippedMonth } from "@/src/core/types/db";
-import type { SkippedMonth } from "@/src/core/types";
+import type { DbSkippedMonth } from "@shared/core/types/db";
+import type { SkippedMonth } from "@shared/core/types";
 
 // A skipped month carries no money, so it survived the ledger rewrite untouched
 // — the payment mapper that used to sit beside it now lives in `ledger/utils`.

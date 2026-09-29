@@ -7,9 +7,9 @@ import { Input } from "@/src/shared/components/Input";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
 import { copyText } from "@/src/shared/lib/clipboard";
-import { buildPortalLink } from "@/src/core/utils/portalLink";
+import { buildPortalLink } from "@shared/core/utils/portalLink";
 import { generatePortalPassword } from "@/src/core/utils/portalPassword";
-import { isolate } from "@/src/core/utils/bidi";
+import { isolate } from "@shared/core/utils/bidi";
 
 interface Props {
   customerId: string | null;

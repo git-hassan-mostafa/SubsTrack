@@ -1,6 +1,6 @@
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/src/shared/lib/supabase";
-import type { DbBranch, DbTenant, DbUser } from "@/src/core/types/db";
+import type { DbBranch, DbTenant, DbUser } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { upsertFromServer } from "@/src/core/offline/db/dml";
 import { isOnline } from "@/src/core/offline/net/connectivity";

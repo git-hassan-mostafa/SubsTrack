@@ -7,8 +7,8 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import { COLORS } from "@/src/shared/constants";
-import type { Customer, OpenItem } from "@/src/core/types";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import type { Customer, OpenItem } from "@shared/core/types";
+import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import {

@@ -4,14 +4,14 @@ import type {
   CollectionItem,
   Currency,
   Sale,
-} from "@/src/core/types";
-import { formatDate } from "@/src/core/utils/date";
-import { receiptId } from "@/src/core/utils/receiptId";
+} from "@shared/core/types";
+import { formatDate } from "@shared/core/utils/date";
+import { receiptId } from "@shared/core/utils/receiptId";
 import {
   findCurrency,
   formatMoney,
   snapshotCurrency,
-} from "@/src/core/utils/currency";
+} from "@shared/core/utils/currency";
 import { getBlockRangeLabel } from "@/src/modules/customer/customer-payments/utils/blockRangeLabel";
 import { paidToCharge } from "@/src/modules/ledger/utils/paidToCharge";
 

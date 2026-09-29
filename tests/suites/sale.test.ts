@@ -20,7 +20,7 @@ import type {
   CreateSaleInput,
   CreateSaleItemInput,
 } from "@/src/modules/transaction/sales/utils/types";
-import type { Product } from "@/src/core/types";
+import type { Product } from "@shared/core/types";
 import { store } from "../helpers/fakeLedger";
 import { saleStore, stockOnHand } from "../helpers/fakeSales";
 import { LBP } from "../helpers/factories";
