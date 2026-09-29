@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "mui-mcp": {
+      "type": "stdio",
+      "command": "node",
+      "args": [".claude/mcp/node_modules/@mui/mcp/stdio.js"],
+      "env": {}
+    }
+  }
+}

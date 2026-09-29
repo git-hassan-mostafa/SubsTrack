@@ -140,6 +140,10 @@ implementation detail unless explicitly requested.
   non-technical staff on phones; every screen immediately understandable. No
   animations, no decorative elements, no unnecessary complexity.
   Priority: clarity → speed → correctness → completeness.
+  **Project rules win over the `ux-designer` skill**: no animations or
+  transitions, errors inline via `ErrorBanner` (never toast/alert), plainest
+  option wins for non-technical staff — ignore its toast, 150–300 ms
+  transition, shimmer-skeleton and "delight" defaults.
 - **Text fields**: a field owns the text being typed. `Input` / `SearchTextBox` /
   `CurrencyInput` route it through `useTextField`; a controlled `TextInput` wired
   straight to form or store state is banned — a `value` one render late loses
