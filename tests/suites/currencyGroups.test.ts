@@ -6,8 +6,8 @@ import {
   planCollection,
   totalCollectingUsd,
 } from "@shared/modules/ledger/utils/currencyGroups";
-import { collectionService } from "@/src/modules/ledger/services/CollectionService";
-import type { CollectInput } from "@/src/modules/ledger/services/CollectionService";
+import { collectionService } from "@shared/modules/ledger/services/CollectionService";
+import type { CollectInput } from "@shared/modules/ledger/services/CollectionService";
 import type { AllocationLine, Currency, OpenItem } from "@shared/core/types";
 import { store } from "../helpers/fakeLedger";
 import { LBP, openItem } from "../helpers/factories";

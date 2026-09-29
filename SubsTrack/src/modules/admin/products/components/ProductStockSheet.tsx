@@ -28,7 +28,7 @@ import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUserNames } from "@/src/shared/hooks/useUserNames";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
-import productService from "../services/ProductService";
+import productService from "@shared/modules/admin/products/services/ProductService";
 
 interface Props {
   product: Product;

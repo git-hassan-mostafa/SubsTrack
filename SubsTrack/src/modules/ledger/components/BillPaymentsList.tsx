@@ -22,7 +22,7 @@ import { paymentMenu } from "../utils/paymentMenu";
 import {
   collectionService,
   type CollectionCorrection,
-} from "../services/CollectionService";
+} from "@shared/modules/ledger/services/CollectionService";
 import { CollectionDetailSheet } from "./CollectionDetailSheet";
 import { CorrectCollectionSheet } from "./CorrectCollectionSheet";
 import { VoidCollectionDialog } from "./VoidCollectionDialog";

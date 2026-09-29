@@ -20,6 +20,10 @@ import { buildGridsFor } from "./utils/buildGrids";
 import { groupMonthsByLine } from "./utils/groupMonthsByLine";
 import { mergeCollection } from "./utils/mergeCollection";
 import { getUnpaidRule } from "./utils/unpaidRule";
+import {
+  buildCustomerStatus,
+  getCustomerStatuses,
+} from "@shared/modules/customer/customer-payments/utils/monthStatus";
 
 /**
  * Month-grid state ONLY.
@@ -95,7 +99,7 @@ export const createPaymentSlice: StateCreator<
     if (isStaleEpoch(epoch)) return;
     const bills = [...billsByLine.values()].flat();
     set((state) => {
-      state.payments.customerStatuses = paymentService.getCustomerStatuses(
+      state.payments.customerStatuses = getCustomerStatuses(
         customers,
         bills,
         skips,
@@ -163,7 +167,7 @@ export const createPaymentSlice: StateCreator<
       skippedMonthService.getSkipsForCustomer(customerId),
     ]);
     const bills = [...billsByLine.values()].flat();
-    const status = paymentService.buildCustomerStatus(
+    const status = buildCustomerStatus(
       lines,
       bills,
       skips,

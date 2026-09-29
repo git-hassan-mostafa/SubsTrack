@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PAGE_SIZE } from "@shared/core/constants";
 import type { Sale } from "@shared/core/types";
-import saleService from "../services/SaleService";
+import saleService from "@shared/modules/transaction/sales/services/SaleService";
 import { saleListPatches, type SalePatches } from "@shared/modules/transaction/sales/utils/saleListPatch";
 
 interface CustomerSalesList {

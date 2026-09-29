@@ -10,7 +10,7 @@ import type {
 import {
   whatsAppService,
   type RecipientBuildArgs,
-} from "@/src/modules/whatsapp/services/WhatsAppService";
+} from "@shared/modules/whatsapp/services/WhatsAppService";
 import type { GlobalState } from "@/src/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";
 

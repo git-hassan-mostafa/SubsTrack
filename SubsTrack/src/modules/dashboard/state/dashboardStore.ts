@@ -3,7 +3,7 @@ import { immer } from "zustand/middleware/immer";
 import type { DashboardMetrics } from "@shared/core/types";
 import { dashboardService } from "@/src/modules/dashboard";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
-import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
+import tenantSettingService from "@shared/modules/admin/tenant-settings/services/TenantSettingService";
 import { TENANT_SETTING_KEYS } from "@shared/modules/admin/tenant-settings/utils/constants";
 import { getStore } from "@/src/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";

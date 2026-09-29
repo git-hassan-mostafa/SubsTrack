@@ -1,6 +1,6 @@
 import { useCallback, useState, type ReactNode } from "react";
 import type { Sale } from "@shared/core/types";
-import saleService from "../services/SaleService";
+import saleService from "@shared/modules/transaction/sales/services/SaleService";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
 
 export interface SaleDetailSheetHandle {

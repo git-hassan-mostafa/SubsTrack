@@ -1,4 +1,4 @@
-export { default as branchService } from "./services/BranchService";
+export { default as branchService } from "@shared/modules/admin/branches/services/BranchService";
 export { mapDbBranchToBranch } from "@shared/modules/admin/branches/utils/mapper";
 export type { BranchInput } from "@shared/modules/admin/branches/utils/types";
 export { BranchCard } from "./components/BranchCard";

@@ -5,8 +5,8 @@ import type {
   WalletItem,
 } from "@shared/core/types";
 import i18n from "@shared/core/i18n";
-import { collectionService } from "@/src/modules/ledger";
-import { userService } from "@/src/modules/admin/users";
+import { collectionService } from "@shared/modules/ledger/services/CollectionService";
+import userService from "@shared/modules/admin/users/services/UserService";
 import {
   canCloseOut,
   canReceiveFrom,

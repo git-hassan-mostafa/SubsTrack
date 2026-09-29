@@ -3,7 +3,7 @@ import type { Expense, ExpenseItem, ExpensesView } from "@shared/core/types";
 import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
 import { sumUsd } from "@shared/core/utils/currency";
-import productService from "@/src/modules/admin/products/services/ProductService";
+import productService from "@shared/modules/admin/products/services/ProductService";
 import { expenseToItem, mapDbExpenseToExpense } from "@shared/modules/transaction/expenses/utils/mapper";
 import type { CreateExpenseInput, ExpensesFilter } from "@shared/modules/transaction/expenses/utils/types";
 

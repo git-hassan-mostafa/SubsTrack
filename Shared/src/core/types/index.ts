@@ -125,10 +125,7 @@ export interface Customer {
   customerPlans?: CustomerPlan[];
 }
 
-// A single service line: one plan a customer is subscribed to, with its own
-// start/cancel lifecycle. planId null = custom/occasional line (ad-hoc amounts,
-// no fixed plan). Month charges attach to a line, and each line builds its own
-// month grid via PaymentService.buildMonthGrid().
+// One service line with its own grid; planId null = a custom-priced line.
 export interface CustomerPlan {
   id: string;
   customerId: string;

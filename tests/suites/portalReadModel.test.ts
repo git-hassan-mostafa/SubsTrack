@@ -1,7 +1,7 @@
 
-import { ledgerService } from "@/src/modules/ledger/services/LedgerService";
-import { chargeService } from "@/src/modules/ledger/services/ChargeService";
-import { mergeOwed } from "@/src/modules/ledger/utils/mergeOwed";
+import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
+import { chargeService } from "@shared/modules/ledger/services/ChargeService";
+import { mergeOwed } from "@shared/modules/ledger/utils/mergeOwed";
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { store } from "../helpers/fakeLedger";
 import { customer, line, plan, LBP } from "../helpers/factories";

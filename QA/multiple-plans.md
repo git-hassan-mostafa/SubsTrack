@@ -1,6 +1,6 @@
 # Multiple Plans per Customer (service lines) — QA Scenarios
 
-A customer can subscribe to several plans at once, each a **service line** (`customer_plans`) with its own start/cancel lifecycle, paid independently. Plans are managed inline from the customer form; each line builds its own month grid via the single source of truth `PaymentService.buildMonthGrid(customerPlan, …)`; `payments.customer_plan_id` links a payment to a line, and `UNIQUE(customer_plan_id, billing_month)` lets each line be paid for the same month.
+A customer can subscribe to several plans at once, each a **service line** (`customer_plans`) with its own start/cancel lifecycle, paid independently. Plans are managed inline from the customer form; each line builds its own month grid via the single source of truth `monthStatus.buildMonthGrid(customerPlan, …)`; `payments.customer_plan_id` links a payment to a line, and `UNIQUE(customer_plan_id, billing_month)` lets each line be paid for the same month.
 
 **Reference code:**
 

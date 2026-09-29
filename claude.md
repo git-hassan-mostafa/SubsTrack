@@ -32,7 +32,10 @@ matching `docs/` file. Dev phase: architecture + DB schema are open to change.
 
 ### 1.2 Non-negotiable architecture rules
 
-1. Month status logic lives ONLY in `PaymentService.buildMonthGrid()`.
+1. Month status logic lives ONLY in
+   `Shared/src/modules/customer/customer-payments/utils/monthStatus.ts`
+   (`buildMonthGrid()`, pure, no i18n — the portal and edge functions run it).
+   `PaymentService` keeps only the pay/void/unskip ORDER gates.
 2. `tenant_id` always from the Supabase JWT — never client input.
 3. DB row types (snake_case) never escape the repository layer.
 4. No business logic in components or stores.
@@ -455,7 +458,7 @@ Facts that change how you code and are easy to get wrong:
 
 ## 7. Month Grid (critical)
 
-`PaymentService.buildMonthGrid(customerPlan, bills, skips, year, unpaidRule)` is
+`monthStatus.buildMonthGrid(customerPlan, bills, skips, year, unpaidRule)` is
 the **single source of truth** for month status — no other file may reimplement it.
 Pure, no I/O. One grid per **service line** (`CustomerPlan`); the payment slice
 keeps `monthGridsByLine`. Full rules, the badge contract and the order helpers:
@@ -489,7 +492,7 @@ keeps `monthGridsByLine`. Full rules, the badge contract and the order helpers:
   a caller.
 - **Months settle OLDEST FIRST, and "earlier" means UNCOVERED, not merely
   overdue.** Prepaying is allowed; prepaying out of order is not. One pure helper
-  `blockingUnpaidMonths()` fed by `PaymentService.uncoveredBillingMonths`. **Do not
+  `blockingUnpaidMonths()` fed by `monthStatus.uncoveredBillingMonths`. **Do not
   feed the gate `unpaidBillingMonths`** (overdue only) — that is gotcha #81b — and
   do not feed `buildCustomerStatus` the uncovered list. Months inside the same
   write never block each other.
@@ -499,7 +502,7 @@ keeps `monthGridsByLine`. Full rules, the badge contract and the order helpers:
 - **Multiple plans per customer**: 1..N service lines, each its own grid and
   independent payments. **The service line owns the ONLY start date** — `customers`
   has no `start_date`.
-- `PaymentService.buildCustomerStatus(...)` is the only place a list badge is
+- `monthStatus.buildCustomerStatus(...)` is the only place a list badge is
   decided, derived from `buildMonthGrid`. **"Paid" means owes nothing**, so it can
   never co-exist with "Overdue". Absence means unknown → **no pill**, never red.
   One query, one arrival. No SQL mirror. `customerFlags(status)` decides both the

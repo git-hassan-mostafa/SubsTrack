@@ -4,7 +4,12 @@ import {
   coveredBillingMonths,
   latestTargetYear,
 } from "@shared/modules/customer/customer-payments/utils/payOrder";
-import paymentService from "@/src/modules/customer/customer-payments/services/PaymentService";
+import paymentService from "@shared/modules/customer/customer-payments/services/PaymentService";
+import {
+  unpaidBillingMonths,
+  uncoveredBillingMonths,
+  paidBillingMonths,
+} from "@shared/modules/customer/customer-payments/utils/monthStatus";
 import { bill, line, plan, skip } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
 
@@ -112,7 +117,7 @@ describe("PaymentService month lists", () => {
   afterEach(unfreeze);
 
   it("TC-PO-40 unpaidBillingMonths is OVERDUE only — no future gaps", () => {
-    const months = paymentService.unpaidBillingMonths(
+    const months = unpaidBillingMonths(
       L,
       [bill("2026-02-01", 20)],
       [],
@@ -129,7 +134,7 @@ describe("PaymentService month lists", () => {
   it("TC-PO-41 uncoveredBillingMonths ALSO counts not-yet-due gaps (#81b)", () => {
     // Aug is prepaid; Jul is a hole even though it is not overdue yet.
     const bills = [bill("2026-08-01", 20)];
-    const months = paymentService.uncoveredBillingMonths(L, bills, []);
+    const months = uncoveredBillingMonths(L, bills, []);
     expect(months).toContain("2026-07-01");
     expect(months).not.toContain("2026-08-01");
     // ...and the walk ran past today, up to the last covered month.
@@ -137,7 +142,7 @@ describe("PaymentService month lists", () => {
   });
 
   it("TC-PO-42 a skipped month is not a hole", () => {
-    const months = paymentService.uncoveredBillingMonths(
+    const months = uncoveredBillingMonths(
       L,
       [],
       [skip("2026-03-01")],
@@ -147,24 +152,24 @@ describe("PaymentService month lists", () => {
 
   it("TC-PO-43 before_start months are not holes", () => {
     const later = line({ id: "line-1", startDate: "2026-04-01" });
-    const months = paymentService.uncoveredBillingMonths(later, [], []);
+    const months = uncoveredBillingMonths(later, [], []);
     expect(months[0]).toBe("2026-04-01");
   });
 
   it("TC-PO-44 a backlog in a PREVIOUS year still blocks (#81)", () => {
     const l = line({ id: "line-1", startDate: "2025-11-01" });
-    const months = paymentService.uncoveredBillingMonths(l, [], []);
+    const months = uncoveredBillingMonths(l, [], []);
     expect(months.slice(0, 2)).toEqual(["2025-11-01", "2025-12-01"]);
   });
 
   it("TC-PO-45 throughYear widens the walk into a year never paid before (#122)", () => {
-    const withoutHint = paymentService.uncoveredBillingMonths(
+    const withoutHint = uncoveredBillingMonths(
       L,
       [],
       [],
       "month_start",
     );
-    const withHint = paymentService.uncoveredBillingMonths(
+    const withHint = uncoveredBillingMonths(
       L,
       [],
       [],
@@ -177,7 +182,7 @@ describe("PaymentService month lists", () => {
 
   it("TC-PO-46 paidBillingMonths counts a bundle month by month, sorted", () => {
     const bills = [bill("2026-02-01", 60, { durationMonths: 3, amount: 60 })];
-    expect(paymentService.paidBillingMonths(bills)).toEqual([
+    expect(paidBillingMonths(bills)).toEqual([
       "2026-02-01",
       "2026-03-01",
       "2026-04-01",
@@ -185,11 +190,11 @@ describe("PaymentService month lists", () => {
   });
 
   it("TC-PO-47 an EMPTY bill covers nothing, a voided one covers nothing", () => {
-    expect(paymentService.paidBillingMonths([bill("2026-02-01", 0)])).toEqual(
+    expect(paidBillingMonths([bill("2026-02-01", 0)])).toEqual(
       [],
     );
     expect(
-      paymentService.paidBillingMonths([
+      paidBillingMonths([
         bill("2026-02-01", 20, { voidedAt: "2026-03-01T00:00:00.000Z" }),
       ]),
     ).toEqual([]);

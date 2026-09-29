@@ -2,7 +2,7 @@ import { repositories } from "@shared/core/runtime/repositories";
 import type { CustomerPlan } from "@shared/core/types";
 import { isValidDateString } from "@shared/core/utils/date";
 import i18n from "@shared/core/i18n";
-import billingService from "@/src/modules/admin/billing/services/BillingService";
+import billingService from "@shared/modules/admin/billing/services/BillingService";
 import type { QuotaPair } from "@shared/modules/admin/billing/utils/types";
 import { mapDbCustomerPlanToCustomerPlan } from "@shared/modules/customer/customer-plans/utils/mapper";
 

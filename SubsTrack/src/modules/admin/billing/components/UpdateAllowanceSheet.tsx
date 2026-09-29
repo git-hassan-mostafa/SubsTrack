@@ -12,7 +12,7 @@ import { useAuth } from "@/src/modules/authentication/auth";
 import { useBillingSlice } from "@/src/state/hooks/useBillingSlice";
 import { useSupportWhatsAppNumber } from "@/src/state/hooks/useOptionSlice";
 import { openWhatsApp } from "@/src/shared/lib/whatsapp";
-import billingService from "../services/BillingService";
+import billingService from "@shared/modules/admin/billing/services/BillingService";
 import {
   MIN_CUSTOMER_ALLOWANCE,
   MIN_CUSTOMER_REQUEST,

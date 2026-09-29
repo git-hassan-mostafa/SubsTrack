@@ -6,7 +6,7 @@ import {
 } from "@/src/shared/components/AsyncEntityPicker";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
-import customerService from "../services/CustomerService";
+import customerService from "@shared/modules/customer/customers/services/CustomerService";
 
 interface CustomerPickerProps {
   value: Customer | null;

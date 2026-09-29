@@ -4,5 +4,5 @@ export { RecordHistorySheet } from "./components/RecordHistorySheet";
 export { useCustomerHistory, useRecordHistory } from "./hooks/useRecordHistory";
 export { useRecordHistoryAction } from "./hooks/useRecordHistoryAction";
 export { AuditLogScreen } from "./screens/AuditLogScreen";
-export { default as auditService } from "./services/AuditService";
+export { default as auditService } from "@shared/modules/admin/audit/services/AuditService";
 export { AUDITED_TABLES } from "@shared/modules/admin/audit/utils/constants";

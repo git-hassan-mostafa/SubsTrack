@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { AuditRecordTarget } from "@shared/core/types";
 import { HistorySheet, useRecordHistory } from "@/src/modules/admin/audit";
-import { collectionService } from "../services/CollectionService";
+import { collectionService } from "@shared/modules/ledger/services/CollectionService";
 
 interface Props {
   /** The rows this record is made of, besides its bill and the cash on it. */

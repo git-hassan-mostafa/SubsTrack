@@ -55,7 +55,7 @@ import { CollectionDetailSheet } from "../components/CollectionDetailSheet";
 import { CollectionsVoidDialog } from "../components/CollectionsVoidDialog";
 import { CorrectCollectionSheet } from "../components/CorrectCollectionSheet";
 import { useOpenBill } from "../hooks/useOpenBill";
-import { collectionService } from "../services/CollectionService";
+import { collectionService } from "@shared/modules/ledger/services/CollectionService";
 
 interface Props {
   onOpenSale?: (saleId: string) => Promise<void> | void;

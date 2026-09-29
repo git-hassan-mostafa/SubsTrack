@@ -1,4 +1,4 @@
-export { default as expenseService } from "./services/ExpenseService";
+export { default as expenseService } from "@shared/modules/transaction/expenses/services/ExpenseService";
 export { expenseToItem, mapDbExpenseToExpense } from "@shared/modules/transaction/expenses/utils/mapper";
 export type { CreateExpenseInput, ExpensesFilter } from "@shared/modules/transaction/expenses/utils/types";
 export {

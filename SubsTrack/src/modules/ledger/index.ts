@@ -1,6 +1,6 @@
-export { chargeService } from "./services/ChargeService";
-export { collectionService } from "./services/CollectionService";
-export { ledgerService } from "./services/LedgerService";
+export { chargeService } from "@shared/modules/ledger/services/ChargeService";
+export { collectionService } from "@shared/modules/ledger/services/CollectionService";
+export { ledgerService } from "@shared/modules/ledger/services/LedgerService";
 
 export {
   allocate,
@@ -35,14 +35,14 @@ export {
 export type {
   CreateManualChargeInput,
   UpdateManualChargeInput,
-} from "./services/ChargeService";
+} from "@shared/modules/ledger/services/ChargeService";
 export type {
   CollectInput,
   CollectionCorrection,
   CorrectCollectionInput,
   CorrectionDraft,
   MultiCollectResult,
-} from "./services/CollectionService";
+} from "@shared/modules/ledger/services/CollectionService";
 export type { IChargeRepository } from "@shared/modules/ledger/repository/IChargeRepository";
 export type { ICollectionRepository } from "@shared/modules/ledger/repository/ICollectionRepository";
 

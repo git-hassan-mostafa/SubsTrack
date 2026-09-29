@@ -1,4 +1,4 @@
-export { default as walletService } from "./services/WalletService";
+export { default as walletService } from "@shared/modules/wallet/services/WalletService";
 export { WalletsScreen } from "./screens/WalletsScreen";
 export { MyWalletScreen } from "./screens/MyWalletScreen";
 export { WalletCard } from "./components/WalletCard";

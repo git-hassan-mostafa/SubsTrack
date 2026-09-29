@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
-import { whatsAppService } from "@/src/modules/whatsapp/services/WhatsAppService";
+import { whatsAppService } from "@shared/modules/whatsapp/services/WhatsAppService";
 import type {
   SignupCompletion,
   SignupResult,

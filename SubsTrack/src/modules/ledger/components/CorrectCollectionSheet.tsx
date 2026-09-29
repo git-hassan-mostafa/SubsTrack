@@ -22,7 +22,7 @@ import {
   collectionService,
   type CollectionCorrection,
   type CorrectionDraft,
-} from "../services/CollectionService";
+} from "@shared/modules/ledger/services/CollectionService";
 import {
   groupKey,
   groupOwedByCurrency,

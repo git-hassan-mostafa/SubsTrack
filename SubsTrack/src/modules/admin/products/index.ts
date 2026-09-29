@@ -1,4 +1,4 @@
-export { default as productService } from "./services/ProductService";
+export { default as productService } from "@shared/modules/admin/products/services/ProductService";
 export { mapDbProductToProduct } from "@shared/modules/admin/products/utils/mapper";
 export type { ProductInput, RestockEntry } from "@shared/modules/admin/products/utils/types";
 export type {

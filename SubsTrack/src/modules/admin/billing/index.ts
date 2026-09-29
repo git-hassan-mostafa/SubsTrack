@@ -1,4 +1,4 @@
-export { default as billingService } from "./services/BillingService";
+export { default as billingService } from "@shared/modules/admin/billing/services/BillingService";
 export { QuotaExceededError } from "@shared/modules/admin/billing/utils/quotaError";
 export { AllowanceFloorError } from "@shared/modules/admin/billing/utils/allowanceFloorError";
 export {

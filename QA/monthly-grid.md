@@ -2,11 +2,11 @@
 
 The 12-cell grid is the core of the customer detail screen. Each cell encodes a month's status: PAID (green for regular / yellow for non-regular), SKIPPED (slate, both kinds), UNPAID (red for regular / light gray for non-regular), FUTURE (gray), or BEFORE_START (gray, slightly dimmer). **Multi-month bills** visually merge consecutive cells with an "Included" sublabel for months 2+. **A partly-paid month** (`collected < charge.amount`) is still `paid` — the paid fill under an **amber ring**, sublabel `PARTIAL`. There is no `"partial"` status.
 
-The status logic lives in exactly one place: `PaymentService.buildMonthGrid`. Verify nothing else re-implements it.
+The status logic lives in exactly one place: `monthStatus.buildMonthGrid`. Verify nothing else re-implements it.
 
 **Reference code:**
 
-- Service (logic): [PaymentService.buildMonthGrid](SubsTrack/src/modules/customer-payments/services/PaymentService.ts)
+- Service (logic): [monthStatus.buildMonthGrid](SubsTrack/src/modules/customer-payments/services/PaymentService.ts)
 - Grid: [MonthGrid.tsx](SubsTrack/src/modules/customer-payments/components/MonthGrid.tsx)
 - Cell: [MonthCell.tsx](SubsTrack/src/modules/customer-payments/components/MonthCell.tsx)
 - Year navigator: [YearNavigator.tsx](SubsTrack/src/modules/customer-payments/components/YearNavigator.tsx)

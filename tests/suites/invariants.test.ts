@@ -1,10 +1,12 @@
 
-import { collectionService } from "@/src/modules/ledger/services/CollectionService";
-import { chargeService } from "@/src/modules/ledger/services/ChargeService";
-import { ledgerService } from "@/src/modules/ledger/services/LedgerService";
-import paymentService from "@/src/modules/customer/customer-payments/services/PaymentService";
+import { collectionService } from "@shared/modules/ledger/services/CollectionService";
+import { chargeService } from "@shared/modules/ledger/services/ChargeService";
+import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
+import {
+  buildMonthGrid,
+} from "@shared/modules/customer/customer-payments/utils/monthStatus";
 import { allocate } from "@shared/modules/ledger/utils/waterfall";
-import type { CollectInput } from "@/src/modules/ledger/services/CollectionService";
+import type { CollectInput } from "@shared/modules/ledger/services/CollectionService";
 import type { ChargeKind } from "@shared/core/types";
 import { fakeChargeRepository, store } from "../helpers/fakeLedger";
 import { customer, line, plan, LBP } from "../helpers/factories";
@@ -72,7 +74,7 @@ async function assertNoNegativeBalances() {
 /** The grid for the viewed year, straight from the store. */
 async function grid(year = 2026) {
   const bills = await chargeService.getMonthBillsForLines(["line-1"]);
-  return paymentService.buildMonthGrid(L, bills.get("line-1") ?? [], [], year);
+  return buildMonthGrid(L, bills.get("line-1") ?? [], [], year);
 }
 
 beforeEach(() => {
@@ -314,7 +316,7 @@ describe("multi-month bundles", () => {
       ],
     });
     const bills = await chargeService.getMonthBillsForLines(["line-1"]);
-    const g = paymentService.buildMonthGrid(
+    const g = buildMonthGrid(
       quarterly,
       bills.get("line-1") ?? [],
       [],

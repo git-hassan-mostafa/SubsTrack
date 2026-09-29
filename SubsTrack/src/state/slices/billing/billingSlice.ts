@@ -1,6 +1,6 @@
 import type { StateCreator } from "zustand";
 import type { CustomerRequest } from "@shared/core/types";
-import billingService from "@/src/modules/admin/billing/services/BillingService";
+import billingService from "@shared/modules/admin/billing/services/BillingService";
 import { AllowanceFloorError } from "@shared/modules/admin/billing/utils/allowanceFloorError";
 import type { QuotaExceededError } from "@shared/modules/admin/billing/utils/quotaError";
 import type {
@@ -8,8 +8,8 @@ import type {
   QuotaErrorPayload,
   QuotaPair,
 } from "@shared/modules/admin/billing/utils/types";
-import customerService from "@/src/modules/customer/customers/services/CustomerService";
-import customerPlanService from "@/src/modules/customer/customer-plans/services/CustomerPlanService";
+import customerService from "@shared/modules/customer/customers/services/CustomerService";
+import customerPlanService from "@shared/modules/customer/customer-plans/services/CustomerPlanService";
 import type { GlobalState } from "@/src/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";
 

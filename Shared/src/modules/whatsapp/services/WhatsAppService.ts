@@ -15,8 +15,8 @@ import type {
   WhatsAppTemplatePurpose,
 } from "@shared/core/types";
 import { newId } from "@shared/core/utils/ids";
-import skippedMonthService from "@/src/modules/customer/customer-payments/services/SkippedMonthService";
-import { ledgerService } from "@/src/modules/ledger/services/LedgerService";
+import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
+import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
 import {
   RECIPIENTS_PER_REQUEST,
   renderTemplate,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { collectionService } from "../services/CollectionService";
+import { collectionService } from "@shared/modules/ledger/services/CollectionService";
 import { sharedBillsAcross } from "@shared/modules/ledger/utils/sharedBills";
 import type { SharedBill } from "@shared/modules/ledger/utils/sharedBills";
 

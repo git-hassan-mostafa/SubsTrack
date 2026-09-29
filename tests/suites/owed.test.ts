@@ -1,6 +1,6 @@
 
-import { ledgerService } from "@/src/modules/ledger/services/LedgerService";
-import { chargeService } from "@/src/modules/ledger/services/ChargeService";
+import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
+import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 import { store } from "../helpers/fakeLedger";
 import { customer, line, plan, skip, LBP } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";

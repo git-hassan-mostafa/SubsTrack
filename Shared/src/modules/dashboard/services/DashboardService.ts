@@ -6,10 +6,11 @@ import type {
 import type { BranchFilter } from "@shared/core/constants";
 import { repositories } from "@shared/core/runtime/repositories";
 import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
-import { collectionService, ledgerService } from "@/src/modules/ledger";
-import saleService from "@/src/modules/transaction/sales/services/SaleService";
-import expenseService from "@/src/modules/transaction/expenses/services/ExpenseService";
-import walletService from "@/src/modules/wallet/services/WalletService";
+import { collectionService } from "@shared/modules/ledger/services/CollectionService";
+import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
+import saleService from "@shared/modules/transaction/sales/services/SaleService";
+import expenseService from "@shared/modules/transaction/expenses/services/ExpenseService";
+import walletService from "@shared/modules/wallet/services/WalletService";
 import type { WalletActor } from "@shared/modules/wallet/utils/custody";
 
 // One calendar month of collected cash, split by what it settled.

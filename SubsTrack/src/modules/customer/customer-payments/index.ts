@@ -1,6 +1,6 @@
-export { default as paymentService } from "./services/PaymentService";
-export { default as skippedMonthService } from "./services/SkippedMonthService";
-export type { SetSkipInput } from "./services/SkippedMonthService";
+export { default as paymentService } from "@shared/modules/customer/customer-payments/services/PaymentService";
+export { default as skippedMonthService } from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
+export type { SetSkipInput } from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
 export type { MultiMonthConflict } from "@shared/modules/customer/customer-payments/utils/types";
 export { SkipMonthSheet } from "./components/SkipMonthSheet";
 export { CustomerPaymentPanel } from "./components/CustomerPaymentPanel";

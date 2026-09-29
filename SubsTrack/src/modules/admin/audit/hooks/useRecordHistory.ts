@@ -4,7 +4,7 @@ import type {
   AuditRecordTarget,
   AuditSource,
 } from "@shared/core/types";
-import auditService, { type AuditEntries } from "../services/AuditService";
+import auditService, { type AuditEntries } from "@shared/modules/admin/audit/services/AuditService";
 
 export interface RecordHistoryState {
   entries: AuditEntry[];

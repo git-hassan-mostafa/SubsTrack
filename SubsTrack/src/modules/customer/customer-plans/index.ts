@@ -1,9 +1,9 @@
-export { default as customerPlanService } from "./services/CustomerPlanService";
+export { default as customerPlanService } from "@shared/modules/customer/customer-plans/services/CustomerPlanService";
 export type {
   CustomerPlanInput,
   LineDraft,
   RemovedLine,
-} from "./services/CustomerPlanService";
+} from "@shared/modules/customer/customer-plans/services/CustomerPlanService";
 export { mapDbCustomerPlanToCustomerPlan } from "@shared/modules/customer/customer-plans/utils/mapper";
 export { activeLines } from "@shared/modules/customer/customer-plans/utils/activeLines";
 export { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";

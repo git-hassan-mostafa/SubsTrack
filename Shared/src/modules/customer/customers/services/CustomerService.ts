@@ -2,7 +2,7 @@ import { repositories } from "@shared/core/runtime/repositories";
 import type { Customer } from "@shared/core/types";
 import { PAGE_SIZE, type BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
-import billingService from "@/src/modules/admin/billing/services/BillingService";
+import billingService from "@shared/modules/admin/billing/services/BillingService";
 import type { QuotaPair } from "@shared/modules/admin/billing/utils/types";
 import { mapDbCustomerToCustomer } from "@shared/modules/customer/customers/utils/mapper";
 

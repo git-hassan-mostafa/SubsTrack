@@ -2,7 +2,9 @@ import {
   expandSelectionUnit,
   groupPayableBlocks,
 } from "@shared/modules/customer/customer-payments/utils/monthSelection";
-import paymentService from "@/src/modules/customer/customer-payments/services/PaymentService";
+import {
+  buildMonthGrid,
+} from "@shared/modules/customer/customer-payments/utils/monthStatus";
 import {
   canCloseOut,
   canReceiveFrom,
@@ -32,13 +34,13 @@ describe("expandSelectionUnit", () => {
   });
 
   it("TC-MS-01 a single-month plan selects only the tapped cell", () => {
-    const grid = paymentService.buildMonthGrid(monthly, [], [], 2026);
+    const grid = buildMonthGrid(monthly, [], [], 2026);
     expect(expandSelectionUnit(grid[2], grid, monthly)).toEqual(["2026-03-01"]);
   });
 
   it("TC-MS-02 a paid cell selects every month sharing its bill", () => {
     const bundle = bill("2026-02-01", 60, { durationMonths: 3, amount: 60 });
-    const grid = paymentService.buildMonthGrid(quarterly, [bundle], [], 2026);
+    const grid = buildMonthGrid(quarterly, [bundle], [], 2026);
     expect(expandSelectionUnit(grid[1], grid, quarterly)).toEqual([
       "2026-02-01",
       "2026-03-01",
@@ -47,7 +49,7 @@ describe("expandSelectionUnit", () => {
   });
 
   it("TC-MS-03 a multi-month payable cell selects its whole start-aligned window", () => {
-    const grid = paymentService.buildMonthGrid(quarterly, [], [], 2026);
+    const grid = buildMonthGrid(quarterly, [], [], 2026);
     // Start Jan -> windows are Jan-Mar, Apr-Jun, ... Tapping May selects Apr-Jun.
     expect(expandSelectionUnit(grid[4], grid, quarterly)).toEqual([
       "2026-04-01",
@@ -57,7 +59,7 @@ describe("expandSelectionUnit", () => {
   });
 
   it("TC-MS-04 a skipped cell selects only itself (it can only be unskipped)", () => {
-    const grid = paymentService.buildMonthGrid(
+    const grid = buildMonthGrid(
       quarterly,
       [],
       [{ ...require("../helpers/factories").skip("2026-05-01") }],
@@ -70,7 +72,7 @@ describe("expandSelectionUnit", () => {
 
   it("TC-MS-05 a before_start cell is not selectable at all", () => {
     const later = line({ id: "line-1", startDate: "2026-06-01", plan: plan() });
-    const grid = paymentService.buildMonthGrid(later, [], [], 2026);
+    const grid = buildMonthGrid(later, [], [], 2026);
     expect(expandSelectionUnit(grid[0], grid, later)).toEqual([]);
   });
 });
@@ -86,7 +88,7 @@ describe("groupPayableBlocks", () => {
   });
 
   it("TC-MS-10 months of one window collapse to ONE bill, billed from its start", () => {
-    const grid = paymentService.buildMonthGrid(quarterly, [], [], 2026);
+    const grid = buildMonthGrid(quarterly, [], [], 2026);
     const picked = [grid[3], grid[4], grid[5]]; // Apr, May, Jun
     expect(groupPayableBlocks(picked, quarterly)).toEqual([
       { startBillingMonth: "2026-04-01" },
@@ -94,7 +96,7 @@ describe("groupPayableBlocks", () => {
   });
 
   it("TC-MS-11 two windows become two bills, oldest first", () => {
-    const grid = paymentService.buildMonthGrid(quarterly, [], [], 2026);
+    const grid = buildMonthGrid(quarterly, [], [], 2026);
     const picked = [grid[1], grid[4]]; // Feb (Jan-Mar) and May (Apr-Jun)
     expect(groupPayableBlocks(picked, quarterly)).toEqual([
       { startBillingMonth: "2026-01-01" },
@@ -108,7 +110,7 @@ describe("groupPayableBlocks", () => {
       startDate: "2026-02-01",
       plan: plan({ durationMonths: 3 }),
     });
-    const grid = paymentService.buildMonthGrid(feb, [], [], 2026);
+    const grid = buildMonthGrid(feb, [], [], 2026);
     // Windows are Feb-Apr, May-Jul... so April belongs to the FEBRUARY block.
     expect(groupPayableBlocks([grid[3]], feb)).toEqual([
       { startBillingMonth: "2026-02-01" },

@@ -1,6 +1,6 @@
 
-import { collectionService } from "@/src/modules/ledger/services/CollectionService";
-import type { CollectInput } from "@/src/modules/ledger/services/CollectionService";
+import { collectionService } from "@shared/modules/ledger/services/CollectionService";
+import type { CollectInput } from "@shared/modules/ledger/services/CollectionService";
 import type { AllocationLine, OpenItem } from "@shared/core/types";
 import { deterministicId } from "@shared/core/utils/ids";
 import {

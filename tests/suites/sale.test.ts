@@ -1,9 +1,9 @@
-jest.mock("@/src/modules/admin/products/services/ProductService", () => ({
+jest.mock("@shared/modules/admin/products/services/ProductService", () => ({
   __esModule: true,
   default: require("../helpers/fakeSales").fakeProductService,
 }));
 
-import saleService from "@/src/modules/transaction/sales/services/SaleService";
+import saleService from "@shared/modules/transaction/sales/services/SaleService";
 import type {
   CreateSaleInput,
   CreateSaleItemInput,

@@ -4,12 +4,14 @@ import type { CashRow, ExpenseItem, UnpaidStartRule } from "@shared/core/types";
 import { groupByCurrency } from "@shared/core/utils/currency";
 import { previousPeriod, toRange } from "@shared/core/utils/dateRange";
 import { mapDbCustomerToCustomer } from "@shared/modules/customer/customers/utils/mapper";
-import paymentService from "@/src/modules/customer/customer-payments/services/PaymentService";
-import { chargeService } from "@/src/modules/ledger/services/ChargeService";
-import { collectionService } from "@/src/modules/ledger/services/CollectionService";
-import { ledgerService } from "@/src/modules/ledger/services/LedgerService";
-import { skippedMonthService } from "@/src/modules/customer/customer-payments";
-import expenseService from "@/src/modules/transaction/expenses/services/ExpenseService";
+import {
+  getOverdueMonthCounts,
+} from "@shared/modules/customer/customer-payments/utils/monthStatus";
+import { chargeService } from "@shared/modules/ledger/services/ChargeService";
+import { collectionService } from "@shared/modules/ledger/services/CollectionService";
+import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
+import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
+import expenseService from "@shared/modules/transaction/expenses/services/ExpenseService";
 import { sumByKey, sumUsdOf, topN } from "@shared/modules/reports/utils/aggregate";
 import type {
   AgingRow,
@@ -119,7 +121,7 @@ class ReportsService {
     const collected = cash.filter((r) => r.stream !== "month");
     const prevCollected = prevCash.filter((r) => r.stream !== "month");
 
-    const overdueCounts = paymentService.getOverdueMonthCounts(
+    const overdueCounts = getOverdueMonthCounts(
       customers,
       [...billsByLine.values()].flat(),
       skips,

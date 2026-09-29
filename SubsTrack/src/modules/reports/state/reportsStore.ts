@@ -6,13 +6,13 @@ import {
   type PeriodPreset,
   type ReportPeriod,
 } from "@shared/core/utils/dateRange";
-import reportsService from "@/src/modules/reports/services/ReportsService";
+import reportsService from "@shared/modules/reports/services/ReportsService";
 import type {
   DebtsReport,
   MoneyReport,
 } from "@shared/modules/reports/utils/types";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
-import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
+import tenantSettingService from "@shared/modules/admin/tenant-settings/services/TenantSettingService";
 import { TENANT_SETTING_KEYS } from "@shared/modules/admin/tenant-settings/utils/constants";
 import { getStore } from "@/src/state/globalStore";
 

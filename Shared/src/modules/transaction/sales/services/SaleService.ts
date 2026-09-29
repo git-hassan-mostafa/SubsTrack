@@ -4,11 +4,11 @@ import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
 import { newId, nowIso } from "@shared/core/utils/ids";
 import { localMonthKey } from "@shared/core/utils/date";
-import { chargeService } from "@/src/modules/ledger/services/ChargeService";
-import { collectionService } from "@/src/modules/ledger/services/CollectionService";
+import { chargeService } from "@shared/modules/ledger/services/ChargeService";
+import { collectionService } from "@shared/modules/ledger/services/CollectionService";
 import { mapDbChargeToCharge } from "@shared/modules/ledger/utils/mapper";
 import { openItemFromCharge } from "@shared/modules/ledger/utils/openItems";
-import productService from "@/src/modules/admin/products/services/ProductService";
+import productService from "@shared/modules/admin/products/services/ProductService";
 import {
   CreateSaleInput,
   CreateSaleItemInput,

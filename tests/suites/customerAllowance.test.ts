@@ -1,4 +1,4 @@
-import billingService from "@/src/modules/admin/billing/services/BillingService";
+import billingService from "@shared/modules/admin/billing/services/BillingService";
 import { QuotaExceededError } from "@shared/modules/admin/billing/utils/quotaError";
 import { AllowanceFloorError } from "@shared/modules/admin/billing/utils/allowanceFloorError";
 import { signedText } from "@shared/modules/admin/billing/utils/allowanceChange";

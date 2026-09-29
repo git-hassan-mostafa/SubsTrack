@@ -1,4 +1,4 @@
-export { default as saleService } from "./services/SaleService";
+export { default as saleService } from "@shared/modules/transaction/sales/services/SaleService";
 export { mapDbSaleToSale } from "@shared/modules/transaction/sales/utils/mapper";
 export type {
   CreateSaleInput,

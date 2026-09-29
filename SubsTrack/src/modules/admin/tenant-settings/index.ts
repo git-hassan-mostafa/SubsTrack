@@ -4,5 +4,5 @@ export { TenantSettingsScreen } from "./screens/TenantSettingsScreen";
 export {
   default as tenantSettingService,
   DEFAULT_UNPAID_START_RULE,
-} from "./services/TenantSettingService";
+} from "@shared/modules/admin/tenant-settings/services/TenantSettingService";
 export { TENANT_SETTING_KEYS } from "@shared/modules/admin/tenant-settings/utils/constants";

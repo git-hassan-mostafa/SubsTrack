@@ -17,7 +17,7 @@ const impl: IXxxRepository =
 export default impl; // services & module index.ts import this — unchanged
 ```
 
-Both classes `implements IXxxRepository` → the compiler guarantees they stay in lockstep. Offline classes return the **same `Db*` row shapes** (snake_case, incl. nested joins like `customer_plans(*, plans(*))`) the services' mappers already consume, so nothing above the repo layer can tell the difference. `PaymentService.buildMonthGrid` is pure, so the month grid works offline for free.
+Both classes `implements IXxxRepository` → the compiler guarantees they stay in lockstep. Offline classes return the **same `Db*` row shapes** (snake_case, incl. nested joins like `customer_plans(*, plans(*))`) the services' mappers already consume, so nothing above the repo layer can tell the difference. `monthStatus.buildMonthGrid` is pure, so the month grid works offline for free.
 
 ## The sync in one paragraph
 

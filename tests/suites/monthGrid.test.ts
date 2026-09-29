@@ -1,4 +1,6 @@
-import paymentService from "@/src/modules/customer/customer-payments/services/PaymentService";
+import {
+  buildMonthGrid,
+} from "@shared/modules/customer/customer-payments/utils/monthStatus";
 import type { MonthEntry, MonthStatus } from "@shared/core/types";
 import { bill, line, plan, skip } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
@@ -26,7 +28,7 @@ describe("buildMonthGrid: the status ladder", () => {
   afterEach(unfreeze);
 
   it("TC-MG-01 twelve entries, always, in calendar order", () => {
-    const grid = paymentService.buildMonthGrid(L, [], [], 2026);
+    const grid = buildMonthGrid(L, [], [], 2026);
     expect(grid).toHaveLength(12);
     expect(grid.map((m) => m.billingMonth)).toEqual([
       "2026-01-01",
@@ -46,7 +48,7 @@ describe("buildMonthGrid: the status ladder", () => {
 
   it("TC-MG-02 months before the line start are before_start, never unpaid", () => {
     const later = line({ id: "line-1", startDate: "2026-04-10" });
-    const grid = paymentService.buildMonthGrid(later, [], [], 2026);
+    const grid = buildMonthGrid(later, [], [], 2026);
     expect(statuses(grid).slice(0, 3)).toEqual([
       "before_start",
       "before_start",
@@ -56,7 +58,7 @@ describe("buildMonthGrid: the status ladder", () => {
   });
 
   it("TC-MG-03 past + current months are unpaid, later months are future", () => {
-    const grid = paymentService.buildMonthGrid(L, [], [], 2026);
+    const grid = buildMonthGrid(L, [], [], 2026);
     expect(statuses(grid)).toEqual([
       "unpaid",
       "unpaid",
@@ -75,12 +77,12 @@ describe("buildMonthGrid: the status ladder", () => {
 
   it("TC-MG-04 the current month is unpaid from day one (no grace period)", () => {
     freezeToday(2026, 6, 1);
-    const grid = paymentService.buildMonthGrid(L, [], [], 2026);
+    const grid = buildMonthGrid(L, [], [], 2026);
     expect(at(grid, 6).status).toBe("unpaid");
   });
 
   it("TC-MG-05 money makes a month paid", () => {
-    const grid = paymentService.buildMonthGrid(
+    const grid = buildMonthGrid(
       L,
       [bill("2026-03-01", 20)],
       [],
@@ -92,7 +94,7 @@ describe("buildMonthGrid: the status ladder", () => {
   });
 
   it('TC-MG-06 a PARTIAL payment still reports "paid", and carries the balance', () => {
-    const grid = paymentService.buildMonthGrid(
+    const grid = buildMonthGrid(
       L,
       [bill("2026-03-01", 5)],
       [],
@@ -103,20 +105,20 @@ describe("buildMonthGrid: the status ladder", () => {
   });
 
   it("TC-MG-07 an EMPTY bill reads exactly like a month never touched (#106)", () => {
-    const emptied = paymentService.buildMonthGrid(
+    const emptied = buildMonthGrid(
       L,
       [bill("2026-03-01", 0)],
       [],
       2026,
     );
-    const untouched = paymentService.buildMonthGrid(L, [], [], 2026);
+    const untouched = buildMonthGrid(L, [], [], 2026);
     expect(at(emptied, 3).status).toBe(at(untouched, 3).status);
     expect(at(emptied, 3).collected).toBe(0);
     expect(at(emptied, 3).balance).toBe(0);
   });
 
   it("TC-MG-08 money outranks a skip", () => {
-    const grid = paymentService.buildMonthGrid(
+    const grid = buildMonthGrid(
       L,
       [bill("2026-03-01", 20)],
       [skip("2026-03-01")],
@@ -127,7 +129,7 @@ describe("buildMonthGrid: the status ladder", () => {
   });
 
   it("TC-MG-09 a skip outranks future and unpaid, and carries its row", () => {
-    const grid = paymentService.buildMonthGrid(
+    const grid = buildMonthGrid(
       L,
       [],
       [skip("2026-03-01"), skip("2026-09-01")],
@@ -139,7 +141,7 @@ describe("buildMonthGrid: the status ladder", () => {
   });
 
   it("TC-MG-10 an UNSKIPPED row (skipped=false) is not a skip", () => {
-    const grid = paymentService.buildMonthGrid(
+    const grid = buildMonthGrid(
       L,
       [],
       [skip("2026-03-01", { skipped: false })],
@@ -150,7 +152,7 @@ describe("buildMonthGrid: the status ladder", () => {
 
   it("TC-MG-11 before_start beats everything, including a paid bill", () => {
     const later = line({ id: "line-1", startDate: "2026-05-01" });
-    const grid = paymentService.buildMonthGrid(
+    const grid = buildMonthGrid(
       later,
       [bill("2026-02-01", 20)],
       [],
@@ -166,7 +168,7 @@ describe("buildMonthGrid: multi-month bills", () => {
   afterEach(unfreeze);
 
   it("TC-MG-20 a 3-month bill covers three months, only the first is primary", () => {
-    const grid = paymentService.buildMonthGrid(
+    const grid = buildMonthGrid(
       L,
       [bill("2026-02-01", 60, { durationMonths: 3, amount: 60 })],
       [],
@@ -181,8 +183,8 @@ describe("buildMonthGrid: multi-month bills", () => {
   it("TC-MG-21 a block straddling the year end paints both years", () => {
     const bundle = bill("2025-11-01", 60, { durationMonths: 3, amount: 60 });
     const l2025 = line({ id: "line-1", startDate: "2025-01-01" });
-    const g2025 = paymentService.buildMonthGrid(l2025, [bundle], [], 2025);
-    const g2026 = paymentService.buildMonthGrid(l2025, [bundle], [], 2026);
+    const g2025 = buildMonthGrid(l2025, [bundle], [], 2025);
+    const g2026 = buildMonthGrid(l2025, [bundle], [], 2026);
     expect(at(g2025, 11).status).toBe("paid");
     expect(at(g2025, 12).status).toBe("paid");
     expect(at(g2026, 1).status).toBe("paid");
@@ -191,7 +193,7 @@ describe("buildMonthGrid: multi-month bills", () => {
   });
 
   it("TC-MG-22 a partly-paid bundle shows every covered month as paid", () => {
-    const grid = paymentService.buildMonthGrid(
+    const grid = buildMonthGrid(
       L,
       [bill("2026-02-01", 10, { durationMonths: 3, amount: 60 })],
       [],
@@ -204,7 +206,7 @@ describe("buildMonthGrid: multi-month bills", () => {
   });
 
   it("TC-MG-23 an EMPTY bundle covers nothing (money decides, not the row)", () => {
-    const grid = paymentService.buildMonthGrid(
+    const grid = buildMonthGrid(
       L,
       [bill("2026-02-01", 0, { durationMonths: 3, amount: 60 })],
       [],
@@ -221,7 +223,7 @@ describe("buildMonthGrid: the customer_start_day rule", () => {
     freezeToday(2026, 6, 1);
     const l = line({ id: "line-1", startDate: "2026-01-15" });
     expect(
-      at(paymentService.buildMonthGrid(l, [], [], 2026, "month_start"), 6)
+      at(buildMonthGrid(l, [], [], 2026, "month_start"), 6)
         .status,
     ).toBe("unpaid");
   });
@@ -229,7 +231,7 @@ describe("buildMonthGrid: the customer_start_day rule", () => {
   it("TC-MG-31 under customer_start_day, the current month waits for the billing day", () => {
     freezeToday(2026, 6, 10);
     const l = line({ id: "line-1", startDate: "2026-01-15" });
-    const grid = paymentService.buildMonthGrid(
+    const grid = buildMonthGrid(
       l,
       [],
       [],
@@ -247,7 +249,7 @@ describe("buildMonthGrid: the customer_start_day rule", () => {
     const l = line({ id: "line-1", startDate: "2026-01-15" });
     expect(
       at(
-        paymentService.buildMonthGrid(l, [], [], 2026, "customer_start_day"),
+        buildMonthGrid(l, [], [], 2026, "customer_start_day"),
         6,
       ).status,
     ).toBe("unpaid");
@@ -259,7 +261,7 @@ describe("buildMonthGrid: the customer_start_day rule", () => {
     // Feb has 28 days in 2026, so the 31st clamps to the 28th and the month IS due.
     expect(
       at(
-        paymentService.buildMonthGrid(l, [], [], 2026, "customer_start_day"),
+        buildMonthGrid(l, [], [], 2026, "customer_start_day"),
         2,
       ).status,
     ).toBe("unpaid");
@@ -268,7 +270,7 @@ describe("buildMonthGrid: the customer_start_day rule", () => {
   it("TC-MG-34 the rule never touches a FUTURE month", () => {
     freezeToday(2026, 6, 1);
     const l = line({ id: "line-1", startDate: "2026-01-15" });
-    const grid = paymentService.buildMonthGrid(
+    const grid = buildMonthGrid(
       l,
       [],
       [],
@@ -285,15 +287,15 @@ describe("buildMonthGrid: purity", () => {
 
   it("TC-MG-40 the same inputs give the same grid twice (no hidden I/O)", () => {
     const bills = [bill("2026-02-01", 20)];
-    const a = paymentService.buildMonthGrid(L, bills, [], 2026);
-    const b = paymentService.buildMonthGrid(L, bills, [], 2026);
+    const a = buildMonthGrid(L, bills, [], 2026);
+    const b = buildMonthGrid(L, bills, [], 2026);
     expect(a).toEqual(b);
   });
 
   it("TC-MG-41 it does not mutate the bills it is given", () => {
     const bills = [bill("2026-02-01", 20)];
     const snapshot = JSON.parse(JSON.stringify(bills));
-    paymentService.buildMonthGrid(L, bills, [], 2026);
+    buildMonthGrid(L, bills, [], 2026);
     expect(bills).toEqual(snapshot);
   });
 });
@@ -306,7 +308,7 @@ describe("buildMonthGrid: a WRITTEN-OFF month bill", () => {
     bill(month, collected, { writtenOffAt: "2026-06-01T00:00:00.000Z" });
 
   it("TC-MG-42 an UNCOLLECTED written-off month still reads unpaid", () => {
-    const grid = paymentService.buildMonthGrid(
+    const grid = buildMonthGrid(
       L,
       [writtenOff("2026-02-01", 0)],
       [],
@@ -316,7 +318,7 @@ describe("buildMonthGrid: a WRITTEN-OFF month bill", () => {
   });
 
   it("TC-MG-43 a PART-PAID written-off month still reads paid — money outranks the write-off", () => {
-    const grid = paymentService.buildMonthGrid(
+    const grid = buildMonthGrid(
       L,
       [writtenOff("2026-02-01", 5)],
       [],
@@ -328,7 +330,7 @@ describe("buildMonthGrid: a WRITTEN-OFF month bill", () => {
 
   it("TC-MG-44 the cell carries the CHARGE either way, so the bill sheet is reachable", () => {
     for (const collected of [0, 5]) {
-      const grid = paymentService.buildMonthGrid(
+      const grid = buildMonthGrid(
         L,
         [writtenOff("2026-02-01", collected)],
         [],
@@ -339,7 +341,7 @@ describe("buildMonthGrid: a WRITTEN-OFF month bill", () => {
   });
 
   it("TC-MG-45 a write-off invents no MonthStatus of its own", () => {
-    const grid = paymentService.buildMonthGrid(
+    const grid = buildMonthGrid(
       L,
       [writtenOff("2026-02-01", 0)],
       [],

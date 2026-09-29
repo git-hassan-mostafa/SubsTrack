@@ -4,7 +4,7 @@ import type {
   UnpaidStartRule,
   WhatsAppLanguage,
 } from "@shared/core/types";
-import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
+import tenantSettingService from "@shared/modules/admin/tenant-settings/services/TenantSettingService";
 import type { GlobalState } from "@/src/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@/src/shared/lib/dataEpoch";
 

@@ -9,7 +9,9 @@ import type {
 } from "@shared/core/types";
 import { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
 import { findCurrency } from "@shared/core/utils/currency";
-import paymentService from "@/src/modules/customer/customer-payments/services/PaymentService";
+import {
+  buildMonthGrid,
+} from "@shared/modules/customer/customer-payments/utils/monthStatus";
 import { virtualMonthItem } from "@shared/modules/ledger/utils/openItems";
 import { sortByDue } from "@shared/modules/ledger/utils/waterfall";
 
@@ -99,7 +101,7 @@ function virtualUnpaidMonths(args: {
     const startYear = new Date(line.startDate).getFullYear();
 
     for (let year = startYear; year <= today.getFullYear(); year++) {
-      for (const entry of paymentService.buildMonthGrid(
+      for (const entry of buildMonthGrid(
         line,
         bills,
         lineSkips,

@@ -1,10 +1,10 @@
-jest.mock("@/src/modules/customer/customer-payments/services/SkippedMonthService", () => ({
+jest.mock("@shared/modules/customer/customer-payments/services/SkippedMonthService", () => ({
   __esModule: true,
   default: { getActiveSkips: async () => [] },
 }));
 
-import { ledgerService } from "@/src/modules/ledger/services/LedgerService";
-import { whatsAppService } from "@/src/modules/whatsapp/services/WhatsAppService";
+import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
+import { whatsAppService } from "@shared/modules/whatsapp/services/WhatsAppService";
 import { reminderFacts } from "@shared/modules/whatsapp/utils/reminderFacts";
 import {
   defaultChoices,

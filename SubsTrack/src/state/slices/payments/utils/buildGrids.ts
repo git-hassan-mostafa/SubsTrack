@@ -5,7 +5,11 @@ import type {
   SkippedMonth,
   UnpaidStartRule,
 } from "@shared/core/types";
-import { paymentService } from "@/src/modules/customer/customer-payments";
+import {
+  buildMonthGrid,
+  uncoveredBillingMonths,
+  paidBillingMonths,
+} from "@shared/modules/customer/customer-payments/utils/monthStatus";
 
 /** The viewed year's grids plus the two gate lists the UI reads. */
 export interface LineDerivations {
@@ -28,21 +32,21 @@ export function buildGridsFor(
   for (const line of lines) {
     const lineBills = bills.filter((b) => b.charge.customerPlanId === line.id);
     const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
-    grids[line.id] = paymentService.buildMonthGrid(
+    grids[line.id] = buildMonthGrid(
       line,
       lineBills,
       lineSkips,
       year,
       unpaidRule,
     );
-    uncoveredMonths[line.id] = paymentService.uncoveredBillingMonths(
+    uncoveredMonths[line.id] = uncoveredBillingMonths(
       line,
       lineBills,
       lineSkips,
       unpaidRule,
       year,
     );
-    paidMonths[line.id] = paymentService.paidBillingMonths(lineBills);
+    paidMonths[line.id] = paidBillingMonths(lineBills);
   }
   return { grids, uncoveredMonths, paidMonths };
 }

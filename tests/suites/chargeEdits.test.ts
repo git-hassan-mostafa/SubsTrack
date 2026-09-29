@@ -1,5 +1,5 @@
 
-import { chargeService } from "@/src/modules/ledger/services/ChargeService";
+import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 import { chargeStatusOf } from "@shared/modules/ledger/utils/billState";
 import { fakeChargeRepository, store } from "../helpers/fakeLedger";
 
@@ -75,10 +75,10 @@ describe("voidCharge (the bill was a mistake)", () => {
     const chg = store.seedCharge({ amount: 20 });
     const col = store.seedCollection(chg.id, 20);
     await fakeChargeRepository.void; // no-op, keeps the import honest
-    (await import("@/src/modules/ledger/services/CollectionService"))
+    (await import("@shared/modules/ledger/services/CollectionService"))
       .collectionService;
     const { collectionService } =
-      await import("@/src/modules/ledger/services/CollectionService");
+      await import("@shared/modules/ledger/services/CollectionService");
     await collectionService.voidCollection(col.id, "user-1", null);
     await expect(
       chargeService.voidCharge(chg.id, "user-1", null),

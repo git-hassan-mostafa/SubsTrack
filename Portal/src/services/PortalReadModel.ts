@@ -22,8 +22,11 @@ import { mapDbSaleToSale } from "@shared/modules/transaction/sales/utils/mapper"
 import { mapDbSkippedMonthToSkippedMonth } from "@shared/modules/customer/customer-payments/utils/mapper";
 import { mapDbCurrencyToCurrency } from "@shared/modules/admin/currencies/utils/mapper";
 import { DEFAULT_UNPAID_START_RULE } from "@shared/modules/admin/tenant-settings/utils/constants";
-import paymentService from "@/src/modules/customer/customer-payments/services/PaymentService";
-import { mergeOwed } from "@/src/modules/ledger/utils/mergeOwed";
+import {
+  buildMonthGrid,
+  buildCustomerStatus,
+} from "@shared/modules/customer/customer-payments/utils/monthStatus";
+import { mergeOwed } from "@shared/modules/ledger/utils/mergeOwed";
 import { openItemFromCharge, chargeLabel } from "@shared/modules/ledger/utils/openItems";
 import type { PortalPayload } from "../repository/PortalRepository";
 
@@ -125,7 +128,7 @@ export function buildPortalModel(payload: PortalPayload): PortalModel {
     collectorNames: new Map(
       payload.collectors.map((u) => [u.id, u.full_name]),
     ),
-    status: paymentService.buildCustomerStatus(lines, bills, skips, unpaidRule),
+    status: buildCustomerStatus(lines, bills, skips, unpaidRule),
     unpaidRule,
     displayCurrencyId: payload.settings.DisplayCurrencyId || null,
   };
@@ -141,7 +144,7 @@ export function buildGrids(
     .filter((line) => line.active)
     .map((line) => ({
       line,
-      entries: paymentService.buildMonthGrid(
+      entries: buildMonthGrid(
         line,
         model.bills.filter((b) => b.charge.customerPlanId === line.id),
         model.skips.filter((s) => s.customerPlanId === line.id),
