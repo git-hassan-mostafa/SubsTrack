@@ -57,7 +57,7 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 | 4.4 | 60 characters max    | Paste a 70-character name                              | The field stops at 60                                                                                     |
 | 4.5 | Typing clears error  | After 4.3, type a letter                               | The banner goes away                                                                                      |
 | 4.6 | Edit from the name   | Click a branch name in the table                       | "Edit Branch" dialog with the name filled in; "Save Changes" saves and the row updates                    |
-| 4.7 | Edit an inactive one | Open an inactive branch                                | Amber note: hidden because records still use it; reactivate to use it again                               |
+| 4.7 | Edit an inactive one | Open an inactive branch                                | Amber note: the branch is inactive and can't be picked for new records; reactivate to use it again        |
 | 4.8 | Discard guard        | Run [app-shell.md](app-shell.md) §5 on this form       | As written there                                                                                          |
 
 ## 5. Row menu

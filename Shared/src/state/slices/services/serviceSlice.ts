@@ -6,11 +6,7 @@ import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
 import type { GlobalState } from "@shared/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
 
-/**
- * The service price list. The products slice minus every stock action.
- * `createService` / `updateService` return the saved row so a caller that opened
- * the form from a sale line can select what it just created.
- */
+// Writes return the saved row, so a sale line can select what it just created.
 export interface ServiceSlice {
   items: Service[];
   loaded: boolean;
@@ -25,7 +21,7 @@ export interface ServiceSlice {
   updateService: (id: string, data: ServiceInput) => Promise<Service | null>;
   deleteService: (id: string) => Promise<"hard" | "soft" | null>;
   bulkDeleteServices: (ids: string[]) => Promise<boolean>;
-  reactivateService: (id: string) => Promise<void>;
+  reactivateService: (id: string) => Promise<Service | null>;
   clearError: () => void;
   reset: () => void;
 }
@@ -184,11 +180,13 @@ export const createServiceSlice: StateCreator<
         if (i !== -1) state.services.items[i] = updated;
         state.services.loading = false;
       });
+      return updated;
     } catch (e) {
       set((state) => {
         state.services.error = (e as Error).message;
         state.services.loading = false;
       });
+      return null;
     }
   },
 

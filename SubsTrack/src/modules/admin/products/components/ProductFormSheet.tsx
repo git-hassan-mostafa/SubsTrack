@@ -15,6 +15,7 @@ import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
+import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
 import { getStore } from "@shared/state/globalStore";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 
@@ -58,15 +59,9 @@ export function ProductFormSheet({
   const currencies = useCurrencySlice((s) => s.items);
   const activeBranches = useActiveBranches();
 
-  // For new products: branch-scoped admin's products bind to their branch;
-  // single-branch tenant picks the only branch; multi-branch tenant-wide admin
-  // can leave it as Shared (null) — products mirror plan branch semantics.
-  const defaultBranchId = (() => {
-    if (product) return product.branchId;
-    if (user?.branchId) return user.branchId;
-    if (activeBranches.length === 1) return activeBranches[0].id;
-    return null;
-  })();
+  const defaultBranchId = product
+    ? product.branchId
+    : defaultNewBranchId(user, activeBranches);
 
   const branchPickerNullable = user?.branchId === null;
 

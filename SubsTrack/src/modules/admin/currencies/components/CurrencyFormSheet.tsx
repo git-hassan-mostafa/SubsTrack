@@ -15,7 +15,6 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import type { Currency } from "@shared/core/types";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { getStore } from "@shared/state/globalStore";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 
 interface Props {
@@ -69,18 +68,15 @@ export function CurrencyFormSheet({
       ratePerUsd: parseFloat(form.rateText),
       decimals: parseInt(form.decimalsText, 10),
     };
-    if (currency) {
-      await updateCurrency(currency.id, data);
-    } else {
-      await createCurrency(data, user.tenantId);
-    }
-    if (!getStore().getState().currencies.error) onDismiss();
+    const saved = currency
+      ? await updateCurrency(currency.id, data)
+      : await createCurrency(data, user.tenantId);
+    if (saved) onDismiss();
   }
 
   async function handleReactivate() {
     if (!currency) return;
-    await reactivateCurrency(currency.id);
-    if (!getStore().getState().currencies.error) onDismiss();
+    if (await reactivateCurrency(currency.id)) onDismiss();
   }
 
   const submitDisabled =

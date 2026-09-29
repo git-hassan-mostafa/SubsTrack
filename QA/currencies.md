@@ -124,6 +124,8 @@ USD is always displayed at the top of the list as a non-editable reference row.
 | 6.7 | Cascade — payment form     | Soft-delete LBP; record a new payment         | LBP no longer in `CurrencyInput` dropdown                                                                                                                              |
 | 6.8 | Cancel delete              | Tap Cancel on the dialog                      | No change                                                                                                                                                              |
 | 6.9 | Network error              | Disable net, confirm delete                   | ErrorBanner; currency still present                                                                                                                                    |
+| 6.10 | Deactivate an unused currency | Currency with no plans or payments → ⋮ → Deactivate → confirm | Row stays, marked Inactive (`active = false`) — never removed, even though nothing uses it. Only Delete may remove a row |
+| 6.11 | Inactive note               | Open an inactive currency's form             | Amber note: inactive, can't be picked for new plans or payments; reactivate to use it again |
 
 ## 7. CurrencyInput component
 

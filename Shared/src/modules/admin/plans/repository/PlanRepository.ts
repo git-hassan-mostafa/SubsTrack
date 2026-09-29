@@ -1,7 +1,10 @@
 import { BaseRepository } from "@shared/core/utils/BaseRepository";
 import type { BranchFilter } from "@shared/core/constants";
+import type { Page } from "@shared/core/types";
 import type { DbPlan } from "@shared/core/types/db";
+import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
 import type { IPlanRepository } from "@shared/modules/admin/plans/repository/IPlanRepository";
+import type { PlanPageQuery } from "@shared/modules/admin/plans/utils/types";
 
 export class PlanRepository extends BaseRepository implements IPlanRepository {
   async findAll(branchFilter: BranchFilter = null): Promise<DbPlan[]> {
@@ -14,6 +17,25 @@ export class PlanRepository extends BaseRepository implements IPlanRepository {
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbPlan[];
+  }
+
+  async findPage(query: PlanPageQuery): Promise<Page<DbPlan>> {
+    let request = this.db
+      .from("plans")
+      .select("*", { count: "exact" })
+      .order("name")
+      .order("id")
+      .range(query.offset, query.offset + query.limit - 1);
+    request = this.applyBranchFilter(
+      request,
+      query.branch,
+      this.BRANCH_SCOPES.plans,
+    );
+    const term = sanitizeSearchTerm(query.search);
+    if (term) request = request.ilike("name", `%${term}%`);
+    const { data, error, count } = await request;
+    if (error) this.handleError(error);
+    return { rows: (data ?? []) as DbPlan[], total: count ?? 0 };
   }
 
   async create(payload: Omit<DbPlan, "id" | "created_at">): Promise<DbPlan> {

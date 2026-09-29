@@ -932,3 +932,5 @@ export interface PageWindow {
   offset: number;
   limit: number;
 }
+
+export type ActiveFilter = "all" | "active" | "inactive";

@@ -1,16 +1,13 @@
 import type { BranchFilter } from "@shared/core/constants";
+import type { Page } from "@shared/core/types";
 import type { DbService } from "@shared/core/types/db";
+import type { ServicePageQuery } from "@shared/modules/admin/service-catalog/utils/types";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, markDeleted } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@shared/core/utils/ids";
 import type { IServiceRepository } from "@shared/modules/admin/service-catalog/repository/IServiceRepository";
 
-/**
- * SQLite-backed Service repository. Reads from the local mirror; writes mutate
- * the mirror and flag the row `_dirty` (hard deletes are logged in
- * `pending_deletes`) so the next sync pushes them. Returns the same `DbService`
- * shapes as the Supabase repository.
- */
+// The local mirror's services, as DbService rows — see docs/offline.md.
 export class OfflineServiceRepository
   extends OfflineBaseRepository
   implements IServiceRepository
@@ -24,6 +21,22 @@ export class OfflineServiceRepository
       where.params,
     );
     return this.decodeAll<DbService>("services", rows);
+  }
+
+  async findPage(query: ServicePageQuery): Promise<Page<DbService>> {
+    const where = this.combineWhere([
+      this.branchWhere(query.branch, this.BRANCH_SCOPES.services, "services"),
+      this.searchWhere(["name"], query.search),
+      this.activeWhere(query.status),
+    ]);
+    const [rows, total] = await Promise.all([
+      this.all(
+        `SELECT * FROM services ${where.sql} ORDER BY active DESC, name ASC, id ASC LIMIT ? OFFSET ?`,
+        [...where.params, query.limit, query.offset],
+      ),
+      this.count(`SELECT COUNT(*) AS n FROM services ${where.sql}`, where.params),
+    ]);
+    return { rows: this.decodeAll<DbService>("services", rows), total };
   }
 
   async create(

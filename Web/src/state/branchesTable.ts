@@ -1,9 +1,6 @@
-import type { Branch, PageWindow } from "@shared/core/types";
+import type { ActiveFilter, Branch, PageWindow } from "@shared/core/types";
 import branchService from "@shared/modules/admin/branches/services/BranchService";
-import type {
-  BranchPageQuery,
-  BranchStatusFilter,
-} from "@shared/modules/admin/branches/utils/types";
+import type { BranchPageQuery } from "@shared/modules/admin/branches/utils/types";
 import { readAllPages } from "@shared/shared/hooks/loadAllPages";
 import {
   createPagedStore,
@@ -13,7 +10,7 @@ import {
 } from "./createPagedStore";
 
 export interface BranchFilters {
-  status: BranchStatusFilter;
+  status: ActiveFilter;
 }
 
 function toBranchQuery(query: PagedQuery<BranchFilters>, window: PageWindow): BranchPageQuery {

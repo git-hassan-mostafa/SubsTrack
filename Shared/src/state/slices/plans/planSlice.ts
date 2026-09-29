@@ -1,18 +1,10 @@
 import type { StateCreator } from "zustand";
 import type { Plan } from "@shared/core/types";
 import planService from "@shared/modules/admin/plans/services/PlanService";
+import type { PlanInput } from "@shared/modules/admin/plans/utils/types";
 import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
 import type { GlobalState } from "@shared/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
-
-interface PlanInput {
-  name: string;
-  isCustomPrice: boolean;
-  price: number | null;
-  durationMonths: number;
-  currencyId: string | null;
-  branchId: string | null;
-}
 
 export interface PlanSlice {
   items: Plan[];
@@ -21,8 +13,8 @@ export interface PlanSlice {
   error: string | null;
   getPlans: () => Promise<void>;
   fetchPlans: () => Promise<void>;
-  createPlan: (data: PlanInput, tenantId: string) => Promise<void>;
-  updatePlan: (id: string, data: PlanInput) => Promise<void>;
+  createPlan: (data: PlanInput, tenantId: string) => Promise<Plan | null>;
+  updatePlan: (id: string, data: PlanInput) => Promise<Plan | null>;
   deletePlan: (id: string) => Promise<boolean>;
   bulkDeletePlans: (ids: string[]) => Promise<boolean>;
   clearError: () => void;
@@ -81,11 +73,13 @@ export const createPlanSlice: StateCreator<
         state.plans.items.push(plan);
         state.plans.loading = false;
       });
+      return plan;
     } catch (e) {
       set((state) => {
         state.plans.error = (e as Error).message;
         state.plans.loading = false;
       });
+      return null;
     }
   },
 
@@ -101,11 +95,13 @@ export const createPlanSlice: StateCreator<
         if (i !== -1) state.plans.items[i] = updated;
         state.plans.loading = false;
       });
+      return updated;
     } catch (e) {
       set((state) => {
         state.plans.error = (e as Error).message;
         state.plans.loading = false;
       });
+      return null;
     }
   },
 

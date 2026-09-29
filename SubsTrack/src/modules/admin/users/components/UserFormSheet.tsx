@@ -14,6 +14,7 @@ import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useUserSlice } from "@shared/state/hooks/useUserSlice";
 import { getStore } from "@shared/state/globalStore";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
+import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
 import { useBranchSlice } from "@shared/state/hooks/useBranchSlice";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { canManageUser } from "@shared/modules/admin/users/utils/userPermissions";
@@ -50,19 +51,9 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
   const activeBranches = useActiveBranches();
   const branchesLoaded = useBranchSlice((s) => s.loaded);
 
-  // For new users: branch-scoped admin → assign to their branch.
-  // Tenant-wide admin → start unassigned and let them pick.
-  //
-  // Single-branch tenant (picker hidden): silently bind staff to the only
-  // branch. The initial role on a new user is "user" (staff), so default to
-  // that branch; the role-toggle handler below flips this to null when the
-  // role is switched to admin.
-  const defaultBranchId = (() => {
-    if (editUser) return editUser.branchId;
-    if (currentUser?.branchId) return currentUser.branchId;
-    if (activeBranches.length === 1) return activeBranches[0].id;
-    return null;
-  })();
+  const defaultBranchId = editUser
+    ? editUser.branchId
+    : defaultNewBranchId(currentUser, activeBranches);
 
   const [form, setForm] = useState<FormState>({
     username: editUser?.username ?? "",

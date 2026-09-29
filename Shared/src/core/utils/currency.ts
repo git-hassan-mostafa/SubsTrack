@@ -52,6 +52,14 @@ export function snapshotCurrency(
   return { ...base, ratePerUsd: row.ratePerUsdSnapshot };
 }
 
+// A currency's rate per 1 USD, up to six decimals, never rounded to money.
+export function formatRate(ratePerUsd: number): string {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 6,
+  }).format(ratePerUsd);
+}
+
 export function formatMoney(
   amount: number,
   source: Currency | null,

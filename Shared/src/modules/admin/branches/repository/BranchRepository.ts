@@ -29,9 +29,7 @@ export class BranchRepository
       .range(query.offset, query.offset + query.limit - 1);
     const term = sanitizeSearchTerm(query.search);
     if (term) request = request.ilike("name", `%${term}%`);
-    if (query.status !== "all") {
-      request = request.eq("active", query.status === "active");
-    }
+    request = this.applyActiveFilter(request, query.status);
     const { data, error, count } = await request;
     if (error) this.handleError(error);
     return { rows: (data ?? []) as DbBranch[], total: count ?? 0 };

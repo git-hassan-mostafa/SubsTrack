@@ -13,9 +13,9 @@ import type { Plan } from "@shared/core/types";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { getStore } from "@shared/state/globalStore";
 import { COLORS } from "@/src/shared/constants";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
+import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 
 interface Props {
@@ -47,15 +47,9 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
   const currencies = useCurrencySlice((s) => s.items);
   const activeBranches = useActiveBranches();
 
-  // For new plans: branch-scoped admin's plans bind to their branch;
-  // single-branch tenant picks the only branch; multi-branch tenant-wide admin
-  // can leave it as Shared (null) — plans mirror product branch semantics.
-  const defaultBranchId = (() => {
-    if (plan) return plan.branchId;
-    if (user?.branchId) return user.branchId;
-    if (activeBranches.length === 1) return activeBranches[0].id;
-    return null;
-  })();
+  const defaultBranchId = plan
+    ? plan.branchId
+    : defaultNewBranchId(user, activeBranches);
 
   const branchPickerNullable = user?.branchId === null;
 
@@ -98,12 +92,10 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
       branchId: form.branchId,
       durationMonths: form.durationMonths,
     };
-    if (plan) {
-      await updatePlan(plan.id, data);
-    } else {
-      await createPlan(data, user.tenantId);
-    }
-    if (!getStore().getState().plans.error) onDismiss();
+    const saved = plan
+      ? await updatePlan(plan.id, data)
+      : await createPlan(data, user.tenantId);
+    if (saved) onDismiss();
   }
 
   const submitDisabled =

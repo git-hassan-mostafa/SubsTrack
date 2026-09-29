@@ -1,15 +1,12 @@
+import type { Page } from "@shared/core/types";
 import type { DbCurrency } from "@shared/core/types/db";
+import type { CurrencyPageQuery } from "@shared/modules/admin/currencies/utils/types";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@shared/core/utils/ids";
 import type { ICurrencyRepository } from "@shared/modules/admin/currencies/repository/ICurrencyRepository";
 
-/**
- * SQLite-backed Currency repository. Reads from the local mirror; writes mutate
- * the mirror and flag the row `_dirty` (hard deletes are logged in
- * `pending_deletes`) so the next sync pushes them. Returns the same `DbCurrency`
- * shapes as the Supabase repository.
- */
+// The local mirror's currencies, as DbCurrency rows — see docs/offline.md.
 export class OfflineCurrencyRepository
   extends OfflineBaseRepository
   implements ICurrencyRepository
@@ -19,6 +16,21 @@ export class OfflineCurrencyRepository
       "SELECT * FROM currencies ORDER BY active DESC, code ASC",
     );
     return this.decodeAll<DbCurrency>("currencies", rows);
+  }
+
+  async findPage(query: CurrencyPageQuery): Promise<Page<DbCurrency>> {
+    const where = this.combineWhere([
+      this.searchWhere(["code", "name"], query.search),
+      this.activeWhere(query.status),
+    ]);
+    const [rows, total] = await Promise.all([
+      this.all(
+        `SELECT * FROM currencies ${where.sql} ORDER BY active DESC, code ASC, id ASC LIMIT ? OFFSET ?`,
+        [...where.params, query.limit, query.offset],
+      ),
+      this.count(`SELECT COUNT(*) AS n FROM currencies ${where.sql}`, where.params),
+    ]);
+    return { rows: this.decodeAll<DbCurrency>("currencies", rows), total };
   }
 
   async create(

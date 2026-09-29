@@ -1,11 +1,11 @@
+import type { Page } from "@shared/core/types";
 import type { DbCurrency } from "@shared/core/types/db";
+import type { CurrencyPageQuery } from "@shared/modules/admin/currencies/utils/types";
 
-/**
- * The Currency repository contract. Both the Supabase (online/web) class and the
- * offline SQLite class implement this — the compiler keeps the two in lockstep.
- */
+// Both the Supabase and the offline SQLite class implement this contract.
 export interface ICurrencyRepository {
   findAll(): Promise<DbCurrency[]>;
+  findPage(query: CurrencyPageQuery): Promise<Page<DbCurrency>>;
   create(
     payload: Omit<DbCurrency, "id" | "created_at" | "updated_at">,
   ): Promise<DbCurrency>;

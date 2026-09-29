@@ -1,19 +1,13 @@
 import type { BranchFilter } from "@shared/core/constants";
+import type { Page } from "@shared/core/types";
 import type { DbPlan } from "@shared/core/types/db";
+import type { PlanPageQuery } from "@shared/modules/admin/plans/utils/types";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@shared/core/utils/ids";
 import type { IPlanRepository } from "@shared/modules/admin/plans/repository/IPlanRepository";
 
-/**
- * SQLite-backed Plan repository. Reads from the local mirror; writes mutate the
- * mirror and flag the row `_dirty` (hard deletes are logged in `pending_deletes`)
- * so the next sync pushes them. Returns the same `DbPlan` shapes as the Supabase
- * repository.
- *
- * NOTE: `DbPlan` has no `updated_at` — the local `plans.updated_at` column exists
- * only for the pull merge and stays null on local writes (push omits it anyway).
- */
+// DbPlan has no updated_at: the local column serves the pull merge only.
 export class OfflinePlanRepository
   extends OfflineBaseRepository
   implements IPlanRepository
@@ -27,6 +21,21 @@ export class OfflinePlanRepository
       where.params,
     );
     return this.decodeAll<DbPlan>("plans", rows);
+  }
+
+  async findPage(query: PlanPageQuery): Promise<Page<DbPlan>> {
+    const where = this.combineWhere([
+      this.branchWhere(query.branch, this.BRANCH_SCOPES.plans, "plans"),
+      this.searchWhere(["name"], query.search),
+    ]);
+    const [rows, total] = await Promise.all([
+      this.all(
+        `SELECT * FROM plans ${where.sql} ORDER BY name ASC, id ASC LIMIT ? OFFSET ?`,
+        [...where.params, query.limit, query.offset],
+      ),
+      this.count(`SELECT COUNT(*) AS n FROM plans ${where.sql}`, where.params),
+    ]);
+    return { rows: this.decodeAll<DbPlan>("plans", rows), total };
   }
 
   async create(payload: Omit<DbPlan, "id" | "created_at">): Promise<DbPlan> {

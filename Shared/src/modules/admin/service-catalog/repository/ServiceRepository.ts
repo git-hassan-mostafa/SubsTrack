@@ -1,7 +1,10 @@
 import { BaseRepository } from "@shared/core/utils/BaseRepository";
 import type { BranchFilter } from "@shared/core/constants";
+import type { Page } from "@shared/core/types";
 import type { DbService } from "@shared/core/types/db";
+import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
 import type { IServiceRepository } from "@shared/modules/admin/service-catalog/repository/IServiceRepository";
+import type { ServicePageQuery } from "@shared/modules/admin/service-catalog/utils/types";
 
 export class ServiceRepository
   extends BaseRepository
@@ -21,6 +24,27 @@ export class ServiceRepository
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbService[];
+  }
+
+  async findPage(query: ServicePageQuery): Promise<Page<DbService>> {
+    let request = this.db
+      .from("services")
+      .select("*", { count: "exact" })
+      .order("active", { ascending: false })
+      .order("name")
+      .order("id")
+      .range(query.offset, query.offset + query.limit - 1);
+    request = this.applyBranchFilter(
+      request,
+      query.branch,
+      this.BRANCH_SCOPES.services,
+    );
+    const term = sanitizeSearchTerm(query.search);
+    if (term) request = request.ilike("name", `%${term}%`);
+    request = this.applyActiveFilter(request, query.status);
+    const { data, error, count } = await request;
+    if (error) this.handleError(error);
+    return { rows: (data ?? []) as DbService[], total: count ?? 0 };
   }
 
   async create(

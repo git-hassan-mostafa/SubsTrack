@@ -12,11 +12,15 @@ export interface CurrencySlice {
   error: string | null;
   getCurrencies: () => Promise<void>;
   fetchCurrencies: () => Promise<void>;
-  createCurrency: (data: CurrencyInput, tenantId: string) => Promise<void>;
-  updateCurrency: (id: string, data: CurrencyInput) => Promise<void>;
+  createCurrency: (
+    data: CurrencyInput,
+    tenantId: string,
+  ) => Promise<Currency | null>;
+  updateCurrency: (id: string, data: CurrencyInput) => Promise<Currency | null>;
   deleteCurrency: (id: string) => Promise<"hard" | "soft" | null>;
   bulkDeleteCurrencies: (ids: string[]) => Promise<boolean>;
-  reactivateCurrency: (id: string) => Promise<void>;
+  deactivateCurrency: (id: string) => Promise<Currency | null>;
+  reactivateCurrency: (id: string) => Promise<Currency | null>;
   clearError: () => void;
   reset: () => void;
 }
@@ -62,7 +66,7 @@ export const createCurrencySlice: StateCreator<
   },
 
   createCurrency: async (data, tenantId) => {
-    if (get().currencies.loading) return;
+    if (get().currencies.loading) return null;
     set((state) => {
       state.currencies.loading = true;
       state.currencies.error = null;
@@ -73,16 +77,18 @@ export const createCurrencySlice: StateCreator<
         state.currencies.items.push(currency);
         state.currencies.loading = false;
       });
+      return currency;
     } catch (e) {
       set((state) => {
         state.currencies.error = (e as Error).message;
         state.currencies.loading = false;
       });
+      return null;
     }
   },
 
   updateCurrency: async (id, data) => {
-    if (get().currencies.loading) return;
+    if (get().currencies.loading) return null;
     set((state) => {
       state.currencies.loading = true;
       state.currencies.error = null;
@@ -94,11 +100,13 @@ export const createCurrencySlice: StateCreator<
         if (i !== -1) state.currencies.items[i] = updated;
         state.currencies.loading = false;
       });
+      return updated;
     } catch (e) {
       set((state) => {
         state.currencies.error = (e as Error).message;
         state.currencies.loading = false;
       });
+      return null;
     }
   },
 
@@ -164,8 +172,31 @@ export const createCurrencySlice: StateCreator<
     }
   },
 
+  deactivateCurrency: async (id) => {
+    if (get().currencies.loading) return null;
+    set((state) => {
+      state.currencies.loading = true;
+      state.currencies.error = null;
+    });
+    try {
+      const updated = await currencyService.deactivateCurrency(id);
+      set((state) => {
+        const i = state.currencies.items.findIndex((c) => c.id === id);
+        if (i !== -1) state.currencies.items[i] = updated;
+        state.currencies.loading = false;
+      });
+      return updated;
+    } catch (e) {
+      set((state) => {
+        state.currencies.error = (e as Error).message;
+        state.currencies.loading = false;
+      });
+      return null;
+    }
+  },
+
   reactivateCurrency: async (id) => {
-    if (get().currencies.loading) return;
+    if (get().currencies.loading) return null;
     set((state) => {
       state.currencies.loading = true;
       state.currencies.error = null;
@@ -177,11 +208,13 @@ export const createCurrencySlice: StateCreator<
         if (i !== -1) state.currencies.items[i] = updated;
         state.currencies.loading = false;
       });
+      return updated;
     } catch (e) {
       set((state) => {
         state.currencies.error = (e as Error).message;
         state.currencies.loading = false;
       });
+      return null;
     }
   },
 

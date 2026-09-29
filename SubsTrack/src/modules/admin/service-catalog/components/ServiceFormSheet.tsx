@@ -14,7 +14,7 @@ import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useServiceSlice } from "@shared/state/hooks/useServiceSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
-import { getStore } from "@shared/state/globalStore";
+import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 
 interface Props {
@@ -48,15 +48,9 @@ export function ServiceFormSheet({
   const currencies = useCurrencySlice((s) => s.items);
   const activeBranches = useActiveBranches();
 
-  // Same branch defaulting as products: a branch-scoped user's services bind to
-  // their branch, a single-branch tenant picks the only one, and a tenant-wide
-  // admin may leave it Shared (null).
-  const defaultBranchId = (() => {
-    if (service) return service.branchId;
-    if (user?.branchId) return user.branchId;
-    if (activeBranches.length === 1) return activeBranches[0].id;
-    return null;
-  })();
+  const defaultBranchId = service
+    ? service.branchId
+    : defaultNewBranchId(user, activeBranches);
 
   const branchPickerNullable = user?.branchId === null;
 
@@ -86,10 +80,9 @@ export function ServiceFormSheet({
     const saved = service
       ? await updateService(service.id, payload)
       : await createService(payload, user.tenantId);
-    if (!getStore().getState().services.error) {
-      if (saved) onSaved?.(saved);
-      onDismiss();
-    }
+    if (!saved) return;
+    onSaved?.(saved);
+    onDismiss();
   }
 
   const submitDisabled =

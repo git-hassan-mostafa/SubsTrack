@@ -1,6 +1,9 @@
 import { BaseRepository } from "@shared/core/utils/BaseRepository";
+import type { Page } from "@shared/core/types";
 import type { DbCurrency } from "@shared/core/types/db";
+import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
 import type { ICurrencyRepository } from "@shared/modules/admin/currencies/repository/ICurrencyRepository";
+import type { CurrencyPageQuery } from "@shared/modules/admin/currencies/utils/types";
 
 export class CurrencyRepository
   extends BaseRepository
@@ -14,6 +17,22 @@ export class CurrencyRepository
       .order("code");
     if (error) this.handleError(error);
     return (data ?? []) as DbCurrency[];
+  }
+
+  async findPage(query: CurrencyPageQuery): Promise<Page<DbCurrency>> {
+    let request = this.db
+      .from("currencies")
+      .select("*", { count: "exact" })
+      .order("active", { ascending: false })
+      .order("code")
+      .order("id")
+      .range(query.offset, query.offset + query.limit - 1);
+    const term = sanitizeSearchTerm(query.search);
+    if (term) request = request.or(`code.ilike.%${term}%,name.ilike.%${term}%`);
+    request = this.applyActiveFilter(request, query.status);
+    const { data, error, count } = await request;
+    if (error) this.handleError(error);
+    return { rows: (data ?? []) as DbCurrency[], total: count ?? 0 };
   }
 
   async create(

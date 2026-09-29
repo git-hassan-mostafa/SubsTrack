@@ -19,6 +19,9 @@ import StoreOutlined from "@mui/icons-material/StoreOutlined";
 import TrendingDownOutlined from "@mui/icons-material/TrendingDownOutlined";
 import WhatsApp from "@mui/icons-material/WhatsApp";
 import { BranchesPage } from "@/modules/admin/branches/BranchesPage";
+import { CurrenciesPage } from "@/modules/admin/currencies/CurrenciesPage";
+import { PlansPage } from "@/modules/admin/plans/PlansPage";
+import { ServicesPage } from "@/modules/admin/services/ServicesPage";
 import type { RouteAccess } from "./access";
 
 export type NavSection = "main" | "admin";
@@ -106,6 +109,7 @@ export const APP_PAGES: readonly AppPage[] = [
     access: ADMIN,
     icon: SellOutlined,
     nav: "admin",
+    component: PlansPage,
   },
   {
     path: "admin/products",
@@ -120,6 +124,7 @@ export const APP_PAGES: readonly AppPage[] = [
     access: ADMIN,
     icon: BuildOutlined,
     nav: "admin",
+    component: ServicesPage,
   },
   {
     path: "admin/currencies",
@@ -127,6 +132,7 @@ export const APP_PAGES: readonly AppPage[] = [
     access: ADMIN,
     icon: CurrencyExchangeOutlined,
     nav: "admin",
+    component: CurrenciesPage,
   },
   {
     path: "admin/branches",

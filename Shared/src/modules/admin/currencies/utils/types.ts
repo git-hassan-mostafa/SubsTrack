@@ -1,3 +1,5 @@
+import type { ActiveFilter, PageWindow } from "@shared/core/types";
+
 export type CurrencyInput = {
   code: string;
   name: string;
@@ -5,3 +7,8 @@ export type CurrencyInput = {
   ratePerUsd: number;
   decimals: number;
 };
+
+export interface CurrencyPageQuery extends PageWindow {
+  search: string;
+  status: ActiveFilter;
+}

@@ -20,6 +20,7 @@ import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 import { useCustomerPlanSlice } from "@shared/state/hooks/useCustomerPlanSlice";
 import { getStore } from "@shared/state/globalStore";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
+import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
 import { QuotaReachedModal } from "@/src/modules/admin/billing";
 import { useBillingSlice } from "@shared/state/hooks/useBillingSlice";
 import { LocationField } from "@/src/shared/components/LocationField";
@@ -62,21 +63,10 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
   const activeBranches = useActiveBranches();
   const portalBaseUrl = useCustomerPortalUrl();
 
-  // For a new customer: default branch is the user's own branch (if scoped),
-  // otherwise the currently-selected branch in the header (unless that's "All"
-  // or "Unassigned", in which case start unassigned). For an existing customer
-  // we always preserve their stored branch.
-  const defaultBranchId = (() => {
-    if (customer) return customer.branchId;
-    if (user?.branchId) return user.branchId;
-    if (activeBranches.length === 1) return activeBranches[0].id;
-    if (
-      currentBranchId === null ||
-      currentBranchId === BRANCH_FILTER_UNASSIGNED
-    )
-      return null;
-    return currentBranchId;
-  })();
+  const defaultBranchId = customer
+    ? customer.branchId
+    : (defaultNewBranchId(user, activeBranches) ??
+      (currentBranchId === BRANCH_FILTER_UNASSIGNED ? null : currentBranchId));
 
   const [form, setForm] = useState<FormState>({
     name: customer?.name ?? "",

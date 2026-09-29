@@ -4,6 +4,7 @@ import {
   BRANCH_FILTER_UNASSIGNED,
   type BranchFilter,
 } from "@shared/core/constants";
+import type { ActiveFilter } from "@shared/core/types";
 import { getDb } from "./db/sqlite";
 import { decodeRow, decodeRows } from "./db/codec";
 import { insertDirty, markDeleted, updateDirty } from "./db/dml";
@@ -160,6 +161,14 @@ export abstract class OfflineBaseRepository {
       sql: "WHERE " + nonEmpty.map((p) => p.clause).join(" AND "),
       params: nonEmpty.flatMap((p) => p.params),
     };
+  }
+
+  protected activeWhere(status: ActiveFilter): {
+    clause: string;
+    params: unknown[];
+  } {
+    if (status === "all") return { clause: "", params: [] };
+    return { clause: "active = ?", params: [status === "active" ? 1 : 0] };
   }
 
   protected searchWhere(

@@ -43,6 +43,7 @@ export function CurrenciesScreen() {
   const fetchCurrencies = useCurrencySlice((s) => s.fetchCurrencies);
   const getCurrencies = useCurrencySlice((s) => s.getCurrencies);
   const deleteCurrency = useCurrencySlice((s) => s.deleteCurrency);
+  const deactivateCurrency = useCurrencySlice((s) => s.deactivateCurrency);
   const bulkDeleteCurrencies = useCurrencySlice((s) => s.bulkDeleteCurrencies);
   const reactivateCurrency = useCurrencySlice((s) => s.reactivateCurrency);
   const clearError = useCurrencySlice((s) => s.clearError);
@@ -83,7 +84,7 @@ export function CurrenciesScreen() {
       message: t("tenant_settings.deactivate_message", { code: currency.code }),
       destructive: true,
       onConfirm: async () => {
-        await deleteCurrency(currency.id);
+        await deactivateCurrency(currency.id);
       },
     });
   }

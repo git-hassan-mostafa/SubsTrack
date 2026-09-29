@@ -1,23 +1,22 @@
 import { repositories } from "@shared/core/runtime/repositories";
-import type { Plan } from "@shared/core/types";
+import type { Page, Plan } from "@shared/core/types";
 import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
 import { mapDbPlanToPlan } from "@shared/modules/admin/plans/utils/mapper";
-
-type PlanInput = Pick<
-  Plan,
-  | "name"
-  | "isCustomPrice"
-  | "price"
-  | "durationMonths"
-  | "currencyId"
-  | "branchId"
->;
+import type {
+  PlanInput,
+  PlanPageQuery,
+} from "@shared/modules/admin/plans/utils/types";
 
 class PlanService {
   async getPlans(branchFilter: BranchFilter = null): Promise<Plan[]> {
     const rows = await repositories().plan.findAll(branchFilter);
     return rows.map(mapDbPlanToPlan);
+  }
+
+  async getPlanPage(query: PlanPageQuery): Promise<Page<Plan>> {
+    const page = await repositories().plan.findPage(query);
+    return { rows: page.rows.map(mapDbPlanToPlan), total: page.total };
   }
 
   async createPlan(data: PlanInput, tenantId: string): Promise<Plan> {

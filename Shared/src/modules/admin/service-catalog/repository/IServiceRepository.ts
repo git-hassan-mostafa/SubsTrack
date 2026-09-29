@@ -1,17 +1,12 @@
 import type { BranchFilter } from "@shared/core/constants";
+import type { Page } from "@shared/core/types";
 import type { DbService } from "@shared/core/types/db";
+import type { ServicePageQuery } from "@shared/modules/admin/service-catalog/utils/types";
 
-/**
- * The Service (price list) repository contract. Both the Supabase (online/web)
- * class and the offline SQLite class implement this — the compiler keeps the two
- * in lockstep.
- *
- * Deliberately the products contract MINUS the stock ledger: labour is not
- * stocked, so there is no `stockOnHand`, no movements, and no cost read for the
- * Expenses view. A service only ever brings money IN, through its sale line.
- */
+// The products contract minus the stock ledger: labour is never stocked.
 export interface IServiceRepository {
   findAll(branchFilter?: BranchFilter): Promise<DbService[]>;
+  findPage(query: ServicePageQuery): Promise<Page<DbService>>;
   create(
     payload: Omit<DbService, "id" | "created_at" | "updated_at">,
   ): Promise<DbService>;

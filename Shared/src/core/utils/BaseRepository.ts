@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ActiveFilter } from "@shared/core/types";
 import i18n from "@shared/core/i18n";
 import { BRANCH_FILTER_UNASSIGNED, BranchFilter } from "@shared/core/constants";
 import { readFunctionsErrorBody } from "@shared/core/utils/functionsError";
@@ -226,6 +227,14 @@ export abstract class BaseRepository {
     expenses: { kind: "owned" },
     stock_movements: { kind: "inherited", joinedTable: "products" },
   } satisfies Record<string, BranchScope>;
+
+  protected applyActiveFilter<T extends { eq(column: string, value: boolean): T }>(
+    query: T,
+    status: ActiveFilter,
+  ): T {
+    if (status === "all") return query;
+    return query.eq("active", status === "active");
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected applyBranchFilter<T extends Record<string, any>>(

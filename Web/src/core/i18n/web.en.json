@@ -25,5 +25,23 @@
     "add": "Add branch",
     "search": "Search branches",
     "empty_hint": "Add your first branch to get started."
+  },
+  "currencies": {
+    "add": "Add currency",
+    "search": "Search by code or name",
+    "empty_hint": "Add a currency to take money in it, next to USD.",
+    "symbol": "Symbol",
+    "rate": "Rate"
+  },
+  "services": {
+    "add": "Add service",
+    "search": "Search services"
+  },
+  "plans": {
+    "add": "Add plan",
+    "search": "Search plans",
+    "empty_hint": "Add the plans your customers pay for.",
+    "every_n_months": "Every {{count}} months",
+    "billing": "Billing"
   }
 }

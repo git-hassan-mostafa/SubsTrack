@@ -33,11 +33,13 @@ Web/src/
 │   ├── layout/            # AppFrame, SideNav, AppHeader, QuickActions, UserMenu
 │   └── theme/
 ├── shared/
-│   ├── components/        # ErrorBanner, FormDialog, ConfirmDialogHost, BranchSelector, inputs, EmptyState, StatusChip…
-│   ├── table/             # DataTable, RowActionsMenu, BulkActionBar, useTableExport, TableAction
+│   ├── components/        # ErrorBanner, FormDialog, ConfirmDialogHost, BranchSelector, BranchPicker, inputs, MoneyText, EmptyState, StatusChip…
+│   ├── table/             # DataTable, RowActionsMenu, BulkActionBar, useTableExport, TableAction,
+│   │                      #   RowLink, ActiveFilterSelect, activeStatusColumn, useBranchColumn
+│   ├── hooks/             # useMoneyPair
 │   └── lib/               # downloadCsv
 ├── state/                 # web-only stores: createPagedStore + one table store per list, webSession.ts
-└── modules/<group>/<module>/  # pages + dialogs (admin/branches, admin/audit so far)
+└── modules/<group>/<module>/  # pages + dialogs (admin/{branches,currencies,services,plans,audit} so far)
 ```
 
 Each module keeps the SAME folder path in both halves: its logic under

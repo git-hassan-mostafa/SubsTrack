@@ -1,13 +1,21 @@
 import { repositories } from "@shared/core/runtime/repositories";
-import type { Currency } from "@shared/core/types";
+import type { Currency, Page } from "@shared/core/types";
 import i18n from "@shared/core/i18n";
 import { mapDbCurrencyToCurrency } from "@shared/modules/admin/currencies/utils/mapper";
-import { CurrencyInput } from "@shared/modules/admin/currencies/utils/types";
+import type {
+  CurrencyInput,
+  CurrencyPageQuery,
+} from "@shared/modules/admin/currencies/utils/types";
 
 class CurrencyService {
   async getCurrencies(): Promise<Currency[]> {
     const rows = await repositories().currency.findAll();
     return rows.map(mapDbCurrencyToCurrency);
+  }
+
+  async getCurrencyPage(query: CurrencyPageQuery): Promise<Page<Currency>> {
+    const page = await repositories().currency.findPage(query);
+    return { rows: page.rows.map(mapDbCurrencyToCurrency), total: page.total };
   }
 
   async createCurrency(
@@ -55,6 +63,11 @@ class CurrencyService {
     }
     await repositories().currency.delete(id);
     return "hard";
+  }
+
+  async deactivateCurrency(id: string): Promise<Currency> {
+    const row = await repositories().currency.update(id, { active: false });
+    return mapDbCurrencyToCurrency(row);
   }
 
   async reactivateCurrency(id: string): Promise<Currency> {

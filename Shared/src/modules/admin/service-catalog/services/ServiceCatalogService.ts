@@ -1,22 +1,23 @@
 import { repositories } from "@shared/core/runtime/repositories";
-import type { Service } from "@shared/core/types";
+import type { Page, Service } from "@shared/core/types";
 import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
 import { mapDbServiceToService } from "@shared/modules/admin/service-catalog/utils/mapper";
-import { ServiceInput } from "@shared/modules/admin/service-catalog/utils/types";
+import type {
+  ServiceInput,
+  ServicePageQuery,
+} from "@shared/modules/admin/service-catalog/utils/types";
 
-/**
- * Business logic for the service price list — the twin of ProductService, minus
- * every stock and cost concern.
- *
- * Named ServiceCatalogService, not ServiceService: "service" is also this app's
- * name for the business-logic layer itself, so the symmetric name would read as
- * the layer rather than the thing.
- */
+// Not "ServiceService": that would read as the business-logic layer itself.
 class ServiceCatalogService {
   async getServices(branchFilter: BranchFilter = null): Promise<Service[]> {
     const rows = await repositories().service.findAll(branchFilter);
     return rows.map(mapDbServiceToService);
+  }
+
+  async getServicePage(query: ServicePageQuery): Promise<Page<Service>> {
+    const page = await repositories().service.findPage(query);
+    return { rows: page.rows.map(mapDbServiceToService), total: page.total };
   }
 
   async createService(data: ServiceInput, tenantId: string): Promise<Service> {

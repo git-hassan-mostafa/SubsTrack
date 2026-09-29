@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { BranchFilter } from "@shared/core/constants";
 import type { Page, PageWindow } from "@shared/core/types";
 import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
 
@@ -11,6 +12,7 @@ export interface PagedQuery<F> {
   pageSize: number;
   search: string;
   filters: F;
+  branch: BranchFilter;
 }
 
 export interface PagedState<T, F> {
@@ -21,6 +23,7 @@ export interface PagedState<T, F> {
   loading: boolean;
   error: string | null;
   load: () => Promise<void>;
+  open: (branch: BranchFilter) => Promise<void>;
   setPage: (page: number, pageSize: number) => void;
   setSearch: (search: string) => void;
   setFilters: (filters: Partial<F>) => void;
@@ -42,6 +45,7 @@ export function createPagedStore<T, F>(fetchPage: PageFetcher<T, F>, filters: F)
     pageSize: DEFAULT_PAGE_SIZE,
     search: "",
     filters,
+    branch: null,
   };
   let latestRequest = 0;
 
@@ -72,6 +76,12 @@ export function createPagedStore<T, F>(fetchPage: PageFetcher<T, F>, filters: F)
         if (request !== latestRequest || isStaleEpoch(epoch)) return;
         set({ error: (e as Error).message, loading: false });
       }
+    },
+
+    open: (branch) => {
+      const { query } = get();
+      if (branch !== query.branch) set({ query: { ...query, branch, page: 0 } });
+      return get().load();
     },
 
     setPage: (page, pageSize) => {

@@ -2,6 +2,7 @@ import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import type { Currency } from "@shared/core/types";
+import { formatRate } from "@shared/core/utils/currency";
 import {
   CardAmount,
   CardChips,
@@ -33,10 +34,7 @@ export function CurrencyCard({
   onEnterSelection,
 }: Props) {
   const { t } = useTranslation();
-  const rateLabel = new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 6,
-  }).format(currency.ratePerUsd);
+  const rateLabel = formatRate(currency.ratePerUsd);
 
   return (
     <EntityCard

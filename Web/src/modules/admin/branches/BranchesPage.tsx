@@ -1,31 +1,23 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import Link from "@mui/material/Link";
-import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
 import EditOutlined from "@mui/icons-material/EditOutlined";
 import PauseCircleOutlined from "@mui/icons-material/PauseCircleOutlined";
 import PlayCircleOutlined from "@mui/icons-material/PlayCircleOutlined";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Branch } from "@shared/core/types";
-import type { BranchStatusFilter } from "@shared/modules/admin/branches/utils/types";
 import { confirm } from "@shared/shared/lib/confirm";
 import { useBranchSlice } from "@shared/state/hooks/useBranchSlice";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
-import { StatusChip } from "@/shared/components/StatusChip";
+import { ActiveFilterSelect } from "@/shared/table/ActiveFilterSelect";
+import { activeStatusColumn } from "@/shared/table/activeStatusColumn";
 import { DataTable } from "@/shared/table/DataTable";
+import { RowLink } from "@/shared/table/RowLink";
 import type { TableAction } from "@/shared/table/tableAction";
 import { readAllBranches, useBranchesTable } from "@/state/branchesTable";
 import { useRecordHistoryAction } from "@/modules/admin/audit/useRecordHistoryAction";
 import { BranchFormDialog } from "./BranchFormDialog";
-
-const STATUS_FILTERS: { value: BranchStatusFilter; labelKey: string }[] = [
-  { value: "all", labelKey: "web.filter_all" },
-  { value: "active", labelKey: "common.active" },
-  { value: "inactive", labelKey: "common.inactive" },
-];
 
 // The reference list page: every later web table copies this shape.
 export function BranchesPage() {
@@ -145,46 +137,15 @@ export function BranchesPage() {
       flex: 1,
       minWidth: 200,
       renderCell: (params) => (
-        <Link
-          component="button"
-          type="button"
+        <RowLink
+          label={params.row.name}
           tabIndex={params.tabIndex}
           onClick={() => setForm({ branch: params.row })}
-          sx={{ fontWeight: 600, textAlign: "start" }}
-        >
-          {params.row.name}
-        </Link>
+        />
       ),
     },
-    {
-      field: "active",
-      headerName: t("web.status"),
-      width: 140,
-      renderCell: (params) =>
-        params.row.active ? (
-          <StatusChip label={t("common.active")} tone="emerald" />
-        ) : (
-          <StatusChip label={t("common.inactive")} tone="gray" />
-        ),
-    },
+    activeStatusColumn<Branch>(t),
   ];
-
-  const statusFilter = (
-    <TextField
-      select
-      size="small"
-      label={t("web.status")}
-      value={query.filters.status}
-      onChange={(event) => setFilters({ status: event.target.value as BranchStatusFilter })}
-      sx={{ minWidth: 160 }}
-    >
-      {STATUS_FILTERS.map((option) => (
-        <MenuItem key={option.value} value={option.value}>
-          {t(option.labelKey)}
-        </MenuItem>
-      ))}
-    </TextField>
-  );
 
   return (
     <Stack spacing={2}>
@@ -204,7 +165,12 @@ export function BranchesPage() {
           onSearch: setSearch,
           placeholder: t("web.branches.search"),
         }}
-        filters={statusFilter}
+        filters={
+          <ActiveFilterSelect
+            value={query.filters.status}
+            onChange={(status) => setFilters({ status })}
+          />
+        }
         add={{ label: t("web.branches.add"), onClick: () => setForm({ branch: null }) }}
         exportConfig={{ nameKey: "branches.section_title", loadAll: () => readAllBranches(query) }}
         rowLabel={(branch) => branch.name}
