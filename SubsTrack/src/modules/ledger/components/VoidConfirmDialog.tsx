@@ -10,7 +10,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { COLORS } from "@/src/shared/constants";
 import { useTextField } from "@/src/shared/hooks/useTextField";
 import { SharedBillsWarning } from "./SharedBillsWarning";
-import { useSharedBills } from "../hooks/useSharedBills";
+import { useSharedBills } from "@shared/modules/ledger/hooks/useSharedBills";
 
 interface Props {
   chargeIds: string[];

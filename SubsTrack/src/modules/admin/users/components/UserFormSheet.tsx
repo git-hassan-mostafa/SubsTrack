@@ -8,14 +8,14 @@ import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
-import { confirm } from "@/src/shared/lib/confirm";
+import { confirm } from "@shared/shared/lib/confirm";
 import type { AppUser } from "@shared/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { useUserSlice } from "@/src/state/hooks/useUserSlice";
-import { getStore } from "@/src/state/globalStore";
+import { useUserSlice } from "@shared/state/hooks/useUserSlice";
+import { getStore } from "@shared/state/globalStore";
 import { useActiveBranches } from "@/src/modules/admin/branches";
-import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
-import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import { useBranchSlice } from "@shared/state/hooks/useBranchSlice";
+import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { canManageUser } from "@shared/modules/admin/users/utils/userPermissions";
 
 interface Props {

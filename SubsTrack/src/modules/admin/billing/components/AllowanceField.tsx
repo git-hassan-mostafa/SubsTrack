@@ -7,7 +7,7 @@ import { AppTextInput } from "@/src/shared/components/AppTextInput";
 import { useTextField } from "@/src/shared/hooks/useTextField";
 import { digitsOnly } from "@shared/core/utils/inputText";
 import { COLORS } from "@/src/shared/constants";
-import { useHoldRepeat } from "@/src/shared/hooks/useHoldRepeat";
+import { useHoldRepeat } from "@shared/shared/hooks/useHoldRepeat";
 import { signedText } from "@shared/modules/admin/billing/utils/allowanceChange";
 
 interface Props {

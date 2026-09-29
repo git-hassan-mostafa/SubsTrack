@@ -15,9 +15,9 @@ import {
 } from "@shared/core/utils/currency";
 import { formatDate, formatDateTime } from "@shared/core/utils/date";
 import { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/utils/blockRangeLabel";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useUserNames } from "@/src/shared/hooks/useUserNames";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import { COLORS } from "@/src/shared/constants";

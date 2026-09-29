@@ -7,11 +7,11 @@ import {
   Dropdown,
   type DropdownOption,
 } from "@/src/shared/components/Dropdown";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import {
   useDisplayCurrencyId,
   useTenantSettingSlice,
-} from "@/src/state/hooks/useTenantSettingSlice";
+} from "@shared/state/hooks/useTenantSettingSlice";
 
 export function DisplayCurrencySection() {
   const { t } = useTranslation();

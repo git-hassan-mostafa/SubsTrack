@@ -1,8 +1,8 @@
 import { configurePhone } from "@/src/platform/configurePhone";
-import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
+import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
 import { initI18n } from "@/src/core/i18n/setup";
-import { useOptionSlice } from "@/src/state/hooks/useOptionSlice";
-import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
+import { useOptionSlice } from "@shared/state/hooks/useOptionSlice";
+import { resetAllDomainStores } from "@shared/shared/lib/storeReset";
 import { ErrorBoundary } from "@/src/shared/components/ErrorBoundary";
 import { LoadingScreen } from "@/src/shared/components/LoadingScreen";
 import { Slot, useRouter, useSegments } from "expo-router";
@@ -15,7 +15,7 @@ import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import "../global.css";
 import { enableMapSet } from "immer";
 import { initOffline } from "@/src/core/offline";
-import { refreshActiveData } from "@/src/state/refreshActiveData";
+import { refreshActiveData } from "@shared/state/refreshActiveData";
 import { installGlobalErrorHandler } from "@/src/core/errorLog/globalHandler";
 import { startSync } from "@/src/core/offline/sync";
 

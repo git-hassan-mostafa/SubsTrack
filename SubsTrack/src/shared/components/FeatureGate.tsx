@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useSelfServiceSignupEnabled } from "@/src/state/hooks/useOptionSlice";
+import { useSelfServiceSignupEnabled } from "@shared/state/hooks/useOptionSlice";
 
 interface GateProps {
   children: ReactNode;

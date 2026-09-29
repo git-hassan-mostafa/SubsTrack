@@ -1,0 +1,12 @@
+import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
+
+export function useAuth() {
+  const user = useAuthSlice((s) => s.user);
+  return {
+    user,
+    isAdmin: user?.role === "admin" || user?.role === "superadmin",
+    isTenantWideAdmin:
+      user?.role === "superadmin" ||
+      (user?.role === "admin" && user.branchId === null),
+  };
+}

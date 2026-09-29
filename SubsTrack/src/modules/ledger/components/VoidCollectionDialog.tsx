@@ -10,7 +10,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { COLORS } from "@/src/shared/constants";
 import { useTextField } from "@/src/shared/hooks/useTextField";
 import type { Collection } from "@shared/core/types";
-import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
+import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { sharedBillsOf } from "@shared/modules/ledger/utils/sharedBills";
 import { SharedBillsWarning } from "./SharedBillsWarning";
 

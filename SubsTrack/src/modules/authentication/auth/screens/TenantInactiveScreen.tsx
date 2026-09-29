@@ -3,7 +3,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { endSession } from "@/src/shared/lib/session";
+import { endSession } from "@shared/shared/lib/session";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 
 export function TenantInactiveScreen() {

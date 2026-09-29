@@ -18,12 +18,12 @@ import { ExpensesPanel } from "@/src/modules/transaction/expenses";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useExportRows } from "@/src/shared/hooks/useExportRows";
-import { loadAllPages } from "@/src/shared/hooks/loadAllPages";
-import { getStore } from "@/src/state/globalStore";
+import { loadAllPages } from "@shared/shared/hooks/loadAllPages";
+import { getStore } from "@shared/state/globalStore";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
-import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
-import { useExpenseStore } from "@/src/modules/transaction/expenses/state/expenseStore";
+import { useSaleSlice } from "@shared/state/hooks/useSaleSlice";
+import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
+import { useExpenseStore } from "@shared/modules/transaction/expenses/state/expenseStore";
 
 type TransactionsTab = "sales" | "debts" | "expenses";
 

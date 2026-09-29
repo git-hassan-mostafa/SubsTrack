@@ -15,8 +15,8 @@ import {
   snapshotCurrency,
 } from "@shared/core/utils/currency";
 import { formatDate, formatDateTime } from "@shared/core/utils/date";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { KIND_STYLE } from "../utils/kindStyle";
 
 interface Props {

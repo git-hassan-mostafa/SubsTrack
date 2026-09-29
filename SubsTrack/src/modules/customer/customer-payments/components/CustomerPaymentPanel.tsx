@@ -14,7 +14,7 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { confirm } from "@/src/shared/lib/confirm";
+import { confirm } from "@shared/shared/lib/confirm";
 import {
   ActionMenu,
   type ActionMenuItem,
@@ -32,7 +32,7 @@ import type {
 import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/utils/blockRangeLabel";
 import { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
@@ -67,9 +67,9 @@ import {
   VoidConfirmDialog,
 } from "@/src/modules/ledger";
 import type { CollectGroupSubmit, WriteOffTarget } from "@/src/modules/ledger";
-import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
-import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { usePaymentSlice } from "@shared/state/hooks/usePaymentSlice";
+import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 
 interface CustomerPaymentPanelProps {
   customer: Customer;

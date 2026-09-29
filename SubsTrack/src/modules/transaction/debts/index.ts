@@ -8,4 +8,4 @@ export { DebtHistorySheet } from "./components/DebtHistorySheet";
 export { CustomerDebtsPanel } from "./components/CustomerDebtsPanel";
 export { CustomDebtFormSheet } from "./components/CustomDebtFormSheet";
 export { useDebtRowActions } from "./hooks/useDebtRowActions";
-export { useAllWrittenOffDebts } from "./hooks/useAllWrittenOffDebts";
+export { useAllWrittenOffDebts } from "@shared/modules/transaction/debts/hooks/useAllWrittenOffDebts";

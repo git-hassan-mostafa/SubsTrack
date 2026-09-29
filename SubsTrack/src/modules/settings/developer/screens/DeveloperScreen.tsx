@@ -13,9 +13,9 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { DbTableViewer } from "@/src/shared/components/DbTableViewer";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
-import { confirm } from "@/src/shared/lib/confirm";
-import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
-import { refreshActiveData } from "@/src/state/refreshActiveData";
+import { confirm } from "@shared/shared/lib/confirm";
+import { resetAllDomainStores } from "@shared/shared/lib/storeReset";
+import { refreshActiveData } from "@shared/state/refreshActiveData";
 import { useAuth } from "@/src/modules/authentication/auth";
 import {
   FileTooLargeError,

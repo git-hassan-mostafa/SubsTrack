@@ -21,5 +21,5 @@ export { SaleDetailSheet } from "./components/SaleDetailSheet";
 export { SaleFormSheet } from "./components/SaleFormSheet";
 export { CustomerSalesListScreen } from "./screens/CustomerSalesListScreen";
 export { SalesPanel } from "./screens/SalesPanel";
-export { useCustomerSalesList } from "./hooks/useCustomerSalesList";
+export { useCustomerSalesList } from "@shared/modules/transaction/sales/hooks/useCustomerSalesList";
 export { useSaleDetailSheet } from "./hooks/useSaleDetailSheet";

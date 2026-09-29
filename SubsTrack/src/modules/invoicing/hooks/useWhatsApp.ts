@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { confirm } from "@/src/shared/lib/confirm";
+import { confirm } from "@shared/shared/lib/confirm";
 import { openWhatsApp } from "@/src/shared/lib/whatsapp";
 
 // Same reduction openWhatsApp does, so a field holding "-" or "n/a" reads as

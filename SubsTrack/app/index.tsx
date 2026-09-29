@@ -1,5 +1,5 @@
 import { Redirect } from "expo-router";
-import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
+import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
 import { LoadingScreen } from "@/src/shared/components/LoadingScreen";
 
 export default function RootIndex() {

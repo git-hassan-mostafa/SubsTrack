@@ -3,7 +3,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export const STORAGE_KEYS = {
   LANGUAGE_STORE: "language-store",
   RTL_RELOAD_COUNT: "rtl-reload-count",
-  UI_PREF_STORE: "ui-pref-store",
 };
 
 export const MAX_RTL_RELOADS = 3;

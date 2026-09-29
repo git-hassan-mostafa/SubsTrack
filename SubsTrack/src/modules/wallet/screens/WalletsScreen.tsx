@@ -17,13 +17,13 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
-import { confirm } from "@/src/shared/lib/confirm";
+import { confirm } from "@shared/shared/lib/confirm";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
-import { useWalletStore } from "../state/walletStore";
+import { useWalletStore } from "@shared/modules/wallet/state/walletStore";
 import type { ReceiveBlock, UserWallet, WalletItem } from "@shared/core/types";
 import { WalletCard } from "../components/WalletCard";
 import {

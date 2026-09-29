@@ -11,7 +11,7 @@ import type { UnpaidStartRule } from "@shared/core/types";
 import {
   useTenantSettingSlice,
   useUnpaidStartRule,
-} from "@/src/state/hooks/useTenantSettingSlice";
+} from "@shared/state/hooks/useTenantSettingSlice";
 
 export function UnpaidRuleSection() {
   const { t } = useTranslation();

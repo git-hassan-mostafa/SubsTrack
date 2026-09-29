@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { Dropdown, type DropdownOption } from "./Dropdown";
-import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
-import { useActiveBranches } from "@/src/modules/admin/branches/hooks/useActiveBranches";
-import { useIsMultiBranchActive } from "@/src/modules/admin/branches/hooks/useIsMultiBranchActive";
+import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
+import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
+import { useIsMultiBranchActive } from "@shared/modules/admin/branches/hooks/useIsMultiBranchActive";
 
 interface BranchPickerProps {
   value: string | null;

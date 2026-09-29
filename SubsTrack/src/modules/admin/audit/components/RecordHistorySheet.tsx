@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { AuditTable } from "@shared/core/types";
-import { useRecordHistory } from "../hooks/useRecordHistory";
+import { useRecordHistory } from "@shared/modules/admin/audit/hooks/useRecordHistory";
 import { HistorySheet } from "./HistorySheet";
 
 interface RecordHistorySheetProps {

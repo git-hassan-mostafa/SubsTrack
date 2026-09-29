@@ -13,19 +13,19 @@ import {
   type CustomerPlansEditorHandle,
 } from "@/src/modules/customer/customer-plans";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
+import { useUiPrefStore } from "@shared/shared/lib/uiPrefStore";
 import { BRANCH_FILTER_UNASSIGNED } from "@shared/core/constants";
-import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
-import { useCustomerPlanSlice } from "@/src/state/hooks/useCustomerPlanSlice";
-import { getStore } from "@/src/state/globalStore";
+import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
+import { useCustomerPlanSlice } from "@shared/state/hooks/useCustomerPlanSlice";
+import { getStore } from "@shared/state/globalStore";
 import { useActiveBranches } from "@/src/modules/admin/branches";
 import { QuotaReachedModal } from "@/src/modules/admin/billing";
-import { useBillingSlice } from "@/src/state/hooks/useBillingSlice";
+import { useBillingSlice } from "@shared/state/hooks/useBillingSlice";
 import { LocationField } from "@/src/shared/components/LocationField";
 import { PortalAccessField } from "@/src/shared/components/PortalAccessField";
-import { useCustomerPortalUrl } from "@/src/state/hooks/useOptionSlice";
-import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import { useCustomerPortalUrl } from "@shared/state/hooks/useOptionSlice";
+import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 
 interface Props {
   customer?: Customer | null;

@@ -16,16 +16,16 @@ import { FormSheet } from "@/src/shared/components/FormSheet";
 import { Input } from "@/src/shared/components/Input";
 import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE } from "@/src/shared/constants";
-import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUnpaidStartRule } from "@/src/state/hooks/useTenantSettingSlice";
+import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useUnpaidStartRule } from "@shared/state/hooks/useTenantSettingSlice";
 import {
   useOptedOutCustomerIds,
   useSendableTemplates,
   useTemplateForPurpose,
   useWhatsAppSlice,
-} from "@/src/state/hooks/useWhatsAppSlice";
-import type { WhatsAppSendOutcome } from "@/src/state/slices/whatsapp/whatsappSlice";
+} from "@shared/state/hooks/useWhatsAppSlice";
+import type { WhatsAppSendOutcome } from "@shared/state/slices/whatsapp/whatsappSlice";
 import { templateLabel } from "@shared/modules/whatsapp/utils/labels";
 import {
   defaultChoices,

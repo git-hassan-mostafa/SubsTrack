@@ -22,7 +22,7 @@ import { CustomerDebtsPanel } from "@/src/modules/transaction/debts";
 import { CustomerDetailsCard } from "../components/CustomerDetailsCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
-import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
+import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 import { useWhatsAppActions } from "@/src/modules/whatsapp/hooks/useWhatsAppActions";
 
 export function CustomerDetailScreen() {

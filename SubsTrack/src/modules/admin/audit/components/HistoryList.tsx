@@ -13,7 +13,7 @@ import { COLORS } from "@/src/shared/constants";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { Text } from "@/src/shared/components/Text";
-import { useAuditLookups } from "../hooks/useAuditLookups";
+import { useAuditLookups } from "@shared/modules/admin/audit/hooks/useAuditLookups";
 import type { AuditContextBase } from "@shared/modules/admin/audit/utils/valueDisplay";
 import { AuditEntryCard } from "./AuditEntryCard";
 import { AuditEntrySheet } from "./AuditEntrySheet";

@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import type { Collection, OpenItem } from "@shared/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
+import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { CollectSheet } from "../components/CollectSheet";
 
 interface Target {

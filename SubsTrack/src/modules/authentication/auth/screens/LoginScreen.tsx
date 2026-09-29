@@ -8,9 +8,9 @@ import { useRouter, type Href } from "expo-router";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
-import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
+import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
 import { CanCreateOrganization } from "@/src/shared/components/FeatureGate";
-import { useSignupStore } from "@/src/modules/authentication/signup/state/signupStore";
+import { useSignupStore } from "@shared/modules/authentication/signup/state/signupStore";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 
 const BRAND_LOGO = require("@/assets/images/icon-web-transparent.png");

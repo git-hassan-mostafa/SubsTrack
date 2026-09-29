@@ -18,9 +18,9 @@ import {
   snapshotCurrency,
 } from "@shared/core/utils/currency";
 import { formatDateTime } from "@shared/core/utils/date";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useUserNames } from "@/src/shared/hooks/useUserNames";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { KIND_STYLE } from "../utils/kindStyle";
 import { collectionLabel } from "@shared/modules/ledger/utils/collectionLabel";
 import { paymentMenu } from "../utils/paymentMenu";

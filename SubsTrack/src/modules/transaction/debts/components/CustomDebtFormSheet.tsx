@@ -13,8 +13,8 @@ import {
 } from "@/src/modules/customer/customers";
 import type { Customer, OpenItem } from "@shared/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import {
   findCurrency,
   formatMoney,
@@ -22,7 +22,7 @@ import {
 } from "@shared/core/utils/currency";
 import { getTodayDateString } from "@shared/core/utils/date";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
-import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 
 // When locked to a specific customer, the form only needs their id + name (no
 // picker is rendered), so callers may pass a lightweight customer ref — e.g. the

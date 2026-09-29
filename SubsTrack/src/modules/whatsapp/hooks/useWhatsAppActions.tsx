@@ -5,19 +5,19 @@ import { useAuth } from "@/src/modules/authentication/auth";
 import { useWhatsApp } from "@/src/modules/invoicing/hooks/useWhatsApp";
 import type { ActionMenuItem } from "@/src/shared/components/ActionMenu";
 import type { SelectionAction } from "@/src/shared/components/SelectionBar";
-import { confirm } from "@/src/shared/lib/confirm";
-import { getStore } from "@/src/state/globalStore";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { confirm } from "@shared/shared/lib/confirm";
+import { getStore } from "@shared/state/globalStore";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import {
   useUnpaidStartRule,
   useWhatsAppLanguage,
-} from "@/src/state/hooks/useTenantSettingSlice";
+} from "@shared/state/hooks/useTenantSettingSlice";
 import {
   useOptedOutCustomerIds,
   useTemplateForPurpose,
   useWhatsAppReady,
   useWhatsAppSlice,
-} from "@/src/state/hooks/useWhatsAppSlice";
+} from "@shared/state/hooks/useWhatsAppSlice";
 import { SendWhatsAppSheet } from "../components/SendWhatsAppSheet";
 
 interface OpenSheet {

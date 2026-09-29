@@ -13,7 +13,7 @@ import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
-import { useDebounce } from "@/src/shared/hooks/useDebounce";
+import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
   SelectionBar,
@@ -35,20 +35,20 @@ import {
 } from "@/src/shared/components/Dropdown";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { CustomerPicker } from "@/src/modules/customer/customers";
-import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import type { Sale } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { saleUsd } from "@shared/modules/transaction/sales/utils/saleListPatch";
 import { SaleCard } from "../components/SaleCard";
 import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
 import { useSaleActions } from "../hooks/useSaleActions";
 import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
-import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
-import type { SaleStatus } from "@/src/state/slices/sales/saleSlice";
-import { useProductSlice } from "@/src/state/hooks/useProductSlice";
+import { useSaleSlice } from "@shared/state/hooks/useSaleSlice";
+import type { SaleStatus } from "@shared/state/slices/sales/saleSlice";
+import { useProductSlice } from "@shared/state/hooks/useProductSlice";
 
 interface Props {
   filterRowRef?: RefObject<ScrollView | null>;

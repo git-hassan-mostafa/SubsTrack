@@ -19,7 +19,7 @@ import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useExportRows } from "@/src/shared/hooks/useExportRows";
 import { EmptyState } from "@/src/shared/components/EmptyState";
-import { confirm } from "@/src/shared/lib/confirm";
+import { confirm } from "@shared/shared/lib/confirm";
 import {
   ActionMenu,
   type ActionMenuItem,
@@ -30,7 +30,7 @@ import {
 } from "@/src/shared/hooks/useSelection";
 import type { Currency } from "@shared/core/types";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { CurrencyCard, UsdBaseCard } from "../components/CurrencyCard";
 import { CurrencyFormSheet } from "../components/CurrencyFormSheet";
 

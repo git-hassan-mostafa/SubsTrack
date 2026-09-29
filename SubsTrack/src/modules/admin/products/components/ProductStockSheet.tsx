@@ -17,17 +17,17 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
-import { confirm } from "@/src/shared/lib/confirm";
+import { confirm } from "@shared/shared/lib/confirm";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { COLORS } from "@/src/shared/constants";
 import { formatDateTime } from "@shared/core/utils/date";
 import type { Product, StockMovement, StockReason } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { useProductSlice } from "@/src/state/hooks/useProductSlice";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUserNames } from "@/src/shared/hooks/useUserNames";
-import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import { useProductSlice } from "@shared/state/hooks/useProductSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useUserNames } from "@shared/shared/hooks/useUserNames";
+import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import productService from "@shared/modules/admin/products/services/ProductService";
 
 interface Props {

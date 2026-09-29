@@ -1,0 +1,199 @@
+import type { StateCreator } from "zustand";
+import type { Currency } from "@shared/core/types";
+import currencyService from "@shared/modules/admin/currencies/services/CurrencyService";
+import type { CurrencyInput } from "@shared/modules/admin/currencies/utils/types";
+import type { GlobalState } from "@shared/state/globalStore";
+import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
+
+export interface CurrencySlice {
+  items: Currency[];
+  loaded: boolean;
+  loading: boolean;
+  error: string | null;
+  getCurrencies: () => Promise<void>;
+  fetchCurrencies: () => Promise<void>;
+  createCurrency: (data: CurrencyInput, tenantId: string) => Promise<void>;
+  updateCurrency: (id: string, data: CurrencyInput) => Promise<void>;
+  deleteCurrency: (id: string) => Promise<"hard" | "soft" | null>;
+  bulkDeleteCurrencies: (ids: string[]) => Promise<boolean>;
+  reactivateCurrency: (id: string) => Promise<void>;
+  clearError: () => void;
+  reset: () => void;
+}
+
+export const createCurrencySlice: StateCreator<
+  GlobalState,
+  [["zustand/immer", never]],
+  [],
+  CurrencySlice
+> = (set, get) => ({
+  items: [],
+  loaded: false,
+  loading: false,
+  error: null,
+
+  getCurrencies: async () => {
+    const { loaded, loading } = get().currencies;
+    if (loaded || loading) return;
+    await get().currencies.fetchCurrencies();
+  },
+
+  fetchCurrencies: async () => {
+    const epoch = currentDataEpoch();
+    set((state) => {
+      state.currencies.loading = true;
+      state.currencies.error = null;
+    });
+    try {
+      const items = await currencyService.getCurrencies();
+      if (isStaleEpoch(epoch)) return;
+      set((state) => {
+        state.currencies.items = items;
+        state.currencies.loaded = true;
+        state.currencies.loading = false;
+      });
+    } catch (e) {
+      if (isStaleEpoch(epoch)) return;
+      set((state) => {
+        state.currencies.error = (e as Error).message;
+        state.currencies.loading = false;
+      });
+    }
+  },
+
+  createCurrency: async (data, tenantId) => {
+    if (get().currencies.loading) return;
+    set((state) => {
+      state.currencies.loading = true;
+      state.currencies.error = null;
+    });
+    try {
+      const currency = await currencyService.createCurrency(data, tenantId);
+      set((state) => {
+        state.currencies.items.push(currency);
+        state.currencies.loading = false;
+      });
+    } catch (e) {
+      set((state) => {
+        state.currencies.error = (e as Error).message;
+        state.currencies.loading = false;
+      });
+    }
+  },
+
+  updateCurrency: async (id, data) => {
+    if (get().currencies.loading) return;
+    set((state) => {
+      state.currencies.loading = true;
+      state.currencies.error = null;
+    });
+    try {
+      const updated = await currencyService.updateCurrency(id, data);
+      set((state) => {
+        const i = state.currencies.items.findIndex((c) => c.id === id);
+        if (i !== -1) state.currencies.items[i] = updated;
+        state.currencies.loading = false;
+      });
+    } catch (e) {
+      set((state) => {
+        state.currencies.error = (e as Error).message;
+        state.currencies.loading = false;
+      });
+    }
+  },
+
+  deleteCurrency: async (id) => {
+    if (get().currencies.loading) return null;
+    set((state) => {
+      state.currencies.loading = true;
+      state.currencies.error = null;
+    });
+    try {
+      const mode = await currencyService.deleteCurrency(id);
+      if (mode === "hard") {
+        set((state) => {
+          state.currencies.items = state.currencies.items.filter(
+            (c) => c.id !== id,
+          );
+          state.currencies.loading = false;
+        });
+      } else {
+        set((state) => {
+          const i = state.currencies.items.findIndex((c) => c.id === id);
+          if (i !== -1) state.currencies.items[i].active = false;
+          state.currencies.loading = false;
+        });
+      }
+      return mode;
+    } catch (e) {
+      set((state) => {
+        state.currencies.error = (e as Error).message;
+        state.currencies.loading = false;
+      });
+      return null;
+    }
+  },
+
+  bulkDeleteCurrencies: async (ids) => {
+    if (ids.length === 0) return true;
+    if (get().currencies.loading) return false;
+    set((state) => {
+      state.currencies.loading = true;
+      state.currencies.error = null;
+    });
+    try {
+      const { hard, soft } = await currencyService.deleteManyCurrencies(ids);
+      set((state) => {
+        const removed = new Set(hard);
+        const softened = new Set(soft);
+        state.currencies.items = state.currencies.items.filter(
+          (c) => !removed.has(c.id),
+        );
+        for (const c of state.currencies.items) {
+          if (softened.has(c.id)) c.active = false;
+        }
+        state.currencies.loading = false;
+      });
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.currencies.error = (e as Error).message;
+        state.currencies.loading = false;
+      });
+      return false;
+    }
+  },
+
+  reactivateCurrency: async (id) => {
+    if (get().currencies.loading) return;
+    set((state) => {
+      state.currencies.loading = true;
+      state.currencies.error = null;
+    });
+    try {
+      const updated = await currencyService.reactivateCurrency(id);
+      set((state) => {
+        const i = state.currencies.items.findIndex((c) => c.id === id);
+        if (i !== -1) state.currencies.items[i] = updated;
+        state.currencies.loading = false;
+      });
+    } catch (e) {
+      set((state) => {
+        state.currencies.error = (e as Error).message;
+        state.currencies.loading = false;
+      });
+    }
+  },
+
+  clearError: () =>
+    set((state) => {
+      state.currencies.error = null;
+    }),
+  reset: () =>
+    set((state) => {
+      state.currencies.items = [];
+      state.currencies.loaded = false;
+      state.currencies.loading = false;
+      state.currencies.error = null;
+    }),
+});

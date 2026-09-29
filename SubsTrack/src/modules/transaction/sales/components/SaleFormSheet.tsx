@@ -15,11 +15,11 @@ import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import type { Customer, Sale } from "@shared/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useSaleSlice } from "@shared/state/hooks/useSaleSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { formatMoney } from "@shared/core/utils/currency";
-import { confirm } from "@/src/shared/lib/confirm";
-import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import { confirm } from "@shared/shared/lib/confirm";
+import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import {
   SaleItemsEditor,
   type SaleCartDraft,

@@ -30,7 +30,7 @@ import {
   useSelection,
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelection";
-import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { CustomerPicker } from "@/src/modules/customer/customers";
 import { useSendInvoice } from "@/src/modules/invoicing";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
@@ -43,12 +43,12 @@ import type {
   CollectionSortField,
   SortDirection,
 } from "@shared/modules/ledger/repository/ICollectionRepository";
-import type { CollectionStatus } from "@/src/modules/ledger/state/collectionsListStore";
-import { useCollectionsListStore } from "@/src/modules/ledger/state/collectionsListStore";
-import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
-import { useUserSlice } from "@/src/state/hooks/useUserSlice";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import type { CollectionStatus } from "@shared/modules/ledger/state/collectionsListStore";
+import { useCollectionsListStore } from "@shared/modules/ledger/state/collectionsListStore";
+import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
+import { useUserSlice } from "@shared/state/hooks/useUserSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { CollectionCard } from "../components/CollectionCard";
 import { CollectionDetailSheet } from "../components/CollectionDetailSheet";

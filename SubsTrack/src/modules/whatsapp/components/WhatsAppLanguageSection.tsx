@@ -10,7 +10,7 @@ import { CARD_SURFACE } from "@/src/shared/constants";
 import {
   useTenantSettingSlice,
   useWhatsAppLanguage,
-} from "@/src/state/hooks/useTenantSettingSlice";
+} from "@shared/state/hooks/useTenantSettingSlice";
 
 export function WhatsAppLanguageSection() {
   const { t } = useTranslation();

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { confirm } from "@/src/shared/lib/confirm";
-import { useConfirmStore } from "@/src/shared/lib/confirmStore";
+import { confirm } from "@shared/shared/lib/confirm";
+import { useConfirmStore } from "@shared/shared/lib/confirmStore";
 
 // `asking` must switch the caller's own Back handling off — see gotcha #54
 export function useUnsavedChangesGuard(

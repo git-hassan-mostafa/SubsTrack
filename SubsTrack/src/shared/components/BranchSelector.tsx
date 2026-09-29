@@ -10,10 +10,10 @@ import {
   type BranchFilter,
 } from "@shared/core/constants";
 import { COLORS } from "@/src/shared/constants";
-import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
-import { useActiveBranches } from "@/src/modules/admin/branches/hooks/useActiveBranches";
-import { useIsMultiBranchActive } from "@/src/modules/admin/branches/hooks/useIsMultiBranchActive";
+import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
+import { useUiPrefStore } from "@shared/shared/lib/uiPrefStore";
+import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
+import { useIsMultiBranchActive } from "@shared/modules/admin/branches/hooks/useIsMultiBranchActive";
 
 /**
  * Header branch filter chip for tenant-wide admins. Renders on the top-right of

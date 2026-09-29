@@ -12,13 +12,13 @@ import { useTranslation } from "react-i18next";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useExportRows } from "@/src/shared/hooks/useExportRows";
-import { loadAllPages } from "@/src/shared/hooks/loadAllPages";
-import { confirm } from "@/src/shared/lib/confirm";
+import { loadAllPages } from "@shared/shared/hooks/loadAllPages";
+import { confirm } from "@shared/shared/lib/confirm";
 import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
-import { useDebounce } from "@/src/shared/hooks/useDebounce";
+import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import { COLORS } from "@/src/shared/constants";
 import type {
   Collection,
@@ -45,13 +45,13 @@ import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomDebtFormSheet } from "@/src/modules/transaction/debts/components/CustomDebtFormSheet";
 import { useDebtRowActions } from "@/src/modules/transaction/debts/hooks/useDebtRowActions";
 import { useCollectSheet, virtualMonthItem } from "@/src/modules/ledger";
-import { getStore } from "@/src/state/globalStore";
-import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
-import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useAuth } from "../../../authentication/auth/hooks/useAuth";
+import { getStore } from "@shared/state/globalStore";
+import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
+import { usePaymentSlice } from "@shared/state/hooks/usePaymentSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
 import { isBeforeStartDate } from "@shared/modules/customer/customer-payments/utils/monthDueRules";
@@ -67,7 +67,7 @@ import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySl
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
 import { billingMonthLabel } from "@shared/core/utils/billingMonth";
-import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import {
   useSelection,
   useSelectionBackHandler,

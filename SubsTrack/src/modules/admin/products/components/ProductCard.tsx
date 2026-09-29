@@ -11,8 +11,8 @@ import {
 import { Chip } from "@/src/shared/components/Chip";
 import { COLORS } from "@/src/shared/constants";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 
 interface Props {

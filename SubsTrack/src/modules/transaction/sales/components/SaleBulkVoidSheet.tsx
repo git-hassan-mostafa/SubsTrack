@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
+import { useSaleSlice } from "@shared/state/hooks/useSaleSlice";
 import { VoidConfirmDialog } from "@/src/modules/ledger";
 import type { SaleVoidResult } from "@shared/modules/transaction/sales/utils/types";
 

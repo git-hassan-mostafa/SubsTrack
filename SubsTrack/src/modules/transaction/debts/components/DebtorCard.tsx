@@ -8,8 +8,8 @@ import {
   CardTitle,
 } from "@/src/shared/components/CardText";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import type { CustomerDebts } from "@shared/core/types";
 
 interface Props {

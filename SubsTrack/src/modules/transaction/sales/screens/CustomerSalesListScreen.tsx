@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { COLORS } from "@/src/shared/constants";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { useDebounce } from "@/src/shared/hooks/useDebounce";
+import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
   PageHeader,
@@ -28,12 +28,12 @@ import type { Sale } from "@shared/core/types";
 import { SaleCard } from "../components/SaleCard";
 import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
-import { useCustomerSalesList } from "../hooks/useCustomerSalesList";
+import { useCustomerSalesList } from "@shared/modules/transaction/sales/hooks/useCustomerSalesList";
 import type { SaleVoidResult } from "@shared/modules/transaction/sales/utils/types";
 import { useOwedChanged } from "@/src/modules/ledger";
 import { useSaleActions } from "../hooks/useSaleActions";
 import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
-import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
+import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 
 // Full-page list of every sale for a single customer. Reachable from the
 // "Show all" button on CustomerSalesPanel. Mirrors SalesListScreen (search +

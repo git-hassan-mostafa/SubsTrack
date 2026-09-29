@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { COLORS } from "@/src/shared/constants";
 import { useTextField } from "@/src/shared/hooks/useTextField";
-import { useCollectionsListStore } from "@/src/modules/ledger/state/collectionsListStore";
+import { useCollectionsListStore } from "@shared/modules/ledger/state/collectionsListStore";
 
 interface Props {
   collectionIds: string[];

@@ -7,8 +7,8 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { CustomerPicker } from "@/src/modules/customer/customers";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer } from "@shared/core/types";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useCollectSheet } from "../hooks/useCollectSheet";
 
 interface Props {

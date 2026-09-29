@@ -15,14 +15,14 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { FAB } from "@/src/shared/components/FAB";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
-import { useDebounce } from "@/src/shared/hooks/useDebounce";
+import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
-import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import type { CustomerDebts } from "@shared/core/types";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import {
   useCollectSheet,
   useOpenBill,

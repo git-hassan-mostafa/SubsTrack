@@ -4,7 +4,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { COLORS } from "@/src/shared/constants";
 
 export type PaymentMode = "full" | "partial" | "debt";

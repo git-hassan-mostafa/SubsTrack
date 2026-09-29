@@ -14,9 +14,9 @@ import {
   snapshotCurrency,
 } from "@shared/core/utils/currency";
 import { formatDateTime } from "@shared/core/utils/date";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useUserNames } from "@/src/shared/hooks/useUserNames";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { collectionService } from "@shared/modules/ledger/services/CollectionService";
 import { CollectionItemCard } from "./CollectionItemCard";
 

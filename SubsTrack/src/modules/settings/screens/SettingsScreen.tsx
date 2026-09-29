@@ -10,17 +10,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { DropdownModal } from "@/src/shared/components/Dropdown";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
-import { confirm } from "@/src/shared/lib/confirm";
+import { confirm } from "@shared/shared/lib/confirm";
 import {
   useLanguageStore,
   SUPPORTED_LANGUAGES,
   type SupportedLanguage,
 } from "@/src/core/i18n/languageStore";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { endSession } from "@/src/shared/lib/session";
+import { endSession } from "@shared/shared/lib/session";
 import { IS_OFFLINE_CAPABLE, syncNow } from "@/src/core/offline";
 import { useSyncStatus } from "@/src/shared/hooks/useSyncStatus";
-import { refreshActiveData } from "@/src/state/refreshActiveData";
+import { refreshActiveData } from "@shared/state/refreshActiveData";
 
 const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
   en: "English",

@@ -16,8 +16,8 @@ import {
 import type { ExpenseItem } from "@shared/core/types";
 import { findCurrency, snapshotCurrency } from "@shared/core/utils/currency";
 import { outflowLabel } from "@shared/modules/transaction/expenses/utils/outflow";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { formatDate } from "@shared/core/utils/date";
 import { expenseCategoryLabelKey } from "@shared/modules/transaction/expenses/utils/expenseCategories";
 import { expenseCategoryIcon } from "../utils/expenseCategoryIcon";

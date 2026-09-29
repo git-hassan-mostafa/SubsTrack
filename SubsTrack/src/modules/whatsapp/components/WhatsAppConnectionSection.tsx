@@ -8,9 +8,9 @@ import { InfoRows } from "@/src/shared/components/InfoRows";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE } from "@/src/shared/constants";
-import { confirm } from "@/src/shared/lib/confirm";
-import { useWhatsAppSignupOptions } from "@/src/state/hooks/useOptionSlice";
-import { useWhatsAppSlice } from "@/src/state/hooks/useWhatsAppSlice";
+import { confirm } from "@shared/shared/lib/confirm";
+import { useWhatsAppSignupOptions } from "@shared/state/hooks/useOptionSlice";
+import { useWhatsAppSlice } from "@shared/state/hooks/useWhatsAppSlice";
 import { tierLimit } from "@edge/whatsapp/rules";
 import { CONNECT_FROM_PARAM, CONNECT_FROM_WEB } from "@shared/modules/whatsapp/utils/constants";
 

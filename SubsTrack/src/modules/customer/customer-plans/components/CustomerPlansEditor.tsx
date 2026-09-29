@@ -11,11 +11,11 @@ import type {
   RemovedLine,
 } from "@/src/modules/customer/customer-plans";
 import { PlanLineCard, type PlanRow } from "./PlanLineCard";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { getTodayDateString } from "@shared/core/utils/date";
-import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
-import { useCustomerPlanSlice } from "@/src/state/hooks/useCustomerPlanSlice";
-import { confirm } from "@/src/shared/lib/confirm";
+import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
+import { useCustomerPlanSlice } from "@shared/state/hooks/useCustomerPlanSlice";
+import { confirm } from "@shared/shared/lib/confirm";
 import { RemovePlanChoice } from "./RemovePlanChoice";
 import { PlanFormSheet } from "@/src/modules/admin/plans";
 

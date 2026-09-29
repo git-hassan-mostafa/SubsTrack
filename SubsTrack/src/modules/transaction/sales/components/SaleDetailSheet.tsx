@@ -16,8 +16,8 @@ import {
   formatPaidFraction,
   snapshotCurrency,
 } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { formatDate } from "@shared/core/utils/date";
 import { receiptId, saleTitle } from "@shared/core/utils/receiptId";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";

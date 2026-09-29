@@ -15,17 +15,17 @@ import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Dropdown } from "@/src/shared/components/Dropdown";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
-import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { AppTextInput } from "@/src/shared/components/AppTextInput";
 import { useTextField } from "@/src/shared/hooks/useTextField";
-import { useHoldRepeat } from "@/src/shared/hooks/useHoldRepeat";
+import { useHoldRepeat } from "@shared/shared/hooks/useHoldRepeat";
 import { decimalDigitsOnly, digitsOnly } from "@shared/core/utils/inputText";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency, Product } from "@shared/core/types";
 import { convert, findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { useProductSlice } from "@/src/state/hooks/useProductSlice";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useProductSlice } from "@shared/state/hooks/useProductSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 
 interface Props {
   onDismiss: () => void;

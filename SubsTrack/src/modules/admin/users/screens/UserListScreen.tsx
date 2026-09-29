@@ -11,19 +11,19 @@ import { useRouter } from "expo-router";
 import { COLORS } from "@/src/shared/constants";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { confirm } from "@/src/shared/lib/confirm";
+import { confirm } from "@shared/shared/lib/confirm";
 import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
-import { useDebounce } from "@/src/shared/hooks/useDebounce";
+import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import type { AppUser } from "@shared/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { UserCard } from "../components/UserCard";
 import { canEditUser, canManageUser } from "@shared/modules/admin/users/utils/userPermissions";
 import { UserFormSheet } from "../components/UserFormSheet";
-import { useUserSlice } from "@/src/state/hooks/useUserSlice";
+import { useUserSlice } from "@shared/state/hooks/useUserSlice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
   PageHeader,
@@ -32,7 +32,7 @@ import {
 import { FAB } from "@/src/shared/components/FAB";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { useExportRows } from "@/src/shared/hooks/useExportRows";
 import {
   useSelection,

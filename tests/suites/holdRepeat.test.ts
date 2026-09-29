@@ -1,4 +1,4 @@
-import { repeatDelayAfter } from "@/src/shared/hooks/useHoldRepeat";
+import { repeatDelayAfter } from "@shared/shared/hooks/useHoldRepeat";
 
 // TC-HR-* — holding a stepper button repeats the step. The schedule is the only
 // part worth pinning: too slow and a hold feels broken, too fast and the number

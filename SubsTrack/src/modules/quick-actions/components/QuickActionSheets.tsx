@@ -1,4 +1,4 @@
-import { useUiStore } from "@/src/shared/lib/uiStore";
+import { useUiStore } from "@shared/shared/lib/uiStore";
 import { CustomerFormSheet } from "@/src/modules/customer/customers";
 import {
   CollectQuickActionSheet,

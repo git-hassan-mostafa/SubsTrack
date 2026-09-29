@@ -1,0 +1,361 @@
+import type { StateCreator } from "zustand";
+import type { Currency, Product } from "@shared/core/types";
+import productService from "@shared/modules/admin/products/services/ProductService";
+import type { ProductInput, RestockEntry } from "@shared/modules/admin/products/utils/types";
+import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
+import type { GlobalState } from "@shared/state/globalStore";
+import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
+
+export interface ProductSlice {
+  items: Product[];
+  loaded: boolean;
+  loading: boolean;
+  error: string | null;
+  getProducts: () => Promise<void>;
+  fetchProducts: () => Promise<void>;
+  createProduct: (
+    data: ProductInput,
+    tenantId: string,
+    userId?: string | null,
+    costCurrency?: Currency | null,
+  ) => Promise<void>;
+  updateProduct: (id: string, data: ProductInput) => Promise<void>;
+  applyStockDelta: (deltaByProduct: Record<string, number>) => void;
+  addStock: (
+    id: string,
+    tenantId: string,
+    quantity: number,
+    note?: string | null,
+    userId?: string | null,
+    cost?: { unitCost: number | null; currency: Currency | null } | null,
+  ) => Promise<boolean>;
+  updateStockMovement: (
+    movementId: string,
+    input: {
+      quantity: number;
+      note?: string | null;
+      cost?: { unitCost: number | null; currency: Currency | null } | null;
+    },
+  ) => Promise<boolean>;
+  revertStockMovement: (
+    movementId: string,
+    userId?: string | null,
+  ) => Promise<boolean>;
+  batchRestock: (
+    entries: RestockEntry[],
+    tenantId: string,
+    note?: string | null,
+    userId?: string | null,
+    currency?: Currency | null,
+  ) => Promise<boolean>;
+  deleteProduct: (id: string) => Promise<"hard" | "soft" | null>;
+  bulkDeleteProducts: (ids: string[]) => Promise<boolean>;
+  reactivateProduct: (id: string) => Promise<void>;
+  clearError: () => void;
+  reset: () => void;
+}
+
+export const createProductSlice: StateCreator<
+  GlobalState,
+  [["zustand/immer", never]],
+  [],
+  ProductSlice
+> = (set, get) => ({
+  items: [],
+  loaded: false,
+  loading: false,
+  error: null,
+  getProducts: async () => {
+    const { loaded, loading } = get().products;
+    if (loaded || loading) return;
+    await get().products.fetchProducts();
+  },
+  fetchProducts: async () => {
+    const epoch = currentDataEpoch();
+    set((state) => {
+      state.products.loading = true;
+      state.products.error = null;
+    });
+    try {
+      const branchFilter = resolveBranchFilter(get().auth.user);
+      const items = await productService.getProducts(branchFilter);
+      if (isStaleEpoch(epoch)) return;
+      set((state) => {
+        state.products.items = items;
+        state.products.loaded = true;
+        state.products.loading = false;
+      });
+    } catch (e) {
+      if (isStaleEpoch(epoch)) return;
+      set((state) => {
+        state.products.error = (e as Error).message;
+        state.products.loading = false;
+      });
+    }
+  },
+
+  createProduct: async (data, tenantId, userId, costCurrency = null) => {
+    set((state) => {
+      state.products.loading = true;
+      state.products.error = null;
+    });
+    try {
+      const product = await productService.createProduct(
+        data,
+        tenantId,
+        userId ?? get().auth.user?.id ?? null,
+        costCurrency,
+      );
+      set((state) => {
+        state.products.items.unshift(product);
+        state.products.loading = false;
+      });
+    } catch (e) {
+      set((state) => {
+        state.products.error = (e as Error).message;
+        state.products.loading = false;
+      });
+    }
+  },
+
+  updateProduct: async (id, data) => {
+    set((state) => {
+      state.products.loading = true;
+      state.products.error = null;
+    });
+    try {
+      const updated = await productService.updateProduct(id, data);
+      set((state) => {
+        const i = state.products.items.findIndex((p) => p.id === id);
+        if (i !== -1) state.products.items[i] = updated;
+        state.products.loading = false;
+      });
+    } catch (e) {
+      set((state) => {
+        state.products.error = (e as Error).message;
+        state.products.loading = false;
+      });
+    }
+  },
+
+  applyStockDelta: (deltaByProduct) =>
+    set((state) => {
+      for (const p of state.products.items) {
+        const delta = deltaByProduct[p.id];
+        if (delta) p.stockOnHand += delta;
+      }
+    }),
+
+  addStock: async (
+    id,
+    tenantId,
+    quantity,
+    note = null,
+    userId = null,
+    cost = null,
+  ) => {
+    set((state) => {
+      state.products.loading = true;
+      state.products.error = null;
+    });
+    try {
+      const onHand = await productService.addStock(
+        id,
+        tenantId,
+        quantity,
+        note,
+        userId,
+        cost,
+      );
+      set((state) => {
+        const i = state.products.items.findIndex((p) => p.id === id);
+        if (i !== -1) state.products.items[i].stockOnHand = onHand;
+        state.products.loading = false;
+      });
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.products.error = (e as Error).message;
+        state.products.loading = false;
+      });
+      return false;
+    }
+  },
+
+  updateStockMovement: async (movementId, input) => {
+    set((state) => {
+      state.products.loading = true;
+      state.products.error = null;
+    });
+    try {
+      const { movement, onHand } = await productService.updateMovement(
+        movementId,
+        input,
+      );
+      set((state) => {
+        const i = state.products.items.findIndex(
+          (p) => p.id === movement.productId,
+        );
+        if (i !== -1) state.products.items[i].stockOnHand = onHand;
+        state.products.loading = false;
+      });
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.products.error = (e as Error).message;
+        state.products.loading = false;
+      });
+      return false;
+    }
+  },
+
+  revertStockMovement: async (movementId, userId = null) => {
+    set((state) => {
+      state.products.loading = true;
+      state.products.error = null;
+    });
+    try {
+      const { productId, onHand } = await productService.revertMovement(
+        movementId,
+        userId,
+      );
+      set((state) => {
+        const i = state.products.items.findIndex((p) => p.id === productId);
+        if (i !== -1) state.products.items[i].stockOnHand = onHand;
+        state.products.loading = false;
+      });
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.products.error = (e as Error).message;
+        state.products.loading = false;
+      });
+      return false;
+    }
+  },
+
+  batchRestock: async (
+    entries,
+    tenantId,
+    note = null,
+    userId = null,
+    currency = null,
+  ) => {
+    if (entries.length === 0) return true;
+    set((state) => {
+      state.products.loading = true;
+      state.products.error = null;
+    });
+    try {
+      const onHand = await productService.restockMany(
+        entries,
+        tenantId,
+        note,
+        userId,
+        currency,
+      );
+      set((state) => {
+        for (const p of state.products.items) {
+          if (p.id in onHand) p.stockOnHand = onHand[p.id];
+        }
+        state.products.loading = false;
+      });
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.products.error = (e as Error).message;
+        state.products.loading = false;
+      });
+      return false;
+    }
+  },
+
+  deleteProduct: async (id) => {
+    set((state) => {
+      state.products.loading = true;
+      state.products.error = null;
+    });
+    try {
+      const mode = await productService.deleteProduct(id);
+      set((state) => {
+        if (mode === "hard") {
+          state.products.items = state.products.items.filter(
+            (p) => p.id !== id,
+          );
+        } else {
+          const i = state.products.items.findIndex((p) => p.id === id);
+          if (i !== -1) state.products.items[i].active = false;
+        }
+        state.products.loading = false;
+      });
+      return mode;
+    } catch (e) {
+      set((state) => {
+        state.products.error = (e as Error).message;
+        state.products.loading = false;
+      });
+      return null;
+    }
+  },
+
+  bulkDeleteProducts: async (ids) => {
+    if (ids.length === 0) return true;
+    set((state) => {
+      state.products.loading = true;
+      state.products.error = null;
+    });
+    try {
+      const { hard, soft } = await productService.deleteManyProducts(ids);
+      set((state) => {
+        const removed = new Set(hard);
+        const softened = new Set(soft);
+        state.products.items = state.products.items.filter(
+          (p) => !removed.has(p.id),
+        );
+        for (const p of state.products.items) {
+          if (softened.has(p.id)) p.active = false;
+        }
+        state.products.loading = false;
+      });
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.products.error = (e as Error).message;
+        state.products.loading = false;
+      });
+      return false;
+    }
+  },
+
+  reactivateProduct: async (id) => {
+    set((state) => {
+      state.products.loading = true;
+      state.products.error = null;
+    });
+    try {
+      const updated = await productService.reactivateProduct(id);
+      set((state) => {
+        const i = state.products.items.findIndex((p) => p.id === id);
+        if (i !== -1) state.products.items[i] = updated;
+        state.products.loading = false;
+      });
+    } catch (e) {
+      set((state) => {
+        state.products.error = (e as Error).message;
+        state.products.loading = false;
+      });
+    }
+  },
+
+  clearError: () =>
+    set((state) => {
+      state.products.error = null;
+    }),
+  reset: () =>
+    set((state) => {
+      state.products.items = [];
+      state.products.loaded = false;
+      state.products.loading = false;
+      state.products.error = null;
+    }),
+});

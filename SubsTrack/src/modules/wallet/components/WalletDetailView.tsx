@@ -35,8 +35,8 @@ import {
 import { COLORS } from "@/src/shared/constants";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { formatDate } from "@shared/core/utils/date";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { CollectionDetailSheet } from "@/src/modules/ledger/components/CollectionDetailSheet";
 import type {
   UserWalletDetail,

@@ -11,11 +11,11 @@ import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import type { Service } from "@shared/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { useServiceSlice } from "@/src/state/hooks/useServiceSlice";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useServiceSlice } from "@shared/state/hooks/useServiceSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useActiveBranches } from "@/src/modules/admin/branches";
-import { getStore } from "@/src/state/globalStore";
-import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import { getStore } from "@shared/state/globalStore";
+import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 
 interface Props {
   service?: Service | null;

@@ -2,10 +2,10 @@ import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Charge, Collection, Sale } from "@shared/core/types";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
-import { confirm } from "@/src/shared/lib/confirm";
-import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import { confirm } from "@shared/shared/lib/confirm";
+import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import {
   buildBillInvoiceText,
   buildCollectionInvoiceText,

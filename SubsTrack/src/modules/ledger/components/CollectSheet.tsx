@@ -12,13 +12,13 @@ import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { CARD_SURFACE } from "@/src/shared/constants";
-import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import type { AllocationLine, OpenItem } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { dayToInstantIso, getNowDateTimeString } from "@shared/core/utils/date";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import {
   fundedPlans,
   groupKey,

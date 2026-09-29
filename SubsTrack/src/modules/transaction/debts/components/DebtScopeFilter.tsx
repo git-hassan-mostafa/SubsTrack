@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { PillTabs, type PillTab } from "@/src/shared/components/PillTabs";
-import type { DebtScope } from "../hooks/useWrittenOffDebts";
+import type { DebtScope } from "@shared/modules/transaction/debts/hooks/useWrittenOffDebts";
 
 interface Props {
   value: DebtScope;

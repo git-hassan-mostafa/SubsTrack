@@ -7,7 +7,7 @@ import { COLORS } from "@/src/shared/constants";
 import { useTranslation } from "react-i18next";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
 import { SheetDragArea } from "./SheetDragArea";
-import { confirm } from "@/src/shared/lib/confirm";
+import { confirm } from "@shared/shared/lib/confirm";
 
 // "default" — full-width form field with label, used inside form sheets.
 // "chip"    — compact fit-content pill, used in filter bars alongside other chips.

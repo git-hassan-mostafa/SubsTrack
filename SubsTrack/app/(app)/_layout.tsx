@@ -1,5 +1,5 @@
 import { Redirect, Slot } from "expo-router";
-import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
+import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
 import { TenantInactiveScreen } from "@/src/modules/authentication/auth";
 import { LoadingScreen } from "@/src/shared/components/LoadingScreen";
 import GlobalConfirmDialog from "@/src/shared/components/GlobalConfirmDialog";

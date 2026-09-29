@@ -18,10 +18,10 @@ import type {
   Service,
 } from "@shared/core/types";
 import { convert, findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useProductSlice } from "@/src/state/hooks/useProductSlice";
-import { useServiceSlice } from "@/src/state/hooks/useServiceSlice";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useProductSlice } from "@shared/state/hooks/useProductSlice";
+import { useServiceSlice } from "@shared/state/hooks/useServiceSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useUiPrefStore } from "@shared/shared/lib/uiPrefStore";
 import { ProductFormSheet } from "@/src/modules/admin/products";
 import { ServiceFormSheet } from "@/src/modules/admin/service-catalog";
 import { lineQuantity } from "@shared/modules/transaction/sales/utils/saleLines";

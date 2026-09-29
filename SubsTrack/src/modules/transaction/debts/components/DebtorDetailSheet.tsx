@@ -13,13 +13,13 @@ import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import { COLORS } from "@/src/shared/constants";
 import type { CustomerDebts, OpenItem } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 import {
   useWrittenOffDebts,
   type DebtScope,
-} from "../hooks/useWrittenOffDebts";
+} from "@shared/modules/transaction/debts/hooks/useWrittenOffDebts";
 import { DebtScopeFilter } from "./DebtScopeFilter";
 import { DebtList } from "./DebtList";
 import { CustomDebtFormSheet } from "./CustomDebtFormSheet";

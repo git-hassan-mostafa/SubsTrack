@@ -15,13 +15,13 @@ import {
   type DropdownOption,
 } from "@/src/shared/components/Dropdown";
 import { COLORS } from "@/src/shared/constants";
-import { useDebounce } from "@/src/shared/hooks/useDebounce";
+import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 import type { ChargeKind, DebtsView, OpenItem } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import {
   DEFAULT_ALL_DEBTS_FILTERS,
@@ -33,8 +33,8 @@ import {
   type AllDebtsSort,
   type AllDebtsStatus,
 } from "@shared/modules/transaction/debts/utils/allDebtsFilter";
-import { useAllWrittenOffDebts } from "../hooks/useAllWrittenOffDebts";
-import type { DebtScope } from "../hooks/useWrittenOffDebts";
+import { useAllWrittenOffDebts } from "@shared/modules/transaction/debts/hooks/useAllWrittenOffDebts";
+import type { DebtScope } from "@shared/modules/transaction/debts/hooks/useWrittenOffDebts";
 import { DebtItemCard } from "./DebtItemCard";
 
 interface Props {

@@ -12,11 +12,11 @@ import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import type { Product } from "@shared/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { useProductSlice } from "@/src/state/hooks/useProductSlice";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useProductSlice } from "@shared/state/hooks/useProductSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useActiveBranches } from "@/src/modules/admin/branches";
-import { getStore } from "@/src/state/globalStore";
-import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import { getStore } from "@shared/state/globalStore";
+import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 
 interface Props {
   product?: Product | null;

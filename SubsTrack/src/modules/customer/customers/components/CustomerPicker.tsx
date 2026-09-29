@@ -5,7 +5,7 @@ import {
   type AsyncEntityPickerTriggerStyle,
 } from "@/src/shared/components/AsyncEntityPicker";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
+import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
 import customerService from "@shared/modules/customer/customers/services/CustomerService";
 
 interface CustomerPickerProps {

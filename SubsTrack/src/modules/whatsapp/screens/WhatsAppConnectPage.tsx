@@ -7,9 +7,9 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
-import { useOptionSlice, useWhatsAppSignupOptions } from "@/src/state/hooks/useOptionSlice";
+import { useOptionSlice, useWhatsAppSignupOptions } from "@shared/state/hooks/useOptionSlice";
 import { GRAPH_VERSION } from "@edge/whatsapp/rules";
-import { useConnectStore } from "../state/connectStore";
+import { useConnectStore } from "@shared/modules/whatsapp/state/connectStore";
 import { CONNECT_FROM_WEB } from "@shared/modules/whatsapp/utils/constants";
 
 const SDK_URL = "https://connect.facebook.net/en_US/sdk.js";

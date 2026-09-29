@@ -17,7 +17,7 @@ import { FAB } from "@/src/shared/components/FAB";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useExportRows } from "@/src/shared/hooks/useExportRows";
 import { EmptyState } from "@/src/shared/components/EmptyState";
-import { confirm } from "@/src/shared/lib/confirm";
+import { confirm } from "@shared/shared/lib/confirm";
 import {
   ActionMenu,
   type ActionMenuItem,
@@ -28,7 +28,7 @@ import {
 } from "@/src/shared/hooks/useSelection";
 import type { Branch } from "@shared/core/types";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
-import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
+import { useBranchSlice } from "@shared/state/hooks/useBranchSlice";
 import { BranchCard } from "../components/BranchCard";
 import { BranchFormSheet } from "../components/BranchFormSheet";
 

@@ -8,15 +8,15 @@ import { InfoRows } from "@/src/shared/components/InfoRows";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
-import { useUserNames } from "@/src/shared/hooks/useUserNames";
+import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import {
   findCurrency,
   formatMoney,
   snapshotCurrency,
 } from "@shared/core/utils/currency";
 import { formatDateTime } from "@shared/core/utils/date";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
 import {
   collectionService,

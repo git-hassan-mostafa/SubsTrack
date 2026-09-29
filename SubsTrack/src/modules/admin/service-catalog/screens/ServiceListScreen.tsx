@@ -9,14 +9,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { COLORS } from "@/src/shared/constants";
-import { confirm } from "@/src/shared/lib/confirm";
+import { confirm } from "@shared/shared/lib/confirm";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
-import { useDebounce } from "@/src/shared/hooks/useDebounce";
+import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
   PageHeader,
@@ -25,7 +25,7 @@ import {
 import { FAB } from "@/src/shared/components/FAB";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { useExportRows } from "@/src/shared/hooks/useExportRows";
 import {
   useSelection,
@@ -35,7 +35,7 @@ import type { Service } from "@shared/core/types";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { ServiceCard } from "../components/ServiceCard";
 import { ServiceFormSheet } from "../components/ServiceFormSheet";
-import { useServiceSlice } from "@/src/state/hooks/useServiceSlice";
+import { useServiceSlice } from "@shared/state/hooks/useServiceSlice";
 
 export function ServiceListScreen() {
   const { t } = useTranslation();

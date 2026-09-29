@@ -1,4 +1,4 @@
-import { mergeCollection } from "@/src/state/slices/payments/utils/mergeCollection";
+import { mergeCollection } from "@shared/state/slices/payments/utils/mergeCollection";
 import { bill, charge, collection, collectionItem } from "../helpers/factories";
 
 // TC-MC-* — patching the month grid from the row a write returned, instead of

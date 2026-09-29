@@ -6,11 +6,11 @@ import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
-import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
-import { confirm } from "@/src/shared/lib/confirm";
+import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
+import { confirm } from "@shared/shared/lib/confirm";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { useBillingSlice } from "@/src/state/hooks/useBillingSlice";
-import { useSupportWhatsAppNumber } from "@/src/state/hooks/useOptionSlice";
+import { useBillingSlice } from "@shared/state/hooks/useBillingSlice";
+import { useSupportWhatsAppNumber } from "@shared/state/hooks/useOptionSlice";
 import { openWhatsApp } from "@/src/shared/lib/whatsapp";
 import billingService from "@shared/modules/admin/billing/services/BillingService";
 import {

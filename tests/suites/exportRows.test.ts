@@ -1,5 +1,5 @@
 import { toCsv } from "@shared/shared/lib/csv";
-import { loadAllPages } from "@/src/shared/hooks/loadAllPages";
+import { loadAllPages } from "@shared/shared/hooks/loadAllPages";
 import {
   cell,
   fieldsOf,

@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { COLORS } from "@/src/shared/constants";
-import { useUiStore } from "@/src/shared/lib/uiStore";
-import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
+import { useUiStore } from "@shared/shared/lib/uiStore";
+import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
 import { PressableOpacity } from "./PressableOpacity";
 import { ActionMenu, type ActionMenuItem } from "./ActionMenu";
 

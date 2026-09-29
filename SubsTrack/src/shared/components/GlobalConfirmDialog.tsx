@@ -1,4 +1,4 @@
-import { useConfirmStore } from "@/src/shared/lib/confirmStore";
+import { useConfirmStore } from "@shared/shared/lib/confirmStore";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 export default function GlobalConfirmDialog() {

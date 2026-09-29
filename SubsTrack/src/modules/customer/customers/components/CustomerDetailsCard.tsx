@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
-import { confirm } from "@/src/shared/lib/confirm";
+import { confirm } from "@shared/shared/lib/confirm";
 import { copyText } from "@/src/shared/lib/clipboard";
 import { openLocation } from "@/src/shared/lib/maps";
 import type { Customer } from "@shared/core/types";
@@ -13,9 +13,9 @@ import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { buildPortalLink } from "@shared/core/utils/portalLink";
 import { isolate } from "@shared/core/utils/bidi";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
-import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
-import { useCustomerPortalUrl } from "@/src/state/hooks/useOptionSlice";
+import { useBranchSlice } from "@shared/state/hooks/useBranchSlice";
+import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
+import { useCustomerPortalUrl } from "@shared/state/hooks/useOptionSlice";
 
 interface CustomerDetailsCardProps {
   customer: Customer;

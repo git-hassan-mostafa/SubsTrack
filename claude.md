@@ -59,11 +59,11 @@ matching `docs/` file. Dev phase: architecture + DB schema are open to change.
    `paid` counter. Correcting cash = void the collection, never edit an amount
    (Correct amount = void + re-record, gotcha #171).
    8c. **Everything keys off MONEY, never off a row existing** (gotcha #106).
-9. Cross-module state → global Zustand store (`src/state/slices/`). Slices import
+9. Cross-module state → global Zustand store (`Shared/src/state/slices/`). Slices import
    peer-slice **types** only, never their creators/hooks; cross-slice reads via
    `get().<otherSlice>` inside actions. Caller-supplied data (allowance, counts,
    currency) flows in as parameters from the component. Single-module state →
-   **module store** under `src/modules/<module>/state/`, kept out of `GlobalState`.
+   **module store** under `Shared/src/modules/<module>/state/`, kept out of `GlobalState`.
 10. All errors caught and stored in state — never surface raw Supabase messages.
 11. There are exactly **two quantity limits**, both on `tenants`:
     `customer_allowance` (active customers) and `plan_allowance` (active service
@@ -222,7 +222,7 @@ Presentation → State → Business Logic → Repository → Database
 
 - **L1 Presentation** — screens, UI components, UI-only hooks. Read store state,
   dispatch store actions. Zero business logic, zero direct Supabase calls.
-- **L2 State** — Zustand slices (`src/state/slices/`) + immer. Hold data +
+- **L2 State** — Zustand slices (`Shared/src/state/slices/`) + immer. Hold data +
   `loading`/`error`/`quotaError`. Async actions call **services, never
   repositories**. Components read via per-slice hooks **always with a selector**.
 - **L3 Services** — pure TS classes. No React, no Supabase. All validation,
@@ -282,11 +282,11 @@ read-through cache so the app boots offline after the first online login.
   via `useOwedChanged(reload)`. Never subscribe a screen that writes in a loop.
 - **"Ensure loaded" actions guard on a `loaded` flag, never `items.length`.**
 - Two intentional persist-middleware exceptions kept out of the global store:
-  `shared/lib/uiPrefStore.ts` (last-used currency, `currentBranchId`) and
-  `core/i18n/languageStore.ts` (en/ar). The **display currency is NOT here** — it
+  `Shared/src/shared/lib/uiPrefStore.ts` (last-used currency, `currentBranchId`) and
+  `SubsTrack/src/core/i18n/languageStore.ts` (en/ar). The **display currency is NOT here** — it
   belongs to the organization, so it lives in `tenant_settings`
   (`useDisplayCurrencyId`). `confirm` and `ui` are app-wide seams with no owning
-  module and live in `src/shared/lib/`.
+  module and live in `Shared/src/shared/lib/`.
 
 ---
 

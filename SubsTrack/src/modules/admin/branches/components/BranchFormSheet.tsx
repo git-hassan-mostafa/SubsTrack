@@ -9,9 +9,9 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useAuth } from "@/src/modules/authentication/auth";
 import type { Branch } from "@shared/core/types";
-import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
-import { getStore } from "@/src/state/globalStore";
-import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import { useBranchSlice } from "@shared/state/hooks/useBranchSlice";
+import { getStore } from "@shared/state/globalStore";
+import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 
 interface Props {
   branch?: Branch | null;

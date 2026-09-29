@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Text } from "./Text";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency } from "@shared/core/types";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useUiPrefStore } from "@shared/shared/lib/uiPrefStore";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
 import { SheetDragArea } from "./SheetDragArea";
 import { AppTextInput } from "./AppTextInput";

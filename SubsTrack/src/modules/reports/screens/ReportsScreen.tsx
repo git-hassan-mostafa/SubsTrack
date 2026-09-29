@@ -11,12 +11,12 @@ import {
   SegmentedTabs,
   type Segment,
 } from "@/src/shared/components/SegmentedTabs";
-import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { findCurrency } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useReportsStore } from "@/src/modules/reports/state/reportsStore";
-import type { ReportSection as SectionKey } from "@/src/modules/reports/state/reportsStore";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useReportsStore } from "@shared/modules/reports/state/reportsStore";
+import type { ReportSection as SectionKey } from "@shared/modules/reports/state/reportsStore";
 import { ReportSection } from "../components/ReportSection";
 import { MoneyReport } from "./sections/MoneyReport";
 import { DebtsReport } from "./sections/DebtsReport";

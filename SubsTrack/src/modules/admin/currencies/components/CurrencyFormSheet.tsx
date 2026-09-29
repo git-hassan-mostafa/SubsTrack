@@ -14,9 +14,9 @@ import {
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useAuth } from "@/src/modules/authentication/auth";
 import type { Currency } from "@shared/core/types";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { getStore } from "@/src/state/globalStore";
-import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { getStore } from "@shared/state/globalStore";
+import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 
 interface Props {
   currency?: Currency | null;
