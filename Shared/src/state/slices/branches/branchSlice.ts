@@ -12,11 +12,12 @@ export interface BranchSlice {
   error: string | null;
   getBranches: () => Promise<void>;
   fetchBranches: () => Promise<void>;
-  createBranch: (data: BranchInput, tenantId: string) => Promise<void>;
-  updateBranch: (id: string, data: BranchInput) => Promise<void>;
+  createBranch: (data: BranchInput, tenantId: string) => Promise<Branch | null>;
+  updateBranch: (id: string, data: BranchInput) => Promise<Branch | null>;
   deleteBranch: (id: string) => Promise<"hard" | "soft" | null>;
   bulkDeleteBranches: (ids: string[]) => Promise<boolean>;
-  reactivateBranch: (id: string) => Promise<void>;
+  deactivateBranch: (id: string) => Promise<Branch | null>;
+  reactivateBranch: (id: string) => Promise<Branch | null>;
   clearError: () => void;
   reset: () => void;
 }
@@ -62,7 +63,7 @@ export const createBranchSlice: StateCreator<
   },
 
   createBranch: async (data, tenantId) => {
-    if (get().branches.loading) return;
+    if (get().branches.loading) return null;
     set((state) => {
       state.branches.loading = true;
       state.branches.error = null;
@@ -73,16 +74,18 @@ export const createBranchSlice: StateCreator<
         state.branches.items.push(branch);
         state.branches.loading = false;
       });
+      return branch;
     } catch (e) {
       set((state) => {
         state.branches.error = (e as Error).message;
         state.branches.loading = false;
       });
+      return null;
     }
   },
 
   updateBranch: async (id, data) => {
-    if (get().branches.loading) return;
+    if (get().branches.loading) return null;
     set((state) => {
       state.branches.loading = true;
       state.branches.error = null;
@@ -94,11 +97,13 @@ export const createBranchSlice: StateCreator<
         if (i !== -1) state.branches.items[i] = updated;
         state.branches.loading = false;
       });
+      return updated;
     } catch (e) {
       set((state) => {
         state.branches.error = (e as Error).message;
         state.branches.loading = false;
       });
+      return null;
     }
   },
 
@@ -164,8 +169,31 @@ export const createBranchSlice: StateCreator<
     }
   },
 
+  deactivateBranch: async (id) => {
+    if (get().branches.loading) return null;
+    set((state) => {
+      state.branches.loading = true;
+      state.branches.error = null;
+    });
+    try {
+      const updated = await branchService.deactivateBranch(id);
+      set((state) => {
+        const i = state.branches.items.findIndex((b) => b.id === id);
+        if (i !== -1) state.branches.items[i] = updated;
+        state.branches.loading = false;
+      });
+      return updated;
+    } catch (e) {
+      set((state) => {
+        state.branches.error = (e as Error).message;
+        state.branches.loading = false;
+      });
+      return null;
+    }
+  },
+
   reactivateBranch: async (id) => {
-    if (get().branches.loading) return;
+    if (get().branches.loading) return null;
     set((state) => {
       state.branches.loading = true;
       state.branches.error = null;
@@ -177,11 +205,13 @@ export const createBranchSlice: StateCreator<
         if (i !== -1) state.branches.items[i] = updated;
         state.branches.loading = false;
       });
+      return updated;
     } catch (e) {
       set((state) => {
         state.branches.error = (e as Error).message;
         state.branches.loading = false;
       });
+      return null;
     }
   },
 

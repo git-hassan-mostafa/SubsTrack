@@ -64,7 +64,7 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 | 4.3 | Busy                       | Confirm on a slow network                                    | Confirm button spins; Cancel, Esc and outside clicks do nothing until it finishes     |
 | 4.4 | Screen reader              | Open with a screen reader                                    | Announced as an alert dialog with its title and message                               |
 
-## 5. Form dialog (tested from B3 on, first used by Branches)
+## 5. Form dialog (run on the Branches form, [branches.md](branches.md) §4)
 
 | #   | Scenario                        | Steps                                                  | Expected result                                                                                     |
 | --- | ------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |

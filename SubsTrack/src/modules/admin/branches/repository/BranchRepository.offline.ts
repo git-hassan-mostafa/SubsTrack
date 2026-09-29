@@ -1,15 +1,13 @@
+import type { Page } from "@shared/core/types";
 import type { DbBranch } from "@shared/core/types/db";
+import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
+import type { BranchPageQuery } from "@shared/modules/admin/branches/utils/types";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@shared/core/utils/ids";
 import type { IBranchRepository } from "@shared/modules/admin/branches/repository/IBranchRepository";
 
-/**
- * SQLite-backed Branch repository. Reads from the local mirror; writes mutate
- * the mirror and flag the row `_dirty` (hard deletes are logged in
- * `pending_deletes`) so the next sync pushes them. Returns the same `DbBranch`
- * shapes as the Supabase repository.
- */
+// The local mirror's branches; same DbBranch shapes as Supabase — see docs/offline.md.
 export class OfflineBranchRepository
   extends OfflineBaseRepository
   implements IBranchRepository
@@ -19,6 +17,29 @@ export class OfflineBranchRepository
       "SELECT * FROM branches ORDER BY active DESC, name ASC",
     );
     return this.decodeAll<DbBranch>("branches", rows);
+  }
+
+  async findPage(query: BranchPageQuery): Promise<Page<DbBranch>> {
+    const clauses: string[] = [];
+    const params: unknown[] = [];
+    const term = sanitizeSearchTerm(query.search);
+    if (term) {
+      clauses.push("name LIKE ? COLLATE NOCASE");
+      params.push(`%${term}%`);
+    }
+    if (query.status !== "all") {
+      clauses.push("active = ?");
+      params.push(query.status === "active" ? 1 : 0);
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    const [rows, total] = await Promise.all([
+      this.all(
+        `SELECT * FROM branches ${where} ORDER BY active DESC, name ASC, id ASC LIMIT ? OFFSET ?`,
+        [...params, query.limit, query.offset],
+      ),
+      this.count(`SELECT COUNT(*) AS n FROM branches ${where}`, params),
+    ]);
+    return { rows: this.decodeAll<DbBranch>("branches", rows), total };
   }
 
   async create(

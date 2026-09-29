@@ -10,7 +10,6 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import type { Branch } from "@shared/core/types";
 import { useBranchSlice } from "@shared/state/hooks/useBranchSlice";
-import { getStore } from "@shared/state/globalStore";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 
 interface Props {
@@ -38,18 +37,15 @@ export function BranchFormSheet({ branch, onDismiss, onRequestDelete }: Props) {
 
   async function handleSubmit() {
     if (!user) return;
-    if (branch) {
-      await updateBranch(branch.id, { name });
-    } else {
-      await createBranch({ name }, user.tenantId);
-    }
-    if (!getStore().getState().branches.error) onDismiss();
+    const saved = branch
+      ? await updateBranch(branch.id, { name })
+      : await createBranch({ name }, user.tenantId);
+    if (saved) onDismiss();
   }
 
   async function handleReactivate() {
     if (!branch) return;
-    await reactivateBranch(branch.id);
-    if (!getStore().getState().branches.error) onDismiss();
+    if (await reactivateBranch(branch.id)) onDismiss();
   }
 
   const submitDisabled = !name.trim() || loading;

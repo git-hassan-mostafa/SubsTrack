@@ -26,12 +26,12 @@ export const router = createBrowserRouter([
             element: <AppFrame />,
             children: [
               { index: true, element: <LandingRedirect /> },
-              ...APP_PAGES.map((page) => ({
-                path: page.path,
-                handle: { titleKey: page.titleKey } satisfies PageHandle,
+              ...APP_PAGES.map(({ path, titleKey, access, component: Page = ComingSoonPage }) => ({
+                path,
+                handle: { titleKey } satisfies PageHandle,
                 element: (
-                  <RequireAccess access={page.access}>
-                    <ComingSoonPage />
+                  <RequireAccess access={access}>
+                    <Page />
                   </RequireAccess>
                 ),
               })),

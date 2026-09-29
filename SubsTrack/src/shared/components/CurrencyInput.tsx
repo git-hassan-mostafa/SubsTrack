@@ -11,17 +11,11 @@ import { BottomSheetScaffold } from "./BottomSheetScaffold";
 import { SheetDragArea } from "./SheetDragArea";
 import { AppTextInput } from "./AppTextInput";
 import { useTextField } from "@/src/shared/hooks/useTextField";
-import { decimalDigitsOnly } from "@shared/core/utils/inputText";
-
-function amountText(amount: number | null): string {
-  return amount != null ? String(amount) : "";
-}
-
-function parseAmount(text: string): number | null {
-  if (text === "" || text === ".") return null;
-  const parsed = parseFloat(text);
-  return Number.isFinite(parsed) ? parsed : null;
-}
+import {
+  amountText,
+  decimalDigitsOnly,
+  parseAmount,
+} from "@shared/core/utils/inputText";
 
 interface CurrencyInputProps {
   label?: string;
@@ -40,12 +34,7 @@ interface CurrencyInputProps {
   onFocus?: () => void;
 }
 
-// CurrencyInput combines a numeric input with an embedded currency picker.
-// Amount and currency are stored AS-TYPED — no silent unit conversion.
-//
-// Defaults the selected currency to the user's `lastUsedCurrencyId` from
-// `uiPrefStore` on first mount (when no `currencyId` is provided by caller),
-// then writes back to the store whenever the user picks a different currency.
+// Amount and currency stay AS TYPED, never converted; defaults to the last used.
 export function CurrencyInput({
   label,
   labelAction,

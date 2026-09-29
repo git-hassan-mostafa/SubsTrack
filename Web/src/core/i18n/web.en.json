@@ -7,5 +7,23 @@
   "not_found_message": "This page does not exist.",
   "go_home": "Go to the start page",
   "main_navigation": "Main menu",
-  "open_navigation": "Open menu"
+  "open_navigation": "Open menu",
+  "filter_all": "All",
+  "status": "Status",
+  "period": "Period",
+  "from_date": "From",
+  "to_date": "To",
+  "table": {
+    "actions": "Actions",
+    "actions_for": "Actions for {{name}}",
+    "clear_selection": "Clear selection",
+    "no_results_hint": "Try another search or clear the filters.",
+    "export_this_page": "Only this page ({{count}})",
+    "export_all": "All matching rows ({{count}})"
+  },
+  "branches": {
+    "add": "Add branch",
+    "search": "Search branches",
+    "empty_hint": "Add your first branch to get started."
+  }
 }

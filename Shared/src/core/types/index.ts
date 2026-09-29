@@ -921,3 +921,14 @@ export interface WhatsAppQueueResult {
   queued: number;
   skipped: { customerId: string; reason: WhatsAppSkipReason }[];
 }
+
+// One page of a server-paged list plus the size of the whole filtered list.
+export interface Page<T> {
+  rows: T[];
+  total: number;
+}
+
+export interface PageWindow {
+  offset: number;
+  limit: number;
+}

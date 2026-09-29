@@ -35,6 +35,20 @@ Moved out of CLAUDE.md. Read before touching a bottom sheet, a list card,
 
 ---
 
+## Web tables (`Web/`)
+
+One component, `DataTable` ([DataTable.tsx](Web/src/shared/table/DataTable.tsx)), for every list; [BranchesPage.tsx](Web/src/modules/admin/branches/BranchesPage.tsx) is the reference. QA: [QA/web/branches.md](QA/web/branches.md).
+
+- **Server paging only.** The table gets one page of `rows` and the filtered `total` from a paged store (`Web/src/state/createPagedStore.ts`). Page sizes 25 / 50 / 100 (the free Data Grid's cap is 100). Column sorting, the column menu, filters, the column picker and column resizing are all off: the order is the server's, and a client sort over one page would lie.
+- **Toolbar**: `SearchField` (owns the typed text, sends it after a 300 ms pause) · the page's filter controls · the CSV icon · the "Add" button. The query lives in the store, so leaving the page and coming back keeps the search, filter and page.
+- **Row actions**: a ⋮ menu per row (`RowActionsMenu`), items are `TableAction`s ordered by Shared `sortActions` — the same bands as the phone's `ActionMenu`. The record's name opens Edit (a link button in its cell); a plain row click does nothing.
+- **Selection**: checkboxes only when the page passes `bulkActions`; ticking rows swaps the toolbar for the bulk bar (count, actions, X). Header tick = this page only. A new page of rows (page change, search, any reload after a write) drops the selection.
+- **Empty states**: "no data yet" (title, hint, the Add button) vs "no results" (hint + Clear filters) — the page says which through `filtered`. Nothing shows until the first load finished (`loaded`), so the empty message never flashes.
+- **Errors**: a failed read shows an `ErrorBanner` with **Try again**; a failed write shows the slice's error above the table (or inside the form dialog while it is open).
+- **CSV**: admins only, like the phone. Rows go through Shared `toExportTable()` (the phone's export uses the same helper). With more rows than the page, the icon asks "Only this page" or "All matching rows"; "all" reads the list to its end with Shared `readAllPages()` in pages of 500.
+- **History**: `useRecordHistoryAction(table)` gives the row action and the dialog (Shared `useRecordHistory` + the audit sentence builder); non-admins see "Admins only".
+- **Inputs** in `Web/src/shared/components/`: `CurrencyInput` (amount + currency, as typed, null = USD, last-used default), `DateField` (the phone picker's `"YYYY-MM-DD"` / `"YYYY-MM-DD HH:mm"` strings), `PeriodPicker` (Shared presets), `EntityPicker` (server-search `Autocomplete`; pass a stable `search` function), `StatusChip` (the phone Chip's tones), `InfoRows`, `EmptyState`.
+
 ## Navigation (was in Tech Stack)
 
 > **Every tab stack under `app/(app)/(tabs)/` exports `unstable_settings = { anchor: "index" }`.** A web refresh (or any deep link) on a nested page rebuilds the navigation state from the URL alone, so without the anchor the tab's stack holds only that page — the tab icon's pop-to-top (`state.index > 0`) and `router.back()` both become no-ops. Keep it on **every** tab layout, including ones that have no sub-page yet. See gotcha #82.

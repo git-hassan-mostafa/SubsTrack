@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import type { SvgIconComponent } from "@mui/icons-material";
 import AccountBalanceWalletOutlined from "@mui/icons-material/AccountBalanceWalletOutlined";
 import BarChartOutlined from "@mui/icons-material/BarChartOutlined";
@@ -17,6 +18,7 @@ import SettingsOutlined from "@mui/icons-material/SettingsOutlined";
 import StoreOutlined from "@mui/icons-material/StoreOutlined";
 import TrendingDownOutlined from "@mui/icons-material/TrendingDownOutlined";
 import WhatsApp from "@mui/icons-material/WhatsApp";
+import { BranchesPage } from "@/modules/admin/branches/BranchesPage";
 import type { RouteAccess } from "./access";
 
 export type NavSection = "main" | "admin";
@@ -27,6 +29,7 @@ export interface AppPage {
   access: RouteAccess;
   icon: SvgIconComponent;
   nav?: NavSection;
+  component?: ComponentType;
 }
 
 const ADMIN: RouteAccess = { role: "admin" };
@@ -131,6 +134,7 @@ export const APP_PAGES: readonly AppPage[] = [
     access: ADMIN,
     icon: StoreOutlined,
     nav: "admin",
+    component: BranchesPage,
   },
   {
     path: "admin/organization",

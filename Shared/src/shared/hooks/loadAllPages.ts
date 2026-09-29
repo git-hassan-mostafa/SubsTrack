@@ -1,3 +1,5 @@
+import type { Page, PageWindow } from "@shared/core/types";
+
 // A runaway loop would hammer the server, so the walk stops here however many
 // pages are left. 200 pages is far past any list staff scroll.
 const MAX_PAGES = 200;
@@ -25,4 +27,18 @@ export async function loadAllPages<T>(
     if (read().length === before) break;
   }
   return read();
+}
+
+// A server-paged list read to its end, for an "export everything" on the web.
+export async function readAllPages<T>(
+  readPage: (window: PageWindow) => Promise<Page<T>>,
+  pageSize: number,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const next = await readPage({ offset: rows.length, limit: pageSize });
+    rows.push(...next.rows);
+    if (next.rows.length === 0 || rows.length >= next.total) break;
+  }
+  return rows;
 }

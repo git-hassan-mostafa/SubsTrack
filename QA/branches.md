@@ -106,6 +106,8 @@ Reached from Admin tab → Branches.
 | 4.11 | Action menu on card            | ⋮ or long-press                                              | Edit + Delete (or Reactivate) items                                                                |
 | 4.12 | Last active branch             | Tenant has exactly 1 active branch, admin tries to delete it | Verify: either allowed (transitions back to 0-branch state) or blocked. Document expected behavior |
 | 4.13 | Default Branch deletion        | New tenant has only "Default Branch", admin deletes it       | Same as 4.12                                                                                       |
+| 4.14 | Deactivate an unused branch    | "TempBranch" with no records → ⋮ → Deactivate → confirm      | Row stays, marked Inactive (`active = false`) — never removed, even though nothing uses it |
+| 4.15 | Deactivate the last active one | Only one active branch → ⋮ → Deactivate                      | Red banner "at least one active branch"; nothing changes |
 
 ## 5. Visibility / RLS — strict isolation
 

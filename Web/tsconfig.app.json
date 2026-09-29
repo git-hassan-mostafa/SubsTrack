@@ -26,6 +26,7 @@
     "paths": {
       "@/*": ["./src/*"],
       "@supabase/supabase-js": ["./node_modules/@supabase/supabase-js"],
+      "i18next": ["./node_modules/i18next"],
       "@shared/*": ["../Shared/src/*"],
       "@edge/*": ["../SubsTrack/supabase/functions/_shared/*"]
     }

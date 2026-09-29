@@ -1,13 +1,21 @@
 import { repositories } from "@shared/core/runtime/repositories";
-import type { Branch } from "@shared/core/types";
+import type { Branch, Page } from "@shared/core/types";
 import i18n from "@shared/core/i18n";
 import { mapDbBranchToBranch } from "@shared/modules/admin/branches/utils/mapper";
-import { BranchInput } from "@shared/modules/admin/branches/utils/types";
+import type {
+  BranchInput,
+  BranchPageQuery,
+} from "@shared/modules/admin/branches/utils/types";
 
 class BranchService {
   async getBranches(): Promise<Branch[]> {
     const rows = await repositories().branch.findAll();
     return rows.map(mapDbBranchToBranch);
+  }
+
+  async getBranchPage(query: BranchPageQuery): Promise<Page<Branch>> {
+    const page = await repositories().branch.findPage(query);
+    return { rows: page.rows.map(mapDbBranchToBranch), total: page.total };
   }
 
   async createBranch(data: BranchInput, tenantId: string): Promise<Branch> {
@@ -46,6 +54,15 @@ class BranchService {
     }
     await repositories().branch.delete(id);
     return "hard";
+  }
+
+  async deactivateBranch(id: string): Promise<Branch> {
+    const activeCount = await repositories().branch.countActive();
+    if (activeCount <= 1) {
+      throw new Error(i18n.t("errors.branch_last_active"));
+    }
+    const row = await repositories().branch.update(id, { active: false });
+    return mapDbBranchToBranch(row);
   }
 
   async reactivateBranch(id: string): Promise<Branch> {

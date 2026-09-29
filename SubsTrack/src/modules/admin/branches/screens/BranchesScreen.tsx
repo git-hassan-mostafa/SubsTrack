@@ -41,6 +41,7 @@ export function BranchesScreen() {
   const fetchBranches = useBranchSlice((s) => s.fetchBranches);
   const getBranches = useBranchSlice((s) => s.getBranches);
   const deleteBranch = useBranchSlice((s) => s.deleteBranch);
+  const deactivateBranch = useBranchSlice((s) => s.deactivateBranch);
   const bulkDeleteBranches = useBranchSlice((s) => s.bulkDeleteBranches);
   const reactivateBranch = useBranchSlice((s) => s.reactivateBranch);
   const clearError = useBranchSlice((s) => s.clearError);
@@ -81,7 +82,7 @@ export function BranchesScreen() {
       message: t("branches.deactivate_message", { name: branch.name }),
       destructive: true,
       onConfirm: async () => {
-        await deleteBranch(branch.id);
+        await deactivateBranch(branch.id);
       },
     });
   }

@@ -7,7 +7,7 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import type { PageHeaderIconAction } from "@/src/shared/components/PageHeader";
 import { exportCsv } from "@/src/shared/lib/exportCsv";
-import { cell, fieldsOf, flattenRow, header } from "@shared/shared/hooks/exportRowFormat";
+import { toExportTable } from "@shared/shared/hooks/exportRowFormat";
 
 // What a paginated screen tells the hook so it can offer the second choice.
 // `loadAll` keeps fetching pages until `hasMore` goes false; the hook only ever
@@ -25,18 +25,7 @@ interface Options {
   loadMore?: ExportLoadAll;
 }
 
-/**
- * Writes the rows a screen is ALREADY showing to a CSV, and hands back the
- * download icon for its PageHeader plus the sheet that asks which rows to take.
- *
- * The caller passes its filtered, searched list, so the file and the list can
- * never disagree. On a screen with nothing left to fetch there is no question
- * to ask and the icon exports straight away — only a paginated screen holding
- * more rows opens the two-way choice.
- *
- * The icon is `undefined` for a non-admin, so a screen spreads it
- * unconditionally and the gate stays in one place.
- */
+// Exports the rows on screen; asks "these or all" only when more pages exist.
 export function useExportRows(
   nameKey: string,
   rows: readonly object[],
@@ -47,22 +36,19 @@ export function useExportRows(
   const [error, setError] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
-  // The rows to write are read at press time, never from the render that opened
-  // the sheet — `loadAll` returns a list this render has not seen yet.
-  const latest = useRef(rows);
-  latest.current = rows;
+  const rowsAtPress = useRef(rows);
+  rowsAtPress.current = rows;
 
   const write = async (toWrite: readonly object[]): Promise<void> => {
     if (toWrite.length === 0) {
       setError(t("export.nothing_to_export"));
       return;
     }
-    const flat = toWrite.map(flattenRow);
-    const fields = fieldsOf(flat);
+    const table = toExportTable(toWrite);
     const ok = await exportCsv(
       `${t(nameKey)}-${new Date().toISOString().slice(0, 10)}`,
-      fields.map(header),
-      flat.map((row) => fields.map((f) => cell(row[f]))),
+      table.headers,
+      table.rows,
     );
     if (!ok) setError(t("export.sharing_unavailable"));
   };
@@ -74,7 +60,7 @@ export function useExportRows(
       await write(
         loadFirst && options.loadMore
           ? await options.loadMore.loadAll()
-          : latest.current,
+          : rowsAtPress.current,
       );
     } catch (e) {
       setError((e as Error).message);

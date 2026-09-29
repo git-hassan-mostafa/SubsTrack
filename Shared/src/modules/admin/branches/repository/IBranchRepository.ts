@@ -1,11 +1,11 @@
+import type { Page } from "@shared/core/types";
 import type { DbBranch } from "@shared/core/types/db";
+import type { BranchPageQuery } from "@shared/modules/admin/branches/utils/types";
 
-/**
- * The Branch repository contract. Both the Supabase (online/web) class and the
- * offline SQLite class implement this — the compiler keeps the two in lockstep.
- */
+// Both the Supabase and the offline SQLite class implement this contract.
 export interface IBranchRepository {
   findAll(): Promise<DbBranch[]>;
+  findPage(query: BranchPageQuery): Promise<Page<DbBranch>>;
   create(
     payload: Omit<DbBranch, "id" | "created_at" | "updated_at">,
   ): Promise<DbBranch>;

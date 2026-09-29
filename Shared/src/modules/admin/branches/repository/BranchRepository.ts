@@ -1,6 +1,9 @@
 import { BaseRepository } from "@shared/core/utils/BaseRepository";
+import type { Page } from "@shared/core/types";
 import type { DbBranch } from "@shared/core/types/db";
+import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
 import type { IBranchRepository } from "@shared/modules/admin/branches/repository/IBranchRepository";
+import type { BranchPageQuery } from "@shared/modules/admin/branches/utils/types";
 
 export class BranchRepository
   extends BaseRepository
@@ -14,6 +17,24 @@ export class BranchRepository
       .order("name");
     if (error) this.handleError(error);
     return (data ?? []) as DbBranch[];
+  }
+
+  async findPage(query: BranchPageQuery): Promise<Page<DbBranch>> {
+    let request = this.db
+      .from("branches")
+      .select("*", { count: "exact" })
+      .order("active", { ascending: false })
+      .order("name")
+      .order("id")
+      .range(query.offset, query.offset + query.limit - 1);
+    const term = sanitizeSearchTerm(query.search);
+    if (term) request = request.ilike("name", `%${term}%`);
+    if (query.status !== "all") {
+      request = request.eq("active", query.status === "active");
+    }
+    const { data, error, count } = await request;
+    if (error) this.handleError(error);
+    return { rows: (data ?? []) as DbBranch[], total: count ?? 0 };
   }
 
   async create(

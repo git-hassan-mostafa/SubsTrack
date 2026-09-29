@@ -1,5 +1,5 @@
 import i18n from "@shared/core/i18n";
-import type { CsvValue } from "@shared/shared/lib/csv";
+import type { CsvTable, CsvValue } from "@shared/shared/lib/csv";
 
 export type ExportRow = Record<string, unknown>;
 
@@ -134,4 +134,14 @@ export function fieldsOf(rows: ExportRow[]): string[] {
     }
   }
   return fields;
+}
+
+// The whole sheet for a list of records: readable columns, numbers kept numbers.
+export function toExportTable(records: readonly object[]): CsvTable {
+  const flat = records.map(flattenRow);
+  const fields = fieldsOf(flat);
+  return {
+    headers: fields.map(header),
+    rows: flat.map((row) => fields.map((field) => cell(row[field]))),
+  };
 }

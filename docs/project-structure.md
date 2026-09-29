@@ -21,6 +21,25 @@ App/
 └── QA/                  # QA materials
 ```
 
+`Web/src/`:
+
+```
+Web/src/
+├── main.tsx, App.tsx      # configureWeb() → i18n → restoreSession() → render
+├── platform/              # Supabase client, configureWeb()
+├── core/i18n/             # web i18n init + web.en.json (web-only keys under web.*)
+├── app/
+│   ├── routes/            # appPages.ts (THE page list: path, title, access, icon, nav, component), guards, router
+│   ├── layout/            # AppFrame, SideNav, AppHeader, QuickActions, UserMenu
+│   └── theme/
+├── shared/
+│   ├── components/        # ErrorBanner, FormDialog, ConfirmDialogHost, BranchSelector, inputs, EmptyState, StatusChip…
+│   ├── table/             # DataTable, RowActionsMenu, BulkActionBar, useTableExport, TableAction
+│   └── lib/               # downloadCsv
+├── state/                 # web-only stores: createPagedStore + one table store per list, webSession.ts
+└── modules/<group>/<module>/  # pages + dialogs (admin/branches, admin/audit so far)
+```
+
 Each module keeps the SAME folder path in both halves: its logic under
 `Shared/src/modules/<group>/<module>/`, its screens and components under
 `SubsTrack/src/modules/<group>/<module>/`. Groups: `admin/` (audit, billing,

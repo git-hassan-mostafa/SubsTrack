@@ -1,11 +1,12 @@
 import { toCsv } from "@shared/shared/lib/csv";
-import { loadAllPages } from "@shared/shared/hooks/loadAllPages";
+import { loadAllPages, readAllPages } from "@shared/shared/hooks/loadAllPages";
 import {
   cell,
   fieldsOf,
   flattenRow,
   header,
   isReadable,
+  toExportTable,
 } from "@shared/shared/hooks/exportRowFormat";
 
 describe("readable fields", () => {
@@ -98,6 +99,20 @@ describe("cells", () => {
   });
 });
 
+describe("sheet", () => {
+  it("lines every record up under one header row", () => {
+    const table = toExportTable([
+      { id: "x", name: "Beirut", active: true },
+      { id: "y", name: "Tyre", active: false, notes: "old" },
+    ]);
+    expect(table.headers).toEqual(["Name", "Active", "Notes"]);
+    expect(table.rows).toEqual([
+      ["Beirut", "common.yes", ""],
+      ["Tyre", "common.no", "old"],
+    ]);
+  });
+});
+
 describe("loading every page", () => {
   // Drives the screen's own fetchMore, so the slice's guards still apply and
   // the rows land where the list already reads them.
@@ -147,5 +162,35 @@ describe("loading every page", () => {
     );
     expect(fetchMore).toHaveBeenCalledTimes(1);
     expect(all).toEqual([1]);
+  });
+});
+
+describe("reading a server-paged list to its end", () => {
+  function server(total: number) {
+    const rows = Array.from({ length: total }, (_, i) => i);
+    return jest.fn(async ({ offset, limit }: { offset: number; limit: number }) => ({
+      rows: rows.slice(offset, offset + limit),
+      total,
+    }));
+  }
+
+  it("asks page after page until it holds the total", async () => {
+    const readPage = server(250);
+    const all = await readAllPages(readPage, 100);
+    expect(all).toHaveLength(250);
+    expect(all[249]).toBe(249);
+    expect(readPage).toHaveBeenCalledTimes(3);
+  });
+
+  it("asks once for an empty list", async () => {
+    const readPage = server(0);
+    expect(await readAllPages(readPage, 100)).toEqual([]);
+    expect(readPage).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops when a page comes back empty", async () => {
+    const readPage = jest.fn(async () => ({ rows: [], total: 10 }));
+    expect(await readAllPages(readPage, 100)).toEqual([]);
+    expect(readPage).toHaveBeenCalledTimes(1);
   });
 });

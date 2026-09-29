@@ -8,6 +8,17 @@ export function decimalDigitsOnly(next: string): string {
   return next.replace(/[^0-9.]/g, "");
 }
 
+export function amountText(amount: number | null): string {
+  return amount != null ? String(amount) : "";
+}
+
+// A half-typed "." or an empty box is no amount yet, not a zero.
+export function parseAmount(text: string): number | null {
+  if (text === "" || text === ".") return null;
+  const parsed = parseFloat(text);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export function upperCaseText(next: string): string {
   return next.toUpperCase();
 }
