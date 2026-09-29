@@ -13,6 +13,7 @@ const sharedPeers = Object.keys(
 // Mirrors tsconfig.app.json paths; dedupe keeps ONE copy of each Shared peer.
 export default defineConfig({
   plugins: [react()],
+  tsconfig: "./tsconfig.app.json",
   resolve: {
     alias: [
       { find: /^@\//, replacement: here("./src/") },
