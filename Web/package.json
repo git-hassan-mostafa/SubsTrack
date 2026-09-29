@@ -1,0 +1,41 @@
+{
+  "name": "substrack-web",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Staff web app (desktop). Deliberately its OWN package: SubsTrack/package.json feeds the OTA fingerprint, so a dependency or script added there would silently cut every installed app off from updates (gotcha #53).",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@fontsource/cairo": "^5.3.0",
+    "@mui/icons-material": "^9.4.0",
+    "@mui/material": "^9.4.0",
+    "@mui/x-data-grid": "^9.14.0",
+    "@mui/x-date-pickers": "^9.14.0",
+    "@supabase/supabase-js": "^2.117.2",
+    "dayjs": "^1.11.23",
+    "i18next": "^26.4.2",
+    "immer": "^11.1.18",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-i18next": "^17.0.15",
+    "react-router": "^8.4.0",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "oxlint": "^1.81.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0"
+  }
+}

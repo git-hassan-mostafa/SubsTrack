@@ -1,0 +1,43 @@
+import { createBrowserRouter } from "react-router";
+import { AppFrame } from "@/app/layout/AppFrame";
+import { ComingSoonPage } from "@/app/layout/ComingSoonPage";
+import { NotFoundPage } from "@/app/layout/NotFoundPage";
+import { LoginPage } from "@/modules/auth/LoginPage";
+import { APP_PAGES } from "./appPages";
+import { GuestOnly } from "./GuestOnly";
+import { LandingRedirect } from "./LandingRedirect";
+import { RequireAccess } from "./RequireAccess";
+import { RequireSignedIn } from "./RequireSignedIn";
+import { SessionGate } from "./SessionGate";
+
+export const router = createBrowserRouter([
+  {
+    element: <SessionGate />,
+    children: [
+      {
+        element: <GuestOnly />,
+        children: [{ path: "login", element: <LoginPage /> }],
+      },
+      {
+        element: <RequireSignedIn />,
+        children: [
+          {
+            element: <AppFrame />,
+            children: [
+              { index: true, element: <LandingRedirect /> },
+              ...APP_PAGES.map((page) => ({
+                path: page.path,
+                element: (
+                  <RequireAccess access={page.access}>
+                    <ComingSoonPage titleKey={page.titleKey} />
+                  </RequireAccess>
+                ),
+              })),
+            ],
+          },
+        ],
+      },
+      { path: "*", element: <NotFoundPage /> },
+    ],
+  },
+]);

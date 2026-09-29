@@ -8,5 +8,6 @@ export function useAuth() {
     isTenantWideAdmin:
       user?.role === "superadmin" ||
       (user?.role === "admin" && user.branchId === null),
+    whatsappEnabled: !!user?.tenant.whatsappEnabled,
   };
 }

@@ -12,6 +12,7 @@ App/
 ├── new-features.md      # Feature backlog (mark items done when implemented)
 ├── Shared/              # Logic shared by every app: types → services → repositories → stores (source only, not a workspace)
 ├── SubsTrack/           # Main tenant-facing Expo app — UI + the offline layer
+├── Web/                 # Staff web app for desktop (React + Vite + MUI), uses Shared's services and stores
 ├── Portal/              # Read-only customer portal (React + Vite), imports Shared's pure code
 ├── SuperAdmin/          # Internal SaaS-owner admin Expo app
 ├── tests/               # Jest money-rule tests — its own package, never inside SubsTrack/

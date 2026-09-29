@@ -34,8 +34,8 @@ export interface WhatsAppActions {
 // Cloud API actions when connected, the wa.me reminder otherwise.
 export function useWhatsAppActions(): WhatsAppActions {
   const { t, i18n } = useTranslation();
-  const { user, isAdmin } = useAuth();
-  const cloudEnabled = isAdmin && !!user?.tenant.whatsappEnabled;
+  const { user, isAdmin, whatsappEnabled } = useAuth();
+  const cloudEnabled = isAdmin && whatsappEnabled;
   const connected = useWhatsAppReady();
   const ready = cloudEnabled && connected;
   const reminderTemplate = useTemplateForPurpose("payment_reminder");

@@ -116,8 +116,7 @@ const MENU_ITEMS: MenuItem[] = [
 
 export default function AdminMenuScreen() {
   const { t } = useTranslation();
-  const { user, isTenantWideAdmin } = useAuth();
-  const whatsappEnabled = !!user?.tenant.whatsappEnabled;
+  const { isTenantWideAdmin, whatsappEnabled } = useAuth();
   const menuItems = MENU_ITEMS.filter(
     (item) =>
       (isTenantWideAdmin || !item.tenantWideOnly) &&

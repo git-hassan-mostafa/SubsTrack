@@ -33,6 +33,26 @@ EXPO_PUBLIC_SUPABASE_URL=<your-supabase-url>
 EXPO_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
 ```
 
+### Web (`Web/`)
+
+The staff web app for desktop (React + Vite 8 + React Router + MUI v9 + MUI X). Its own package, like the Portal — never add anything to `SubsTrack/package.json` for it (gotcha #53).
+
+```bash
+cd Shared && npm install --ignore-scripts   # once: tsc resolves Shared's own imports from here
+cd Web
+npm install --ignore-scripts
+cp .env.example .env.local                  # VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY
+npm run dev                                 # http://localhost:5173
+npm run build                               # tsc -b + vite build
+npm run lint                                # oxlint; on this laptop "Access is denied" → node node_modules/oxlint/bin/oxlint
+```
+
+- Startup (`src/main.tsx`): `configureWeb()` (Supabase client on `localStorage`, WebCrypto ids, `createSupabaseRepositories()` — no offline layer), then the English i18n init, then `auth.restoreSession()`, then render.
+- Aliases: `@/` → `Web/src/`, `@shared/`, `@edge/` (same as the Portal). `resolve.dedupe` = Shared's `peerDependencies`, so the bundle holds ONE copy of each library, all from `Web/node_modules`.
+- `tsconfig.app.json` also maps `@supabase/supabase-js` to Web's copy: Shared's editor copy is pinned to the phone's older version, and its `SupabaseClient` class type would not match the web client passed to `configureShared()`. Add the same mapping for any other peer whose types start to clash.
+- Pages and who may open them: one list, `src/app/routes/appPages.ts`, checked by `access.ts` (`canOpen`, `landingPath`), fed by Shared `useAuth()`.
+- Deploy: `Web/vercel.json` (installs Web + Shared dev deps, SPA rewrite). Use a Vercel **preview** project until the switch-over phase (H2); the real address stays on Expo web until then.
+
 ### Tests (`tests/`)
 
 ```bash
@@ -56,7 +76,7 @@ npm install --ignore-scripts   # types for tsc and the editor only — no app lo
 npx tsc --noEmit
 ```
 
-Source only — nothing builds or publishes it. SubsTrack's Metro bundles its files straight from `../Shared/src` (so a Shared change ships over the air like any `src/` change), and Vite does the same for the Portal. **Adding a library Shared imports:** list it in `Shared/package.json` `peerDependencies` **and** `devDependencies` (pinned to SubsTrack's version), and install it in every app that reaches that file. Metro resolves bare imports only from `SubsTrack/node_modules` and blocks `Shared/node_modules`; Vite dedupes the peer list; either way each app gets ONE copy. Never turn `Shared/` into an npm workspace — hoisting would change the OTA fingerprint (gotcha #53). `Shared/package.json` is **not** a fingerprint input (it sits outside the Expo project), and neither are `metro.config.js`, `babel.config.js` or `tsconfig.json`.
+Source only — nothing builds or publishes it. SubsTrack's Metro bundles its files straight from `../Shared/src` (so a Shared change ships over the air like any `src/` change), and Vite does the same for the Portal and `Web/`. **Adding a library Shared imports:** list it in `Shared/package.json` `peerDependencies` **and** `devDependencies` (pinned to SubsTrack's version), and install it in every app that reaches that file. Metro resolves bare imports only from `SubsTrack/node_modules` and blocks `Shared/node_modules`; Vite dedupes the peer list; either way each app gets ONE copy. Never turn `Shared/` into an npm workspace — hoisting would change the OTA fingerprint (gotcha #53). `Shared/package.json` is **not** a fingerprint input (it sits outside the Expo project), and neither are `metro.config.js`, `babel.config.js` or `tsconfig.json`.
 
 ### Releasing SubsTrack — OTA updates (EAS Update)
 

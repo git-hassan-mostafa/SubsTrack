@@ -190,7 +190,12 @@ It writes nothing, holds no Supabase client, and **imports the same pure logic
 from `Shared/`** (`buildMonthGrid`, `mergeOwed`, `resolveLinePrice`, the
 waterfall, the mappers, `currency.ts`) across the `@shared/*` alias — no stubs.
 Its one read is the public `customer-portal` edge function, which is the ONLY
-thing that can scope a read to a single customer. Also in the workspace:
+thing that can scope a read to a single customer. And `Web/` — the staff web
+app for desktop (React + Vite + React Router + MUI v9 + MUI X), its own package,
+being built phase by phase; it uses Shared services, stores and
+`createSupabaseRepositories()` (no offline layer) and will take over Expo
+web's address in the final phase. Its pages and role rules are ONE list,
+`Web/src/app/routes/appPages.ts`. Also in the workspace:
 `sql scripts/` (`script.sql` schema+RLS, `reset.sql` teardown),
 `new-features.md` (backlog), `Design/`, `QA/`, `tests/` (Jest, money rules).
 
@@ -217,7 +222,7 @@ resolves ONE copy of them (Metro `nodeModulesPaths` + `blockList`, Vite
 - SubsTrack keeps the UI and the whole **offline layer** (`core/offline/**`,
   the `*.offline.ts` twins, `platform/offlineRepositories.ts`, `errorLogger`).
 
-**Nothing may be added to `SubsTrack/package.json`** for the portal — its
+**Nothing may be added to `SubsTrack/package.json`** for the portal or `Web/` — its
 `scripts` and dependency tree feed the OTA fingerprint (gotcha #53). The portal
 is its own root-level package, and the edge-function deploy script lives in
 `Portal/package.json`.
