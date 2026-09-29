@@ -5,7 +5,7 @@ Covers the app-wide "Discard changes?" confirmation shown when a **dirty** form 
 **Reference code:**
 
 - Core seam: [AppBottomSheet.tsx](../SubsTrack/src/shared/components/AppBottomSheet.tsx) (`dirty` prop, `onAnimate` drag interception, backdrop `onPress`)
-- Guard hook: [useUnsavedChangesGuard.ts](../SubsTrack/src/shared/hooks/useUnsavedChangesGuard.ts) (awaits the global confirm dialog; returns `[guardedDismiss, asking]`)
+- Guard hook: [useUnsavedChangesGuard.ts](../Shared/src/shared/hooks/useUnsavedChangesGuard.ts) (awaits the global confirm dialog; returns `[guardedDismiss, asking]`)
 - Dirty check: [useDirtyForm.ts](../Shared/src/shared/hooks/useDirtyForm.ts) (first-render baseline + `ignore` list)
 - Header button seam: `AppBottomSheet`’s **function child** — `children` may be `(dismiss) => ReactNode`, handing the header its guarded dismiss ([FormSheet.tsx](../SubsTrack/src/shared/components/FormSheet.tsx), [ProductBatchRestockSheet.tsx](../SubsTrack/src/modules/admin/products/components/ProductBatchRestockSheet.tsx))
 - Back handling: [useAndroidBackDismiss.ts](../SubsTrack/src/shared/hooks/useAndroidBackDismiss.ts) — Android only; a sheet is not a browser-Back target

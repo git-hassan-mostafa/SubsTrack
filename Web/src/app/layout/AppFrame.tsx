@@ -1,34 +1,37 @@
-import { useTranslation } from "react-i18next";
+import { useState } from "react";
 import { Outlet } from "react-router";
-import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import Toolbar from "@mui/material/Toolbar";
-import Typography from "@mui/material/Typography";
-import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
-import { endSession } from "@shared/shared/lib/session";
+import Drawer from "@mui/material/Drawer";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
+import { AppHeader } from "./AppHeader";
+import { SideNav } from "./SideNav";
 
-// Bare frame for B1 only; B2 replaces it with the left nav and full header.
+const NAV_WIDTH = 248;
+
+// Below md the nav folds into a drawer; on desktop it is always on screen.
 export function AppFrame() {
-  const { t } = useTranslation();
-  const user = useAuthSlice((s) => s.user);
+  const theme = useTheme();
+  const desktop = useMediaQuery(theme.breakpoints.up("md"));
+  const [navOpen, setNavOpen] = useState(false);
+  const closeNav = () => setNavOpen(false);
 
   return (
-    <Box sx={{ minHeight: "100vh" }}>
-      <AppBar position="static" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
-        <Toolbar sx={{ gap: 2 }}>
-          <Box component="img" src="/logo.png" alt="" sx={{ width: 28, height: 28 }} />
-          <Typography sx={{ fontWeight: 700, flexGrow: 1 }}>
-            {user?.tenant.name}
-          </Typography>
-          <Typography color="text.secondary">{user?.fullName}</Typography>
-          <Button variant="outlined" onClick={() => void endSession()}>
-            {t("settings.logout")}
-          </Button>
-        </Toolbar>
-      </AppBar>
-      <Box component="main" sx={{ p: 3 }}>
-        <Outlet />
+    <Box sx={{ display: "flex", minHeight: "100vh" }}>
+      <Drawer
+        variant={desktop ? "permanent" : "temporary"}
+        open={desktop || navOpen}
+        onClose={closeNav}
+        sx={{ width: desktop ? NAV_WIDTH : undefined, flexShrink: 0 }}
+        slotProps={{ paper: { sx: { width: NAV_WIDTH } } }}
+      >
+        <SideNav onNavigate={desktop ? undefined : closeNav} />
+      </Drawer>
+      <Box sx={{ flexGrow: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        <AppHeader onOpenNav={desktop ? undefined : () => setNavOpen(true)} />
+        <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 3 } }}>
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   );

@@ -5,6 +5,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { RouterProvider } from "react-router";
 import { theme } from "@/app/theme/theme";
 import { router } from "@/app/routes/router";
+import { ConfirmDialogHost } from "@/shared/components/ConfirmDialogHost";
 
 export function App() {
   return (
@@ -12,6 +13,7 @@ export function App() {
       <CssBaseline />
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         <RouterProvider router={router} />
+        <ConfirmDialogHost />
       </LocalizationProvider>
     </ThemeProvider>
   );

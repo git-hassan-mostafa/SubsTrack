@@ -50,8 +50,8 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` set (see `Web/.env.example`)
 | --- | ----------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------- |
 | 3.1 | Reload keeps you signed in    | Sign in, reload the page                       | A short loading spinner, then the same page; no login page flash                 |
 | 3.2 | New tab keeps you signed in   | Sign in, open the app in a second tab          | Signed in there too                                                              |
-| 3.3 | Log out                       | Click "Log Out" in the top bar                 | Back on `/login`; reload stays signed out                                         |
-| 3.4 | Log out, other org signs in   | Log out, sign in to a different organization   | Top bar shows the new organization name; nothing from the first one               |
+| 3.3 | Log out                       | User menu (top right) → "Log Out" → confirm    | Back on `/login`; reload stays signed out                                         |
+| 3.4 | Log out, other org signs in   | Log out, sign in to a different organization   | Left nav shows the new organization name; nothing from the first one              |
 | 3.5 | Deactivated user on reload    | Sign in, deactivate that user from the phone, reload the web | Sent to `/login` (restore signs the session out)                    |
 
 ## 4. Organization deactivated
@@ -77,4 +77,4 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` set (see `Web/.env.example`)
 | 5.7 | `/admin/whatsapp-history`   | → start   | opens        | opens             | only if WhatsApp is enabled for the organization |
 | 5.8 | WhatsApp turned off         | —         | —            | —                 | With `whatsapp_enabled = false`, 5.6 and 5.7 send every role to the start page |
 
-"→ start" = the page is not shown; the browser goes to that role's start page (2.1 / 2.2). In B1 every allowed page shows its title and "This page is not ready yet on the web."
+"→ start" = the page is not shown; the browser goes to that role's start page (2.1 / 2.2). Every allowed page not built yet shows its title in the header and "This page is not ready yet on the web."

@@ -78,7 +78,8 @@ Shared/
         ├── lib/                   # uiPrefStore, confirmStore + confirm, uiStore, storeReset, session,
         │                          #   dataEpoch, branchFilter, csv (toCsv), actionOrder, monthSections
         └── hooks/                 # useDebounce, useDirtyForm, useHoldRepeat, useUserNames,
-                                   #   useEffectiveBranchFilter, loadAllPages, exportRowFormat
+                                   #   useEffectiveBranchFilter, loadAllPages, exportRowFormat,
+                                   #   useUnsavedChangesGuard (the discard-changes prompt, both apps)
 ```
 
 ---
@@ -122,7 +123,7 @@ SubsTrack/
 │   └── shared/
 │       ├── components/            # Button, Input, AppTextInput, CurrencyInput, AppBottomSheet, FormSheet,
 │       │                          #   PageHeader, ErrorBanner, ConfirmDialog, SelectionBar, … (see ui-patterns.md)
-│       ├── hooks/                 # RN hooks: useTextField, useUnsavedChangesGuard, useSelection,
+│       ├── hooks/                 # RN hooks: useTextField, useSelection,
 │       │                          #   useExportRows, useSyncStatus, useSwipeableTabs, useAppUpdate, …
 │       ├── constants/colors.ts    # Design tokens
 │       └── lib/                   # supabase.ts (client), storage.ts, exportCsv, shareFile, clipboard, maps, whatsapp

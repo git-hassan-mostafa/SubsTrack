@@ -1,0 +1,119 @@
+import { useId, useState, type MouseEvent } from "react";
+import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Divider from "@mui/material/Divider";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import Typography from "@mui/material/Typography";
+import AccountBalanceWalletOutlined from "@mui/icons-material/AccountBalanceWalletOutlined";
+import AccountCircleOutlined from "@mui/icons-material/AccountCircleOutlined";
+import ExpandMore from "@mui/icons-material/ExpandMore";
+import LogoutOutlined from "@mui/icons-material/LogoutOutlined";
+import type { UserRole } from "@shared/core/types";
+import { confirm } from "@shared/shared/lib/confirm";
+import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
+import { endWebSession } from "@/state/webSession";
+
+const ROLE_LABEL_KEYS: Record<UserRole, string> = {
+  superadmin: "users.super",
+  admin: "users.admin",
+  user: "users.user",
+};
+
+export function UserMenu() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const user = useAuthSlice((s) => s.user);
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const buttonId = useId();
+  const menuId = useId();
+
+  if (!user) return null;
+
+  const close = () => setAnchor(null);
+
+  const openMyWallet = () => {
+    close();
+    navigate("/my-wallet");
+  };
+
+  const logOut = async () => {
+    close();
+    await confirm({
+      title: t("settings.logout"),
+      message: t("settings.logout_confirm"),
+      confirmLabel: t("settings.logout"),
+      destructive: true,
+      onConfirm: endWebSession,
+    });
+  };
+
+  const branchName = user.branchId
+    ? (user.branch?.name ?? "")
+    : t("branches.tenant_wide_admin");
+
+  return (
+    <>
+      <Button
+        id={buttonId}
+        color="inherit"
+        aria-label={user.fullName}
+        aria-controls={anchor ? menuId : undefined}
+        aria-haspopup="true"
+        aria-expanded={anchor ? "true" : undefined}
+        onClick={(event: MouseEvent<HTMLElement>) => setAnchor(event.currentTarget)}
+        startIcon={<AccountCircleOutlined />}
+        endIcon={<ExpandMore />}
+        sx={{ maxWidth: 240 }}
+      >
+        <Box
+          component="span"
+          sx={{
+            display: { xs: "none", sm: "inline" },
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {user.fullName}
+        </Box>
+      </Button>
+      <Menu
+        id={menuId}
+        anchorEl={anchor}
+        open={anchor !== null}
+        onClose={close}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        slotProps={{ list: { "aria-labelledby": buttonId } }}
+      >
+        <Box sx={{ px: 2, pt: 1, pb: 1.5, maxWidth: 300 }}>
+          <Typography sx={{ fontWeight: 700 }}>{user.fullName}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            @{user.username} · {t(ROLE_LABEL_KEYS[user.role])}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {user.tenant.name} · {branchName}
+          </Typography>
+        </Box>
+        <Divider />
+        <MenuItem onClick={openMyWallet}>
+          <ListItemIcon>
+            <AccountBalanceWalletOutlined fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>{t("wallet.my_title")}</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => void logOut()} sx={{ color: "error.main" }}>
+          <ListItemIcon>
+            <LogoutOutlined fontSize="small" color="error" />
+          </ListItemIcon>
+          <ListItemText>{t("settings.logout")}</ListItemText>
+        </MenuItem>
+      </Menu>
+    </>
+  );
+}

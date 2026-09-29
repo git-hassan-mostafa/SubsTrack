@@ -4,7 +4,7 @@ import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import LockOutlined from "@mui/icons-material/LockOutlined";
-import { endSession } from "@shared/shared/lib/session";
+import { endWebSession } from "@/state/webSession";
 
 export function TenantInactivePage() {
   const { t } = useTranslation();
@@ -31,7 +31,7 @@ export function TenantInactivePage() {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
           {t("tenant_inactive.contact_hint")}
         </Typography>
-        <Button variant="outlined" onClick={() => void endSession()}>
+        <Button variant="outlined" onClick={() => void endWebSession()}>
           {t("settings.logout")}
         </Button>
       </Paper>

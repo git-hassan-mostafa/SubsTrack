@@ -27,7 +27,7 @@ Presentation  →  State  →  Business Logic  →  Repository  →  Database
 - **Shared never imports** `react-native`, `expo-*`, `@react-native*`, `@/…` or a relative path leaving `Shared/src`. `tests/suites/sharedBoundary.test.ts` enforces it.
 - **No barrels in Shared** — every import names the file that defines the thing. SubsTrack's module `index.ts` barrels export **UI only** (screens, components, UI hooks); a barrel that re-exports logic drags screens into pure code (and the Portal / tests bundles).
 - **`@edge/*`** → `SubsTrack/supabase/functions/_shared/*` is the one narrow alias into edge-function code (`whatsapp/rules.ts`, `whatsapp/sijilTemplates.ts`), and only for **zero-import** files — the guard test checks that too.
-- **Stays in SubsTrack:** screens, components, RN / expo-router hooks (`useTextField`, `useUnsavedChangesGuard`, `useExportRows`, …), the presentation helpers (`kindStyle`, `kindIcon`, `paymentMenu`, `reportColors`, `expenseCategoryIcon`), the Supabase client + `storage.ts`, the phone i18n setup (`core/i18n/setup.ts`, `languageStore`) and the whole offline layer (`core/offline/**`, the `*.offline.ts` twins, `platform/offlineRepositories.ts`, `errorLog/`, `net/connectivity`).
+- **Stays in SubsTrack:** screens, components, RN / expo-router hooks (`useTextField`, `useExportRows`, …), the presentation helpers (`kindStyle`, `kindIcon`, `paymentMenu`, `reportColors`, `expenseCategoryIcon`), the Supabase client + `storage.ts`, the phone i18n setup (`core/i18n/setup.ts`, `languageStore`) and the whole offline layer (`core/offline/**`, the `*.offline.ts` twins, `platform/offlineRepositories.ts`, `errorLog/`, `net/connectivity`).
 
 ### Offline-First (native only) — the repository seam
 

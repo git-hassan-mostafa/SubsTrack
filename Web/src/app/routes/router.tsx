@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router";
 import { AppFrame } from "@/app/layout/AppFrame";
 import { ComingSoonPage } from "@/app/layout/ComingSoonPage";
 import { NotFoundPage } from "@/app/layout/NotFoundPage";
+import type { PageHandle } from "@/app/layout/usePageTitle";
 import { LoginPage } from "@/modules/auth/LoginPage";
 import { APP_PAGES } from "./appPages";
 import { GuestOnly } from "./GuestOnly";
@@ -27,9 +28,10 @@ export const router = createBrowserRouter([
               { index: true, element: <LandingRedirect /> },
               ...APP_PAGES.map((page) => ({
                 path: page.path,
+                handle: { titleKey: page.titleKey } satisfies PageHandle,
                 element: (
                   <RequireAccess access={page.access}>
-                    <ComingSoonPage titleKey={page.titleKey} />
+                    <ComingSoonPage />
                   </RequireAccess>
                 ),
               })),

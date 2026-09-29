@@ -18,7 +18,7 @@ import {
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
 import { useAndroidBackDismiss } from "@/src/shared/hooks/useAndroidBackDismiss";
-import { useUnsavedChangesGuard } from "@/src/shared/hooks/useUnsavedChangesGuard";
+import { useUnsavedChangesGuard } from "@shared/shared/hooks/useUnsavedChangesGuard";
 import { COLORS } from "@/src/shared/constants";
 
 export type BottomSheetVariant = "auto" | "full";

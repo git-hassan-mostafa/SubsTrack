@@ -195,7 +195,9 @@ app for desktop (React + Vite + React Router + MUI v9 + MUI X), its own package,
 being built phase by phase; it uses Shared services, stores and
 `createSupabaseRepositories()` (no offline layer) and will take over Expo
 web's address in the final phase. Its pages and role rules are ONE list,
-`Web/src/app/routes/appPages.ts`. Also in the workspace:
+`Web/src/app/routes/appPages.ts` (the nav and header title read it too). It
+logs out only through `endWebSession()` (`Web/src/state/webSession.ts`), and
+every web-only store under `Web/src/state/` registers its reset there. Also in the workspace:
 `sql scripts/` (`script.sql` schema+RLS, `reset.sql` teardown),
 `new-features.md` (backlog), `Design/`, `QA/`, `tests/` (Jest, money rules).
 
