@@ -31,7 +31,6 @@
     "noFallthroughCasesInSwitch": true,
 
     "paths": {
-      "@/src/core/i18n": ["./stubs/i18n.ts"],
       "@/src/shared/lib/supabase": ["./stubs/supabase-client.ts"],
       "react-native": ["./stubs/react-native.ts"],
       "@shared/*": ["../Shared/src/*"],

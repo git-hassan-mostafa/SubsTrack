@@ -7,7 +7,7 @@ import { isOnline } from "@/src/core/offline/net/connectivity";
 import {
   RequiresConnectionError,
   OrganizationSwitchBlockedError,
-} from "@/src/core/offline/errors";
+} from "@shared/core/errors/offlineErrors";
 import {
   ensureTenantScope,
   hasUnsyncedWrites,

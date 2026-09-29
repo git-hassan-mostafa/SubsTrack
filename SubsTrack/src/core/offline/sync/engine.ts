@@ -1,6 +1,6 @@
 import { supabase } from "@/src/shared/lib/supabase";
 import { getDb, isOfflineDbReady } from "../db/sqlite";
-import { nowIso } from "../ids";
+import { nowIso } from "@shared/core/utils/ids";
 import { isOnline } from "../net/connectivity";
 import { IS_OFFLINE_CAPABLE } from "../platform";
 import {

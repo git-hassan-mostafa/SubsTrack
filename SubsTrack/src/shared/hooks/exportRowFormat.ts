@@ -1,4 +1,4 @@
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import type { CsvValue } from "@/src/shared/lib/csv";
 
 export type ExportRow = Record<string, unknown>;

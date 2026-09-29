@@ -10,7 +10,7 @@ import type {
 } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, updateDirty } from "@/src/core/offline/db/dml";
-import { newId, nowIso } from "@/src/core/offline/ids";
+import { newId, nowIso } from "@shared/core/utils/ids";
 import type { FindSalesOptions } from "../utils/types";
 import type {
   CreateSalePayload,

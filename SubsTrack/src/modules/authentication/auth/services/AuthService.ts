@@ -1,9 +1,9 @@
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import repository from "../repository/AuthRepository";
 import { mapDbUserToAuthUser } from "../utils/mapper";
 import { AuthUser } from "@shared/core/types";
 import type { DbUser } from "@shared/core/types/db";
-import { OrganizationSwitchBlockedError } from "@/src/core/offline/errors";
+import { OrganizationSwitchBlockedError } from "@shared/core/errors/offlineErrors";
 
 interface AuthResult {
   user: AuthUser;

@@ -1,4 +1,4 @@
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import type { QuotaKind } from "./types";
 
 const MESSAGE_KEYS: Record<QuotaKind, string> = {

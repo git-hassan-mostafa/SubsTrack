@@ -5,7 +5,7 @@ import {
   updateDirty,
   markDeleted,
 } from "@/src/core/offline/db/dml";
-import { newId, nowIso } from "@/src/core/offline/ids";
+import { newId, nowIso } from "@shared/core/utils/ids";
 import type {
   CreateCustomerPlanPayload,
   ICustomerPlanRepository,

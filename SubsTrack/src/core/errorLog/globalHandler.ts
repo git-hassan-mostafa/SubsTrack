@@ -1,5 +1,5 @@
 import { IS_OFFLINE_CAPABLE } from "../offline/platform";
-import { logException } from "./errorLogger";
+import { reportException } from "@shared/core/runtime/reportException";
 
 let installed = false;
 
@@ -16,7 +16,7 @@ export function installGlobalErrorHandler(): void {
 
   const previousHandler = ErrorUtils.getGlobalHandler();
   ErrorUtils.setGlobalHandler((error, isFatal) => {
-    void logException({
+    reportException({
       source: "global_handler",
       message: error.message,
       stack: error.stack,

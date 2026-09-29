@@ -1,6 +1,6 @@
 import type { Expense, ExpenseCategory, ExpenseItem } from "@shared/core/types";
 import type { DbExpense } from "@shared/core/types/db";
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import {
   expenseCategoryLabelKey,
   isExpenseCategory,

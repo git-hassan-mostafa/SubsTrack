@@ -1,4 +1,4 @@
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import type { CustomerRequest, Tenant } from "@shared/core/types";
 import repository from "../repository/CustomerRequestRepository";
 import allowanceRepository from "../repository/AllowanceRepository";

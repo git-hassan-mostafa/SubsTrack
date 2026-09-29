@@ -7,7 +7,7 @@ import type {
   DbCollection,
   DbCollectionItem,
 } from "@shared/core/types/db";
-import { newId } from "@/src/core/offline/ids";
+import { newId } from "@shared/core/utils/ids";
 import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
 import {
   custodyValues,

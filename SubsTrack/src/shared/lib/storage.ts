@@ -49,12 +49,4 @@ export async function clearRTLReloadCount(): Promise<void> {
   } catch {}
 }
 
-export const uiPrefPersistStorage = {
-  getItem: (_name: string) => AsyncStorage.getItem(STORAGE_KEYS.UI_PREF_STORE),
-  setItem: (_name: string, value: string) =>
-    AsyncStorage.setItem(STORAGE_KEYS.UI_PREF_STORE, value),
-  removeItem: (_name: string) =>
-    AsyncStorage.removeItem(STORAGE_KEYS.UI_PREF_STORE),
-};
-
 export { AsyncStorage as supabaseStorage };

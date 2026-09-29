@@ -9,7 +9,7 @@ import type {
 } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, updateDirty } from "@/src/core/offline/db/dml";
-import { nowIso } from "@/src/core/offline/ids";
+import { nowIso } from "@shared/core/utils/ids";
 import type {
   CreateChargePayload,
   DbChargeHistoryRow,

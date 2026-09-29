@@ -5,7 +5,7 @@ import type {
   DbWhatsAppOptOut,
   DbWhatsAppTemplate,
 } from "@shared/core/types/db";
-import { RequiresConnectionError } from "@/src/core/offline/errors";
+import { RequiresConnectionError } from "@shared/core/errors/offlineErrors";
 import { isOnline } from "@/src/core/offline/net/connectivity";
 import type {
   IWhatsAppRepository,

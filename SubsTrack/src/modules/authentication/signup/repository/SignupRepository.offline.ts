@@ -1,5 +1,5 @@
 import { isOnline } from "@/src/core/offline/net/connectivity";
-import { RequiresConnectionError } from "@/src/core/offline/errors";
+import { RequiresConnectionError } from "@shared/core/errors/offlineErrors";
 import type { CreateTenantInput, CreateTenantResult } from "../utils/types";
 import type { ISignupRepository } from "./ISignupRepository";
 import { SignupRepository } from "./SignupRepository";

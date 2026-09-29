@@ -1,6 +1,6 @@
 import type { CustomerPlan } from "@shared/core/types";
 import { isValidDateString } from "@shared/core/utils/date";
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import billingService from "@/src/modules/admin/billing/services/BillingService";
 import type { QuotaPair } from "@/src/modules/admin/billing/utils/types";
 import repository from "../repository/CustomerPlanRepository";

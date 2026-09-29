@@ -1,4 +1,4 @@
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import type { Currency } from "@shared/core/types";
 import { findCurrency } from "@shared/core/utils/currency";
 import { expenseCategoryLabelKey } from "@/src/modules/transaction/expenses/utils/expenseCategories";

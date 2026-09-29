@@ -3,7 +3,7 @@ import type { BranchFilter } from "@shared/core/constants";
 import type { DbProduct, DbStockMovement } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, markDeleted } from "@/src/core/offline/db/dml";
-import { newId, nowIso } from "@/src/core/offline/ids";
+import { newId, nowIso } from "@shared/core/utils/ids";
 import { toStockCostRow } from "../utils/mapper";
 import type {
   CreateStockMovementPayload,

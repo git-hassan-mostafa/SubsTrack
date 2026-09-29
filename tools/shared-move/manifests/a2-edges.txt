@@ -1,0 +1,12 @@
+# A2: platform edges. Paths are relative to SubsTrack/src; "a -> b" renames on the way.
+# Stay in SubsTrack: core/i18n/setup.ts, languageStore.ts, useAppFont.ts (phone setup),
+# core/errorLog/* (SQLite logger), shared/lib/uiPrefStore.ts (A6).
+core/offline/ids.ts -> core/utils/ids.ts
+core/offline/errors.ts -> core/errors/offlineErrors.ts
+core/i18n/index.ts
+core/i18n/resources.ts
+core/i18n/locales/en.json
+core/i18n/locales/ar.json
+core/utils/billingMonth.ts
+core/audit/buildAuditRow.ts
+core/audit/describe.ts

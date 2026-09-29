@@ -1,7 +1,7 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 import { encodeRow, encodeRowsUniform } from "./codec";
 import { inBatches } from "../batch";
-import { newId } from "../ids";
+import { newId } from "@shared/core/utils/ids";
 
 function placeholders(n: number): string {
   return Array.from({ length: n }, () => "?").join(", ");

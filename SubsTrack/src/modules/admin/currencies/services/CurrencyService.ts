@@ -1,5 +1,5 @@
 import type { Currency } from "@shared/core/types";
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import repository from "../repository/CurrencyRepository";
 import { mapDbCurrencyToCurrency } from "../utils/mapper";
 import { CurrencyInput } from "../utils/types";

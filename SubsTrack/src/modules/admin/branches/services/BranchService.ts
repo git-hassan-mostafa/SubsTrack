@@ -1,5 +1,5 @@
 import type { Branch } from "@shared/core/types";
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import repository from "../repository/BranchRepository";
 import { mapDbBranchToBranch } from "../utils/mapper";
 import { BranchInput } from "../utils/types";

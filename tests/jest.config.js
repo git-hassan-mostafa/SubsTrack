@@ -9,9 +9,10 @@ module.exports = {
   rootDir: __dirname,
   testEnvironment: "node",
   testMatch: ["<rootDir>/suites/**/*.test.ts"],
+  setupFiles: ["<rootDir>/helpers/configureRuntime.ts"],
   moduleFileExtensions: ["ts", "tsx", "js", "json"],
   moduleNameMapper: {
-    "^@/src/core/i18n$": stub("i18n.ts"),
+    "^@shared/core/i18n$": stub("i18n.ts"),
     "^@/src/shared/lib/supabase$": stub("supabase-client.ts"),
     "^@/src/modules/admin/products$": stub("products-barrel.ts"),
     "^@/src/modules/admin/billing$": stub("billing-barrel.ts"),

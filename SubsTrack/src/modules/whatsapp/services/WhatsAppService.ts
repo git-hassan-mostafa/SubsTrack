@@ -13,7 +13,7 @@ import type {
   WhatsAppTemplate,
   WhatsAppTemplatePurpose,
 } from "@shared/core/types";
-import { newId } from "@/src/core/offline/ids";
+import { newId } from "@shared/core/utils/ids";
 import skippedMonthService from "@/src/modules/customer/customer-payments/services/SkippedMonthService";
 import { ledgerService } from "@/src/modules/ledger/services/LedgerService";
 import {

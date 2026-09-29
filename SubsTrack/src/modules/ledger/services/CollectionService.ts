@@ -1,6 +1,6 @@
 import type { BranchFilter } from "@shared/core/constants";
 import type { DbCollection } from "@shared/core/types/db";
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import type {
   AllocationLine,
   AuditRecordTarget,
@@ -10,7 +10,7 @@ import type {
   OpenItem,
   WalletSource,
 } from "@shared/core/types";
-import { deterministicId, nowIso } from "@/src/core/offline/ids";
+import { deterministicId, nowIso } from "@shared/core/utils/ids";
 import {
   custodyOf,
   sharedCustody,

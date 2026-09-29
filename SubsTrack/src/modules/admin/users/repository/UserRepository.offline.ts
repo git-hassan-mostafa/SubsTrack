@@ -2,9 +2,9 @@ import type { BranchFilter } from "@shared/core/constants";
 import type { DbUser } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { upsertFromServer } from "@/src/core/offline/db/dml";
-import { nowIso } from "@/src/core/offline/ids";
+import { nowIso } from "@shared/core/utils/ids";
 import { isOnline } from "@/src/core/offline/net/connectivity";
-import { RequiresConnectionError } from "@/src/core/offline/errors";
+import { RequiresConnectionError } from "@shared/core/errors/offlineErrors";
 import type { CreateUserPayload, IUserRepository } from "./IUserRepository";
 import { UserRepository } from "./UserRepository";
 

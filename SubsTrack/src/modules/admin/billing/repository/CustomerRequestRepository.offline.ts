@@ -1,6 +1,6 @@
 import type { DbCustomerRequest } from "@shared/core/types/db";
 import { isOnline } from "@/src/core/offline/net/connectivity";
-import { RequiresConnectionError } from "@/src/core/offline/errors";
+import { RequiresConnectionError } from "@shared/core/errors/offlineErrors";
 import type { QuotaPair } from "../utils/types";
 import type {
   CustomerRequestInput,

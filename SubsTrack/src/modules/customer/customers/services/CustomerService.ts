@@ -1,6 +1,6 @@
 import type { Customer } from "@shared/core/types";
 import { PAGE_SIZE, type BranchFilter } from "@shared/core/constants";
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import repository from "../repository/CustomerRepository";
 import billingService from "@/src/modules/admin/billing/services/BillingService";
 import type { QuotaPair } from "@/src/modules/admin/billing/utils/types";

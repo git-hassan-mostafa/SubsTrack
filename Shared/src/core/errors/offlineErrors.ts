@@ -1,4 +1,4 @@
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 
 /**
  * Thrown by offline repository methods that cannot work without the network

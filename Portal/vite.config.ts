@@ -15,7 +15,6 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: [
-      { find: /^@\/src\/core\/i18n$/, replacement: here("./stubs/i18n.ts") },
       {
         find: /^@\/src\/shared\/lib\/supabase$/,
         replacement: here("./stubs/supabase-client.ts"),

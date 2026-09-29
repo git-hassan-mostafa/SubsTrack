@@ -1,10 +1,10 @@
 import { supabase } from "@/src/shared/lib/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import { BRANCH_FILTER_UNASSIGNED, BranchFilter } from "@shared/core/constants";
 import { readFunctionsErrorBody } from "@shared/core/utils/functionsError";
-import { logException } from "../errorLog/errorLogger";
-import { buildAuditRow, type AuditInput } from "../audit";
+import { reportException } from "@shared/core/runtime/reportException";
+import { buildAuditRow, type AuditInput } from "@shared/core/audit/buildAuditRow";
 
 /**
  * Describes how a row in a given table relates to a branch. There are exactly
@@ -41,7 +41,7 @@ export abstract class BaseRepository {
     if (error && typeof error === "object" && "message" in error) {
       const message = (error as { message: string }).message;
       console.error("[Repository Error]", message);
-      void logException({
+      reportException({
         source: "repository",
         message,
         context: this.constructor.name,
@@ -49,7 +49,7 @@ export abstract class BaseRepository {
       throw new Error(message);
     }
     console.error("[Repository Error]", error);
-    void logException({
+    reportException({
       source: "repository",
       message: String(error),
       context: this.constructor.name,
@@ -81,7 +81,7 @@ export abstract class BaseRepository {
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       console.warn("[audit] failed to record:", message);
-      void logException({
+      reportException({
         source: "repository",
         message,
         context: `audit:${input.table}`,

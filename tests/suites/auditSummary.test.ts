@@ -1,10 +1,10 @@
-import en from "@/src/core/i18n/locales/en.json";
+import en from "@shared/core/i18n/locales/en.json";
 
 // billingMonthLabel reads the i18n SINGLETON, so the shared stub (which echoes
 // the key) would leak "months_long.mar" into every asserted sentence. Resolve
 // real en.json here instead — a missing key then fails the test, which is the
 // point: the sentence catalogue must stay complete.
-jest.mock("@/src/core/i18n", () => ({
+jest.mock("@shared/core/i18n", () => ({
   __esModule: true,
   default: {
     language: "en",

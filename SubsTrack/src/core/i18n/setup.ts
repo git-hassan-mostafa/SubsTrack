@@ -1,4 +1,3 @@
-import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import {
   DevSettings,
@@ -7,8 +6,13 @@ import {
   Platform,
 } from "react-native";
 import { getLocales } from "expo-localization";
-import ar from "./locales/ar.json";
-import en from "./locales/en.json";
+import i18n, {
+  FALLBACK_LANGUAGE,
+  RTL_LANGUAGES,
+  SUPPORTED_LANGUAGES,
+  type SupportedLanguage,
+} from "@shared/core/i18n";
+import { resources } from "@shared/core/i18n/resources";
 import {
   clearRTLReloadCount,
   getLanguageStore,
@@ -16,12 +20,6 @@ import {
   incrementRTLReloadCount,
   MAX_RTL_RELOADS,
 } from "@/src/shared/lib/storage";
-
-export const SUPPORTED_LANGUAGES = ["en", "ar"] as const;
-export const RTL_LANGUAGES = ["ar"] as const;
-export const FALLBACK_LANGUAGE = "en" as const;
-
-export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 export async function reloadApp(): Promise<void> {
   try {
@@ -49,7 +47,7 @@ export async function reloadApp(): Promise<void> {
   }
 }
 
-function getDeviceLanguage(): SupportedLanguage {
+export function getDeviceLanguage(): SupportedLanguage {
   const locales = getLocales();
   const code = locales[0]?.languageCode ?? FALLBACK_LANGUAGE;
   return (SUPPORTED_LANGUAGES as readonly string[]).includes(code)
@@ -93,15 +91,10 @@ export async function initI18n(): Promise<void> {
     await i18n.use(initReactI18next).init({
       lng: language,
       fallbackLng: FALLBACK_LANGUAGE,
-      resources: {
-        en: { translation: en },
-        ar: { translation: ar },
-      },
+      resources,
       interpolation: { escapeValue: false },
     });
   } else {
     await i18n.changeLanguage(language);
   }
 }
-
-export default i18n;

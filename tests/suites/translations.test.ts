@@ -1,5 +1,5 @@
-import en from "@/src/core/i18n/locales/en.json";
-import ar from "@/src/core/i18n/locales/ar.json";
+import en from "@shared/core/i18n/locales/en.json";
+import ar from "@shared/core/i18n/locales/ar.json";
 
 // TC-TR-* — the two locales must stay the same SHAPE. A key that exists in one
 // and not the other renders its own name on screen; a {{placeholder}} that

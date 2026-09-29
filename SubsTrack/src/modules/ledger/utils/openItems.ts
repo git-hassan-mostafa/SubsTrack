@@ -1,4 +1,4 @@
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import type { Charge, MonthBill, MonthEntry, OpenItem } from "@shared/core/types";
 import type { DbCharge } from "@shared/core/types/db";
 import { receiptId } from "@shared/core/utils/receiptId";

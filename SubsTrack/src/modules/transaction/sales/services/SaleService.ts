@@ -1,7 +1,7 @@
 import type { Charge, Sale, SaleItem } from "@shared/core/types";
 import type { BranchFilter } from "@shared/core/constants";
-import i18n from "@/src/core/i18n";
-import { newId, nowIso } from "@/src/core/offline/ids";
+import i18n from "@shared/core/i18n";
+import { newId, nowIso } from "@shared/core/utils/ids";
 import { localMonthKey } from "@shared/core/utils/date";
 import repository from "../repository/SaleRepository";
 import chargeRepository from "@/src/modules/ledger/repository/ChargeRepository";

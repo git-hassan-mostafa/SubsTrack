@@ -29,10 +29,11 @@ function readManifest(file) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith("#"))
-    .map((rel) => {
+    .map((line) => {
+      const [rel, renamed = rel] = line.split("->").map((part) => part.trim());
       const from = path.join(APP_SRC, rel);
       if (!fs.existsSync(from)) throw new Error(`Not found: SubsTrack/src/${rel}`);
-      return { rel: toPosix(rel), from, to: path.join(SHARED_SRC, rel) };
+      return { rel: toPosix(rel), from, to: path.join(SHARED_SRC, renamed) };
     });
 }
 
@@ -107,6 +108,16 @@ function main() {
   const [manifestArg, ...flags] = process.argv.slice(2);
   if (!manifestArg) throw new Error("Usage: node tools/shared-move/move.mjs <manifest> [--dry]");
   const moves = readManifest(path.resolve(manifestArg));
+  const tracked = new Set(
+    execFileSync("git", ["ls-files", "--full-name", "SubsTrack/src"], { cwd: APP, encoding: "utf8" })
+      .split(/\r?\n/)
+      .filter(Boolean),
+  );
+  const untracked = moves.filter((m) => !tracked.has(toPosix(path.relative(APP, m.from))));
+  if (untracked.length) {
+    console.error("Refused - git add these new files first:\n  " + untracked.map((m) => m.rel).join("\n  "));
+    process.exit(1);
+  }
   const { errors, writes } = plan(moves);
   if (errors.length) {
     console.error("Refused - a moved file still needs app code:\n  " + errors.join("\n  "));

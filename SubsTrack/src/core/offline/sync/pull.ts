@@ -9,7 +9,7 @@ import {
 import { getDb } from "../db/sqlite";
 import { SYNC_TABLES, TABLE_BY_NAME, TABLES } from "../db/tables";
 import { withDbLock } from "../dbLock";
-import { isoDaysAgo } from "../ids";
+import { isoDaysAgo } from "@shared/core/utils/ids";
 import { getMeta, META_LAST_PULLED_AT, setMeta } from "./meta";
 import { mapWithLimit, NETWORK_CONCURRENCY } from "./parallel";
 

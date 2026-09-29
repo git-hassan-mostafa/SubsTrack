@@ -1,5 +1,5 @@
 import type { AuditEntry } from "@shared/core/types";
-import { billingMonthLabel } from "@/src/core/utils/billingMonth";
+import { billingMonthLabel } from "@shared/core/utils/billingMonth";
 import { receiptId } from "@shared/core/utils/receiptId";
 import { formatField } from "./format";
 import type { AuditFieldContext } from "./valueDisplay";

@@ -12,11 +12,6 @@ export {
   resumeSync,
 } from "./sync";
 export type { SyncStatus } from "./sync";
-export {
-  RequiresConnectionError,
-  OrganizationSwitchBlockedError,
-} from "./errors";
-export { newId, nowIso, deterministicId } from "./ids";
 export { getIsOnline, isOnline } from "./net/connectivity";
 export { OfflineBaseRepository } from "./OfflineBaseRepository";
 export {

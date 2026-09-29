@@ -1,4 +1,4 @@
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 
 // The server code picks the translation; its English text is the fallback.
 export class WhatsAppError extends Error {

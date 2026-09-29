@@ -1,5 +1,5 @@
 import type { BranchFilter } from "@shared/core/constants";
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import type {
   Charge,
   CustomerDebts,
@@ -9,7 +9,7 @@ import type {
   OpenItem,
 } from "@shared/core/types";
 import type { DbCharge } from "@shared/core/types/db";
-import { deterministicId, newId, nowIso } from "@/src/core/offline/ids";
+import { deterministicId, newId, nowIso } from "@shared/core/utils/ids";
 import { daysLate } from "@shared/core/utils/date";
 import repository from "../repository/ChargeRepository";
 import type {

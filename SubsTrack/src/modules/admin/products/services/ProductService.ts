@@ -1,7 +1,7 @@
 import type { Currency, Product, StockMovement } from "@shared/core/types";
 import type { DbStockMovement } from "@shared/core/types/db";
 import type { BranchFilter } from "@shared/core/constants";
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import repository from "../repository/ProductRepository";
 import type {
   CreateStockMovementPayload,

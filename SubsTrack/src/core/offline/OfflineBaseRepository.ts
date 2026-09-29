@@ -1,5 +1,5 @@
 import type { SQLiteDatabase } from "expo-sqlite";
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import {
   BRANCH_FILTER_UNASSIGNED,
   type BranchFilter,
@@ -8,9 +8,9 @@ import { getDb } from "./db/sqlite";
 import { decodeRow, decodeRows } from "./db/codec";
 import { insertDirty, markDeleted, updateDirty } from "./db/dml";
 import { withDbLock } from "./dbLock";
-import { logException } from "../errorLog/errorLogger";
+import { reportException } from "@shared/core/runtime/reportException";
 import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
-import { buildAuditRow, type AuditInput } from "../audit";
+import { buildAuditRow, type AuditInput } from "@shared/core/audit/buildAuditRow";
 
 /** Mirror of BaseRepository.BranchScope — same three semantics, SQL-side. */
 export type OfflineBranchScope =
@@ -27,7 +27,7 @@ export abstract class OfflineBaseRepository {
     if (error && typeof error === "object" && "message" in error) {
       const message = (error as { message: string }).message;
       console.error("[Offline Repository Error]", message);
-      void logException({
+      reportException({
         source: "repository",
         message,
         context: this.constructor.name,
@@ -35,7 +35,7 @@ export abstract class OfflineBaseRepository {
       throw new Error(message);
     }
     console.error("[Offline Repository Error]", error);
-    void logException({
+    reportException({
       source: "repository",
       message: String(error),
       context: this.constructor.name,

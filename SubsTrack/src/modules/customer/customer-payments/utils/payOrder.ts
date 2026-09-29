@@ -1,6 +1,6 @@
 import { toBillingMonth } from "@shared/core/utils/date";
 
-export { billingMonthLabel } from "@/src/core/utils/billingMonth";
+export { billingMonthLabel } from "@shared/core/utils/billingMonth";
 
 /** Every billing month a payment covers (a multi-month block covers N of them). */
 export function coveredBillingMonths(

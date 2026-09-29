@@ -1,6 +1,6 @@
 import type { Expense, ExpenseItem, ExpensesView } from "@shared/core/types";
 import type { BranchFilter } from "@shared/core/constants";
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import { sumUsd } from "@shared/core/utils/currency";
 import productService from "@/src/modules/admin/products/services/ProductService";
 import repository from "../repository/ExpenseRepository";

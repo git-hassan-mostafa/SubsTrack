@@ -1,5 +1,6 @@
+import { configurePhone } from "@/src/platform/configurePhone";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
-import { initI18n } from "@/src/core/i18n";
+import { initI18n } from "@/src/core/i18n/setup";
 import { useOptionSlice } from "@/src/state/hooks/useOptionSlice";
 import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
 import { ErrorBoundary } from "@/src/shared/components/ErrorBoundary";
@@ -17,6 +18,8 @@ import { initOffline } from "@/src/core/offline";
 import { refreshActiveData } from "@/src/state/refreshActiveData";
 import { installGlobalErrorHandler } from "@/src/core/errorLog/globalHandler";
 import { startSync } from "@/src/core/offline/sync";
+
+configurePhone();
 
 export default function RootLayout() {
   const [i18nReady, setI18nReady] = useState(false);

@@ -1,7 +1,7 @@
 import type { DbTenantSetting } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { upsertNaturalKeyDirty } from "@/src/core/offline/db/dml";
-import { deterministicId, nowIso } from "@/src/core/offline/ids";
+import { deterministicId, nowIso } from "@shared/core/utils/ids";
 import type { ITenantSettingRepository } from "./ITenantSettingRepository";
 
 /**

@@ -1,7 +1,7 @@
 import type { AuditAction, AuditTable } from "@shared/core/types";
 import type { DbAuditLog } from "@shared/core/types/db";
-import { newId, nowIso } from "../offline/ids";
-import type { getStore as GetStore } from "@/src/state/globalStore";
+import { newId, nowIso } from "@shared/core/utils/ids";
+import { runtime } from "@shared/core/runtime/runtime";
 import { describeAudit } from "./describe";
 
 /**
@@ -87,25 +87,9 @@ function sameValue(a: unknown, b: unknown): boolean {
   return false;
 }
 
-/**
- * Build the audit row for one change: diffs `before`/`after` down to the columns
- * that actually moved, then attaches the actor, tenant and timestamps.
- *
- * Returns `null` when there is nothing worth recording — an update that changed
- * no field (a form saved untouched), or no signed-in user. Callers can pass the
- * result straight to an insert without checking anything else.
- *
- * `globalStore` is required lazily, not imported at module scope: this file is
- * reached from BaseRepository/OfflineBaseRepository, which every service — and
- * therefore every slice — transitively imports, so a top-level import of the
- * store would form a require cycle and crash with "Cannot access '<var>' before
- * initialization". Same reason and same shape as errorLogger.ts.
- */
+// null when nothing moved or nobody is signed in, so callers insert it as is.
 export function buildAuditRow(input: AuditInput): DbAuditLog | null {
-  const { getStore } = require("@/src/state/globalStore") as {
-    getStore: typeof GetStore;
-  };
-  const user = getStore().getState().auth.user;
+  const user = runtime().actor();
   if (!user?.tenantId) return null;
 
   const before = ownColumns(

@@ -1,5 +1,5 @@
 import { MONTHS } from "@shared/core/constants";
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 
 /** "Mar 2026" for a YYYY-MM-01 billing month; `long` gives "March 2026". */
 export function billingMonthLabel(billingMonth: string, long = false): string {

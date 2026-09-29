@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { isRtl, SUPPORTED_LANGUAGES } from "../../stubs/i18n";
+import { SUPPORTED_LANGUAGES } from "@shared/core/i18n";
+import { isRtl } from "../core/i18n/setup";
 
 // Sets `dir` on <html> as well as the language: SubsTrack restarts the app to
 // flip RTL, but a web page only needs the attribute.

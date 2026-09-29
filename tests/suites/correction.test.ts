@@ -10,7 +10,7 @@ jest.mock("@/src/modules/ledger/repository/CollectionRepository", () => ({
 import { collectionService } from "@/src/modules/ledger/services/CollectionService";
 import type { CollectInput } from "@/src/modules/ledger/services/CollectionService";
 import type { AllocationLine, OpenItem } from "@shared/core/types";
-import { deterministicId } from "@/src/core/offline/ids";
+import { deterministicId } from "@shared/core/utils/ids";
 import {
   hasClosedBill,
   withoutCollection,

@@ -66,7 +66,7 @@ import { FAB } from "@/src/shared/components/FAB";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
-import { billingMonthLabel } from "@/src/core/utils/billingMonth";
+import { billingMonthLabel } from "@shared/core/utils/billingMonth";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import {
   useSelection,

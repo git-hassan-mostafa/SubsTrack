@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
-import i18n from "@/src/core/i18n";
+import i18n from "@shared/core/i18n";
 import { signupService } from "@/src/modules/authentication/signup";
 
 export interface SignupCredentials {

@@ -1,7 +1,7 @@
 import type { DbCurrency } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty } from "@/src/core/offline/db/dml";
-import { newId, nowIso } from "@/src/core/offline/ids";
+import { newId, nowIso } from "@shared/core/utils/ids";
 import type { ICurrencyRepository } from "./ICurrencyRepository";
 
 /**

@@ -2,7 +2,7 @@ import type { BranchFilter } from "@shared/core/constants";
 import type { DbService } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, markDeleted } from "@/src/core/offline/db/dml";
-import { newId, nowIso } from "@/src/core/offline/ids";
+import { newId, nowIso } from "@shared/core/utils/ids";
 import type { IServiceRepository } from "./IServiceRepository";
 
 /**
