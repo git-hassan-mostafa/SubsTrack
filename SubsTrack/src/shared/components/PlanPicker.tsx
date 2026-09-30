@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { Dropdown, type DropdownOption } from "./Dropdown";
 import type { Plan } from "@shared/core/types";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { findCurrency } from "@shared/core/utils/currency";
+import { planPriceSublabel } from "@shared/modules/admin/plans/utils/planLabels";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
@@ -20,12 +21,7 @@ interface PlanPickerProps {
   disabledHint?: string;
 }
 
-/**
- * Form-field plan picker. Reads plans from the global slice, filters by branch,
- * and formats each plan's price into the user's display currency (with the
- * plan's stored currency as the source). Encapsulates the price-conversion
- * boilerplate that previously lived in each FormSheet.
- */
+// Only plans shared or owned by the branch; prices read in the display currency.
 export function PlanPicker({
   value,
   onChange,
@@ -47,21 +43,11 @@ export function PlanPicker({
 
   const options: DropdownOption<string>[] = plans
     .filter((p: Plan) => p.branchId === null || p.branchId === branchId)
-    .map((p: Plan) => {
-      const source = findCurrency(currencies, p.currencyId);
-      const priceLabel = formatMoney(p.price ?? 0, source, displayCurrency);
-      const periodLabel =
-        p.durationMonths === 1
-          ? t("plans.per_month")
-          : t("plans.n_months", { count: p.durationMonths });
-      return {
-        value: p.id,
-        label: p.name,
-        sublabel: p.isCustomPrice
-          ? t("common.custom_pricing")
-          : `${priceLabel} / ${periodLabel}`,
-      };
-    });
+    .map((p: Plan) => ({
+      value: p.id,
+      label: p.name,
+      sublabel: planPriceSublabel(p, currencies, displayCurrency, t),
+    }));
 
   return (
     <Dropdown

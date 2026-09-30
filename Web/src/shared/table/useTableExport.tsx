@@ -13,15 +13,16 @@ import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { toExportTable } from "@shared/shared/hooks/exportRowFormat";
 import { downloadCsv } from "@/shared/lib/downloadCsv";
 
-export interface TableExport {
+export interface TableExport<T extends object = object> {
   nameKey: string;
-  loadAll: () => Promise<readonly object[]>;
+  loadAll: () => Promise<readonly T[]>;
+  record?: (row: T) => object;
 }
 
 // Admin-only like the phone; asks "this page or all" only when there is more.
-export function useTableExport(
-  config: TableExport | undefined,
-  pageRows: readonly object[],
+export function useTableExport<T extends object>(
+  config: TableExport<T> | undefined,
+  pageRows: readonly T[],
   total: number,
 ) {
   const { t } = useTranslation();
@@ -40,7 +41,8 @@ export function useTableExport(
     setError(null);
     setBusy(true);
     try {
-      const records = all ? await config.loadAll() : pageRows;
+      const rows = all ? await config.loadAll() : pageRows;
+      const records = config.record ? rows.map(config.record) : rows;
       if (records.length === 0) {
         setError(t("export.nothing_to_export"));
         return;

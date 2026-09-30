@@ -8,22 +8,10 @@ import { PlanPicker } from "@/src/shared/components/PlanPicker";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency, Plan } from "@shared/core/types";
 import { PlanLinePriceField } from "./PlanLinePriceField";
-
-// One row in the inline Plans editor. `id` present = an existing line being
-// kept/edited; absent = a new line to create. `status` "cancelled" = a
-// soft-cancelled line, shown read-only with a Reactivate action.
-export type PlanRow = {
-  key: string;
-  id?: string;
-  planId: string | null;
-  startDate: string;
-  customPrice: number | null;
-  customCurrencyId: string | null;
-  status: "active" | "cancelled";
-};
+import type { LineRow } from "@shared/modules/customer/customer-plans/utils/lineDrafts";
 
 interface Props {
-  row: PlanRow;
+  row: LineRow;
   index: number;
   plan: Plan | null;
   branchId: string | null;
@@ -40,7 +28,7 @@ interface Props {
   onAddPlan: () => void;
 }
 
-/** One service line as a card: plan, start date and price, stacked. */
+// Cancelled rows stay read-only until reactivated.
 export function PlanLineCard({
   row,
   index,
@@ -120,9 +108,6 @@ export function PlanLineCard({
         </View>
       ) : null}
 
-      {/* Plan + start date share a row — two short fields, one line each would
-          double the card's height and there is one card per service line.
-          Cancelled rows are read-only until reactivated. */}
       <View className="flex-row items-start gap-2 -mb-1">
         <View className="flex-1">
           <PlanPicker

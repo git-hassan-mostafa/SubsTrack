@@ -39,10 +39,10 @@ Web/src/
 │   ├── table/             # DataTable, RowActionsMenu, BulkActionBar, useTableExport, TableAction,
 │   │                      #   RowLink, ActiveFilterSelect, activeStatusColumn, useBranchColumn
 │   ├── hooks/             # useMoneyPair
-│   └── lib/               # downloadCsv, openWhatsApp
+│   └── lib/               # downloadCsv, openWhatsApp, copyText
 ├── state/                 # web-only stores: createPagedStore + one table store per list, webSession.ts
 └── modules/<group>/<module>/  # pages + dialogs (admin/{branches,currencies,services,plans,products,users,
-                               #   audit,billing,tenant-settings} so far)
+                               #   audit,billing,tenant-settings}, customer/{customers,customer-plans} so far)
 ```
 
 Each module keeps the SAME folder path in both halves: its logic under
@@ -137,8 +137,7 @@ SubsTrack/
 │   │   │   ├── OfflineBaseRepository.ts, dbLock.ts, batch.ts, scope.ts
 │   │   │   └── platform.ts        # IS_OFFLINE_CAPABLE
 │   │   ├── errorLog/              # SQLite error logger (passed as runtime.logException) + global handler
-│   │   ├── i18n/                  # setup.ts (initI18n, RTL, device language, reload), languageStore, useAppFont
-│   │   └── utils/portalPassword.ts
+│   │   └── i18n/                  # setup.ts (initI18n, RTL, device language, reload), languageStore, useAppFont
 │   │
 │   ├── modules/<group>/<module>/  # UI ONLY — same paths as Shared/src/modules
 │   │   ├── index.ts               # barrel: screens, components, UI hooks — never logic

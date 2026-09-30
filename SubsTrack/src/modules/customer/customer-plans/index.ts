@@ -1,2 +1,2 @@
 export { CustomerPlansEditor } from "./components/CustomerPlansEditor";
-export type { CustomerPlansEditorHandle } from "./components/CustomerPlansEditor";
+export { RemovePlanChoice } from "./components/RemovePlanChoice";

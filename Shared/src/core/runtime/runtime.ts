@@ -5,6 +5,7 @@ import type { Repositories } from "./repositories";
 export interface RuntimeIds {
   randomUUID(): string;
   sha1Hex(text: string): Promise<string>;
+  randomBytes(length: number): Uint8Array;
 }
 
 export interface RuntimeStorage {

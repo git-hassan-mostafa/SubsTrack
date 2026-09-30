@@ -1,6 +1,8 @@
 import { useUiStore } from "@shared/shared/lib/uiStore";
+import { reloadCustomersTableIfLoaded } from "@/state/customersTable";
 import { reloadProductsTableIfLoaded } from "@/state/productsTable";
 import { BatchRestockDialog } from "@/modules/admin/products/BatchRestockDialog";
+import { CustomerFormDialog } from "@/modules/customer/customers/CustomerFormDialog";
 
 // The one host for dialogs a header quick action opens, on any page.
 export function QuickActionDialogs() {
@@ -8,6 +10,17 @@ export function QuickActionDialogs() {
   const close = useUiStore((s) => s.closeQuickAction);
 
   switch (openSheet) {
+    case "customer":
+      return (
+        <CustomerFormDialog
+          customer={null}
+          onClose={close}
+          onSaved={() => {
+            close();
+            reloadCustomersTableIfLoaded();
+          }}
+        />
+      );
     case "batchRestock":
       return <BatchRestockDialog onClose={close} onSaved={reloadProductsTableIfLoaded} />;
     default:

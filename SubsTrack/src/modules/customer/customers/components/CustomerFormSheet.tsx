@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from "react";
 import { Switch, View } from "react-native";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { Text } from "@/src/shared/components/Text";
@@ -10,146 +9,33 @@ import { Input } from "@/src/shared/components/Input";
 import type { Customer } from "@shared/core/types";
 import {
   CustomerPlansEditor,
-  type CustomerPlansEditorHandle,
+  RemovePlanChoice,
 } from "@/src/modules/customer/customer-plans";
-import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
-import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
-import { useUiPrefStore } from "@shared/shared/lib/uiPrefStore";
-import { BRANCH_FILTER_UNASSIGNED } from "@shared/core/constants";
-import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
-import { useCustomerPlanSlice } from "@shared/state/hooks/useCustomerPlanSlice";
-import { getStore } from "@shared/state/globalStore";
-import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
-import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
+import { useCustomerForm } from "@shared/modules/customer/customers/hooks/useCustomerForm";
 import { QuotaReachedModal } from "@/src/modules/admin/billing";
 import { useBillingSlice } from "@shared/state/hooks/useBillingSlice";
 import { LocationField } from "@/src/shared/components/LocationField";
 import { PortalAccessField } from "@/src/shared/components/PortalAccessField";
 import { useCustomerPortalUrl } from "@shared/state/hooks/useOptionSlice";
-import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 
 interface Props {
   customer?: Customer | null;
   onDismiss: () => void;
 }
 
-type FormState = {
-  name: string;
-  phoneNumber: string;
-  address: string;
-  area: string;
-  notes: string;
-  locationUrl: string;
-  branchId: string | null;
-  isRegular: boolean;
-  portalEnabled: boolean;
-  portalPassword: string;
-};
-
 export function CustomerFormSheet({ customer, onDismiss }: Props) {
   const { t } = useTranslation();
-  const { user } = useAuth();
-  const createCustomer = useCustomerSlice((s) => s.createCustomer);
-  const updateCustomer = useCustomerSlice((s) => s.updateCustomer);
-  const error = useCustomerSlice((s) => s.error);
-  const clearError = useCustomerSlice((s) => s.clearError);
   const quotaError = useBillingSlice((s) => s.quotaError);
   const clearQuotaError = useBillingSlice((s) => s.clearQuotaError);
-  const syncLines = useCustomerPlanSlice((s) => s.syncLines);
-  const planError = useCustomerPlanSlice((s) => s.error);
-  const clearPlanError = useCustomerPlanSlice((s) => s.clearError);
-  const getPlans = usePlanSlice((s) => s.getPlans);
-  const { currentBranchId } = useUiPrefStore();
-  const activeBranches = useActiveBranches();
   const portalBaseUrl = useCustomerPortalUrl();
-
-  const defaultBranchId = customer
-    ? customer.branchId
-    : (defaultNewBranchId(user, activeBranches) ??
-      (currentBranchId === BRANCH_FILTER_UNASSIGNED ? null : currentBranchId));
-
-  const [form, setForm] = useState<FormState>({
-    name: customer?.name ?? "",
-    phoneNumber: customer?.phoneNumber ?? "",
-    address: customer?.address ?? "",
-    area: customer?.area ?? "",
-    notes: customer?.notes ?? "",
-    locationUrl: customer?.locationUrl ?? "",
-    branchId: defaultBranchId,
-    isRegular: customer?.isRegular ?? true,
-    portalEnabled: customer?.portalEnabled ?? false,
-    portalPassword: customer?.portalPassword ?? "",
-  });
-
-  const plansEditor = useRef<CustomerPlansEditorHandle>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  const [plansDirty, setPlansDirty] = useState(false);
-  const dirty = useDirtyForm(form) || plansDirty;
-
-  useEffect(() => {
-    clearError();
-    clearPlanError();
-    getPlans();
-  }, [clearError, clearPlanError, getPlans]);
+  const { form, change, lines, dirty, canSubmit, submitting, error, clearError, submit } =
+    useCustomerForm(customer ?? null, (onChange) => (
+      <RemovePlanChoice onChange={onChange} />
+    ));
 
   async function handleSubmit() {
-    if (!user || submitting) return;
-    setSubmitting(true);
-    try {
-      const payload = {
-        name: form.name,
-        phoneNumber: form.phoneNumber || null,
-        address: form.address || null,
-        area: form.area || null,
-        notes: form.notes || null,
-        locationUrl: form.locationUrl || null,
-        branchId: form.branchId,
-        isRegular: form.isRegular,
-        portalEnabled: form.portalEnabled,
-        portalPassword: form.portalPassword || null,
-      };
-      const finalLines = plansEditor.current?.getLines() ?? [];
-      const removed = plansEditor.current?.getRemoved() ?? [];
-      const reactivated = plansEditor.current?.getReactivated() ?? [];
-
-      if (customer) {
-        await updateCustomer(customer.id, payload);
-        if (getStore().getState().customers.error) return;
-        const ok = await syncLines(
-          customer.id,
-          finalLines,
-          removed,
-          reactivated,
-          user.tenantId,
-        );
-        if (ok) onDismiss();
-      } else {
-        const created = await createCustomer(
-          payload,
-          user.tenantId,
-          finalLines.length,
-        );
-        if (!created) return;
-        const ok = await syncLines(
-          created.id,
-          finalLines,
-          [],
-          [],
-          user.tenantId,
-        );
-        if (ok) onDismiss();
-      }
-    } finally {
-      setSubmitting(false);
-    }
+    if (await submit()) onDismiss();
   }
-
-  const bannerError = error || planError;
-  const clearBanner = () => {
-    clearError();
-    clearPlanError();
-  };
 
   return (
     <>
@@ -158,14 +44,12 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
         dirty={dirty}
         title={customer ? t("customers.edit_title") : t("customers.add_title")}
       >
-        {bannerError ? (
-          <ErrorBanner message={bannerError} onDismiss={clearBanner} />
-        ) : null}
+        {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
         <Input
           label={t("customers.name_label") + " *"}
           value={form.name}
-          onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
+          onChangeText={(v) => change({ name: v })}
           placeholder={t("customers.name_placeholder")}
           autoCapitalize="words"
           onFocus={clearError}
@@ -174,7 +58,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
         <Input
           label={t("customers.phone_label")}
           value={form.phoneNumber}
-          onChangeText={(v) => setForm((prev) => ({ ...prev, phoneNumber: v }))}
+          onChangeText={(v) => change({ phoneNumber: v })}
           placeholder={t("customers.phone_placeholder")}
           keyboardType="phone-pad"
         />
@@ -182,48 +66,41 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
         <Input
           label={t("customers.address_label")}
           value={form.address}
-          onChangeText={(v) => setForm((prev) => ({ ...prev, address: v }))}
+          onChangeText={(v) => change({ address: v })}
           placeholder={t("common.optional")}
         />
 
         <Input
           label={t("customers.area_label")}
           value={form.area}
-          onChangeText={(v) => setForm((prev) => ({ ...prev, area: v }))}
+          onChangeText={(v) => change({ area: v })}
           placeholder={t("customers.area_placeholder")}
         />
 
         <LocationField
           value={form.locationUrl}
-          onChange={(v) => setForm((prev) => ({ ...prev, locationUrl: v }))}
+          onChange={(v) => change({ locationUrl: v })}
         />
 
         <BranchPicker
           label={t("branches.branch_label") + " *"}
           value={form.branchId}
-          onChange={(branchId) => setForm((prev) => ({ ...prev, branchId }))}
+          onChange={(branchId) => change({ branchId })}
           nullLabel={t("branches.unassigned")}
           nullable={false}
         />
 
-        {/* Plans (service lines) — add / change / remove inline. */}
-        <CustomerPlansEditor
-          ref={plansEditor}
-          customer={customer}
-          branchId={form.branchId}
-          onDirtyChange={setPlansDirty}
-        />
+        <CustomerPlansEditor drafts={lines} branchId={form.branchId} />
 
         <Input
           label={t("customers.notes_label")}
           value={form.notes}
-          onChangeText={(v) => setForm((prev) => ({ ...prev, notes: v }))}
+          onChangeText={(v) => change({ notes: v })}
           placeholder={t("customers.notes_placeholder")}
           multiline
           style={{ minHeight: 80 }}
         />
 
-        {/* Regular customer toggle */}
         <View className="flex-row items-center justify-between py-3 border-t border-gray-100 mb-4">
           <View className="flex-1 me-4">
             <Text fontWeight="SemiBold" className="text-sm text-gray-900">
@@ -236,7 +113,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           <Switch
             value={form.isRegular}
             onValueChange={(v) =>
-              setForm((prev) => ({ ...prev, isRegular: v }))
+              change({ isRegular: v })
             }
           />
         </View>
@@ -247,10 +124,10 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           enabled={form.portalEnabled}
           password={form.portalPassword}
           onEnabledChange={(v) =>
-            setForm((prev) => ({ ...prev, portalEnabled: v }))
+            change({ portalEnabled: v })
           }
           onPasswordChange={(v) =>
-            setForm((prev) => ({ ...prev, portalPassword: v }))
+            change({ portalPassword: v })
           }
         />
 
@@ -258,7 +135,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           label={customer ? t("common.save_changes") : t("customers.add_title")}
           onPress={handleSubmit}
           loading={submitting}
-          disabled={!form.name.trim() || !form.branchId}
+          disabled={!canSubmit}
           fullWidth
         />
         <View className="h-24" />

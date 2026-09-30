@@ -45,7 +45,7 @@ export interface DataTableProps<T extends GridValidRowModel & { id: string }> {
   summary?: ReactNode;
   add?: { label: string; onClick: () => void };
   toolbarActions?: ReactNode;
-  exportConfig?: TableExport;
+  exportConfig?: TableExport<T>;
   rowLabel: (row: T) => string;
   rowActions?: (row: T) => TableAction[];
   bulkActions?: (selected: T[]) => TableAction[];

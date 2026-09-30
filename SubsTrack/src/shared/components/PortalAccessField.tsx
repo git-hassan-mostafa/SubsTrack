@@ -8,7 +8,10 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
 import { copyText } from "@/src/shared/lib/clipboard";
 import { buildPortalLink } from "@shared/core/utils/portalLink";
-import { generatePortalPassword } from "@/src/core/utils/portalPassword";
+import {
+  generatePortalPassword,
+  portalPasswordOnEnable,
+} from "@shared/core/utils/portalPassword";
 import { isolate } from "@shared/core/utils/bidi";
 
 interface Props {
@@ -20,8 +23,7 @@ interface Props {
   onPasswordChange: (next: string) => void;
 }
 
-// The whole portal block hides itself until the SaaS owner has set
-// CustomerPortalUrl - without a base URL there is no link to hand out.
+// Hidden until the SaaS owner sets CustomerPortalUrl: no base URL, no link.
 export function PortalAccessField({
   customerId,
   portalBaseUrl,
@@ -38,11 +40,10 @@ export function PortalAccessField({
 
   const link = customerId ? buildPortalLink(portalBaseUrl, customerId) : null;
 
-  // Switching the portal on with an empty box would refuse to save, so the
-  // password is filled in for staff. An existing one is never overwritten.
   function handleEnabledChange(next: boolean) {
-    if (next && !password.trim()) {
-      onPasswordChange(generatePortalPassword());
+    const filled = next ? portalPasswordOnEnable(password) : password;
+    if (filled !== password) {
+      onPasswordChange(filled);
       setRevealed(true);
     }
     onEnabledChange(next);

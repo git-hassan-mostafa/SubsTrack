@@ -26,6 +26,7 @@ import { ProductsPage } from "@/modules/admin/products/ProductsPage";
 import { ServicesPage } from "@/modules/admin/services/ServicesPage";
 import { OrganizationPage } from "@/modules/admin/tenant-settings/OrganizationPage";
 import { UsersPage } from "@/modules/admin/users/UsersPage";
+import { CustomersPage } from "@/modules/customer/customers/CustomersPage";
 import type { RouteAccess } from "./access";
 
 export type NavSection = "main" | "admin";
@@ -57,6 +58,7 @@ export const APP_PAGES: readonly AppPage[] = [
     access: ANY_ROLE,
     icon: PeopleOutlined,
     nav: "main",
+    component: CustomersPage,
   },
   {
     path: "sales",

@@ -9,6 +9,8 @@ function toHex(buffer: ArrayBuffer): string {
 // The browser half of the ids contract; the phone passes expo-crypto instead.
 export const webCryptoIds: RuntimeIds = {
   randomUUID: () => globalThis.crypto.randomUUID(),
+  randomBytes: (length) =>
+    globalThis.crypto.getRandomValues(new Uint8Array(length)),
   sha1Hex: async (text) =>
     toHex(
       await globalThis.crypto.subtle.digest(

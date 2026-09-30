@@ -1,18 +1,16 @@
 import type { StateCreator } from "zustand";
+import type { Customer } from "@shared/core/types";
 import customerPlanService from "@shared/modules/customer/customer-plans/services/CustomerPlanService";
 import type { LineDraft, RemovedLine } from "@shared/modules/customer/customer-plans/services/CustomerPlanService";
 import { QuotaExceededError } from "@shared/modules/admin/billing/utils/quotaError";
 import type { GlobalState } from "@shared/state/globalStore";
 
-// Thin slice for the customer form's inline Plans editor. Service lines are the
-// source of truth on the Customer object (joined via customer_plans), so a sync
-// patches that customer's lines through the customers slice — the detail screen +
-// payment panel read from there and re-render automatically.
+// The caller hands in the customer as saved, so the gates see its real lines.
 export interface CustomerPlanSlice {
   loading: boolean;
   error: string | null;
   syncLines: (
-    customerId: string,
+    customer: Pick<Customer, "id" | "customerPlans">,
     lines: LineDraft[],
     removed: RemovedLine[],
     reactivated: string[],
@@ -33,8 +31,9 @@ export const createCustomerPlanSlice: StateCreator<
   loading: false,
   error: null,
 
-  syncLines: async (customerId, lines, removed, reactivated, tenantId) => {
+  syncLines: async (customer, lines, removed, reactivated, tenantId) => {
     if (get().customerPlans.loading) return false;
+    const customerId = customer.id;
     const { limits, active: activeCounts } = get().billing;
     get().billing.clearQuotaError();
     set((state) => {
@@ -42,9 +41,7 @@ export const createCustomerPlanSlice: StateCreator<
       state.customerPlans.error = null;
     });
     try {
-      const existing =
-        get().customers.items.find((c) => c.id === customerId)?.customerPlans ??
-        [];
+      const existing = customer.customerPlans ?? [];
       const existingActive = existing.filter((l) => l.active);
       const { active, cancelled } = await customerPlanService.syncLines(
         customerId,

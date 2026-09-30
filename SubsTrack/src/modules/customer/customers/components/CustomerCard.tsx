@@ -12,9 +12,8 @@ import type { Customer, CustomerStatus } from "@shared/core/types";
 import { COLORS } from "../../../../shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { Chip, type ChipTone } from "@/src/shared/components/Chip";
-import { activeLines } from "@shared/modules/customer/customer-plans/utils/activeLines";
-import { lineLabel } from "@shared/modules/customer/customer-plans/utils/lineLabel";
-import { customerFlags, type CustomerFlag } from "@shared/modules/customer/customers/utils/customerFlags";
+import { planSummary as linesSummary } from "@shared/modules/customer/customer-plans/utils/lineLabel";
+import { customerPills, type CustomerPill } from "@shared/modules/customer/customers/utils/customerPills";
 
 interface Props {
   customer: Customer;
@@ -35,13 +34,21 @@ interface CardChip {
   tone: ChipTone;
 }
 
-const FLAG_STYLES: Record<
-  CustomerFlag,
+const PILL_STYLES: Record<
+  Exclude<CustomerPill, "debt">,
   {
-    label: (t: TFunction, s: CustomerStatus) => string;
+    label: (t: TFunction, s: CustomerStatus | null) => string;
     tone: ChipTone;
   }
 > = {
+  inactive: {
+    label: (t) => t("common.inactive"),
+    tone: "gray",
+  },
+  non_regular: {
+    label: (t) => t("customers.non_regular"),
+    tone: "indigo",
+  },
   paid: {
     label: (t) => t("common.paid"),
     tone: "emerald",
@@ -49,8 +56,8 @@ const FLAG_STYLES: Record<
   mixed: {
     label: (t, s) =>
       t("customers.plans_paid_count", {
-        paid: s.planCount.paid,
-        total: s.planCount.total,
+        paid: s?.planCount.paid ?? 0,
+        total: s?.planCount.total ?? 0,
       }),
     tone: "amber",
   },
@@ -72,47 +79,22 @@ const FLAG_STYLES: Record<
   },
 };
 
-// Inactive and non-regular REPLACE the payment flags; debt always rides along.
+// The pill rule is Shared customerPills; only the look is decided here.
 function buildChips(
   customer: Customer,
   status: CustomerStatus | null,
   debtLabel: string | null,
   t: TFunction,
 ): CardChip[] {
-  const chips: CardChip[] = [];
-
-  if (!customer.active) {
-    chips.push({
-      key: "inactive",
-      text: t("common.inactive"),
-      tone: "gray",
-    });
-  } else if (!customer.isRegular) {
-    chips.push({
-      key: "non_regular",
-      text: t("customers.non_regular"),
-      tone: "indigo",
-    });
-  } else if (status) {
-    for (const flag of customerFlags(status)) {
-      const style = FLAG_STYLES[flag];
-      chips.push({
-        key: flag,
-        text: style.label(t, status),
-        tone: style.tone,
-      });
-    }
-  }
-
-  if (debtLabel) {
-    chips.push({
-      key: "debt",
-      text: `${t("customers.debt")} ${debtLabel}`,
-      tone: "orange",
-    });
-  }
-
-  return chips;
+  return customerPills(customer, status, debtLabel !== null).map((pill) =>
+    pill === "debt"
+      ? { key: pill, text: `${t("customers.debt")} ${debtLabel}`, tone: "orange" }
+      : {
+          key: pill,
+          text: PILL_STYLES[pill].label(t, status),
+          tone: PILL_STYLES[pill].tone,
+        },
+  );
 }
 
 export const CustomerCard = memo(function CustomerCard({
@@ -129,13 +111,7 @@ export const CustomerCard = memo(function CustomerCard({
 }: Props) {
   const { t } = useTranslation();
 
-  const lines = activeLines(customer);
-  const planSummary =
-    lines.length === 0
-      ? t("common.no_plan")
-      : lines.length === 1
-        ? lineLabel(lines[0], t("common.no_plan"))
-        : t("subscriptions.count_plans", { count: lines.length });
+  const planSummary = linesSummary(customer, t);
 
   const chips = buildChips(customer, status, debtLabel, t);
 

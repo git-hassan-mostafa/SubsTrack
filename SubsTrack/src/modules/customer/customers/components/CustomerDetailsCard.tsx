@@ -60,9 +60,9 @@ export function CustomerDetailsCard({
       destructive: customer.active,
       onConfirm: async () => {
         if (customer.active) {
-          await customerStore.deactivateCustomer(customer.id);
+          await customerStore.deactivateCustomer(customer);
         } else {
-          await customerStore.reactivateCustomer(customer.id);
+          await customerStore.reactivateCustomer(customer);
         }
       },
     });
@@ -76,7 +76,7 @@ export function CustomerDetailsCard({
       destructive: true,
       onConfirm: async () => {
         hardDeleted =
-          (await customerStore.deleteCustomer(customer.id)) === "hard";
+          (await customerStore.deleteCustomer(customer)) === "hard";
       },
     });
     if (hardDeleted) onDeleted?.();

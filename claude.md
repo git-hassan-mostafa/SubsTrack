@@ -199,8 +199,9 @@ web's address in the final phase. Its pages and role rules are ONE list,
 logs out only through `endWebSession()` (`Web/src/state/webSession.ts`), and
 every web-only store under `Web/src/state/` registers its reset there. Every web
 list is a `DataTable` over a `createPagedStore()` store reading
-`I*Repository.findPage()` (both impls); writes still go through the Shared
-slice, then the page re-reads. `BranchesPage` is the reference (`docs/ui-patterns.md`). Also in the workspace:
+`I*Repository.findPage()` (both impls) — Customers reads the `customer-status`
+edge function through `createPagedStoreWithMeta()` (the tab counts ride along);
+writes still go through the Shared slice, then the page re-reads. `BranchesPage` is the reference (`docs/ui-patterns.md`). Also in the workspace:
 `sql scripts/` (`script.sql` schema+RLS, `reset.sql` teardown),
 `new-features.md` (backlog), `Design/`, `QA/`, `tests/` (Jest, money rules).
 

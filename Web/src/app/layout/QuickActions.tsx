@@ -3,6 +3,7 @@ import type { SvgIconComponent } from "@mui/icons-material";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import MoveToInboxOutlined from "@mui/icons-material/MoveToInboxOutlined";
+import PersonAddOutlined from "@mui/icons-material/PersonAddOutlined";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { sortActions, type ActionGroup } from "@shared/shared/lib/actionOrder";
 import { useUiStore } from "@shared/shared/lib/uiStore";
@@ -19,7 +20,15 @@ export interface QuickAction {
 function useQuickActions(): QuickAction[] {
   const { isAdmin } = useAuth();
   const openQuickAction = useUiStore((s) => s.openQuickAction);
-  const actions: QuickAction[] = [];
+  const actions: QuickAction[] = [
+    {
+      key: "customer",
+      group: "create",
+      labelKey: "customers.add",
+      icon: PersonAddOutlined,
+      onClick: () => openQuickAction("customer"),
+    },
+  ];
   if (isAdmin) {
     actions.push({
       key: "batchRestock",

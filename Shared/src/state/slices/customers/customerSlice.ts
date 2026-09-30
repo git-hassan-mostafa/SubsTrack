@@ -32,12 +32,12 @@ export interface CustomerSlice {
     tenantId: string,
     addingLines: number,
   ) => Promise<Customer | null>;
-  updateCustomer: (id: string, data: CustomerInput) => Promise<void>;
+  updateCustomer: (id: string, data: CustomerInput) => Promise<Customer | null>;
   setCustomerLines: (id: string, lines: CustomerPlan[]) => void;
-  deactivateCustomer: (id: string) => Promise<void>;
-  reactivateCustomer: (id: string) => Promise<void>;
-  deleteCustomer: (id: string) => Promise<"hard" | "soft" | null>;
-  bulkDeleteCustomers: (ids: string[]) => Promise<boolean>;
+  deactivateCustomer: (customer: Customer) => Promise<Customer | null>;
+  reactivateCustomer: (customer: Customer) => Promise<Customer | null>;
+  deleteCustomer: (customer: Customer) => Promise<"hard" | "soft" | null>;
+  bulkDeleteCustomers: (customers: Customer[]) => Promise<boolean>;
   clearError: () => void;
   reset: () => void;
 }
@@ -234,11 +234,13 @@ export const createCustomerSlice: StateCreator<
         if (i !== -1) state.customers.items[i] = updated;
         state.customers.loading = false;
       });
+      return updated;
     } catch (e) {
       set((state) => {
         state.customers.error = (e as Error).message;
         state.customers.loading = false;
       });
+      return null;
     }
   },
 
@@ -248,12 +250,11 @@ export const createCustomerSlice: StateCreator<
       if (i !== -1) state.customers.items[i].customerPlans = lines;
     }),
 
-  // Deactivating a customer does not cancel its lines, but they stop counting
-  // against the plan allowance the moment their owner goes inactive.
-  deactivateCustomer: async (id) => {
-    const previous = get().customers.items.find((c) => c.id === id);
-    const wasActive = previous?.active ?? false;
-    const lines = previous ? activeLines(previous).length : 0;
+  // Its lines stay, but stop counting against the plan allowance while inactive.
+  deactivateCustomer: async (customer) => {
+    const { id } = customer;
+    const wasActive = customer.active;
+    const lines = activeLines(customer).length;
     set((state) => {
       state.customers.loading = true;
       state.customers.error = null;
@@ -271,18 +272,20 @@ export const createCustomerSlice: StateCreator<
         state.customers.loading = false;
       });
       if (wasActive) get().billing.bumpActive({ customers: -1, plans: -lines });
+      return updated;
     } catch (e) {
       set((state) => {
         state.customers.error = (e as Error).message;
         state.customers.loading = false;
       });
+      return null;
     }
   },
 
-  reactivateCustomer: async (id) => {
-    const previous = get().customers.items.find((c) => c.id === id);
-    const wasActive = previous?.active ?? false;
-    const lines = previous ? activeLines(previous).length : 0;
+  reactivateCustomer: async (customer) => {
+    const { id } = customer;
+    const wasActive = customer.active;
+    const lines = activeLines(customer).length;
     set((state) => {
       state.customers.loading = true;
       state.customers.error = null;
@@ -296,18 +299,20 @@ export const createCustomerSlice: StateCreator<
         state.customers.loading = false;
       });
       if (!wasActive) get().billing.bumpActive({ customers: 1, plans: lines });
+      return updated;
     } catch (e) {
       set((state) => {
         state.customers.error = (e as Error).message;
         state.customers.loading = false;
       });
+      return null;
     }
   },
 
-  deleteCustomer: async (id) => {
-    const previous = get().customers.items.find((c) => c.id === id);
-    const wasActive = previous?.active ?? false;
-    const lines = previous ? activeLines(previous).length : 0;
+  deleteCustomer: async (customer) => {
+    const { id } = customer;
+    const wasActive = customer.active;
+    const lines = activeLines(customer).length;
     set((state) => {
       state.customers.loading = true;
       state.customers.error = null;
@@ -349,11 +354,10 @@ export const createCustomerSlice: StateCreator<
     }
   },
 
-  bulkDeleteCustomers: async (ids) => {
-    if (ids.length === 0) return true;
-    const removedActive = get().customers.items.filter(
-      (c) => ids.includes(c.id) && c.active,
-    );
+  bulkDeleteCustomers: async (customers) => {
+    if (customers.length === 0) return true;
+    const ids = customers.map((c) => c.id);
+    const removedActive = customers.filter((c) => c.active);
     const activeRemoved = removedActive.length;
     const linesRemoved = removedActive.reduce(
       (sum, c) => sum + activeLines(c).length,

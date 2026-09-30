@@ -15,10 +15,11 @@ export interface PagedQuery<F> {
   branch: BranchFilter;
 }
 
-export interface PagedState<T, F> {
+export interface PagedState<T, F, M = undefined> {
   query: PagedQuery<F>;
   rows: T[];
   total: number;
+  meta: M;
   loaded: boolean;
   loading: boolean;
   error: string | null;
@@ -32,14 +33,32 @@ export interface PagedState<T, F> {
   reset: () => void;
 }
 
-export type PageFetcher<T, F> = (query: PagedQuery<F>) => Promise<Page<T>>;
+export type PagedResult<T, M> = Page<T> & { meta: M };
+
+export type PageFetcher<T, F, M> = (query: PagedQuery<F>) => Promise<PagedResult<T, M>>;
 
 export function pageWindow(query: PagedQuery<unknown>): PageWindow {
   return { offset: query.page * query.pageSize, limit: query.pageSize };
 }
 
 // One web table's query and page; the query survives leaving the page.
-export function createPagedStore<T, F>(fetchPage: PageFetcher<T, F>, filters: F) {
+export function createPagedStore<T, F>(
+  fetchPage: (query: PagedQuery<F>) => Promise<Page<T>>,
+  filters: F,
+) {
+  return createPagedStoreWithMeta<T, F, undefined>(
+    async (query) => ({ ...(await fetchPage(query)), meta: undefined }),
+    filters,
+    undefined,
+  );
+}
+
+// `meta` rides with each page (the customer tab counts) and is reset with it.
+export function createPagedStoreWithMeta<T, F, M>(
+  fetchPage: PageFetcher<T, F, M>,
+  filters: F,
+  initialMeta: M,
+) {
   const initialQuery: PagedQuery<F> = {
     page: 0,
     pageSize: DEFAULT_PAGE_SIZE,
@@ -49,10 +68,11 @@ export function createPagedStore<T, F>(fetchPage: PageFetcher<T, F>, filters: F)
   };
   let latestRequest = 0;
 
-  return create<PagedState<T, F>>()((set, get) => ({
+  return create<PagedState<T, F, M>>()((set, get) => ({
     query: initialQuery,
     rows: [],
     total: 0,
+    meta: initialMeta,
     loaded: false,
     loading: false,
     error: null,
@@ -71,7 +91,13 @@ export function createPagedStore<T, F>(fetchPage: PageFetcher<T, F>, filters: F)
           await get().load();
           return;
         }
-        set({ rows: page.rows, total: page.total, loaded: true, loading: false });
+        set({
+          rows: page.rows,
+          total: page.total,
+          meta: page.meta,
+          loaded: true,
+          loading: false,
+        });
       } catch (e) {
         if (request !== latestRequest || isStaleEpoch(epoch)) return;
         set({ error: (e as Error).message, loading: false });
@@ -118,6 +144,7 @@ export function createPagedStore<T, F>(fetchPage: PageFetcher<T, F>, filters: F)
         query: initialQuery,
         rows: [],
         total: 0,
+        meta: initialMeta,
         loaded: false,
         loading: false,
         error: null,

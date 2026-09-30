@@ -526,9 +526,9 @@ export function CustomerListScreen() {
       destructive: customer.active,
       onConfirm: async () => {
         if (customer.active) {
-          await deactivateCustomer(customer.id);
+          await deactivateCustomer(customer);
         } else {
-          await reactivateCustomer(customer.id);
+          await reactivateCustomer(customer);
         }
       },
     });
@@ -542,7 +542,7 @@ export function CustomerListScreen() {
       confirmLabel: t("common.delete"),
       destructive: true,
       onConfirm: async () => {
-        await deleteCustomer(customer.id);
+        await deleteCustomer(customer);
         deleted = true;
       },
     });
@@ -610,7 +610,7 @@ export function CustomerListScreen() {
       onConfirm: async () => {
         setBulkBusy(true);
         try {
-          await bulkDeleteCustomers(selected.map((c) => c.id));
+          await bulkDeleteCustomers(selected);
           deleted = true;
         } finally {
           setBulkBusy(false);
