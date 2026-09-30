@@ -4458,7 +4458,15 @@ src/modules/ledger/
 Shared (both apps): hooks/useCollectForm (the sheet's state) · useCollectSubmit (one
                 hand-over per currency; a half-saved Save closes, never retries) ·
                 useLoadOwed · useCustomerOwed; utils/collectForm.ts (single bill, groups, inputs)
+                useBillPayments (one bill's hand-overs, patched by a void / correction) ·
+                useCorrectPayment · useCollectionDetail · useBillHistory · useWriteOffActions
+                (write off / undo / write off all); utils/billView.ts (billFacts: which doors a
+                bill opens · billHeadline · billInfoRows) · collectionView.ts · correction.ts
+                (correctionPlan / correctionProblem / correctionReason)
 Web:           Web/src/modules/ledger/collect/ — CollectDialog · useCollectDialog · CollectQuickActionDialog
+               Web/src/modules/ledger/bill/ — BillDialog · BillPaymentsList · BillSummary
+               Web/src/modules/ledger/payment/ — PaymentDetailDialog · CorrectPaymentDialog · paymentActions
+               Web/src/modules/ledger/void/ — VoidPaymentDialog · VoidBillDialog · SharedBillsWarning
   screens/      CollectionsPanel
 ```
 

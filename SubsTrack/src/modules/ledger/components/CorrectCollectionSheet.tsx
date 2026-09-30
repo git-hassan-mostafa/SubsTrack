@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { FormSheet } from "@/src/shared/components/FormSheet";
@@ -9,25 +9,10 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
-import {
-  findCurrency,
-  formatMoney,
-  snapshotCurrency,
-} from "@shared/core/utils/currency";
+import { findCurrency } from "@shared/core/utils/currency";
 import { formatDateTime } from "@shared/core/utils/date";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
-import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
-import {
-  collectionService,
-  type CollectionCorrection,
-  type CorrectionDraft,
-} from "@shared/modules/ledger/services/CollectionService";
-import {
-  groupKey,
-  groupOwedByCurrency,
-  planCollection,
-} from "@shared/modules/ledger/utils/currencyGroups";
+import type { CollectionCorrection } from "@shared/modules/ledger/services/CollectionService";
+import { useCorrectPayment } from "@shared/modules/ledger/hooks/useCorrectPayment";
 import { CurrencyCollectSection } from "./CurrencyCollectSection";
 
 const NO_SKIPS: ReadonlySet<string> = new Set();
@@ -45,94 +30,16 @@ export function CorrectCollectionSheet({
   onDismiss,
 }: Props) {
   const { t } = useTranslation();
-  const { user } = useAuth();
-  const currencies = useCurrencySlice((s) => s.items);
   const userName = useUserNames();
-  const correctCollection = useLedgerSlice((s) => s.correctCollection);
-  const error = useLedgerSlice((s) => s.error);
-  const clearError = useLedgerSlice((s) => s.clearError);
-
-  const [draft, setDraft] = useState<CorrectionDraft | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [amount, setAmount] = useState<number | null>(null);
-  const [note, setNote] = useState("");
+  const form = useCorrectPayment(collectionId);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    collectionService.getCorrection(collectionId).then(
-      (next) => {
-        if (!active) return;
-        setDraft(next);
-        setAmount(next.collection.amount);
-      },
-      (e: unknown) => {
-        if (active) setLoadError(e instanceof Error ? e.message : String(e));
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [collectionId]);
-
-  useEffect(() => () => clearError(), [clearError]);
-
-  const group = useMemo(
-    () =>
-      draft ? (groupOwedByCurrency(draft.pool, currencies)[0] ?? null) : null,
-    [draft, currencies],
-  );
-  const plan = useMemo(
-    () =>
-      group
-        ? planCollection(
-            [group],
-            new Map([[groupKey(group), amount]]),
-            NO_SKIPS,
-          )[0]
-        : null,
-    [group, amount],
-  );
-
-  const original = draft?.collection ?? null;
-  const source = original ? snapshotCurrency(original, currencies) : null;
-  const money = (value: number) => formatMoney(value, source, source);
-  const typed = amount ?? 0;
-  const unchanged = !!original && Math.abs(typed - original.amount) < 1e-9;
-  const dirty = !!original && (!unchanged || note.trim() !== "");
-  const canSave =
-    !saving &&
-    !!plan &&
-    !!user &&
-    typed > 0 &&
-    !unchanged &&
-    plan.lines.length > 0 &&
-    plan.leftover <= 0;
-
-  const changeAmount = (next: number | null) => {
-    clearError();
-    setAmount(next);
-  };
+  const { draft, original, plan, money } = form;
 
   async function save() {
-    if (!canSave || !original || !user) return;
-    const reason = [
-      t("ledger.corrected_reason", {
-        from: money(original.amount),
-        to: money(typed),
-      }),
-      note.trim(),
-    ]
-      .filter(Boolean)
-      .join(" · ");
+    if (saving || !form.canSave) return;
     setSaving(true);
     try {
-      const result = await correctCollection({
-        collectionId,
-        amount: typed,
-        actorUserId: user.id,
-        reason,
-      });
+      const result = await form.save();
       if (result) onDone(result);
     } finally {
       setSaving(false);
@@ -143,17 +50,19 @@ export function CorrectCollectionSheet({
     <FormSheet
       visible
       onDismiss={onDismiss}
-      dirty={dirty}
+      dirty={form.dirty}
       title={t("ledger.correct_payment")}
       subject={draft?.pool[0]?.customerName || null}
     >
       <View className="pb-6">
-        {loadError ? (
-          <ErrorBanner message={loadError} onDismiss={onDismiss} />
+        {form.loadError ? (
+          <ErrorBanner message={form.loadError} onDismiss={onDismiss} />
         ) : null}
-        {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+        {form.error ? (
+          <ErrorBanner message={form.error} onDismiss={form.clearError} />
+        ) : null}
 
-        {!draft && !loadError ? (
+        {!draft && !form.loadError ? (
           <View className="items-center py-16">
             <ActivityIndicator color={COLORS.primary} />
           </View>
@@ -190,14 +99,14 @@ export function CorrectCollectionSheet({
 
             <CurrencyCollectSection
               plan={plan}
-              currencies={currencies}
-              display={findCurrency(currencies, original.currencyId)}
+              currencies={form.currencies}
+              display={findCurrency(form.currencies, original.currencyId)}
               excluded={NO_SKIPS}
               grouped={false}
-              onChangeAmount={changeAmount}
+              onChangeAmount={form.setAmount}
             />
 
-            {typed <= 0 ? (
+            {form.problem === "zero" ? (
               <Text className="-mt-2 mb-4 text-xs text-amber-700">
                 {t("ledger.correct_zero_hint")}
               </Text>
@@ -206,15 +115,15 @@ export function CorrectCollectionSheet({
             <Input
               label={t("ledger.correct_note")}
               placeholder={t("ledger.correct_note_placeholder")}
-              value={note}
-              onChangeText={setNote}
+              value={form.note}
+              onChangeText={form.setNote}
               multiline
             />
 
             <Button
               label={t("ledger.save_correction")}
               onPress={() => void save()}
-              disabled={!canSave}
+              disabled={saving || !form.canSave}
               loading={saving}
             />
           </>

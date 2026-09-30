@@ -10,6 +10,7 @@ import EditOutlined from "@mui/icons-material/EditOutlined";
 import PauseCircleOutlined from "@mui/icons-material/PauseCircleOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import PlayCircleOutlined from "@mui/icons-material/PlayCircleOutlined";
+import RemoveCircleOutlineOutlined from "@mui/icons-material/RemoveCircleOutlineOutlined";
 import WhatsApp from "@mui/icons-material/WhatsApp";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Collection, Customer } from "@shared/core/types";
@@ -31,6 +32,7 @@ import {
   type QuickPayTarget,
 } from "@shared/modules/customer/customers/utils/quickPay";
 import { useLoadOwed } from "@shared/modules/ledger/hooks/useLoadOwed";
+import { useWriteOffActions } from "@shared/modules/ledger/hooks/useWriteOffActions";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { confirm } from "@shared/shared/lib/confirm";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
@@ -83,6 +85,7 @@ export function CustomersPage() {
   const ledgerError = useLedgerSlice((s) => s.error);
   const clearLedgerError = useLedgerSlice((s) => s.clearError);
   const loadOwed = useLoadOwed();
+  const { writeOffAll } = useWriteOffActions();
   const sendReceipt = useSendCollectionReceipt();
   const currencies = useCurrencySlice((s) => s.items);
   const display = findCurrency(currencies, useDisplayCurrencyId());
@@ -133,13 +136,28 @@ export function CustomersPage() {
 
   const targetOf = (row: CustomerRow): QuickPayTarget => ({ customer: row.customer, status: row.status });
 
-  const collectOwed = async (customer: Customer) => {
+  const readOwed = (customer: Customer) => {
     setNotice(null);
     setLoadingOwedFor(customer.id);
-    const owed = await loadOwed(customer).finally(() => setLoadingOwedFor(null));
+    return loadOwed(customer).finally(() => setLoadingOwedFor(null));
+  };
+
+  const collectOwed = async (customer: Customer) => {
+    const owed = await readOwed(customer);
     if (!owed) return;
     if (owed.length === 0) setNotice(t("ledger.nothing_owed"));
     else collect.open(customer.id, customer.name, owed);
+  };
+
+  const writeOffOwed = async (customer: Customer) => {
+    const owed = await readOwed(customer);
+    if (!owed) return;
+    const billed = owed.filter((item) => !!item.chargeId);
+    if (billed.length === 0) {
+      setNotice(t("ledger.nothing_to_write_off"));
+      return;
+    }
+    if (await writeOffAll(customer.name, billed)) reload();
   };
 
   const confirmToggleActive = (customer: Customer) =>
@@ -250,6 +268,15 @@ export function CustomersPage() {
         label: t("ledger.collect_money"),
         icon: PaymentsOutlined,
         onClick: () => void collectOwed(customer),
+      });
+      actions.push({
+        key: "write-off-all",
+        group: "danger",
+        label: t("ledger.write_off_all"),
+        caption: t("ledger.write_off_all_caption"),
+        icon: RemoveCircleOutlineOutlined,
+        destructive: true,
+        onClick: () => void writeOffOwed(customer),
       });
     }
     return actions;

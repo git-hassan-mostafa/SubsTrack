@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { FormSheet } from "@/src/shared/components/FormSheet";
@@ -13,11 +12,11 @@ import {
   formatMoneyPair,
   snapshotCurrency,
 } from "@shared/core/utils/currency";
-import { formatDateTime } from "@shared/core/utils/date";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
-import { collectionService } from "@shared/modules/ledger/services/CollectionService";
+import { useCollectionDetail } from "@shared/modules/ledger/hooks/useCollectionDetail";
+import { collectionInfoRows } from "@shared/modules/ledger/utils/collectionView";
 import { CollectionItemCard } from "./CollectionItemCard";
 
 type OpenBillHandler = (
@@ -43,27 +42,7 @@ export function CollectionDetailSheet({
   loadingItemId = null,
 }: Props) {
   const { t } = useTranslation();
-  const [collection, setCollection] = useState<CollectionListItem | null>(
-    initial,
-  );
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    collectionService.getListItem(collectionId).then(
-      (next) => {
-        if (!active) return;
-        if (next) setCollection(next);
-        else setError(t("errors.collection_not_found"));
-      },
-      (e: unknown) => {
-        if (active) setError(e instanceof Error ? e.message : String(e));
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [collectionId, t]);
+  const { collection, error } = useCollectionDetail(collectionId, initial);
 
   return (
     <FormSheet
@@ -108,9 +87,6 @@ function DetailBody({
   const display = findCurrency(currencies, displayCurrencyId);
   const money = formatMoneyPair(collection.amount, source, display);
   const voided = collection.voidedAt !== null;
-  const banked = !voided && collection.heldByUserId === null;
-  const received = formatDateTime(collection.receivedAt);
-  const recorded = formatDateTime(collection.createdAt);
 
   return (
     <>
@@ -139,54 +115,7 @@ function DetailBody({
       </View>
 
       <View>
-        <InfoRows
-          rows={[
-            { label: t("ledger.received_at"), value: received },
-            {
-              label: t("ledger.recorded_at"),
-              value: recorded !== received ? recorded : null,
-            },
-            {
-              label: t("ledger.collected_by"),
-              value:
-                userName(collection.receivedByUserId) ?? t("common.unknown"),
-            },
-            {
-              label: t("ledger.held_by"),
-              value: voided
-                ? null
-                : banked
-                  ? t("ledger.banked")
-                  : (userName(collection.heldByUserId) ?? t("common.unknown")),
-            },
-            {
-              label: t("ledger.banked_at"),
-              value:
-                banked && collection.remittedAt
-                  ? formatDateTime(collection.remittedAt)
-                  : null,
-            },
-            {
-              label: t("ledger.banked_by"),
-              value: banked ? userName(collection.remittedBy) : null,
-            },
-            { label: t("ledger.notes"), value: collection.notes },
-            {
-              label: t("ledger.voided_at"),
-              value: collection.voidedAt
-                ? formatDateTime(collection.voidedAt)
-                : null,
-            },
-            {
-              label: t("ledger.voided_by"),
-              value: userName(collection.voidedBy),
-            },
-            {
-              label: t("ledger.void_reason_label"),
-              value: collection.voidReason,
-            },
-          ]}
-        />
+        <InfoRows rows={collectionInfoRows(collection, t, userName)} />
       </View>
 
       <View className="pb-6 pt-5">

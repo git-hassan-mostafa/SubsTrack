@@ -4,6 +4,9 @@ import type { CollectInput } from "@shared/modules/ledger/services/CollectionSer
 import type { AllocationLine, OpenItem } from "@shared/core/types";
 import { deterministicId } from "@shared/core/utils/ids";
 import {
+  correctionPlan,
+  correctionProblem,
+  correctionReason,
   hasClosedBill,
   withoutCollection,
 } from "@shared/modules/ledger/utils/correction";
@@ -477,5 +480,48 @@ describe("the pure pieces", () => {
     expect(sharedCustody([withAdmin, withAdmin])).toEqual(custodyOf(withAdmin));
     expect(sharedCustody([withAdmin, withCollector])).toBeNull();
     expect(sharedCustody([])).toBeNull();
+  });
+});
+
+describe("the correction form rules", () => {
+  const pool = () => [
+    openItem({ chargeId: "sep", amount: 20, paid: 0, dueDate: "2026-09-01" }),
+    openItem({ chargeId: "oct", amount: 20, paid: 0, dueDate: "2026-10-01" }),
+  ];
+
+  it("TC-CR-26 a corrected amount re-spreads oldest-first over the SAME bills", () => {
+    const plan = correctionPlan(pool(), 30, [])!;
+    expect(plan.lines.map((l) => [l.item.chargeId, l.amount])).toEqual([
+      ["sep", 20],
+      ["oct", 10],
+    ]);
+    expect(plan.leftover).toBe(0);
+    expect(correctionProblem(40, plan)).toBeNull();
+  });
+
+  it("TC-CR-27 more than those bills can take is refused before the write", () => {
+    const plan = correctionPlan(pool(), 45, [])!;
+    expect(plan.leftover).toBe(5);
+    expect(correctionProblem(40, plan)).toBe("too_much");
+  });
+
+  it("TC-CR-28 zero is a void, not a correction; the same amount is no change", () => {
+    expect(correctionProblem(40, correctionPlan(pool(), 0, [])!)).toBe("zero");
+    expect(correctionProblem(40, correctionPlan(pool(), null, [])!)).toBe("zero");
+    expect(correctionProblem(40, correctionPlan(pool(), 40, [])!)).toBe("unchanged");
+  });
+
+  it("TC-CR-29 an empty pool has no plan to save", () => {
+    expect(correctionPlan([], 10, [])).toBeNull();
+  });
+
+  it("TC-CR-30 the void reason says from what to what, plus the typed note", () => {
+    const t = (key: string, opts?: Record<string, unknown>) => `${key} ${JSON.stringify(opts)}`;
+    expect(correctionReason("$50", "$5", "  typo ", t)).toBe(
+      `ledger.corrected_reason ${JSON.stringify({ from: "$50", to: "$5" })} · typo`,
+    );
+    expect(correctionReason("$50", "$5", "  ", t)).toBe(
+      `ledger.corrected_reason ${JSON.stringify({ from: "$50", to: "$5" })}`,
+    );
   });
 });

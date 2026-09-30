@@ -35,7 +35,7 @@ Web/src/
 │   ├── layout/            # AppFrame, SideNav, AppHeader, QuickActions + QuickActionDialogs, UserMenu
 │   └── theme/
 ├── shared/
-│   ├── components/        # ErrorBanner, FormDialog, ConfirmDialogHost, BranchSelector, BranchPicker, inputs, MoneyText, EmptyState, StatusChip…
+│   ├── components/        # ErrorBanner, FormDialog, ConfirmDialogHost, ReasonConfirmDialog, BranchSelector, BranchPicker, inputs, MoneyText, EmptyState, StatusChip…
 │   ├── table/             # DataTable, RowActionsMenu, BulkActionBar, useTableExport, TableAction,
 │   │                      #   RowLink, ActiveFilterSelect, activeStatusColumn, useBranchColumn
 │   ├── hooks/             # useMoneyPair
@@ -43,7 +43,8 @@ Web/src/
 ├── state/                 # web-only stores: createPagedStore + one table store per list, webSession.ts
 └── modules/<group>/<module>/  # pages + dialogs (admin/{branches,currencies,services,plans,products,users,
                                #   audit,billing,tenant-settings}, customer/{customers,customer-plans},
-                               #   ledger/collect (collect dialog + quick action), invoicing (receipts) so far)
+                               #   ledger/{collect,bill,payment,void} (collect, bill, payment detail,
+                               #   correct + void dialogs), invoicing (receipts) so far)
 ```
 
 Each module keeps the SAME folder path in both halves: its logic under

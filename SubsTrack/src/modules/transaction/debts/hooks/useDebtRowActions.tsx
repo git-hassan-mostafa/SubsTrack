@@ -1,57 +1,22 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { CustomerDebts, OpenItem } from "@shared/core/types";
 import { confirm } from "@shared/shared/lib/confirm";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
-import { useWriteOffActions } from "@/src/modules/ledger";
+import { useWriteOffActions } from "@shared/modules/ledger/hooks/useWriteOffActions";
 import { CustomDebtFormSheet } from "../components/CustomDebtFormSheet";
 
-// No "changed" callback: both writes go through the ledger slice, which bumps
-// `owedVersion`, and every debts surface watches it (`useOwedChanged`).
+// No "changed" callback: the ledger slice bumps `owedVersion` (useOwedChanged).
 export function useDebtRowActions() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
   const voidCharge = useLedgerSlice((s) => s.voidCharge);
-  const writeOffCharges = useLedgerSlice((s) => s.writeOffCharges);
-  const { writeOff: writeOffItem, revert: revertWriteOffItem } =
-    useWriteOffActions();
-
-  const target = findCurrency(currencies, displayCurrencyId);
-
-  const writeOffAll = useCallback(
-    async (customerName: string, items: OpenItem[]): Promise<boolean> => {
-      if (!user) return false;
-      const billed = items.filter((i) => !!i.chargeId);
-      const ids = [...new Set(billed.map((i) => i.chargeId as string))];
-      if (ids.length === 0) return false;
-      const totalUsd = billed.reduce(
-        (sum, i) => sum + i.balance / i.ratePerUsdSnapshot,
-        0,
-      );
-      let wrote = false;
-      await confirm({
-        title: t("ledger.write_off_all_title"),
-        message: t("ledger.write_off_all_message", {
-          amount: formatMoney(totalUsd, null, target),
-          customer: customerName,
-          count: ids.length,
-        }),
-        confirmLabel: t("ledger.write_off_all"),
-        destructive: true,
-        onConfirm: async () => {
-          wrote = await writeOffCharges(ids, user.id, null);
-        },
-      });
-      return wrote;
-    },
-    [user, target, t, writeOffCharges],
-  );
+  const {
+    writeOff: writeOffItem,
+    revert: revertWriteOffItem,
+    writeOffAll,
+  } = useWriteOffActions();
 
   const writeOffDebtor = useCallback(
     (debtor: CustomerDebts) =>

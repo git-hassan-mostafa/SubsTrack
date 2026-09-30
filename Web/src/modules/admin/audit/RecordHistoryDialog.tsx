@@ -12,7 +12,7 @@ import ListItem from "@mui/material/ListItem";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import Typography from "@mui/material/Typography";
-import type { AuditEntry, AuditTable, Customer } from "@shared/core/types";
+import type { AuditEntry, AuditRecordTarget, AuditTable, Customer } from "@shared/core/types";
 import { formatDateTimeShort } from "@shared/core/utils/date";
 import {
   useCustomerHistory,
@@ -20,6 +20,7 @@ import {
   type RecordHistoryState,
 } from "@shared/modules/admin/audit/hooks/useRecordHistory";
 import { useAuditLookups } from "@shared/modules/admin/audit/hooks/useAuditLookups";
+import { useBillHistory } from "@shared/modules/ledger/hooks/useBillHistory";
 import { buildAuditSummary } from "@shared/modules/admin/audit/utils/summary";
 import {
   fieldContext,
@@ -53,6 +54,23 @@ export function CustomerHistoryDialog({ customer, onClose }: { customer: Custome
   return (
     <HistoryDialogFrame title={t("audit.customer_history_title")} name={customer.name} onClose={onClose}>
       <CustomerTimeline customerId={customer.id} />
+    </HistoryDialogFrame>
+  );
+}
+
+interface BillHistoryDialogProps {
+  chargeId: string | null;
+  targets?: AuditRecordTarget[];
+  name?: string | null;
+  onClose: () => void;
+}
+
+// A record's trail WITH its bill and the cash that settled it.
+export function BillHistoryDialog({ chargeId, targets, name, onClose }: BillHistoryDialogProps) {
+  const { t } = useTranslation();
+  return (
+    <HistoryDialogFrame title={t("audit.record_history_title")} name={name} onClose={onClose}>
+      <BillTimeline chargeId={chargeId} targets={targets} />
     </HistoryDialogFrame>
   );
 }
@@ -97,6 +115,10 @@ function HistoryDialogFrame({ title, name, onClose, children }: HistoryDialogFra
 function RecordTimeline({ table, recordId }: { table: AuditTable; recordId: string }) {
   const targets = useMemo(() => [{ table, recordId }], [table, recordId]);
   return <HistoryEntries timeline={useRecordHistory(targets)} />;
+}
+
+function BillTimeline({ chargeId, targets }: { chargeId: string | null; targets?: AuditRecordTarget[] }) {
+  return <HistoryEntries timeline={useBillHistory(chargeId, targets)} />;
 }
 
 function CustomerTimeline({ customerId }: { customerId: string }) {

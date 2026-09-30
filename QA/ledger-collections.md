@@ -662,3 +662,13 @@ The phone sheet and the web dialog share one submit ([useCollectSubmit.ts](Share
 24.2 The USD payment **is** saved (Money received shows it); the LBP debt is still owed.
 24.3 Open Collect money again → only the LBP debt is offered. The USD part is **never** collected a second time (before, the sheet stayed open with the old amounts and a second Save recorded the USD cash twice).
 24.4 A Save where the FIRST currency fails → nothing is saved, the sheet stays open with the red banner, exactly as before.
+
+## 25. One bill: what it allows (phone and web)
+
+The phone bill sheet and the web bill dialog read ONE rule for what a bill allows ([billView.ts](Shared/src/modules/ledger/utils/billView.ts), unit tests `billView.test.ts`).
+
+25.1 A part-paid month → ⋮ offers Write off and Void; the main button is "Collect $15.00".
+25.2 A month paid in full → ⋮ offers Void only. **Write off is gone** (before, a paid bill offered Write off, which gave up on $0 and still recorded a write-off).
+25.3 A written-off bill → ⋮ offers Undo write-off and Void; no Collect.
+25.4 A voided bill → nothing but History (admin).
+

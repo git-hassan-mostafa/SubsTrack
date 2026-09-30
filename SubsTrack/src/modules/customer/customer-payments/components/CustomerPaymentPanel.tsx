@@ -25,7 +25,6 @@ import type {
   Charge,
   Collection,
   Customer,
-  CustomerPlan,
   MonthEntry,
   OpenItem,
 } from "@shared/core/types";
@@ -56,11 +55,11 @@ import {
 } from "@/src/shared/hooks/useSelection";
 import type { SelectionAction } from "@/src/shared/components/PageHeader";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
-import { BillHistorySheet, BillSheet, CollectSheet, useWriteOffActions, VoidConfirmDialog } from "@/src/modules/ledger";
+import { BillHistorySheet, BillSheet, CollectSheet, VoidConfirmDialog } from "@/src/modules/ledger";
+import { useWriteOffActions, writeOffTargetOf } from "@shared/modules/ledger/hooks/useWriteOffActions";
 import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 import { monthItemFromEntry } from "@shared/modules/ledger/utils/openItems";
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
-import type { WriteOffTarget } from "@/src/modules/ledger";
 import type { CollectGroupSubmit } from "@shared/modules/ledger/utils/collectForm";
 import { usePaymentSlice } from "@shared/state/hooks/usePaymentSlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
@@ -100,7 +99,7 @@ export function CustomerPaymentPanel({
   customer,
   refreshToken = 0,
 }: CustomerPaymentPanelProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const router = useRouter();
   const { quickPay } = useLocalSearchParams<{ quickPay?: string }>();
   const { user, isAdmin } = useAuth();
@@ -632,23 +631,13 @@ export function CustomerPaymentPanel({
     }
   }
 
-  // No re-read here: both writes go through the ledger slice, which announces
-  // `owedVersion`, and this panel re-reads its bills on that.
+  // No re-read: the ledger slice bumps `owedVersion` and this panel re-reads on it.
   function writeOffBill(charge: Charge, balance: number): Promise<void> {
-    return writeOffActions.writeOff(writeOffTargetOf(charge, balance));
+    return writeOffActions.writeOff(writeOffTargetOf(charge, balance, customer.name));
   }
 
   function revertWriteOffBill(charge: Charge, balance: number): Promise<void> {
-    return writeOffActions.revert(writeOffTargetOf(charge, balance));
-  }
-
-  function writeOffTargetOf(charge: Charge, balance: number): WriteOffTarget {
-    return {
-      chargeId: charge.id,
-      balance,
-      currencyId: charge.currencyId,
-      customerName: customer.name,
-    };
+    return writeOffActions.revert(writeOffTargetOf(charge, balance, customer.name));
   }
 
   // A custom-price line qualifies too — it opens the sheet instead of charging.

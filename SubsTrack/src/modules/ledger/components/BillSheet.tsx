@@ -10,18 +10,20 @@ import {
   findCurrency,
   formatMoney,
   formatMoneyPair,
-  formatPaidFraction,
   snapshotCurrency,
 } from "@shared/core/utils/currency";
-import { formatDate, formatDateTime } from "@shared/core/utils/date";
-import { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/utils/blockRangeLabel";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import { COLORS } from "@/src/shared/constants";
-import { billLook, chargeStatusOf } from "@shared/modules/ledger/utils/billState";
+import { billLook } from "@shared/modules/ledger/utils/billState";
+import {
+  billFacts,
+  billHeadline,
+  billInfoRows,
+} from "@shared/modules/ledger/utils/billView";
 import { BillHero } from "./BillHero";
 import { BillPaymentsList } from "./BillPaymentsList";
 import { BillHistorySheet } from "./BillHistorySheet";
@@ -82,22 +84,11 @@ export function BillSheet({
   const display = findCurrency(currencies, displayCurrencyId);
   const money = (v: number) => formatMoney(v, source, source);
 
-  const voided = charge.voidedAt !== null;
-  const writtenOff = !voided && charge.writtenOffAt !== null;
-  const balance = charge.amount - collected;
-  const settled = !voided && balance <= 0;
-  const status = chargeStatusOf({
-    voided,
-    writtenOff,
-    amount: charge.amount,
-    collected,
-  });
-  const state = billLook(status);
+  const facts = billFacts(charge, collected);
+  const { voided, balance } = facts;
+  const state = billLook(facts.status);
+  const headline = billHeadline(charge, facts, collected, source, t);
   const approx = formatMoneyPair(charge.amount, source, display).approx;
-  const monthLabel =
-    charge.kind === "month" && charge.billingMonth
-      ? getBlockRangeLabel(charge.billingMonth, charge.durationMonths, t)
-      : null;
 
   async function handleVoidBill() {
     if (!onVoidBill || !charge) return;
@@ -106,7 +97,7 @@ export function BillSheet({
 
   async function handleRevertWriteOff() {
     if (!onRevertWriteOff || !charge) return;
-    await onRevertWriteOff(charge, charge.amount - collected);
+    await onRevertWriteOff(charge, balance);
     onDismiss();
   }
 
@@ -120,7 +111,7 @@ export function BillSheet({
       onPress: () => setHistoryOpen(true),
     });
   }
-  if (onRevertWriteOff && writtenOff) {
+  if (onRevertWriteOff && facts.canRevertWriteOff) {
     menuActions.push({
       key: "revert_write_off",
       group: "manage",
@@ -130,7 +121,7 @@ export function BillSheet({
       onPress: () => void handleRevertWriteOff(),
     });
   }
-  if (onWriteOff && !voided && !writtenOff) {
+  if (onWriteOff && facts.canWriteOff) {
     menuActions.push({
       key: "write_off",
       group: "danger",
@@ -140,7 +131,7 @@ export function BillSheet({
       onPress: () => onWriteOff(charge, balance),
     });
   }
-  if (onVoidBill && !voided) {
+  if (onVoidBill && facts.canVoid) {
     menuActions.push({
       key: "void",
       group: "danger",
@@ -168,69 +159,13 @@ export function BillSheet({
           <View className="gap-5">
             <BillHero
               state={state}
-              amount={
-                voided || settled
-                  ? money(charge.amount)
-                  : formatPaidFraction(collected, charge.amount, source, source)
-              }
+              amount={headline.amount}
               approx={approx}
-              note={
-                writtenOff
-                  ? collected > 0
-                    ? t("ledger.written_off_kept", { amount: money(collected) })
-                    : null
-                  : voided || settled
-                    ? null
-                    : `${t("ledger.remaining")} ${money(balance)}`
-              }
+              note={headline.note}
             />
 
             <InfoRows
-              rows={[
-                { label: t("ledger.billing_month"), value: monthLabel },
-                { label: t("ledger.bill_total"), value: money(charge.amount) },
-                {
-                  label: t("ledger.due_date"),
-                  value: formatDate(charge.dueDate),
-                },
-                {
-                  label: t("ledger.issued_at"),
-                  value: formatDateTime(charge.issuedAt),
-                },
-                {
-                  label: t("ledger.recorded_by"),
-                  value: userName(charge.recordedByUserId),
-                },
-                { label: t("ledger.notes"), value: charge.notes },
-                {
-                  label: t("ledger.voided_at"),
-                  value: charge.voidedAt
-                    ? formatDateTime(charge.voidedAt)
-                    : null,
-                },
-                {
-                  label: t("ledger.voided_by"),
-                  value: userName(charge.voidedBy),
-                },
-                {
-                  label: t("ledger.void_reason_label"),
-                  value: charge.voidReason,
-                },
-                {
-                  label: t("ledger.written_off_at"),
-                  value: charge.writtenOffAt
-                    ? formatDateTime(charge.writtenOffAt)
-                    : null,
-                },
-                {
-                  label: t("ledger.written_off_by"),
-                  value: userName(charge.writtenOffBy),
-                },
-                {
-                  label: t("ledger.write_off_reason_label"),
-                  value: charge.writeOffReason,
-                },
-              ]}
+              rows={billInfoRows(charge, source, t, userName)}
             />
           </View>
         )}
@@ -251,7 +186,7 @@ export function BillSheet({
             onLoadingChange={handleLoading}
           />
 
-          {!voided && !writtenOff && !settled && onCollect && (
+          {facts.canCollect && onCollect && (
             <Button
               label={t("ledger.collect_remaining", { amount: money(balance) })}
               onPress={() => onCollect(charge)}

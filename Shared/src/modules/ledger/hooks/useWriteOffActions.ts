@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import type { Charge, OpenItem } from "@shared/core/types";
 import { confirm } from "@shared/shared/lib/confirm";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
@@ -7,7 +8,6 @@ import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice"
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 
-/** What either confirm needs to name the money — a bill in any shape says it. */
 export interface WriteOffTarget {
   chargeId: string | null;
   balance: number;
@@ -15,22 +15,22 @@ export interface WriteOffTarget {
   customerName: string;
 }
 
-/**
- * The two write-off doors, said the same way everywhere.
- *
- * A month, a sale and a hand-typed fee are one `charges` row, so giving up on
- * one and changing that mind must read identically wherever it is reached —
- * the debts list, a customer's panel or the bill sheet behind a month cell.
- * The work runs INSIDE the confirm so the button spins until the write lands
- * (gotcha #144), and both writes go through the ledger slice, which announces
- * `owedVersion` for every debts surface to re-read.
- */
+export function writeOffTargetOf(
+  charge: Pick<Charge, "id" | "currencyId">,
+  balance: number,
+  customerName: string,
+): WriteOffTarget {
+  return { chargeId: charge.id, balance, currencyId: charge.currencyId, customerName };
+}
+
+// The write-off doors; the work runs INSIDE the confirm (#144).
 export function useWriteOffActions() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
   const writeOffCharge = useLedgerSlice((s) => s.writeOffCharge);
+  const writeOffCharges = useLedgerSlice((s) => s.writeOffCharges);
   const revertWriteOff = useLedgerSlice((s) => s.revertWriteOff);
 
   const target = findCurrency(currencies, displayCurrencyId);
@@ -76,5 +76,34 @@ export function useWriteOffActions() {
     [currencies, target, t, revertWriteOff],
   );
 
-  return { writeOff, revert };
+  const writeOffAll = useCallback(
+    async (customerName: string, items: OpenItem[]): Promise<boolean> => {
+      if (!user) return false;
+      const billed = items.filter((i) => !!i.chargeId);
+      const ids = [...new Set(billed.map((i) => i.chargeId as string))];
+      if (ids.length === 0) return false;
+      const totalUsd = billed.reduce(
+        (sum, i) => sum + i.balance / i.ratePerUsdSnapshot,
+        0,
+      );
+      let wrote = false;
+      await confirm({
+        title: t("ledger.write_off_all_title"),
+        message: t("ledger.write_off_all_message", {
+          amount: formatMoney(totalUsd, null, target),
+          customer: customerName,
+          count: ids.length,
+        }),
+        confirmLabel: t("ledger.write_off_all"),
+        destructive: true,
+        onConfirm: async () => {
+          wrote = await writeOffCharges(ids, user.id, null);
+        },
+      });
+      return wrote;
+    },
+    [user, target, t, writeOffCharges],
+  );
+
+  return { writeOff, revert, writeOffAll };
 }

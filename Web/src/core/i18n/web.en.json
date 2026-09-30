@@ -106,5 +106,15 @@
     "blocked_title": "Send it on WhatsApp",
     "blocked_message": "It was saved. Your browser did not let WhatsApp open by itself — click Open WhatsApp to send the message.",
     "open": "Open WhatsApp"
+  },
+  "bill": {
+    "payments_table": "Payments on this bill",
+    "paid_here": "Paid to this bill"
+  },
+  "correct": {
+    "type_new_amount": "Type the amount that was really received. It is the same as the amount already recorded."
+  },
+  "void": {
+    "reason": "Reason (optional)"
   }
 }

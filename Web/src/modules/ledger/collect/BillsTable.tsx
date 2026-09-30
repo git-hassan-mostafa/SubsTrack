@@ -21,7 +21,7 @@ interface BillsTableProps {
   items: OpenItem[];
   lines: AllocationLine[];
   excluded: ReadonlySet<string>;
-  onToggle: (item: OpenItem) => void;
+  onToggle?: (item: OpenItem) => void;
   money: (value: number) => string;
   remainingAfter: number;
 }
@@ -74,7 +74,7 @@ export function BillsTable({
   for (const item of items) {
     if (!excluded.has(keyOf(item))) positions.set(keyOf(item), positions.size + 1);
   }
-  const toggleable = items.length > 1;
+  const toggleable = !!onToggle && items.length > 1;
 
   return (
     <Stack spacing={1}>
@@ -112,7 +112,7 @@ export function BillsTable({
                     <TableCell padding="checkbox">
                       <Checkbox
                         checked={!skipped}
-                        onChange={() => onToggle(item)}
+                        onChange={() => onToggle?.(item)}
                         slotProps={{ input: { "aria-label": t("web.collect.pay_this_bill", { name: item.label }) } }}
                       />
                     </TableCell>

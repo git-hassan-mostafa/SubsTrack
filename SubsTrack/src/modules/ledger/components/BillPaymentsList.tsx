@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,10 +19,8 @@ import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useSendInvoice } from "@/src/modules/invoicing";
 import { paidToCharge } from "@shared/modules/ledger/utils/paidToCharge";
 import { paymentMenu } from "../utils/paymentMenu";
-import {
-  collectionService,
-  type CollectionCorrection,
-} from "@shared/modules/ledger/services/CollectionService";
+import type { CollectionCorrection } from "@shared/modules/ledger/services/CollectionService";
+import { useBillPayments } from "@shared/modules/ledger/hooks/useBillPayments";
 import { CollectionDetailSheet } from "./CollectionDetailSheet";
 import { CorrectCollectionSheet } from "./CorrectCollectionSheet";
 import { VoidCollectionDialog } from "./VoidCollectionDialog";
@@ -57,41 +55,15 @@ export function BillPaymentsList({
   const userName = useUserNames();
   const { canSend, sendCollectionInvoice } = useSendInvoice();
 
-  const [payments, setPayments] = useState<Collection[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const bill = useBillPayments(chargeId, visible);
+  const { payments: rows, live, collected, loading, error, clearError } = bill;
   const [menuFor, setMenuFor] = useState<Collection | null>(null);
   const [voidTarget, setVoidTarget] = useState<Collection | null>(null);
   const [correctTarget, setCorrectTarget] = useState<Collection | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const loading = payments === null;
-
-  const load = useCallback(async () => {
-    if (!chargeId) {
-      setPayments([]);
-      return;
-    }
-    try {
-      setPayments(await collectionService.getPaymentsForCharge(chargeId));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-      setPayments([]);
-    }
-  }, [chargeId]);
-
-  useEffect(() => {
-    setPayments(null);
-  }, [chargeId]);
-
-  useEffect(() => {
-    if (visible) void load();
-  }, [visible, load]);
 
   const source = snapshotCurrency(snapshot, currencies);
   const money = (v: number) => formatMoney(v, source, source);
-
-  const rows = payments ?? [];
-  const live = rows.filter((p) => p.voidedAt === null);
-  const collected = live.reduce((sum, p) => sum + paidToCharge(p, chargeId), 0);
 
   useEffect(() => {
     onCollectedChange?.(collected);
@@ -102,8 +74,8 @@ export function BillPaymentsList({
   }, [loading, onLoadingChange]);
 
   useEffect(() => {
-    if (payments) onPaymentsChange?.(payments);
-  }, [payments, onPaymentsChange]);
+    if (!loading) onPaymentsChange?.(rows);
+  }, [loading, rows, onPaymentsChange]);
 
   const sendable = !!recipient && canSend(recipient.phone);
 
@@ -128,22 +100,16 @@ export function BillPaymentsList({
     });
   }
 
-  function handleCorrected({ voided, replacement }: CollectionCorrection) {
+  function handleCorrected(correction: CollectionCorrection) {
     setCorrectTarget(null);
-    const stillHere = paidToCharge(replacement, chargeId) > 0;
-    setPayments((prev) =>
-      (prev ?? []).flatMap((p) => {
-        if (p.id !== voided.id) return [p];
-        return stillHere ? [replacement, voided] : [voided];
-      }),
-    );
-    onChanged?.(voided, replacement);
+    bill.markCorrected(correction);
+    onChanged?.(correction.voided, correction.replacement);
   }
 
   return (
     <View className="gap-2">
       {error ? (
-        <ErrorBanner message={error} onDismiss={() => setError(null)} />
+        <ErrorBanner message={error} onDismiss={clearError} />
       ) : null}
 
       <Text
@@ -236,9 +202,7 @@ export function BillPaymentsList({
           onBillChargeId={chargeId}
           onDone={(voided) => {
             setVoidTarget(null);
-            setPayments((prev) =>
-              (prev ?? []).map((p) => (p.id === voided.id ? voided : p)),
-            );
+            bill.markVoided(voided);
             onChanged?.(voided);
           }}
           onDismiss={() => setVoidTarget(null)}
