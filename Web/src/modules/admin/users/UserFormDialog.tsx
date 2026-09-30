@@ -22,7 +22,7 @@ import { FormDialog } from "@/shared/components/FormDialog";
 interface UserFormDialogProps {
   user: AppUser | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (saved: AppUser) => void;
 }
 
 type UserForm = {
@@ -103,7 +103,7 @@ export function UserFormDialog({ user: editUser, onClose, onSaved }: UserFormDia
           { ...details, role: form.role === "user" ? "user" : "admin", password: form.password },
           currentUser.tenantId,
         );
-    if (saved) onSaved();
+    if (saved) onSaved(saved);
   };
 
   return (

@@ -39,6 +39,7 @@ export function ProductsPage() {
   const query = useProductsTable((s) => s.query);
   const load = useProductsTable((s) => s.load);
   const open = useProductsTable((s) => s.open);
+  const patchRow = useProductsTable((s) => s.patchRow);
   const setPage = useProductsTable((s) => s.setPage);
   const setSearch = useProductsTable((s) => s.setSearch);
   const setFilters = useProductsTable((s) => s.setFilters);
@@ -86,7 +87,8 @@ export function ProductsPage() {
   };
 
   const reactivate = async (product: Product) => {
-    if (await reactivateProduct(product.id)) reload();
+    const updated = await reactivateProduct(product.id);
+    if (updated) patchRow(updated);
   };
 
   const editAction = (product: Product): TableAction => ({
@@ -237,15 +239,16 @@ export function ProductsPage() {
         onClearFilters={clearFilters}
         error={tableError}
         onDismissError={clearTableError}
-        onRetry={reload}
+        onReload={reload}
       />
       {form ? (
         <ProductFormDialog
           product={form.product ? liveRow(form.product) : null}
           onClose={() => setForm(null)}
-          onSaved={() => {
+          onSaved={(saved) => {
             setForm(null);
-            reload();
+            if (form.product) patchRow(saved);
+            else reload();
           }}
           onAdjustStock={setStockFor}
         />
@@ -254,7 +257,7 @@ export function ProductsPage() {
         <ProductStockDialog
           product={liveRow(stockFor)}
           onClose={() => setStockFor(null)}
-          onChanged={reload}
+          onChanged={(onHand) => patchRow({ ...liveRow(stockFor), stockOnHand: onHand })}
         />
       ) : null}
       {history.dialog}

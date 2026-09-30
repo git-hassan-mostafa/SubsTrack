@@ -15,7 +15,7 @@ import { FormDialog } from "@/shared/components/FormDialog";
 interface ServiceFormDialogProps {
   service: Service | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (saved: Service) => void;
 }
 
 type ServiceForm = {
@@ -66,7 +66,7 @@ export function ServiceFormDialog({ service, onClose, onSaved }: ServiceFormDial
     const saved = service
       ? await updateService(service.id, data)
       : await createService(data, user.tenantId);
-    if (saved) onSaved();
+    if (saved) onSaved(saved);
   };
 
   return (

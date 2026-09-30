@@ -23,7 +23,7 @@ const DURATIONS = Array.from({ length: 12 }, (_, i) => i + 1);
 interface PlanFormDialogProps {
   plan: Plan | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (saved: Plan) => void;
 }
 
 // A plan billed over several months has one bundle price, never a custom one.
@@ -68,7 +68,7 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
     const saved = plan
       ? await updatePlan(plan.id, data)
       : await createPlan(data, user.tenantId);
-    if (saved) onSaved();
+    if (saved) onSaved(saved);
   };
 
   return (

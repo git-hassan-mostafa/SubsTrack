@@ -201,7 +201,7 @@ every web-only store under `Web/src/state/` registers its reset there. Every web
 list is a `DataTable` over a `createPagedStore()` store reading
 `I*Repository.findPage()` (both impls) — Customers reads the `customer-status`
 edge function through `createPagedStoreWithMeta()` (the tab counts ride along);
-writes still go through the Shared slice, then the page re-reads. `BranchesPage` is the reference (`docs/ui-patterns.md`). Also in the workspace:
+writes still go through the Shared slice, then the page patches the row it got back (edit, status) or re-reads (add, delete). Opening a page again reads nothing — except Customers and Audit Log (`rereadOnOpen`); the toolbar Refresh icon reads on demand. `BranchesPage` is the reference (`docs/ui-patterns.md`). Also in the workspace:
 `sql scripts/` (`script.sql` schema+RLS, `reset.sql` teardown),
 `new-features.md` (backlog), `Design/`, `QA/`, `tests/` (Jest, money rules).
 

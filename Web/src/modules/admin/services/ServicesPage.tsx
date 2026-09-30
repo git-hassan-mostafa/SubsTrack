@@ -32,6 +32,7 @@ export function ServicesPage() {
   const query = useServicesTable((s) => s.query);
   const load = useServicesTable((s) => s.load);
   const open = useServicesTable((s) => s.open);
+  const patchRow = useServicesTable((s) => s.patchRow);
   const setPage = useServicesTable((s) => s.setPage);
   const setSearch = useServicesTable((s) => s.setSearch);
   const setFilters = useServicesTable((s) => s.setFilters);
@@ -75,7 +76,8 @@ export function ServicesPage() {
   };
 
   const reactivate = async (service: Service) => {
-    if (await reactivateService(service.id)) reload();
+    const updated = await reactivateService(service.id);
+    if (updated) patchRow(updated);
   };
 
   const editAction = (service: Service): TableAction => ({
@@ -187,15 +189,16 @@ export function ServicesPage() {
         onClearFilters={clearFilters}
         error={tableError}
         onDismissError={clearTableError}
-        onRetry={reload}
+        onReload={reload}
       />
       {form ? (
         <ServiceFormDialog
           service={form.service}
           onClose={() => setForm(null)}
-          onSaved={() => {
+          onSaved={(saved) => {
             setForm(null);
-            reload();
+            if (form.service) patchRow(saved);
+            else reload();
           }}
         />
       ) : null}

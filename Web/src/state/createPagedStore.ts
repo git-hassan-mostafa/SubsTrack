@@ -24,7 +24,8 @@ export interface PagedState<T, F, M = undefined> {
   loading: boolean;
   error: string | null;
   load: () => Promise<void>;
-  open: (branch: BranchFilter) => Promise<void>;
+  open: (branch?: BranchFilter) => Promise<void>;
+  patchRow: (row: T) => void;
   setPage: (page: number, pageSize: number) => void;
   setSearch: (search: string) => void;
   setFilters: (filters: Partial<F>) => void;
@@ -37,27 +38,35 @@ export type PagedResult<T, M> = Page<T> & { meta: M };
 
 export type PageFetcher<T, F, M> = (query: PagedQuery<F>) => Promise<PagedResult<T, M>>;
 
+// Customers + audit change from everywhere, so they re-read on every open.
+export interface PagedStoreOptions {
+  rereadOnOpen?: boolean;
+}
+
 export function pageWindow(query: PagedQuery<unknown>): PageWindow {
   return { offset: query.page * query.pageSize, limit: query.pageSize };
 }
 
-// One web table's query and page; the query survives leaving the page.
-export function createPagedStore<T, F>(
+// One web table's query and its rows; both survive leaving the page.
+export function createPagedStore<T extends { id: string }, F>(
   fetchPage: (query: PagedQuery<F>) => Promise<Page<T>>,
   filters: F,
+  options: PagedStoreOptions = {},
 ) {
   return createPagedStoreWithMeta<T, F, undefined>(
     async (query) => ({ ...(await fetchPage(query)), meta: undefined }),
     filters,
     undefined,
+    options,
   );
 }
 
 // `meta` rides with each page (the customer tab counts) and is reset with it.
-export function createPagedStoreWithMeta<T, F, M>(
+export function createPagedStoreWithMeta<T extends { id: string }, F, M>(
   fetchPage: PageFetcher<T, F, M>,
   filters: F,
   initialMeta: M,
+  { rereadOnOpen = false }: PagedStoreOptions = {},
 ) {
   const initialQuery: PagedQuery<F> = {
     page: 0,
@@ -104,11 +113,18 @@ export function createPagedStoreWithMeta<T, F, M>(
       }
     },
 
-    open: (branch) => {
-      const { query } = get();
-      if (branch !== query.branch) set({ query: { ...query, branch, page: 0 } });
+    open: (branch = null) => {
+      const { query, loaded } = get();
+      if (branch !== query.branch) {
+        set({ query: { ...query, branch, page: 0 } });
+        return get().load();
+      }
+      if (loaded && !rereadOnOpen) return Promise.resolve();
       return get().load();
     },
+
+    patchRow: (row) =>
+      set({ rows: get().rows.map((current) => (current.id === row.id ? row : current)) }),
 
     setPage: (page, pageSize) => {
       const { query } = get();

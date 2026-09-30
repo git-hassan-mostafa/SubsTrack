@@ -2,9 +2,12 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import AddIcon from "@mui/icons-material/Add";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import {
   DataGrid,
   type GridColDef,
@@ -55,7 +58,7 @@ export interface DataTableProps<T extends GridValidRowModel & { id: string }> {
   autoRowHeight?: boolean;
   error?: string | null;
   onDismissError?: () => void;
-  onRetry?: () => void;
+  onReload: () => void;
 }
 
 // Server-paged, never client-sorted; a new page of rows drops the selection.
@@ -84,7 +87,7 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
   autoRowHeight = false,
   error,
   onDismissError,
-  onRetry,
+  onReload,
 }: DataTableProps<T>) {
   const { t } = useTranslation();
   const [selection, setSelection] = useState<{ rows: T[]; ids: ReadonlySet<GridRowId> }>({
@@ -128,7 +131,7 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
 
   return (
     <Stack spacing={2}>
-      <ErrorBanner message={error ?? null} onDismiss={onDismissError} onRetry={onRetry} />
+      <ErrorBanner message={error ?? null} onDismiss={onDismissError} onRetry={onReload} />
       <ErrorBanner message={tableExport.error} onDismiss={tableExport.clearError} />
       {bulk ? (
         <BulkActionBar count={selectedRows.length} actions={bulk} onClear={clearSelection} />
@@ -148,6 +151,17 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
           {filters}
           <Box sx={{ flexGrow: 1 }} />
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <Tooltip title={t("web.table.refresh")}>
+              <span>
+                <IconButton
+                  aria-label={t("web.table.refresh")}
+                  disabled={loading}
+                  onClick={onReload}
+                >
+                  <RefreshIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
             {tableExport.button}
             {toolbarActions}
             {add ? (

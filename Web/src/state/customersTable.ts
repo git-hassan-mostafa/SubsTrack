@@ -57,6 +57,7 @@ export const useCustomersTable = createPagedStoreWithMeta<CustomerRow, CustomerF
   (query) => readCustomerPage(query, pageWindow(query)),
   { tab: DEFAULT_CUSTOMER_TAB },
   null,
+  { rereadOnOpen: true },
 );
 
 export function readAllCustomers(query: PagedQuery<CustomerFilters>): Promise<CustomerRow[]> {

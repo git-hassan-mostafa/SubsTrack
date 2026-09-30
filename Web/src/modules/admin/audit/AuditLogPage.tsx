@@ -215,7 +215,7 @@ export function AuditLogPage() {
         autoRowHeight
         error={error}
         onDismissError={clearError}
-        onRetry={() => void load()}
+        onReload={() => void load()}
       />
       {opened ? (
         <AuditEntryDialog entry={opened} base={base} onClose={() => setOpened(null)} />

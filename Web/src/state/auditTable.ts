@@ -20,6 +20,7 @@ function toAuditQuery(query: PagedQuery<AuditFilterChoice>, window: PageWindow):
 export const useAuditTable = createPagedStore<AuditEntry, AuditFilterChoice>(
   (query) => auditService.getEntryTablePage(toAuditQuery(query, pageWindow(query))),
   NO_AUDIT_FILTER,
+  { rereadOnOpen: true },
 );
 
 export function readAllAuditEntries(query: PagedQuery<AuditFilterChoice>): Promise<AuditEntry[]> {

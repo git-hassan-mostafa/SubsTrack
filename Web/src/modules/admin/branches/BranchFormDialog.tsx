@@ -11,7 +11,7 @@ import { FormDialog } from "@/shared/components/FormDialog";
 interface BranchFormDialogProps {
   branch: Branch | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (saved: Branch) => void;
 }
 
 export function BranchFormDialog({ branch, onClose, onSaved }: BranchFormDialogProps) {
@@ -34,7 +34,7 @@ export function BranchFormDialog({ branch, onClose, onSaved }: BranchFormDialogP
     const saved = branch
       ? await updateBranch(branch.id, { name })
       : await createBranch({ name }, user.tenantId);
-    if (saved) onSaved();
+    if (saved) onSaved(saved);
   };
 
   return (

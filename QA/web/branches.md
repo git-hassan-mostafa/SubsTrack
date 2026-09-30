@@ -24,10 +24,13 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 | 1.4 | Next page                    | Press the next-page arrow                              | Rows 26–50 load; the old rows stay under a progress bar while loading (no blank table, no jump back to page 1)       |
 | 1.5 | Page size                    | Pick 50                                                | Goes back to page 1 and shows 50 rows                                                                                |
 | 1.6 | Only one page is fetched     | DevTools Network, change page                          | One `branches` request per page, with `offset`/`limit` and a `Prefer: count=exact` header — never the whole table    |
-| 1.7 | Coming back keeps the view   | Search "a", go to page 2, open Customers, come back    | Same search, same filter, same page (then it refreshes)                                                              |
+| 1.7 | Coming back keeps the view   | Search "a", go to page 2, open Customers, come back    | Same search, same filter, same page and rows — and NO new `branches` request in DevTools Network                    |
 | 1.8 | Deleting the last row of a page | On the last page with one row, delete that branch   | The table steps back to the previous page instead of showing an empty page                                           |
 | 1.9 | Load error                   | Go offline in DevTools, change page                    | Red banner with the friendly connection message and a "Try again" button; pressing it (back online) loads the page   |
 | 1.10 | No column sorting           | Click a column header                                  | Nothing sorts (the order is the server's); no column menu                                                             |
+| 1.11 | Refresh                     | Press the Refresh icon (circle arrow, left of the CSV icon) | Progress bar, then the same page is read again (one request); the icon is greyed out while it loads                 |
+| 1.12 | Someone else's change     | Page open; rename a branch on the phone and sync       | The web still shows the old name; after Refresh (or a browser reload) it shows the new one                          |
+| 1.13 | Header branch change        | On Plans (a branch-scoped list), open another page, switch the header Branch, come back | The list reads again for the new branch, from page 1                                                   |
 
 ## 2. Search and filter
 
@@ -56,7 +59,7 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 | 4.3 | Duplicate name       | Add a name that already exists                         | Red banner: the name already exists; dialog stays open with the text                                      |
 | 4.4 | 60 characters max    | Paste a 70-character name                              | The field stops at 60                                                                                     |
 | 4.5 | Typing clears error  | After 4.3, type a letter                               | The banner goes away                                                                                      |
-| 4.6 | Edit from the name   | Click a branch name in the table                       | "Edit Branch" dialog with the name filled in; "Save Changes" saves and the row updates                    |
+| 4.6 | Edit from the name   | Click a branch name in the table                       | "Edit Branch" dialog with the name filled in; "Save Changes" saves and the row updates in place with NO new list request; it moves to its A→Z place on the next read (Refresh, page change, search) |
 | 4.7 | Edit an inactive one | Open an inactive branch                                | Amber note: the branch is inactive and can't be picked for new records; reactivate to use it again        |
 | 4.8 | Discard guard        | Run [app-shell.md](app-shell.md) §5 on this form       | As written there                                                                                          |
 
@@ -66,12 +69,13 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 | --- | ----------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | 5.1 | Menu items and order    | Press ⋮ on an active branch                                   | Edit, History, Deactivate (red), Delete (red) — in that order, same as the phone                              |
 | 5.2 | Inactive branch         | Press ⋮ on an inactive branch                                 | Edit, History, Reactivate, Delete                                                                             |
-| 5.3 | Deactivate              | Deactivate a branch (used or not used)                        | Confirm "Deactivate Branch"; after OK the row shows the grey "Inactive" chip and moves down with the inactive ones. An unused branch is NOT removed — deactivate only hides |
+| 5.3 | Deactivate              | Deactivate a branch (used or not used)                        | Confirm "Deactivate Branch"; after OK the row shows the grey "Inactive" chip and stays where it is (no new list request); it moves down with the inactive ones on the next read. An unused branch is NOT removed — deactivate only hides |
 | 5.4 | Delete an unused branch | Delete a branch nothing uses                                  | Confirm "Delete Branch"; the row is gone                                                                      |
 | 5.5 | Delete a used branch    | Delete a branch customers use                                 | It becomes Inactive instead (kept for history), as on the phone                                               |
 | 5.6 | Last active branch      | Try to deactivate or delete the only active branch            | Red banner above the table: at least one active branch is needed                                              |
-| 5.7 | Reactivate              | Reactivate an inactive branch                                 | Green "Active" chip; it moves up with the active ones                                                         |
+| 5.7 | Reactivate              | Reactivate an inactive branch                                 | Green "Active" chip in place; it moves up with the active ones on the next read                               |
 | 5.8 | Keyboard                | Tab into the table, arrow to the ⋮ cell, press Enter          | The menu opens; arrows move; Enter runs; Esc closes. Screen reader names the button "Actions for <branch>"   |
+| 5.9 | Deactivate under a filter | Status → Active, deactivate a branch                          | The row stays on screen, now "Inactive", until the next read; after Refresh it is gone from the Active view     |
 
 ## 6. Selection and bulk bar
 

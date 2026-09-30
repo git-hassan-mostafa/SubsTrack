@@ -31,6 +31,8 @@ export function CurrenciesPage() {
   const tableError = useCurrenciesTable((s) => s.error);
   const query = useCurrenciesTable((s) => s.query);
   const load = useCurrenciesTable((s) => s.load);
+  const open = useCurrenciesTable((s) => s.open);
+  const patchRow = useCurrenciesTable((s) => s.patchRow);
   const setPage = useCurrenciesTable((s) => s.setPage);
   const setSearch = useCurrenciesTable((s) => s.setSearch);
   const setFilters = useCurrenciesTable((s) => s.setFilters);
@@ -46,8 +48,8 @@ export function CurrenciesPage() {
   const [form, setForm] = useState<{ currency: Currency | null } | null>(null);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void open();
+  }, [open]);
 
   const reload = () => void load();
 
@@ -57,7 +59,8 @@ export function CurrenciesPage() {
       message: t("tenant_settings.deactivate_message", { code: currency.code }),
       destructive: true,
       onConfirm: async () => {
-        if (await deactivateCurrency(currency.id)) reload();
+        const updated = await deactivateCurrency(currency.id);
+        if (updated) patchRow(updated);
       },
     });
 
@@ -82,7 +85,8 @@ export function CurrenciesPage() {
   };
 
   const reactivate = async (currency: Currency) => {
-    if (await reactivateCurrency(currency.id)) reload();
+    const updated = await reactivateCurrency(currency.id);
+    if (updated) patchRow(updated);
   };
 
   const statusAction = (currency: Currency): TableAction =>
@@ -222,15 +226,16 @@ export function CurrenciesPage() {
         onClearFilters={clearFilters}
         error={tableError}
         onDismissError={clearTableError}
-        onRetry={reload}
+        onReload={reload}
       />
       {form ? (
         <CurrencyFormDialog
           currency={form.currency}
           onClose={() => setForm(null)}
-          onSaved={() => {
+          onSaved={(saved) => {
             setForm(null);
-            reload();
+            if (form.currency) patchRow(saved);
+            else reload();
           }}
         />
       ) : null}

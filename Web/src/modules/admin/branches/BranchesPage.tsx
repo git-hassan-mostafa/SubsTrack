@@ -29,6 +29,8 @@ export function BranchesPage() {
   const tableError = useBranchesTable((s) => s.error);
   const query = useBranchesTable((s) => s.query);
   const load = useBranchesTable((s) => s.load);
+  const open = useBranchesTable((s) => s.open);
+  const patchRow = useBranchesTable((s) => s.patchRow);
   const setPage = useBranchesTable((s) => s.setPage);
   const setSearch = useBranchesTable((s) => s.setSearch);
   const setFilters = useBranchesTable((s) => s.setFilters);
@@ -44,8 +46,8 @@ export function BranchesPage() {
   const [form, setForm] = useState<{ branch: Branch | null } | null>(null);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void open();
+  }, [open]);
 
   const reload = () => void load();
 
@@ -55,7 +57,8 @@ export function BranchesPage() {
       message: t("branches.deactivate_message", { name: branch.name }),
       destructive: true,
       onConfirm: async () => {
-        if (await deactivateBranch(branch.id)) reload();
+        const updated = await deactivateBranch(branch.id);
+        if (updated) patchRow(updated);
       },
     });
 
@@ -80,7 +83,8 @@ export function BranchesPage() {
   };
 
   const reactivate = async (branch: Branch) => {
-    if (await reactivateBranch(branch.id)) reload();
+    const updated = await reactivateBranch(branch.id);
+    if (updated) patchRow(updated);
   };
 
   const statusAction = (branch: Branch): TableAction =>
@@ -181,15 +185,16 @@ export function BranchesPage() {
         onClearFilters={clearFilters}
         error={tableError}
         onDismissError={clearTableError}
-        onRetry={reload}
+        onReload={reload}
       />
       {form ? (
         <BranchFormDialog
           branch={form.branch}
           onClose={() => setForm(null)}
-          onSaved={() => {
+          onSaved={(saved) => {
             setForm(null);
-            reload();
+            if (form.branch) patchRow(saved);
+            else reload();
           }}
         />
       ) : null}

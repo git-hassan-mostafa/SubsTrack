@@ -31,6 +31,7 @@ export function PlansPage() {
   const query = usePlansTable((s) => s.query);
   const load = usePlansTable((s) => s.load);
   const open = usePlansTable((s) => s.open);
+  const patchRow = usePlansTable((s) => s.patchRow);
   const setPage = usePlansTable((s) => s.setPage);
   const setSearch = usePlansTable((s) => s.setSearch);
   const clearFilters = usePlansTable((s) => s.clearFilters);
@@ -163,15 +164,16 @@ export function PlansPage() {
         onClearFilters={clearFilters}
         error={tableError}
         onDismissError={clearTableError}
-        onRetry={reload}
+        onReload={reload}
       />
       {form ? (
         <PlanFormDialog
           plan={form.plan}
           onClose={() => setForm(null)}
-          onSaved={() => {
+          onSaved={(saved) => {
             setForm(null);
-            reload();
+            if (form.plan) patchRow(saved);
+            else reload();
           }}
         />
       ) : null}

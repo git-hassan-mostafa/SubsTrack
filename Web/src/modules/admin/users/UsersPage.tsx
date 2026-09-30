@@ -53,6 +53,7 @@ export function UsersPage() {
   const query = useUsersTable((s) => s.query);
   const load = useUsersTable((s) => s.load);
   const open = useUsersTable((s) => s.open);
+  const patchRow = useUsersTable((s) => s.patchRow);
   const setPage = useUsersTable((s) => s.setPage);
   const setSearch = useUsersTable((s) => s.setSearch);
   const setFilters = useUsersTable((s) => s.setFilters);
@@ -87,7 +88,8 @@ export function UsersPage() {
       onConfirm: async () => {
         if (!viewer) return;
         const toggle = target.active ? deactivateUser : activateUser;
-        if (await toggle(target.id, viewer.id, viewer.role, target.role)) reload();
+        const updated = await toggle(target.id, viewer.id, viewer.role, target.role);
+        if (updated) patchRow(updated);
       },
     });
 
@@ -258,15 +260,16 @@ export function UsersPage() {
         onClearFilters={clearFilters}
         error={tableError}
         onDismissError={clearTableError}
-        onRetry={reload}
+        onReload={reload}
       />
       {form ? (
         <UserFormDialog
           user={form.user}
           onClose={() => setForm(null)}
-          onSaved={() => {
+          onSaved={(saved) => {
             setForm(null);
-            reload();
+            if (form.user) patchRow(saved);
+            else reload();
           }}
         />
       ) : null}

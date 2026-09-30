@@ -21,7 +21,7 @@ import { FormDialog } from "@/shared/components/FormDialog";
 interface ProductFormDialogProps {
   product: Product | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (saved: Product) => void;
   onAdjustStock: (product: Product) => void;
 }
 
@@ -92,7 +92,7 @@ export function ProductFormDialog({
           user.id,
           findCurrency(currencies, form.costCurrencyId),
         );
-    if (saved) onSaved();
+    if (saved) onSaved(saved);
   };
 
   return (

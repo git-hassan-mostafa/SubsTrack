@@ -264,7 +264,7 @@ export function CustomersPage() {
         onClearFilters={clearFilters}
         error={tableError}
         onDismissError={clearTableError}
-        onRetry={reload}
+        onReload={reload}
       />
       {form ? (
         <CustomerFormDialog

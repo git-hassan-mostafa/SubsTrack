@@ -16,6 +16,7 @@
   "table": {
     "actions": "Actions",
     "actions_for": "Actions for {{name}}",
+    "refresh": "Refresh",
     "clear_selection": "Clear selection",
     "no_results_hint": "Try another search or clear the filters.",
     "export_this_page": "Only this page ({{count}})",

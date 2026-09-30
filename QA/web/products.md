@@ -21,7 +21,7 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 | 1.1 | Columns              | Open Admin → Products                          | Name, Description, Branch, Price, Cost, Stock, Status, ⋮                                                         |
 | 1.2 | Price and cost       | A product priced in LBP, display currency USD  | Price in LBP with "≈ $…" under it; Cost empty when no cost price was set                                         |
 | 1.3 | Stock pill           | Products with 5, 0 and −2 on hand              | Green "5 in stock" / red "Out of stock" / red "Short by 2" — the same words as the phone card                    |
-| 1.4 | Stock is live        | Sell 2 units on the phone, sync, reload page   | The pill drops by 2 (stock is the sum of movements, never a stored number)                                       |
+| 1.4 | Stock is live        | Sell 2 units on the phone, sync, press Refresh | The pill drops by 2 (stock is the sum of movements, never a stored number)                                       |
 | 1.5 | Header branch        | Header Branch → Beirut                         | Beirut's products plus the shared ones; back to page 1                                                           |
 | 1.6 | Status filter        | Status → Inactive                              | Only products hidden by a delete (they had been sold)                                                            |
 | 1.7 | Empty tenant         | Tenant with no products                        | "No products yet", the phone's hint, and an "Add product" button                                                 |
@@ -57,6 +57,7 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 | 3.12 | Sale entries               | A "Sold" entry                                                        | No ⋮ menu (a sale's stock is fixed on the sale)                                                                       |
 | 3.13 | Reversed entry menu        | ⋮ on a reversed entry                                                 | History only                                                                                                          |
 | 3.14 | Entry history              | ⋮ → History                                                           | The record-history dialog for that stock entry                                                                        |
+| 3.15 | Row follows the dialog     | Add, edit or revert an entry, then close the dialog                   | The row's stock pill shows the new count with NO new products request (DevTools Network)                            |
 
 ## 4. Batch Restock (quick action)
 

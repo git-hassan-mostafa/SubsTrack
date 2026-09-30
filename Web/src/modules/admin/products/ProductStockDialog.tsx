@@ -35,7 +35,7 @@ import { useRecordHistoryAction } from "@/modules/admin/audit/useRecordHistoryAc
 interface ProductStockDialogProps {
   product: Product;
   onClose: () => void;
-  onChanged: () => void;
+  onChanged: (onHand: number) => void;
 }
 
 // A manual change only ADDS; a wrong entry is fixed on itself — see gotcha #94.
@@ -71,7 +71,7 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
 
   const applySaved = (next: number) => {
     setOnHand(next);
-    onChanged();
+    onChanged(next);
   };
 
   const startEdit = (movement: StockMovement) => {
@@ -134,7 +134,7 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
     }
     const next = await addStock(product.id, user.tenantId, form.parsed, form.note, user.id, cost);
     if (next === null) return;
-    onChanged();
+    onChanged(next);
     onClose();
   };
 

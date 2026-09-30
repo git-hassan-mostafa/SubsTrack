@@ -12,7 +12,7 @@ import { FormDialog } from "@/shared/components/FormDialog";
 interface CurrencyFormDialogProps {
   currency: Currency | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (saved: Currency) => void;
 }
 
 type CurrencyForm = {
@@ -61,7 +61,7 @@ export function CurrencyFormDialog({ currency, onClose, onSaved }: CurrencyFormD
     const saved = currency
       ? await updateCurrency(currency.id, data)
       : await createCurrency(data, user.tenantId);
-    if (saved) onSaved();
+    if (saved) onSaved(saved);
   };
 
   const rateCode = form.code || t("tenant_settings.rate_label_fallback");
