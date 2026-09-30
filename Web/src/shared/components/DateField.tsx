@@ -17,6 +17,8 @@ interface DateFieldProps {
   disabled?: boolean;
   required?: boolean;
   error?: string | null;
+  size?: "small" | "medium";
+  hideLabel?: boolean;
 }
 
 function toDayjs(value: string | undefined): Dayjs | null {
@@ -38,6 +40,8 @@ export function DateField({
   disabled = false,
   required = false,
   error,
+  size = "medium",
+  hideLabel = false,
 }: DateFieldProps) {
   const withTime = showTime && !monthOnly;
 
@@ -52,7 +56,7 @@ export function DateField({
   };
 
   const common = {
-    label,
+    label: hideLabel ? undefined : label,
     value: toDayjs(value),
     onChange: handleChange,
     minDate: toDayjs(minDate) ?? undefined,
@@ -62,9 +66,11 @@ export function DateField({
       field: { clearable },
       textField: {
         fullWidth: true,
+        size,
         required,
         error: Boolean(error),
         helperText: error ?? undefined,
+        slotProps: { input: { "aria-label": hideLabel ? label : undefined } },
       },
     },
   };

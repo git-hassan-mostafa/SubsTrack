@@ -26,6 +26,7 @@ interface CurrencyInputProps {
   lockCurrency?: boolean;
   disabled?: boolean;
   required?: boolean;
+  size?: "small" | "medium";
 }
 
 // Amount and currency stay AS TYPED, never converted; a null currency means USD.
@@ -40,6 +41,7 @@ export function CurrencyInput({
   lockCurrency = false,
   disabled = false,
   required = false,
+  size = "medium",
 }: CurrencyInputProps) {
   const { t } = useTranslation();
   const lastUsedCurrencyId = useUiPrefStore((s) => s.lastUsedCurrencyId);
@@ -72,6 +74,7 @@ export function CurrencyInput({
       label={label}
       value={text}
       required={required}
+      size={size}
       disabled={disabled}
       error={Boolean(error)}
       helperText={error ?? undefined}

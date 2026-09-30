@@ -1,9 +1,18 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
@@ -28,7 +37,6 @@ export function ServiceLinesEditor({ drafts, branchId }: ServiceLinesEditorProps
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const [addPlanOpen, setAddPlanOpen] = useState(false);
-  const multiple = drafts.rows.length > 1;
 
   return (
     <Stack spacing={1.5}>
@@ -36,23 +44,40 @@ export function ServiceLinesEditor({ drafts, branchId }: ServiceLinesEditorProps
         <Typography component="h3" sx={{ fontWeight: 700, flexGrow: 1 }}>
           {t("subscriptions.section_title")}
         </Typography>
-        {multiple ? (
+        {drafts.rows.length > 1 ? (
           <Typography variant="body2" color="text.secondary">
             {t("subscriptions.section_subtitle")}
           </Typography>
         ) : null}
       </Stack>
-      {drafts.rows.map((row, index) => (
-        <ServiceLineCard
-          key={row.key}
-          row={row}
-          index={index}
-          drafts={drafts}
-          branchId={branchId}
-          showHeader={multiple}
-          onAddPlan={isAdmin ? () => setAddPlanOpen(true) : undefined}
-        />
-      ))}
+      {branchId === null ? (
+        <Typography variant="body2" color="text.secondary">
+          {t("subscriptions.select_branch_first")}
+        </Typography>
+      ) : null}
+      <TableContainer component={Paper} variant="outlined">
+        <Table size="small" aria-label={t("subscriptions.section_title")} sx={{ minWidth: 720 }}>
+          <TableHead>
+            <TableRow>
+              <TableCell>{t("customers.plan_label")}</TableCell>
+              <TableCell sx={{ width: 180 }}>{t("subscriptions.start_label")}</TableCell>
+              <TableCell sx={{ width: 300 }}>{t("plans.price_label")}</TableCell>
+              <TableCell sx={{ width: 56 }} />
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {drafts.rows.map((row) => (
+              <ServiceLineRow
+                key={row.key}
+                row={row}
+                drafts={drafts}
+                branchId={branchId}
+                onAddPlan={isAdmin ? () => setAddPlanOpen(true) : undefined}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
       <Button
         variant="outlined"
         startIcon={<AddIcon />}
@@ -72,17 +97,15 @@ export function ServiceLinesEditor({ drafts, branchId }: ServiceLinesEditorProps
   );
 }
 
-interface ServiceLineCardProps {
+interface ServiceLineRowProps {
   row: LineRow;
-  index: number;
   drafts: LineDrafts;
   branchId: string | null;
-  showHeader: boolean;
   onAddPlan?: () => void;
 }
 
 // A cancelled line stays read-only until reactivated.
-function ServiceLineCard({ row, index, drafts, branchId, showHeader, onAddPlan }: ServiceLineCardProps) {
+function ServiceLineRow({ row, drafts, branchId, onAddPlan }: ServiceLineRowProps) {
   const { t } = useTranslation();
   const plans = usePlanSlice((s) => s.items);
   const currencies = useCurrencySlice((s) => s.items);
@@ -91,61 +114,34 @@ function ServiceLineCard({ row, index, drafts, branchId, showHeader, onAddPlan }
   const plan = plans.find((p) => p.id === row.planId) ?? null;
 
   return (
-    <Paper
-      variant="outlined"
-      sx={{ p: 2, bgcolor: cancelled ? "action.hover" : "background.default" }}
-    >
-      <Stack spacing={2}>
-        {showHeader ? (
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <Typography variant="body2" sx={{ fontWeight: 600, flexGrow: 1 }}>
-              {t("subscriptions.line_label", { number: index + 1 })}
-              {cancelled ? (
-                <Chip size="small" label={t("subscriptions.cancelled_badge")} sx={{ ml: 1 }} />
-              ) : null}
-            </Typography>
-            {cancelled ? (
-              <Button
-                size="small"
-                startIcon={<ReplayOutlined />}
-                onClick={() => drafts.reactivateRow(row.key)}
-              >
-                {t("subscriptions.reactivate_plan")}
-              </Button>
-            ) : drafts.activeCount > 1 ? (
-              <Button
-                size="small"
-                color="error"
-                startIcon={<DeleteOutlined />}
-                loading={drafts.removingKey === row.key}
-                onClick={() => void drafts.removeRow(row.key)}
-              >
-                {t("subscriptions.remove_plan")}
-              </Button>
-            ) : null}
-          </Stack>
-        ) : null}
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+    <TableRow sx={{ bgcolor: cancelled ? "action.hover" : undefined }}>
+      <TableCell>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <PlanPicker
             value={row.planId}
             onChange={(planId) => drafts.setPlan(row.key, planId)}
             branchId={branchId}
             disabled={cancelled || branchId === null}
-            helperText={branchId === null ? t("subscriptions.select_branch_first") : undefined}
             onAddNew={onAddPlan}
           />
-          <DateField
-            label={t("subscriptions.start_label")}
-            value={row.startDate}
-            onChange={(date) => drafts.setStartDate(row.key, date)}
-            disabled={cancelled || dateLocked}
-          />
+          {cancelled ? <Chip size="small" label={t("subscriptions.cancelled_badge")} /> : null}
         </Stack>
-        {dateLocked && !cancelled ? (
-          <Typography variant="body2" color="text.secondary">
-            {t("subscriptions.start_date_locked")}
-          </Typography>
-        ) : null}
+      </TableCell>
+      <TableCell>
+        <Tooltip title={dateLocked && !cancelled ? t("subscriptions.start_date_locked") : ""}>
+          <Box>
+            <DateField
+              label={t("subscriptions.start_label")}
+              value={row.startDate}
+              onChange={(date) => drafts.setStartDate(row.key, date)}
+              disabled={cancelled || dateLocked}
+              size="small"
+              hideLabel
+            />
+          </Box>
+        </Tooltip>
+      </TableCell>
+      <TableCell>
         <LinePriceField
           plan={plan}
           customPrice={row.customPrice}
@@ -154,7 +150,30 @@ function ServiceLineCard({ row, index, drafts, branchId, showHeader, onAddPlan }
           currencies={currencies}
           disabled={cancelled}
         />
-      </Stack>
-    </Paper>
+      </TableCell>
+      <TableCell align="right">
+        {cancelled ? (
+          <Tooltip title={t("subscriptions.reactivate_plan")}>
+            <IconButton
+              aria-label={t("subscriptions.reactivate_plan")}
+              onClick={() => drafts.reactivateRow(row.key)}
+            >
+              <ReplayOutlined />
+            </IconButton>
+          </Tooltip>
+        ) : drafts.activeCount > 1 ? (
+          <Tooltip title={t("subscriptions.remove_plan")}>
+            <IconButton
+              color="error"
+              aria-label={t("subscriptions.remove_plan")}
+              loading={drafts.removingKey === row.key}
+              onClick={() => void drafts.removeRow(row.key)}
+            >
+              <DeleteOutlined />
+            </IconButton>
+          </Tooltip>
+        ) : null}
+      </TableCell>
+    </TableRow>
   );
 }

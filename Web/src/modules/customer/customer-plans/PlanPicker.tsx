@@ -17,17 +17,15 @@ interface PlanPickerProps {
   onChange: (planId: string | null) => void;
   branchId: string | null;
   disabled?: boolean;
-  helperText?: string;
   onAddNew?: () => void;
 }
 
-// Only plans shared or owned by the branch; prices read in the display currency.
+// A table cell, so its column header is the label; only the branch's plans.
 export function PlanPicker({
   value,
   onChange,
   branchId,
   disabled = false,
-  helperText,
   onAddNew,
 }: PlanPickerProps) {
   const { t } = useTranslation();
@@ -39,16 +37,16 @@ export function PlanPicker({
   return (
     <TextField
       select
-      label={t("customers.plan_label")}
+      size="small"
       value={value ?? NO_PLAN}
       onChange={(event) => {
         if (event.target.value === ADD_NEW) onAddNew?.();
         else onChange(event.target.value === NO_PLAN ? null : event.target.value);
       }}
       disabled={disabled}
-      helperText={helperText}
       fullWidth
       slotProps={{
+        htmlInput: { "aria-label": t("customers.plan_label") },
         select: {
           displayEmpty: true,
           renderValue: (selected) =>
