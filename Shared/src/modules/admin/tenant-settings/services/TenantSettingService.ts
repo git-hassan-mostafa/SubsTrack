@@ -11,12 +11,9 @@ import {
   TENANT_SETTING_KEYS,
 } from "@shared/modules/admin/tenant-settings/utils/constants";
 
-export { DEFAULT_UNPAID_START_RULE };
+import { UNPAID_START_RULES } from "@shared/modules/admin/tenant-settings/utils/unpaidStartRule";
 
-const UNPAID_START_RULES: UnpaidStartRule[] = [
-  "month_start",
-  "customer_start_day",
-];
+export { DEFAULT_UNPAID_START_RULE };
 
 const WHATSAPP_LANGUAGES: WhatsAppLanguage[] = ["en", "ar"];
 
@@ -76,11 +73,6 @@ class TenantSettingService {
   parseWhatsAppLanguage(value: string | null | undefined): WhatsAppLanguage {
     const v = value?.trim() as WhatsAppLanguage | undefined;
     return v && WHATSAPP_LANGUAGES.includes(v) ? v : DEFAULT_WHATSAPP_LANGUAGE;
-  }
-
-  parseUnpaidStartRule(value: string | null | undefined): UnpaidStartRule {
-    const v = value?.trim() as UnpaidStartRule | undefined;
-    return v && UNPAID_START_RULES.includes(v) ? v : DEFAULT_UNPAID_START_RULE;
   }
 
   parseDisplayCurrencyId(value: string | null | undefined): string | null {

@@ -28,6 +28,7 @@ module.exports = {
     `${shared}/src/modules/ledger/**/*.ts`,
     `${shared}/src/modules/customer/customer-payments/**/*.ts`,
     `${shared}/src/modules/customer/customer-plans/utils/*.ts`,
+    `${shared}/src/modules/customer/customers/utils/*.ts`,
     `${shared}/src/modules/transaction/sales/**/*.ts`,
     `${shared}/src/modules/wallet/utils/*.ts`,
     `${shared}/src/core/utils/*.ts`,

@@ -1,6 +1,6 @@
+import { isDebtItem } from "@shared/modules/ledger/utils/debtRule";
 import {
   billForMonth,
-  isDebtItem,
   monthItemFromEntry,
   openItemFromCharge,
   virtualMonthItem,

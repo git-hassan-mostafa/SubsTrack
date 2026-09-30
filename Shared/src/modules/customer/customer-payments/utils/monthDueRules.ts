@@ -1,5 +1,5 @@
 import type { UnpaidStartRule } from "@shared/core/types";
-import { getCurrentYearMonth } from "@shared/core/utils/date";
+import { currentDate, getCurrentYearMonth } from "@shared/core/utils/date";
 
 export function isBeforeStartDate(
   year: number,
@@ -12,7 +12,7 @@ export function isBeforeStartDate(
 
 /** Today's day-of-month (1–31). Split out so the unpaid-rule logic is testable. */
 export function getCurrentDayOfMonth(): number {
-  return new Date().getDate();
+  return currentDate().getDate();
 }
 
 /** Day-of-month of a YYYY-MM-DD start date; 1 when the day part is missing. */

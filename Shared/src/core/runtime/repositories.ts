@@ -13,6 +13,7 @@ import type { ISignupRepository } from "@shared/modules/authentication/signup/re
 import type { ISkippedMonthRepository } from "@shared/modules/customer/customer-payments/repository/ISkippedMonthRepository";
 import type { ICustomerPlanRepository } from "@shared/modules/customer/customer-plans/repository/ICustomerPlanRepository";
 import type { ICustomerRepository } from "@shared/modules/customer/customers/repository/ICustomerRepository";
+import type { ICustomerStatusRepository } from "@shared/modules/customer/customers/repository/ICustomerStatusRepository";
 import type { IChargeRepository } from "@shared/modules/ledger/repository/IChargeRepository";
 import type { ICollectionRepository } from "@shared/modules/ledger/repository/ICollectionRepository";
 import type { IOptionRepository } from "@shared/modules/options/repository/IOptionRepository";
@@ -38,6 +39,7 @@ export interface Repositories {
   skippedMonth: ISkippedMonthRepository;
   customerPlan: ICustomerPlanRepository;
   customer: ICustomerRepository;
+  customerStatus: ICustomerStatusRepository;
   charge: IChargeRepository;
   collection: ICollectionRepository;
   option: IOptionRepository;

@@ -3,24 +3,7 @@ import type { Charge, MonthBill, MonthEntry, OpenItem } from "@shared/core/types
 import type { DbCharge } from "@shared/core/types/db";
 import { receiptId } from "@shared/core/utils/receiptId";
 import { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/utils/blockRangeLabel";
-
-/**
- * THE debt rule, in one place.
- *
- * A fully unpaid month is OWED but is not a DEBT — it is red in the month grid,
- * which is its own screen and its own workflow. It becomes a debt the moment it
- * is partly paid, which is exactly when it stops being routine.
- *
- * Everything else with a balance is a debt from day one: an unpaid sale is a
- * pay-later, and a hand-typed fee is a debt by definition.
- *
- * Note it keys off MONEY (`paid`), never on whether a charge row exists — an
- * empty bill left behind by a voided collection must read the same as a month
- * that was never touched.
- */
-export function isDebtItem(kind: Charge["kind"], paid: number): boolean {
-  return kind !== "month" || paid > 0;
-}
+import { isDebtItem } from "@shared/modules/ledger/utils/debtRule";
 
 /**
  * A stored bill as an OpenItem. `paid` comes from the balance view.

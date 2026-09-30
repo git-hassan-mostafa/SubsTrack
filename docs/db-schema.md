@@ -50,3 +50,7 @@ Authoritative DDL is always `sql scripts/script.sql`; the SQLite mirror is
 - `chk_sale_items_line_ref` on sale_items: a `'product'` line has `product_id NOT NULL` + `service_id NULL`; a `'service'` line has `product_id NULL` and **may** have a NULL `service_id` — that gap is the one-off typed service
 
 ---
+
+### Functions read by edge functions
+
+`customer_status_facts(p_branch_id UUID, p_unassigned BOOLEAN) RETURNS json` — `SECURITY INVOKER`, `STABLE`, granted to `authenticated` only. The compact read behind the `customer-status` edge function: for the customers in scope (branch filter like `applyBranchFilter` 'owned'), every line with its live month bills (`[billing_month, duration_months, amount, paid]`, `paid` from `charge_balances`) and skipped months, plus each open, not-written-off bill (`[customer_id, kind, balance, paid, rate_per_usd_snapshot]`). ONE `json` value so PostgREST's row cap never cuts it. It decides no rule — see docs/edge-functions.md.

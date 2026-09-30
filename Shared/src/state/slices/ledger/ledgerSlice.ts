@@ -17,13 +17,13 @@ import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
 import type { CollectInput, CollectionCorrection, CorrectCollectionInput, MultiCollectResult } from "@shared/modules/ledger/services/CollectionService";
 import type { CreateManualChargeInput, UpdateManualChargeInput } from "@shared/modules/ledger/services/ChargeService";
 import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
-import tenantSettingService from "@shared/modules/admin/tenant-settings/services/TenantSettingService";
+import { parseUnpaidStartRule } from "@shared/modules/admin/tenant-settings/utils/unpaidStartRule";
 import { TENANT_SETTING_KEYS } from "@shared/modules/admin/tenant-settings/utils/constants";
 import type { GlobalState } from "@shared/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
 
 const getUnpaidRule = (get: () => GlobalState) =>
-  tenantSettingService.parseUnpaidStartRule(
+  parseUnpaidStartRule(
     get().tenantSettings.items.find(
       (s) => s.key === TENANT_SETTING_KEYS.unpaidStartRule,
     )?.value,

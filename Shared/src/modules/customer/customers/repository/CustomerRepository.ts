@@ -10,8 +10,9 @@ import type {
   ICustomerRepository,
   UnpaidMonthCount,
 } from "@shared/modules/customer/customers/repository/ICustomerRepository";
+import { CUSTOMER_WITH_LINES_SELECT } from "@shared/modules/customer/customers/repository/customerSelect";
 
-const SELECT = "*, customer_plans(*, plans(*))";
+const SELECT = CUSTOMER_WITH_LINES_SELECT;
 
 export class CustomerRepository
   extends BaseRepository

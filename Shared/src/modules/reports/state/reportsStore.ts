@@ -12,14 +12,14 @@ import type {
   MoneyReport,
 } from "@shared/modules/reports/utils/types";
 import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
-import tenantSettingService from "@shared/modules/admin/tenant-settings/services/TenantSettingService";
+import { parseUnpaidStartRule } from "@shared/modules/admin/tenant-settings/utils/unpaidStartRule";
 import { TENANT_SETTING_KEYS } from "@shared/modules/admin/tenant-settings/utils/constants";
 import { getStore } from "@shared/state/globalStore";
 
 export type ReportSection = "money" | "debts";
 
 const getUnpaidRule = (): UnpaidStartRule =>
-  tenantSettingService.parseUnpaidStartRule(
+  parseUnpaidStartRule(
     getStore()
       .getState()
       .tenantSettings.items.find(

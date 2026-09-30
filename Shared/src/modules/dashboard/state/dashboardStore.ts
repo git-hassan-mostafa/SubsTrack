@@ -3,7 +3,7 @@ import { immer } from "zustand/middleware/immer";
 import type { DashboardMetrics } from "@shared/core/types";
 import dashboardService from "@shared/modules/dashboard/services/DashboardService";
 import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
-import tenantSettingService from "@shared/modules/admin/tenant-settings/services/TenantSettingService";
+import { parseUnpaidStartRule } from "@shared/modules/admin/tenant-settings/utils/unpaidStartRule";
 import { TENANT_SETTING_KEYS } from "@shared/modules/admin/tenant-settings/utils/constants";
 import { getStore } from "@shared/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
@@ -37,7 +37,7 @@ export const useDashboardStore = create<DashboardState>()(
           isAdmin && user
             ? { id: user.id, role: user.role, branchId: user.branchId }
             : null;
-        const unpaidRule = tenantSettingService.parseUnpaidStartRule(
+        const unpaidRule = parseUnpaidStartRule(
           getStore()
             .getState()
             .tenantSettings.items.find(

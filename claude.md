@@ -291,7 +291,8 @@ goes up the dependency waves of `PUSH_WAVES`, and every SQLite write queues behi
 `withDbLock` (expo-sqlite gives the app one connection). **Online-only** (throw
 `RequiresConnectionError` offline, delegate online): auth `signIn` /
 `getTenantByCode`, `User.create`/`delete`/`updatePassword`, `Signup.*`,
-`CustomerRequest.*` and `WhatsApp.*` (not mirrored at all — the `whatsapp_*`
+`CustomerRequest.*`, `CustomerStatus.findPage` (the `customer-status` edge
+function) and `WhatsApp.*` (not mirrored at all — the `whatsapp_*`
 tables are server-only; tenants pay Meta directly, see `docs/whatsapp.md`). Auth `getSession`/`getUserProfile`/`getTenant` are a
 read-through cache so the app boots offline after the first online login.
 **Read `docs/offline.md` before touching any repository or the sync engine.**
@@ -548,6 +549,13 @@ keeps `monthGridsByLine`. Full rules, the badge contract and the order helpers:
   never co-exist with "Overdue". Absence means unknown → **no pill**, never red.
   One query, one arrival. No SQL mirror. `customerFlags(status)` decides both the
   pills and the filter tabs — never duplicate the suppression rule in the filter.
+  The list tabs themselves are ONE helper, `customerTabs.ts` → `matchesCustomerTab`.
+- **The web's exact tabs run the SAME file on the server**: the `customer-status`
+  edge function bundles `customerStatusPage.ts` (→ `monthStatus.ts`) and feeds it
+  compact facts from `customer_status_facts()` (SQL that decides no rule). The
+  month rules read "today" ONLY through `currentDate()` (`core/utils/date.ts`),
+  which `onCalendarDay` pins to the caller's day — the server clock is UTC
+  (gotcha #173). A new clock read inside a month rule must use `currentDate()`.
 
 ---
 

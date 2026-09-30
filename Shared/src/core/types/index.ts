@@ -156,18 +156,50 @@ export interface SkippedMonth {
   updatedAt: string;
 }
 
-export interface MonthEntry {
+// The fields the month rules read, so a server can feed them compact facts.
+export type StatusLine = Pick<CustomerPlan, "id" | "startDate" | "active">;
+
+export type StatusCharge = Pick<
+  Charge,
+  | "customerId"
+  | "customerPlanId"
+  | "billingMonth"
+  | "durationMonths"
+  | "amount"
+  | "voidedAt"
+>;
+
+export interface StatusBill<C extends StatusCharge = StatusCharge> {
+  charge: C;
+  collected: number;
+}
+
+export type StatusSkip = Pick<
+  SkippedMonth,
+  "customerId" | "customerPlanId" | "billingMonth" | "skipped"
+>;
+
+export type StatusCustomer = Pick<Customer, "id" | "active" | "isRegular"> & {
+  customerPlans?: StatusLine[];
+};
+
+export interface MonthCell<
+  C extends StatusCharge = Charge,
+  S extends StatusSkip = SkippedMonth,
+> {
   year: number;
   month: number;
   label: string;
   billingMonth: string;
   status: MonthStatus;
-  charge: Charge | null;
+  charge: C | null;
   collected: number;
   isGroupSecondary: boolean;
   balance: number;
-  skip: SkippedMonth | null;
+  skip: S | null;
 }
+
+export type MonthEntry = MonthCell;
 
 // Plan tally for the customer-list badge: how many of the customer's in-play
 // service lines owe nothing (`paid`) out of every line that has ever had a

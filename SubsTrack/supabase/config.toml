@@ -17,6 +17,12 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/customer-portal/index.ts"
 
+# Staff only, runs as the caller (RLS). Deploy: cd Web && npm run deploy-customer-status
+[functions.customer-status]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/customer-status/index.ts"
+
 # WhatsApp Cloud API (docs/whatsapp.md). Staff calls carry a JWT.
 [functions.whatsapp-admin]
 enabled = true

@@ -1,12 +1,16 @@
 import type {
-  Customer,
   CustomerMonthStatus,
-  CustomerPlan,
   CustomerStatus,
   MonthBill,
+  MonthCell,
   MonthEntry,
   MonthStatus,
   SkippedMonth,
+  StatusBill,
+  StatusCharge,
+  StatusCustomer,
+  StatusLine,
+  StatusSkip,
   UnpaidStartRule,
 } from "@shared/core/types";
 import { MONTHS } from "@shared/core/constants";
@@ -21,22 +25,33 @@ import { DEFAULT_UNPAID_START_RULE } from "@shared/modules/admin/tenant-settings
 
 // The ONLY place a month's status is decided — see docs/month-grid.md.
 export function buildMonthGrid(
-  line: CustomerPlan,
+  line: StatusLine,
   bills: MonthBill[],
   skips: SkippedMonth[],
   year: number,
   unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
 ): MonthEntry[] {
+  return monthCells(line, bills, skips, year, unpaidRule);
+}
+
+// The grid over only the fields it reads, so server facts fit (month-grid.md).
+function monthCells<C extends StatusCharge, S extends StatusSkip>(
+  line: StatusLine,
+  bills: StatusBill<C>[],
+  skips: S[],
+  year: number,
+  unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+): MonthCell<C, S>[] {
   const { year: cy, month: cm } = getCurrentYearMonth();
 
-  const skipByMonth = new Map<string, SkippedMonth>();
+  const skipByMonth = new Map<string, S>();
   for (const skip of skips) {
     if (skip.skipped) skipByMonth.set(skip.billingMonth, skip);
   }
 
   const coverageMap = new Map<
     string,
-    { bill: MonthBill; isGroupSecondary: boolean }
+    { bill: StatusBill<C>; isGroupSecondary: boolean }
   >();
   for (const bill of bills) {
     const { charge } = bill;
@@ -111,9 +126,9 @@ export function buildMonthGrid(
 
 // The only place a customer list badge is decided; "paid" means owes nothing.
 export function buildCustomerStatus(
-  lines: CustomerPlan[],
-  bills: MonthBill[],
-  skips: SkippedMonth[],
+  lines: StatusLine[],
+  bills: StatusBill[],
+  skips: StatusSkip[],
   unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
 ): CustomerStatus {
   const { year: currentYear, month: currentMonth } = getCurrentYearMonth();
@@ -131,13 +146,13 @@ export function buildCustomerStatus(
     const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
     const startYear = new Date(line.startDate).getFullYear();
 
-    let current: MonthEntry | null = null;
+    let current: MonthCell<StatusCharge, StatusSkip> | null = null;
     let lineOverdue = false;
     let lineUncovered = false;
     let lineRequired = 0;
     let lineUnpaid = 0;
     for (let year = startYear; year <= currentYear; year++) {
-      for (const entry of buildMonthGrid(
+      for (const entry of monthCells(
         line,
         lineBills,
         lineSkips,
@@ -199,9 +214,9 @@ export function buildCustomerStatus(
 }
 
 export function getCustomerStatuses(
-  customers: Customer[],
-  bills: MonthBill[],
-  skips: SkippedMonth[],
+  customers: StatusCustomer[],
+  bills: StatusBill[],
+  skips: StatusSkip[],
   unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
 ): Map<string, CustomerStatus> {
   const billsByCustomer = groupBy(bills, (b) => b.charge.customerId ?? "");
@@ -224,9 +239,11 @@ export function getCustomerStatuses(
 }
 
 export function getOverdueMonthCounts(
-  customers: Customer[],
-  bills: MonthBill[],
-  skips: SkippedMonth[],
+  customers: (StatusCustomer & {
+    customerPlans?: (StatusLine & { cancelledAt: string | null })[];
+  })[],
+  bills: StatusBill[],
+  skips: StatusSkip[],
   unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
 ): Map<string, number> {
   const billsByCustomer = groupBy(bills, (b) => b.charge.customerId ?? "");
@@ -256,9 +273,9 @@ export function getOverdueMonthCounts(
 
 // Overdue months only — never the pay-order gate's input (gotcha #81b).
 export function unpaidBillingMonths(
-  line: CustomerPlan,
-  lineBills: MonthBill[],
-  lineSkips: SkippedMonth[],
+  line: StatusLine,
+  lineBills: StatusBill[],
+  lineSkips: StatusSkip[],
   unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
 ): string[] {
   const { year: currentYear } = getCurrentYearMonth();
@@ -268,7 +285,7 @@ export function unpaidBillingMonths(
     year <= currentYear;
     year++
   ) {
-    for (const entry of buildMonthGrid(
+    for (const entry of monthCells(
       line,
       lineBills,
       lineSkips,
@@ -283,9 +300,9 @@ export function unpaidBillingMonths(
 
 // Every month money has not reached yet, future ones too — the pay-order input.
 export function uncoveredBillingMonths(
-  line: CustomerPlan,
-  lineBills: MonthBill[],
-  lineSkips: SkippedMonth[],
+  line: StatusLine,
+  lineBills: StatusBill[],
+  lineSkips: StatusSkip[],
   unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
   throughYear?: number,
 ): string[] {
@@ -304,7 +321,7 @@ export function uncoveredBillingMonths(
     year <= endYear;
     year++
   ) {
-    for (const entry of buildMonthGrid(
+    for (const entry of monthCells(
       line,
       lineBills,
       lineSkips,
@@ -319,12 +336,12 @@ export function uncoveredBillingMonths(
   return months;
 }
 
-export function paidBillingMonths(lineBills: MonthBill[]): string[] {
+export function paidBillingMonths(lineBills: StatusBill[]): string[] {
   return [...buildCoverageSet(lineBills)].sort();
 }
 
 // Money decides coverage, never a row existing — an empty bill covers nothing.
-function buildCoverageSet(bills: MonthBill[]): Set<string> {
+function buildCoverageSet(bills: StatusBill[]): Set<string> {
   const covered = new Set<string>();
   for (const { charge, collected } of bills) {
     if (charge.voidedAt !== null || collected === 0 || !charge.billingMonth)

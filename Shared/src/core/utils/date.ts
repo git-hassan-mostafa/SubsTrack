@@ -7,8 +7,27 @@ export function toBillingMonth(year: number, month: number): string {
   return `${year}-${mm}-01`;
 }
 
+let pinnedToday: Date | null = null;
+
+// The clock every month rule reads; `onCalendarDay` can pin it for a sync call.
+export function currentDate(): Date {
+  return pinnedToday ? new Date(pinnedToday) : new Date();
+}
+
+// A server clock is UTC, so this pins the caller's own day — gotcha #173.
+export function onCalendarDay<T>(day: string, rule: () => T): T {
+  const [year, month, date] = day.split("-").map(Number);
+  const previous = pinnedToday;
+  pinnedToday = new Date(year, month - 1, date, 12, 0, 0);
+  try {
+    return rule();
+  } finally {
+    pinnedToday = previous;
+  }
+}
+
 export function getCurrentYearMonth(): { year: number; month: number } {
-  const now = new Date();
+  const now = currentDate();
   return { year: now.getFullYear(), month: now.getMonth() + 1 };
 }
 
@@ -58,7 +77,7 @@ export function isValidDateString(s: string): boolean {
 }
 
 export function getTodayDateString(): string {
-  const now = new Date();
+  const now = currentDate();
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, "0");
   const d = String(now.getDate()).padStart(2, "0");

@@ -2102,6 +2102,82 @@ $$;
 GRANT EXECUTE ON FUNCTION lower_allowances(INT, INT) TO authenticated;
 REVOKE EXECUTE ON FUNCTION lower_allowances(INT, INT) FROM anon;
 
+-- Facts for the customer-status function; decides no rule (edge-functions.md).
+CREATE OR REPLACE FUNCTION customer_status_facts(
+    p_branch_id UUID DEFAULT NULL,
+    p_unassigned BOOLEAN DEFAULT FALSE
+)
+RETURNS json
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = public
+AS $$
+    WITH scoped AS (
+        SELECT c.id, c.name, c.phone_number, c.address, c.area,
+               c.active, c.is_regular
+          FROM customers c
+         WHERE (p_branch_id IS NULL OR c.branch_id = p_branch_id)
+           AND (NOT p_unassigned OR c.branch_id IS NULL)
+    ),
+    lines AS (
+        SELECT cp.id, cp.customer_id, cp.start_date, cp.active
+          FROM customer_plans cp
+          JOIN scoped s ON s.id = cp.customer_id
+    ),
+    line_bills AS (
+        SELECT ch.customer_plan_id,
+               json_agg(json_build_array(ch.billing_month, ch.duration_months,
+                                         ch.amount, b.paid)
+                        ORDER BY ch.billing_month) AS bills
+          FROM charges ch
+          JOIN charge_balances b ON b.id = ch.id
+          JOIN lines l ON l.id = ch.customer_plan_id
+         WHERE ch.kind = 'month'
+           AND ch.voided_at IS NULL
+         GROUP BY ch.customer_plan_id
+    ),
+    line_skips AS (
+        SELECT sm.customer_plan_id,
+               json_agg(sm.billing_month ORDER BY sm.billing_month) AS months
+          FROM skipped_months sm
+          JOIN lines l ON l.id = sm.customer_plan_id
+         WHERE sm.skipped
+         GROUP BY sm.customer_plan_id
+    ),
+    debts AS (
+        SELECT b.customer_id, b.kind, b.balance, b.paid,
+               ch.rate_per_usd_snapshot
+          FROM charge_balances b
+          JOIN charges ch ON ch.id = b.id
+          JOIN scoped s ON s.id = b.customer_id
+         WHERE b.written_off_at IS NULL
+           AND b.balance > 0
+    )
+    SELECT json_build_object(
+        'customers', COALESCE((
+            SELECT json_agg(json_build_array(s.id, s.name, s.phone_number,
+                                             s.address, s.area, s.active,
+                                             s.is_regular))
+              FROM scoped s), '[]'::json),
+        'lines', COALESCE((
+            SELECT json_agg(json_build_array(l.id, l.customer_id, l.start_date,
+                                             l.active,
+                                             COALESCE(lb.bills, '[]'::json),
+                                             COALESCE(ls.months, '[]'::json)))
+              FROM lines l
+              LEFT JOIN line_bills lb ON lb.customer_plan_id = l.id
+              LEFT JOIN line_skips ls ON ls.customer_plan_id = l.id), '[]'::json),
+        'debts', COALESCE((
+            SELECT json_agg(json_build_array(d.customer_id, d.kind, d.balance,
+                                             d.paid, d.rate_per_usd_snapshot))
+              FROM debts d), '[]'::json)
+    );
+$$;
+
+GRANT EXECUTE ON FUNCTION customer_status_facts(UUID, BOOLEAN) TO authenticated;
+REVOKE EXECUTE ON FUNCTION customer_status_facts(UUID, BOOLEAN) FROM anon, public;
+
 -- ============================================================
 -- CUSTOM ACCESS TOKEN HOOK
 -- Injects tenant_id into the JWT so RLS can use current_tenant_id().

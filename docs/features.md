@@ -217,7 +217,7 @@ See gotcha #38.
 `tenant_settings` is the **tenant-scoped twin** of `app_options`: same key/value shape, but every row carries a `tenant_id`, and it is written **in-app by admins** rather than by the SaaS owner. Columns: `id`, `tenant_id`, `key`, `value`, timestamps, with `UNIQUE(tenant_id, key)`.
 
 - **RLS:** `tenant_settings_select` lets **every member** of the tenant read (the values drive shared behavior, so a non-admin collector must see them too); `tenant_settings_write` restricts `ALL` to `admin` / `superadmin` of that tenant. Both scope on `current_tenant_id()`.
-- **Module:** `src/modules/admin/tenant-settings/` — the usual repository (platform switch) + service + mapper + `TENANT_SETTING_KEYS`. `TenantSettingService` owns the **parsing** of raw strings into typed settings (`parseUnpaidStartRule`), so no caller ever inspects a raw value.
+- **Module:** `src/modules/admin/tenant-settings/` — the usual repository (platform switch) + service + mapper + `TENANT_SETTING_KEYS`. `TenantSettingService` owns the **parsing** of raw strings into typed settings, so no caller ever inspects a raw value — except the unpaid rule, whose parser is the pure `parseUnpaidStartRule` in `tenant-settings/utils/unpaidStartRule.ts` because the `customer-status` edge function runs it too.
 - **State:** the `tenantSettings` slice (loaded in `primePostAuth`, **reset on logout** — unlike the global `options` slice, since it is tenant-scoped and must not leak to the next tenant on a shared device). Read through [useTenantSettingSlice.ts](../Shared/src/state/hooks/useTenantSettingSlice.ts): generic `useTenantSettingValue(key)` and semantic `useUnpaidStartRule()`. Reference keys through `TENANT_SETTING_KEYS`, never magic strings.
 - **UI:** Admin → Tenant Settings, one section per setting (`UnpaidRuleSection`), matching `DisplayCurrencySection`'s card layout. Saving refreshes the current-month badge sets, since a rule change restates which months are unpaid.
 - **Offline:** a normal tenant-scoped synced table. The offline write derives a **deterministic id from `(tenant_id, key)`** and upserts on that natural key (registered in `NATURAL_KEYS` **and** in `sync/push.ts`'s `conflictTarget`), so two devices setting the same option offline converge on one row instead of stalling the push on the UNIQUE index.
@@ -993,7 +993,7 @@ debt, and the Debts screen and the waterfall both see it. See gotcha #112.
 | **DEBT** | partly-paid months, open/partly-paid sales, hand-typed fees | the Debts screen                      |
 
 `isDebtItem(kind, paid) = kind !== 'month' || paid > 0` — one function, in
-`ledger/utils/openItems.ts`. **A fully unpaid month is NOT a debt**: it is
+`ledger/utils/debtRule.ts`. **A fully unpaid month is NOT a debt**: it is
 `unpaid`/`overdue` in the month grid, which is its own screen and its own
 workflow. It becomes a debt the moment it is _partly_ paid, which is exactly
 when it stops being routine.
@@ -1295,7 +1295,7 @@ See gotcha #38.
 `tenant_settings` is the **tenant-scoped twin** of `app_options`: same key/value shape, but every row carries a `tenant_id`, and it is written **in-app by admins** rather than by the SaaS owner. Columns: `id`, `tenant_id`, `key`, `value`, timestamps, with `UNIQUE(tenant_id, key)`.
 
 - **RLS:** `tenant_settings_select` lets **every member** of the tenant read (the values drive shared behavior, so a non-admin collector must see them too); `tenant_settings_write` restricts `ALL` to `admin` / `superadmin` of that tenant. Both scope on `current_tenant_id()`.
-- **Module:** `src/modules/admin/tenant-settings/` — the usual repository (platform switch) + service + mapper + `TENANT_SETTING_KEYS`. `TenantSettingService` owns the **parsing** of raw strings into typed settings (`parseUnpaidStartRule`), so no caller ever inspects a raw value.
+- **Module:** `src/modules/admin/tenant-settings/` — the usual repository (platform switch) + service + mapper + `TENANT_SETTING_KEYS`. `TenantSettingService` owns the **parsing** of raw strings into typed settings, so no caller ever inspects a raw value — except the unpaid rule, whose parser is the pure `parseUnpaidStartRule` in `tenant-settings/utils/unpaidStartRule.ts` because the `customer-status` edge function runs it too.
 - **State:** the `tenantSettings` slice (loaded in `primePostAuth`, **reset on logout** — unlike the global `options` slice, since it is tenant-scoped and must not leak to the next tenant on a shared device). Read through [useTenantSettingSlice.ts](../Shared/src/state/hooks/useTenantSettingSlice.ts): generic `useTenantSettingValue(key)` and semantic `useUnpaidStartRule()`. Reference keys through `TENANT_SETTING_KEYS`, never magic strings.
 - **UI:** Admin → Tenant Settings, one section per setting (`UnpaidRuleSection`), matching `DisplayCurrencySection`'s card layout. Saving refreshes the current-month badge sets, since a rule change restates which months are unpaid.
 - **Offline:** a normal tenant-scoped synced table. The offline write derives a **deterministic id from `(tenant_id, key)`** and upserts on that natural key (registered in `NATURAL_KEYS` **and** in `sync/push.ts`'s `conflictTarget`), so two devices setting the same option offline converge on one row instead of stalling the push on the UNIQUE index.
@@ -2082,7 +2082,7 @@ debt, and the Debts screen and the waterfall both see it. See gotcha #112.
 | **DEBT** | partly-paid months, open/partly-paid sales, hand-typed fees | the Debts screen                      |
 
 `isDebtItem(kind, paid) = kind !== 'month' || paid > 0` — one function, in
-`ledger/utils/openItems.ts`. **A fully unpaid month is NOT a debt**: it is
+`ledger/utils/debtRule.ts`. **A fully unpaid month is NOT a debt**: it is
 `unpaid`/`overdue` in the month grid, which is its own screen and its own
 workflow. It becomes a debt the moment it is _partly_ paid, which is exactly
 when it stops being routine.
@@ -2393,7 +2393,7 @@ See gotcha #38.
 `tenant_settings` is the **tenant-scoped twin** of `app_options`: same key/value shape, but every row carries a `tenant_id`, and it is written **in-app by admins** rather than by the SaaS owner. Columns: `id`, `tenant_id`, `key`, `value`, timestamps, with `UNIQUE(tenant_id, key)`.
 
 - **RLS:** `tenant_settings_select` lets **every member** of the tenant read (the values drive shared behavior, so a non-admin collector must see them too); `tenant_settings_write` restricts `ALL` to `admin` / `superadmin` of that tenant. Both scope on `current_tenant_id()`.
-- **Module:** `src/modules/admin/tenant-settings/` — the usual repository (platform switch) + service + mapper + `TENANT_SETTING_KEYS`. `TenantSettingService` owns the **parsing** of raw strings into typed settings (`parseUnpaidStartRule`), so no caller ever inspects a raw value.
+- **Module:** `src/modules/admin/tenant-settings/` — the usual repository (platform switch) + service + mapper + `TENANT_SETTING_KEYS`. `TenantSettingService` owns the **parsing** of raw strings into typed settings, so no caller ever inspects a raw value — except the unpaid rule, whose parser is the pure `parseUnpaidStartRule` in `tenant-settings/utils/unpaidStartRule.ts` because the `customer-status` edge function runs it too.
 - **State:** the `tenantSettings` slice (loaded in `primePostAuth`, **reset on logout** — unlike the global `options` slice, since it is tenant-scoped and must not leak to the next tenant on a shared device). Read through [useTenantSettingSlice.ts](../Shared/src/state/hooks/useTenantSettingSlice.ts): generic `useTenantSettingValue(key)` and semantic `useUnpaidStartRule()`. Reference keys through `TENANT_SETTING_KEYS`, never magic strings.
 - **UI:** Admin → Tenant Settings, one section per setting (`UnpaidRuleSection`), matching `DisplayCurrencySection`'s card layout. Saving refreshes the current-month badge sets, since a rule change restates which months are unpaid.
 - **Offline:** a normal tenant-scoped synced table. The offline write derives a **deterministic id from `(tenant_id, key)`** and upserts on that natural key (registered in `NATURAL_KEYS` **and** in `sync/push.ts`'s `conflictTarget`), so two devices setting the same option offline converge on one row instead of stalling the push on the UNIQUE index.
@@ -3157,7 +3157,7 @@ debt, and the Debts screen and the waterfall both see it. See gotcha #112.
 | **DEBT** | partly-paid months, open/partly-paid sales, hand-typed fees | the Debts screen                      |
 
 `isDebtItem(kind, paid) = kind !== 'month' || paid > 0` — one function, in
-`ledger/utils/openItems.ts`. **A fully unpaid month is NOT a debt**: it is
+`ledger/utils/debtRule.ts`. **A fully unpaid month is NOT a debt**: it is
 `unpaid`/`overdue` in the month grid, which is its own screen and its own
 workflow. It becomes a debt the moment it is _partly_ paid, which is exactly
 when it stops being routine.
@@ -3459,7 +3459,7 @@ See gotcha #38.
 `tenant_settings` is the **tenant-scoped twin** of `app_options`: same key/value shape, but every row carries a `tenant_id`, and it is written **in-app by admins** rather than by the SaaS owner. Columns: `id`, `tenant_id`, `key`, `value`, timestamps, with `UNIQUE(tenant_id, key)`.
 
 - **RLS:** `tenant_settings_select` lets **every member** of the tenant read (the values drive shared behavior, so a non-admin collector must see them too); `tenant_settings_write` restricts `ALL` to `admin` / `superadmin` of that tenant. Both scope on `current_tenant_id()`.
-- **Module:** `src/modules/admin/tenant-settings/` — the usual repository (platform switch) + service + mapper + `TENANT_SETTING_KEYS`. `TenantSettingService` owns the **parsing** of raw strings into typed settings (`parseUnpaidStartRule`), so no caller ever inspects a raw value.
+- **Module:** `src/modules/admin/tenant-settings/` — the usual repository (platform switch) + service + mapper + `TENANT_SETTING_KEYS`. `TenantSettingService` owns the **parsing** of raw strings into typed settings, so no caller ever inspects a raw value — except the unpaid rule, whose parser is the pure `parseUnpaidStartRule` in `tenant-settings/utils/unpaidStartRule.ts` because the `customer-status` edge function runs it too.
 - **State:** the `tenantSettings` slice (loaded in `primePostAuth`, **reset on logout** — unlike the global `options` slice, since it is tenant-scoped and must not leak to the next tenant on a shared device). Read through [useTenantSettingSlice.ts](../Shared/src/state/hooks/useTenantSettingSlice.ts): generic `useTenantSettingValue(key)` and semantic `useUnpaidStartRule()`. Reference keys through `TENANT_SETTING_KEYS`, never magic strings.
 - **UI:** Admin → Tenant Settings, one section per setting (`UnpaidRuleSection`), matching `DisplayCurrencySection`'s card layout. Saving refreshes the current-month badge sets, since a rule change restates which months are unpaid.
 - **Offline:** a normal tenant-scoped synced table. The offline write derives a **deterministic id from `(tenant_id, key)`** and upserts on that natural key (registered in `NATURAL_KEYS` **and** in `sync/push.ts`'s `conflictTarget`), so two devices setting the same option offline converge on one row instead of stalling the push on the UNIQUE index.
@@ -4246,7 +4246,7 @@ debt, and the Debts screen and the waterfall both see it. See gotcha #112.
 | **DEBT** | partly-paid months, open/partly-paid sales, hand-typed fees | the Debts screen                      |
 
 `isDebtItem(kind, paid) = kind !== 'month' || paid > 0` — one function, in
-`ledger/utils/openItems.ts`. **A fully unpaid month is NOT a debt**: it is
+`ledger/utils/debtRule.ts`. **A fully unpaid month is NOT a debt**: it is
 `unpaid`/`overdue` in the month grid, which is its own screen and its own
 workflow. It becomes a debt the moment it is _partly_ paid, which is exactly
 when it stops being routine.

@@ -17,9 +17,9 @@ import type {
   WriteOffScope,
 } from "@shared/modules/ledger/repository/IChargeRepository";
 import { mapDbChargeToCharge } from "@shared/modules/ledger/utils/mapper";
+import { balanceUsd } from "@shared/modules/ledger/utils/debtRule";
 import {
   chargeLabel,
-  isDebtItem,
   openItemFromCharge,
 } from "@shared/modules/ledger/utils/openItems";
 
@@ -168,7 +168,7 @@ class ChargeService {
         };
         byCustomer.set(item.customerId, entry);
       }
-      const usd = item.balance / item.ratePerUsdSnapshot;
+      const usd = balanceUsd(item.balance, item.ratePerUsdSnapshot);
       if (item.isDebt) {
         entry.items.push(item);
         entry.debtUsd += usd;
@@ -189,7 +189,7 @@ class ChargeService {
       entry.unpaidMonths.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
       entry.oldestDaysLate = daysLate(entry.items[0].dueDate, today);
       for (const i of entry.items) {
-        const usd = i.balance / i.ratePerUsdSnapshot;
+        const usd = balanceUsd(i.balance, i.ratePerUsdSnapshot);
         if (i.kind === "month") monthsUsd += usd;
         else if (i.kind === "sale") salesUsd += usd;
         else manualUsd += usd;
@@ -408,4 +408,3 @@ function toOpenItem(charge: DbCharge, paid: number): OpenItem {
 }
 
 export const chargeService = new ChargeService();
-export { isDebtItem };

@@ -2,6 +2,7 @@ import { useGlobalStore } from "@shared/state/hooks/useGlobalStore";
 import type { TenantSettingSlice } from "@shared/state/slices/tenantSettings/tenantSettingSlice";
 import type { UnpaidStartRule, WhatsAppLanguage } from "@shared/core/types";
 import tenantSettingService from "@shared/modules/admin/tenant-settings/services/TenantSettingService";
+import { parseUnpaidStartRule } from "@shared/modules/admin/tenant-settings/utils/unpaidStartRule";
 import { TENANT_SETTING_KEYS } from "@shared/modules/admin/tenant-settings/utils/constants";
 
 export function useTenantSettingSlice(): TenantSettingSlice;
@@ -27,7 +28,7 @@ export const useTenantSettingValue = (key: string): string | null =>
 
 /** The tenant's unpaid rule; falls back to the app default when unset. */
 export const useUnpaidStartRule = (): UnpaidStartRule =>
-  tenantSettingService.parseUnpaidStartRule(
+  parseUnpaidStartRule(
     useTenantSettingValue(TENANT_SETTING_KEYS.unpaidStartRule),
   );
 

@@ -13,7 +13,7 @@ import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { useCollectSheet, useOpenBill } from "@/src/modules/ledger";
 import { chargeService } from "@shared/modules/ledger/services/ChargeService";
-import { isDebtItem } from "@shared/modules/ledger/utils/openItems";
+import { isDebtItem } from "@shared/modules/ledger/utils/debtRule";
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import { useDebtRowActions } from "../hooks/useDebtRowActions";
 import {

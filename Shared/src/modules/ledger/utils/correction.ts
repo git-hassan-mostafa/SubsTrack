@@ -1,5 +1,5 @@
 import type { Collection, OpenItem } from "@shared/core/types";
-import { isDebtItem } from "./openItems";
+import { isDebtItem } from "./debtRule";
 import { amountByCharge } from "./paidToCharge";
 import { roundMoney } from "./waterfall";
 

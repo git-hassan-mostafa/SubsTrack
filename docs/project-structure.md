@@ -21,6 +21,8 @@ App/
 └── QA/                  # QA materials
 ```
 
+`Web/scripts/`: `build-edge.mjs` (bundles the Shared code the `customer-status` edge function runs) and `status-speed/` (seed + speed test, TEST project only — `QA/web/customer-status.md`).
+
 `Web/src/`:
 
 ```
@@ -91,8 +93,12 @@ Shared/
     │     customer/customer-payments/utils/monthStatus.ts   # buildMonthGrid / buildCustomerStatus — the ONLY month rules
     │     customer/customer-payments/utils/monthDueRules.ts # isNotDueYet / isNotLateYet (#83)
     │     customer/customer-payments/services/PaymentService.ts  # pay / void / unskip ORDER gates only
+    │     customer/customers/utils/customerTabs.ts          # the customer list tabs (phone list + server)
+    │     customer/customers/utils/customerStatusPage.ts    # server paging of the exact tabs (customer-status function)
+    │     customer/customers/utils/customerStatusFacts.ts   # the compact facts customer_status_facts() returns
     │     ledger/utils/waterfall.ts                         # PURE oldest-first allocation
-    │     ledger/utils/openItems.ts                         # isDebtItem + the OpenItem builders
+    │     ledger/utils/openItems.ts                         # the OpenItem builders
+    │     ledger/utils/debtRule.ts                          # isDebtItem + balanceUsd (no i18n, bundled by the edge function)
     │     ledger/utils/mergeOwed.ts                         # stored bills + virtual unpaid months
     │     wallet/utils/custody.ts                           # the custody chain rules
     │
@@ -152,6 +158,7 @@ SubsTrack/
 │
 └── supabase/
     └── functions/                 # Edge functions — see docs/edge-functions.md
+        ├── customer-status/       # exact customer tabs; _generated/ (git-ignored) = the Shared bundle from Web/scripts/build-edge.mjs
         └── _shared/               # whatsapp/{rules,sijilTemplates}.ts reach Shared as @edge/* (zero-import files only)
 ```
 

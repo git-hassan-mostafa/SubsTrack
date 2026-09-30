@@ -4,7 +4,12 @@ import { PAGE_SIZE, type BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
 import billingService from "@shared/modules/admin/billing/services/BillingService";
 import type { QuotaPair } from "@shared/modules/admin/billing/utils/types";
+import { getTodayDateString } from "@shared/core/utils/date";
 import { mapDbCustomerToCustomer } from "@shared/modules/customer/customers/utils/mapper";
+import type {
+  CustomerStatusList,
+  CustomerStatusRequest,
+} from "@shared/modules/customer/customers/utils/types";
 
 export type CustomerInput = Pick<
   Customer,
@@ -37,6 +42,25 @@ class CustomerService {
       customers: rows.map(mapDbCustomerToCustomer),
       hasMore: rows.length >= PAGE_SIZE,
       activeCount,
+    };
+  }
+
+  // One page of an exact tab, worked out on the server over every customer.
+  async getCustomerStatusPage(
+    query: Omit<CustomerStatusRequest, "today">,
+  ): Promise<CustomerStatusList> {
+    const page = await repositories().customerStatus.findPage({
+      ...query,
+      today: getTodayDateString(),
+    });
+    return {
+      rows: page.rows.map((row) => ({
+        customer: mapDbCustomerToCustomer(row.customer),
+        status: row.status,
+        debtUsd: row.debtUsd,
+      })),
+      total: page.total,
+      counts: page.counts,
     };
   }
 

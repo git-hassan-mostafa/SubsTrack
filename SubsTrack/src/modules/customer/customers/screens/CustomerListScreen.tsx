@@ -35,11 +35,15 @@ import {
 import { useWhatsAppActions } from "@/src/modules/whatsapp/hooks/useWhatsAppActions";
 import { CustomerCard } from "../components/CustomerCard";
 import {
-  customerFlags,
   hasAnythingOwed,
   hasDebtFlag,
-  type CustomerFlag,
 } from "@shared/modules/customer/customers/utils/customerFlags";
+import {
+  CUSTOMER_TABS,
+  CUSTOMER_TAB_LABEL_KEYS,
+  matchesCustomerTab,
+  type CustomerTab,
+} from "@shared/modules/customer/customers/utils/customerTabs";
 import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomDebtFormSheet } from "@/src/modules/transaction/debts/components/CustomDebtFormSheet";
@@ -74,30 +78,6 @@ import {
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelection";
 import { SaleFormSheet } from "@/src/modules/transaction/sales";
-
-// The payment tabs are exactly the card's payment flags (`CustomerFlag`), so a
-// customer is in a tab if and only if their card shows that pill. "skipped" has
-// no tab — nothing is owed, so there is nothing to work through.
-// "has_debt" is the one payment-ish tab that is NOT a month flag: it reads the
-// debt ledger, exactly like the card's debt pill.
-type StatusTab = Exclude<CustomerFlag, "skipped">;
-type FilterTab = "all" | "active" | "inactive" | "has_debt" | StatusTab;
-
-const STATUS_TABS: StatusTab[] = [
-  "unpaid",
-  "overdue",
-  "mixed",
-  "paid",
-  "not_due_yet",
-];
-
-const STATUS_TAB_LABELS: Record<StatusTab, string> = {
-  unpaid: "dashboard.unpaid",
-  overdue: "customers.overdue",
-  mixed: "customers.partly_paid",
-  paid: "common.paid",
-  not_due_yet: "payments.not_due_yet_label",
-};
 
 export function CustomerListScreen() {
   const { t } = useTranslation();
@@ -135,7 +115,7 @@ export function CustomerListScreen() {
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const [formVisible, setFormVisible] = useState(false);
   const [searchText, setSearchText] = useState("");
-  const [activeTab, setActiveTab] = useState<FilterTab>("active");
+  const [activeTab, setActiveTab] = useState<CustomerTab>("active");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [quickPayCustomerId, setQuickPayCustomerId] = useState<string | null>(
     null,
@@ -180,35 +160,25 @@ export function CustomerListScreen() {
     }, [customers, fetchCustomerStatuses, fetchNetDebtByCustomer]),
   );
 
-  const tabs = useMemo(() => {
-    return [
-      { key: "active" as FilterTab, label: t("common.active") },
-      ...STATUS_TABS.map((key) => ({
-        key: key as FilterTab,
-        label: t(STATUS_TAB_LABELS[key]),
+  const tabs = useMemo(
+    () =>
+      CUSTOMER_TABS.map((key) => ({
+        key,
+        label: t(CUSTOMER_TAB_LABEL_KEYS[key]),
       })),
-      { key: "has_debt" as FilterTab, label: t("customers.has_debts") },
-      { key: "all" as FilterTab, label: t("customers.all") },
-      { key: "inactive" as FilterTab, label: t("common.inactive") },
-    ];
-  }, [t]);
+    [t],
+  );
 
-  // The pill rule, in one place: the list uses it for THIS render and the
-  // export re-runs it over the store after loading the rest of the pages.
   const applyTab = useCallback(
-    (list: Customer[], statuses: Map<string, CustomerStatus>) => {
-      if (activeTab === "all") return list;
-      if (activeTab === "active") return list.filter((c) => c.active);
-      if (activeTab === "inactive") return list.filter((c) => !c.active);
-      if (activeTab === "has_debt")
-        return list.filter((c) => hasDebtFlag(netDebtByCustomer[c.id]));
-      return list.filter((c) => {
-        if (!c.active || !c.isRegular) return false;
-        const status = statuses.get(c.id);
-        if (!status) return false;
-        return customerFlags(status).includes(activeTab);
-      });
-    },
+    (list: Customer[], statuses: Map<string, CustomerStatus>) =>
+      list.filter((c) =>
+        matchesCustomerTab(
+          c,
+          statuses.get(c.id) ?? null,
+          netDebtByCustomer[c.id],
+          activeTab,
+        ),
+      ),
     [activeTab, netDebtByCustomer],
   );
 
@@ -970,7 +940,7 @@ export function CustomerListScreen() {
             </View>
             {/* Filter tabs */}
             {filtersOpen ? (
-              <PillTabs<FilterTab>
+              <PillTabs<CustomerTab>
                 value={activeTab}
                 tabs={tabs}
                 className="mt-4"
