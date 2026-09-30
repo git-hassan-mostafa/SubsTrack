@@ -78,3 +78,4 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 | 5.8 | Saving                          | Save on a slow network                                 | Save spins; X, Cancel and Esc do nothing; a second Enter does not save twice                        |
 | 5.9 | Error                           | Make the save fail (e.g. a duplicate name)             | Red banner at the top of the form with a friendly message; the form stays open; no toast            |
 | 5.10 | Long form                      | A form taller than the window                          | Only the middle scrolls; the title and Save / Cancel stay visible                                   |
+| 5.11 | Dirty close in dev mode        | `npm run dev`, Add customer, turn on Customer portal (or type a name), press X, then Cancel | Each asks like 5.2 — never a dead button (StrictMode mounts twice in dev)                   |

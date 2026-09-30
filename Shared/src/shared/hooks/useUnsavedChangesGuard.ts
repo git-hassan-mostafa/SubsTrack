@@ -22,13 +22,13 @@ export function useUnsavedChangesGuard(
   const [asking, setAsking] = useState(false);
 
   const deadRef = useRef(false);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    deadRef.current = false;
+    return () => {
       deadRef.current = true;
       if (askingRef.current) useConfirmStore.getState().settle(false);
-    },
-    [],
-  );
+    };
+  }, []);
 
   const guardedDismiss = useCallback(async () => {
     if (!dirtyRef.current) {
