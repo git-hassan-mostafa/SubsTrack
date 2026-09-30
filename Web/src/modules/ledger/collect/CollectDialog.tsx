@@ -1,21 +1,26 @@
 import { useEffect, useState, type ReactNode } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import type { Collection, OpenItem } from "@shared/core/types";
+import { formatMoney } from "@shared/core/utils/currency";
+import { daysLate, formatDate } from "@shared/core/utils/date";
 import { useCollectForm, type CollectForm } from "@shared/modules/ledger/hooks/useCollectForm";
 import { useCollectSubmit } from "@shared/modules/ledger/hooks/useCollectSubmit";
-import { groupKey } from "@shared/modules/ledger/utils/currencyGroups";
+import { groupKey, type CurrencyPlan } from "@shared/modules/ledger/utils/currencyGroups";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { CurrencyInput } from "@/shared/components/CurrencyInput";
 import { DateField } from "@/shared/components/DateField";
 import { FormDialog } from "@/shared/components/FormDialog";
+import { BillsTable } from "./BillsTable";
 import { CollectSummary } from "./CollectSummary";
-import { CurrencyCollectSection } from "./CurrencyCollectSection";
+import { CurrencyAmountField } from "./CurrencyAmountField";
 
 export interface CollectTarget {
   customerId: string;
@@ -40,6 +45,39 @@ function blockerKey(form: CollectForm): string {
   return form.pool.overpaying ? "web.collect.lower_amount" : "web.collect.type_amount";
 }
 
+function dueText(item: OpenItem, t: TFunction): string {
+  const late = daysLate(item.dueDate);
+  return [
+    t("ledger.due_on", { date: formatDate(item.dueDate) }),
+    late > 0 ? t("ledger.days_late", { count: late }) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function HandOverFields({ form }: { form: CollectForm }) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <DateField
+        label={t("ledger.received_at")}
+        value={form.receivedAt}
+        onChange={form.pickReceivedAt}
+        showTime
+      />
+      <TextField
+        label={t("ledger.notes")}
+        placeholder={t("ledger.notes_placeholder")}
+        value={form.notes}
+        onChange={(event) => form.setNotes(event.target.value)}
+        multiline
+        minRows={2}
+        fullWidth
+      />
+    </>
+  );
+}
+
 function SingleFields({ form }: { form: CollectForm }) {
   const { t } = useTranslation();
   const single = form.single!;
@@ -49,15 +87,26 @@ function SingleFields({ form }: { form: CollectForm }) {
     : null;
   return (
     <Stack spacing={2.5}>
-      {open ? (
-        <Paper variant="outlined" sx={{ px: 2, py: 1.5 }}>
-          <Typography variant="body2" color="text.secondary">
-            {t("ledger.open_amount_hint")}
-          </Typography>
-        </Paper>
-      ) : (
-        <CollectSummary amount={single.money(single.plan.max)} billCount={1} />
-      )}
+      <Paper variant="outlined" sx={{ px: 2, py: 1.5 }}>
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 600 }}>{single.item.label}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {open ? t("ledger.open_amount_hint") : dueText(single.item, t)}
+            </Typography>
+          </Box>
+          {open ? null : (
+            <Box sx={{ textAlign: "end" }}>
+              <Typography variant="body2" color="text.secondary">
+                {t("ledger.owed")}
+              </Typography>
+              <Typography variant="h6" component="p" sx={{ fontWeight: 700 }}>
+                {single.money(single.plan.max)}
+              </Typography>
+            </Box>
+          )}
+        </Stack>
+      </Paper>
       {open ? (
         <CurrencyInput
           label={t("ledger.month_amount")}
@@ -91,45 +140,86 @@ function SingleFields({ form }: { form: CollectForm }) {
           {t("ledger.partial_leaves_debt")}
         </Typography>
       ) : null}
+      <HandOverFields form={form} />
     </Stack>
   );
 }
 
+function billsCaption(plan: CurrencyPlan, form: CollectForm, t: TFunction): string {
+  const owed = t("ledger.amount_owed", { amount: formatMoney(plan.owed, plan.currency, plan.currency) });
+  if ((plan.currencyId ?? null) === (form.display?.id ?? null)) return owed;
+  return `${owed} · ≈ ${formatMoney(plan.owed, plan.currency, form.display)}`;
+}
+
+// Where the money goes on the left, what was handed over on the right.
 function PoolFields({ form }: { form: CollectForm }) {
   const { t } = useTranslation();
   const { pool } = form;
+  const canSkip = pool.plans.some((plan) => plan.items.length > 1);
   return (
-    <Stack spacing={2.5}>
-      <CollectSummary amount={pool.heroAmount} approx={pool.heroApprox} billCount={pool.billCount} />
-      {pool.multiCurrency ? (
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-          <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-            {t("ledger.multi_currency_hint")}
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1fr) 340px" },
+        gap: 3,
+        alignItems: "start",
+      }}
+    >
+      <Stack spacing={2.5}>
+        {canSkip ? (
+          <Typography variant="body2" color="text.secondary">
+            {t("web.collect.skip_hint")}
           </Typography>
-          <Button onClick={pool.collectEverything}>{t("ledger.collect_all")}</Button>
+        ) : null}
+        {pool.plans.map((plan) => (
+          <BillsTable
+            key={groupKey(plan)}
+            title={pool.multiCurrency ? (plan.currency?.code ?? "USD") : t("web.collect.bills_title")}
+            caption={pool.multiCurrency ? billsCaption(plan, form, t) : undefined}
+            items={plan.items}
+            lines={plan.lines}
+            excluded={pool.excluded}
+            onToggle={pool.toggle}
+            money={(value) => formatMoney(value, plan.currency, plan.currency)}
+            remainingAfter={plan.owed - plan.lines.reduce((sum, l) => sum + l.amount, 0)}
+          />
+        ))}
+      </Stack>
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Stack spacing={2.5}>
+          <CollectSummary amount={pool.heroAmount} approx={pool.heroApprox} billCount={pool.billCount} />
+          <Divider />
+          {pool.multiCurrency ? (
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+                {t("ledger.multi_currency_hint")}
+              </Typography>
+              <Button onClick={pool.collectEverything} sx={{ flexShrink: 0 }}>
+                {t("ledger.collect_all")}
+              </Button>
+            </Stack>
+          ) : null}
+          {pool.plans.map((plan) => (
+            <CurrencyAmountField
+              key={groupKey(plan)}
+              plan={plan}
+              currencies={form.currencies}
+              grouped={pool.multiCurrency}
+              onChangeAmount={(amount) => pool.setAmount(groupKey(plan), amount)}
+            />
+          ))}
+          {pool.multiCurrency ? (
+            <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "baseline" }}>
+              <Typography sx={{ fontWeight: 700 }}>{t("ledger.total_collecting")}</Typography>
+              <Typography variant="h6" component="p" sx={{ fontWeight: 700 }}>
+                {pool.collectingText}
+              </Typography>
+            </Stack>
+          ) : null}
+          <HandOverFields form={form} />
         </Stack>
-      ) : null}
-      {pool.plans.map((plan) => (
-        <CurrencyCollectSection
-          key={groupKey(plan)}
-          plan={plan}
-          currencies={form.currencies}
-          display={form.display}
-          excluded={pool.excluded}
-          grouped={pool.multiCurrency}
-          onChangeAmount={(amount) => pool.setAmount(groupKey(plan), amount)}
-          onToggle={pool.toggle}
-        />
-      ))}
-      {pool.multiCurrency ? (
-        <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
-          <Typography sx={{ fontWeight: 700 }}>{t("ledger.total_collecting")}</Typography>
-          <Typography variant="h6" component="p" sx={{ fontWeight: 700 }}>
-            {pool.collectingText}
-          </Typography>
-        </Stack>
-      ) : null}
-    </Stack>
+      </Paper>
+    </Box>
   );
 }
 
@@ -161,7 +251,7 @@ export function CollectDialog({ target, onClose, onCollected, header }: CollectD
     <FormDialog
       open
       title={t("ledger.collect_money")}
-      subtitle={target.single ? `${target.customerName} · ${target.items[0].label}` : target.customerName}
+      subtitle={target.customerName}
       onClose={onClose}
       onSubmit={save}
       dirty={form.dirty}
@@ -170,24 +260,10 @@ export function CollectDialog({ target, onClose, onCollected, header }: CollectD
         setBlocker(null);
         clearError();
       }}
+      maxWidth={form.single ? "sm" : "lg"}
     >
-      {header}
+      {header ? <Box sx={{ maxWidth: 480 }}>{header}</Box> : null}
       {form.single ? <SingleFields form={form} /> : <PoolFields form={form} />}
-      <DateField
-        label={t("ledger.received_at")}
-        value={form.receivedAt}
-        onChange={form.pickReceivedAt}
-        showTime
-      />
-      <TextField
-        label={t("ledger.notes")}
-        placeholder={t("ledger.notes_placeholder")}
-        value={form.notes}
-        onChange={(event) => form.setNotes(event.target.value)}
-        multiline
-        minRows={2}
-        fullWidth
-      />
     </FormDialog>
   );
 }

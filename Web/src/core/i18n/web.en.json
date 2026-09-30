@@ -93,6 +93,9 @@
   },
   "collect": {
     "skip_hint": "Untick a bill to skip it — the money goes to the next one.",
+    "bill_column": "Bill",
+    "paying_column": "Paying now",
+    "bills_title": "Bills",
     "pay_this_bill": "Pay {{name}}",
     "type_amount": "Type the amount you received.",
     "type_month_amount": "Type what this month costs first.",
