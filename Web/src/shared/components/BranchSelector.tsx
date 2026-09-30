@@ -31,7 +31,6 @@ export function BranchSelector() {
       onChange={(event) =>
         setCurrentBranchId(event.target.value === ALL_BRANCHES ? null : event.target.value)
       }
-      displayEmpty
       inputProps={{ "aria-label": t("branches.branch_label") }}
       startAdornment={
         <InputAdornment position="start">

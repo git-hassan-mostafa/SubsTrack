@@ -96,7 +96,6 @@ export function CurrencyInput({
                 value={currencyId ?? USD_OPTION}
                 onChange={(event) => pickCurrency(event.target.value)}
                 disabled={disabled || lockCurrency}
-                displayEmpty
                 renderValue={(value) =>
                   options.find((c) => c.id === value)?.code ?? "USD"
                 }

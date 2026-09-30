@@ -52,5 +52,8 @@ export const theme = createTheme({
     MuiTextField: {
       defaultProps: { slotProps: { inputLabel: { shrink: true } } },
     },
+    MuiSelect: {
+      defaultProps: { displayEmpty: true },
+    },
   },
 });

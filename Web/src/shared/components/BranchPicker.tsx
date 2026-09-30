@@ -47,7 +47,6 @@ export function BranchPicker({
       }
       required={!nullable}
       fullWidth
-      slotProps={{ select: { displayEmpty: true } }}
     >
       {nullable || value === null ? (
         <MenuItem value={NO_BRANCH} disabled={!nullable}>
