@@ -51,6 +51,7 @@ export interface DataTableProps<T extends GridValidRowModel & { id: string }> {
   exportConfig?: TableExport<T>;
   rowLabel: (row: T) => string;
   rowActions?: (row: T) => TableAction[];
+  rowBusy?: (row: T) => boolean;
   bulkActions?: (selected: T[]) => TableAction[];
   empty: TableEmpty;
   filtered: boolean;
@@ -80,6 +81,7 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
   exportConfig,
   rowLabel,
   rowActions,
+  rowBusy,
   bulkActions,
   empty,
   filtered,
@@ -118,11 +120,12 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
           rowLabel={rowLabel(params.row)}
           actions={rowActions(params.row)}
           tabIndex={params.tabIndex}
+          busy={rowBusy?.(params.row) ?? false}
         />
       ),
     };
     return [...columns, actionsColumn];
-  }, [columns, rowActions, rowLabel, t]);
+  }, [columns, rowActions, rowBusy, rowLabel, t]);
 
   const showEmpty = loaded && !loading && !error && rows.length === 0;
   const bulk = bulkActions && selectedRows.length > 0

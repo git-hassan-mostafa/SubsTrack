@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
+import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
@@ -14,16 +15,21 @@ interface RowActionsMenuProps {
   rowLabel: string;
   actions: TableAction[];
   tabIndex?: 0 | -1;
+  busy?: boolean;
 }
 
 // Rows come in the same band order as the phone menu (actionOrder).
-export function RowActionsMenu({ rowLabel, actions, tabIndex }: RowActionsMenuProps) {
+export function RowActionsMenu({ rowLabel, actions, tabIndex, busy = false }: RowActionsMenuProps) {
   const { t } = useTranslation();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const menuId = useId();
   const sorted = sortActions(actions);
   if (sorted.length === 0) return null;
   const label = t("web.table.actions_for", { name: rowLabel });
+
+  if (busy) {
+    return <CircularProgress size={20} aria-label={t("web.table.working_on", { name: rowLabel })} />;
+  }
 
   const run = (action: TableAction) => {
     setAnchor(null);
@@ -67,9 +73,11 @@ export function RowActionsMenu({ rowLabel, actions, tabIndex }: RowActionsMenuPr
               <ListItemIcon sx={{ color }}>
                 <Icon fontSize="small" />
               </ListItemIcon>
-              <ListItemText slotProps={{ primary: { sx: { color } } }}>
-                {action.label}
-              </ListItemText>
+              <ListItemText
+                primary={action.label}
+                secondary={action.caption}
+                slotProps={{ primary: { sx: { color } } }}
+              />
             </MenuItem>
           );
         })}

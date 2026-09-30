@@ -45,6 +45,16 @@ class CustomerService {
     };
   }
 
+  // A picker page: skips the active count getCustomers pays for on every call.
+  async searchCustomers(
+    page: number,
+    searchQuery: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<Customer[]> {
+    const rows = await repositories().customer.findAll(page, searchQuery, branchFilter);
+    return rows.map(mapDbCustomerToCustomer);
+  }
+
   // One page of an exact tab, worked out on the server over every customer.
   async getCustomerStatusPage(
     query: Omit<CustomerStatusRequest, "today">,

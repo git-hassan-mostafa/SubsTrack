@@ -1,16 +1,12 @@
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import type { Charge, Collection, Sale } from "@shared/core/types";
-import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { confirm } from "@shared/shared/lib/confirm";
-import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useInvoiceContext } from "@shared/modules/invoicing/hooks/useInvoiceContext";
 import {
   buildBillInvoiceText,
   buildCollectionInvoiceText,
   buildSalesInvoiceText,
-  type InvoiceContext,
 } from "@shared/modules/invoicing/utils/invoiceText";
 import {
   resolveInvoiceRecipient,
@@ -24,25 +20,11 @@ const UNREACHABLE_MESSAGE = {
   no_phone: "invoice.no_phone",
 } as const;
 
-// The one place that turns a saved record into a WhatsApp message. Gathers the
-// invoice context from the stores so the four entry points don't each re-wire it.
+// The one place that turns a saved record into a WhatsApp message.
 export function useSendInvoice() {
   const { t } = useTranslation();
   const { canSend, openChat } = useWhatsApp();
-  const orgName = useAuthSlice((s) => s.user?.tenant.name ?? "");
-  const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
-  const { language } = useLanguageStore();
-
-  const ctx: InvoiceContext = useMemo(
-    () => ({
-      t,
-      orgName,
-      currencies,
-      displayCurrencyId,
-    }),
-    [t, orgName, language, currencies, displayCurrencyId],
-  );
+  const ctx = useInvoiceContext();
 
   const resolveRecipient = useCallback(
     async (rows: InvoiceRecipientRow[]) => {

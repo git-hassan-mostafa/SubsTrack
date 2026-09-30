@@ -20,13 +20,7 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import { COLORS } from "@/src/shared/constants";
-import type {
-  Collection,
-  Customer,
-  CustomerPlan,
-  CustomerStatus,
-  OpenItem,
-} from "@shared/core/types";
+import type { Collection, Customer, CustomerStatus } from "@shared/core/types";
 import {
   useSendInvoice,
   useWhatsApp,
@@ -49,7 +43,13 @@ import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomDebtFormSheet } from "@/src/modules/transaction/debts/components/CustomDebtFormSheet";
 import { useDebtRowActions } from "@/src/modules/transaction/debts/hooks/useDebtRowActions";
 import { useCollectSheet } from "@/src/modules/ledger";
-import { virtualMonthItem } from "@shared/modules/ledger/utils/openItems";
+import { useLoadOwed } from "@shared/modules/ledger/hooks/useLoadOwed";
+import { useQuickPay } from "@shared/modules/customer/customers/hooks/useQuickPay";
+import {
+  canQuickPay,
+  fixedMonthItems,
+  isMultiPlan,
+} from "@shared/modules/customer/customers/utils/quickPay";
 import { getStore } from "@shared/state/globalStore";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 import { usePaymentSlice } from "@shared/state/hooks/usePaymentSlice";
@@ -58,10 +58,6 @@ import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
-import { isBeforeStartDate } from "@shared/modules/customer/customer-payments/utils/monthDueRules";
-import { activeLines } from "@shared/modules/customer/customer-plans/utils/activeLines";
-import { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
   PageHeader,
@@ -71,7 +67,6 @@ import { FAB } from "@/src/shared/components/FAB";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
-import { billingMonthLabel } from "@shared/core/utils/billingMonth";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import {
   useSelection,
@@ -82,7 +77,7 @@ import { SaleFormSheet } from "@/src/modules/transaction/sales";
 export function CustomerListScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { user, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   const customers = useCustomerSlice((s) => s.items);
   const activeCount = useCustomerSlice((s) => s.activeCount);
   const loading = useCustomerSlice((s) => s.loading);
@@ -105,8 +100,7 @@ export function CustomerListScreen() {
   const currencies = useCurrencySlice((s) => s.items);
   const netDebtByCustomer = useLedgerSlice((s) => s.netByCustomer);
   const fetchNetDebtByCustomer = useLedgerSlice((s) => s.fetchNetByCustomer);
-  const collect = useLedgerSlice((s) => s.collect);
-  const fetchOwed = useLedgerSlice((s) => s.fetchOwed);
+  const loadOwed = useLoadOwed();
   const { sendCollectionInvoice } = useSendInvoice();
   const { canSend, openChat } = useWhatsApp();
   const whatsappActions = useWhatsAppActions();
@@ -117,9 +111,6 @@ export function CustomerListScreen() {
   const [searchText, setSearchText] = useState("");
   const [activeTab, setActiveTab] = useState<CustomerTab>("active");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [quickPayCustomerId, setQuickPayCustomerId] = useState<string | null>(
-    null,
-  );
   const [menuCustomer, setMenuCustomer] = useState<Customer | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [customDebtCustomer, setCustomDebtCustomer] = useState<Customer | null>(
@@ -237,227 +228,6 @@ export function CustomerListScreen() {
     [router],
   );
 
-  // Active service lines that have started by this month — the lines that are
-  // "in play" for the current month (paid or not). Drives single- vs multi-plan
-  // menu wording and quick-pay gating.
-  function startedActiveLines(customer: Customer) {
-    const { year, month } = getCurrentYearMonth();
-    return activeLines(customer).filter(
-      (l) => !isBeforeStartDate(year, month, l.startDate),
-    );
-  }
-
-  /**
-   * The current month of every active, started line quick pay may touch.
-   *
-   * Lines not due this month (already covered, or skipped) are left out so a
-   * mixed multi-plan customer pays only the plans still owed, and so are lines
-   * with an OLDER uncovered month — months are settled oldest-first, so their
-   * backlog is paid from the customer's month grid instead.
-   *
-   * A line with no set price yields an **open** item (`amount` 0): nothing can
-   * be charged automatically, but the collect sheet still takes a typed amount
-   * for it. Every line here has had no money this month, so no month has a bill
-   * yet — the charge is raised by the collect that pays it.
-   */
-  function currentMonthItems(customer: Customer): OpenItem[] {
-    const status = customerStatuses.get(customer.id);
-    const notDue = new Set(status?.notDueLineIds);
-    const uncovered = new Set(status?.uncoveredLineIds);
-    const { year, month } = getCurrentYearMonth();
-    const billingMonth = toBillingMonth(year, month);
-    return startedActiveLines(customer)
-      .filter((l) => !notDue.has(l.id) && !uncovered.has(l.id))
-      .map((l) => {
-        const price = resolveLinePrice(l);
-        const priced =
-          price.isFixed && price.amount !== null && price.amount > 0;
-        return virtualMonthItem({
-          customerId: customer.id,
-          customerName: customer.name,
-          branchId: customer.branchId,
-          customerPlanId: l.id,
-          billingMonth,
-          durationMonths: price.durationMonths,
-          planId: l.planId,
-          label: planLabel(l, billingMonth),
-          amount: priced ? price.amount! : 0,
-          currencyId: priced ? price.currencyId : null,
-          ratePerUsdSnapshot: priced
-            ? (findCurrency(currencies, price.currencyId)?.ratePerUsd ?? 1)
-            : 1,
-          dueDate: billingMonth,
-          openAmount: !priced,
-        });
-      });
-  }
-
-  /** The subset quick pay can charge without asking — everything else is typed. */
-  function eligibleFixedLines(customer: Customer): OpenItem[] {
-    return currentMonthItems(customer).filter((i) => !i.openAmount);
-  }
-
-  // "3/2026 · Internet" — what the receipt and the split preview show.
-  function planLabel(line: CustomerPlan, billingMonth: string): string {
-    const base = billingMonthLabel(billingMonth);
-    return line.plan?.name ? `${base} · ${line.plan.name}` : base;
-  }
-
-  // Lines due this month that quick pay can't collect because no amount is
-  // remembered (custom-price / plan-less with no special price) — they need the
-  // manual form. Counted per LINE, not per customer: a customer with one
-  // collectable and one typed line is partly skipped, and saying "0 skipped"
-  // there is what made the old customer-based count misleading.
-  function typedLinesDueCount(customer: Customer): number {
-    const status = customerStatuses.get(customer.id);
-    const notDue = new Set(status?.notDueLineIds);
-    const uncovered = new Set(status?.uncoveredLineIds);
-    return startedActiveLines(customer).filter(
-      (l) =>
-        !resolveLinePrice(l).isFixed &&
-        !notDue.has(l.id) &&
-        !uncovered.has(l.id),
-    ).length;
-  }
-
-  // True when the customer has any started active line still unpaid this month —
-  // so there is something a quick pay could collect (a fixed line to one-tap pay
-  // or a custom/plan-less line that opens the manual form).
-  function hasUnpaidStartedLine(customer: Customer): boolean {
-    const status = customerStatuses.get(customer.id);
-    const notDue = new Set(status?.notDueLineIds);
-    const uncovered = new Set(status?.uncoveredLineIds);
-    return startedActiveLines(customer).some(
-      (l) => !notDue.has(l.id) && !uncovered.has(l.id),
-    );
-  }
-
-  /**
-   * Collects the current month for the given items ("collect all due").
-   *
-   * ONE hand-over per customer PER CURRENCY: a collection is single-currency by
-   * design (that is what lets a balance close at exactly zero), so a customer
-   * with an LBP line and a USD line is two rows — physically two piles of cash.
-   * Returns them so a caller can send the receipts.
-   */
-  async function executePay(items: OpenItem[]): Promise<Collection[]> {
-    if (!user || items.length === 0) return [];
-    const groups = new Map<string, OpenItem[]>();
-    for (const item of items) {
-      const key = `${item.customerId}|${item.currencyId ?? "USD"}`;
-      const list = groups.get(key);
-      if (list) list.push(item);
-      else groups.set(key, [item]);
-    }
-
-    const created: Collection[] = [];
-    let failed = 0;
-    for (const group of groups.values()) {
-      const amount = group.reduce((sum, i) => sum + i.balance, 0);
-      const row = await collect({
-        tenantId: user.tenantId,
-        customerId: group[0].customerId,
-        branchId: group[0].branchId,
-        amount,
-        currencyId: group[0].currencyId,
-        ratePerUsdSnapshot: group[0].ratePerUsdSnapshot,
-        receivedAt: new Date().toISOString(),
-        receivedByUserId: user.id,
-        notes: null,
-        lines: group.map((item) => ({
-          item,
-          amount: item.balance,
-          settles: true,
-        })),
-      });
-      if (row) created.push(row);
-      else failed += 1;
-    }
-
-    clearSelection();
-    for (const customerId of new Set(created.map((c) => c.customerId))) {
-      const paidCustomer = customerId
-        ? customers.find((c) => c.id === customerId)
-        : null;
-      if (paidCustomer) {
-        void syncCustomerStatus(
-          paidCustomer.id,
-          paidCustomer.customerPlans ?? [],
-        );
-      }
-    }
-    void fetchNetDebtByCustomer(branchFilter);
-    if (failed > 0) {
-      setBulkNotice(
-        t("customers.bulk_pay_summary", { ok: created.length, failed }),
-      );
-    }
-    return created;
-  }
-
-  // Single-customer quick pay from the card / menu. Pays all eligible fixed-price
-  // lines; a line with no set price opens the collect sheet so the amount can be
-  // typed. `send` also WhatsApps one invoice covering every line just paid.
-  async function handleQuickPay(customer: Customer, send = false) {
-    const items = currentMonthItems(customer);
-    const requests = items.filter((i) => !i.openAmount);
-    if (requests.length === 0) {
-      const open = items.filter((i) => i.openAmount);
-      if (open.length === 1) {
-        openOneCollect(customer.name, open[0]);
-        return;
-      }
-      router.push({
-        pathname: "/(app)/(tabs)/customers/[id]",
-        params: { id: customer.id, quickPay: "1" },
-      });
-      return;
-    }
-    const multiCount = requests.filter((r) => r.durationMonths > 1).length;
-
-    async function pay() {
-      setQuickPayCustomerId(customer.id);
-      try {
-        const created = await executePay(requests);
-        if (send) {
-          for (const collection of created) {
-            await sendCollectionInvoice({
-              phone: customer.phoneNumber,
-              customerName: customer.name,
-              collection,
-            });
-          }
-        }
-      } finally {
-        setQuickPayCustomerId(null);
-      }
-    }
-
-    if (requests.length > 1 || multiCount > 0) {
-      await confirm({
-        title: t("payments.quick_pay.pay_now"),
-        message:
-          t("customers.bulk_pay_lines_message", { count: requests.length }) +
-          (multiCount > 0
-            ? "\n\n" + t("customers.bulk_pay_warn_multi", { count: multiCount })
-            : ""),
-        confirmLabel: t("payments.quick_pay.pay_now"),
-        onConfirm: pay,
-      });
-      return;
-    }
-    await pay();
-  }
-
-  // Show quick pay whenever a started line is still unpaid this month — for a
-  // single-plan customer this means "no payment yet"; for a multi-plan customer
-  // it also covers the mixed case (some plans paid, some not) so the remaining
-  // unpaid plans can be collected.
-  function shouldShowQuickPay(customer: Customer): boolean {
-    if (!customer.active || !customer.isRegular) return false;
-    return hasUnpaidStartedLine(customer);
-  }
-
   const {
     open: openCollectSheet,
     openOne: openOneCollect,
@@ -470,6 +240,37 @@ export function CustomerListScreen() {
       if (paid) void syncCustomerStatus(paid.id, paid.customerPlans ?? []);
       void fetchNetDebtByCustomer(branchFilter);
     },
+  });
+
+  const quickPay = useQuickPay({
+    onPaid: (created: Collection[]) => {
+      clearSelection();
+      for (const customerId of new Set(created.map((c) => c.customerId))) {
+        const paid = customers.find((c) => c.id === customerId);
+        if (paid) void syncCustomerStatus(paid.id, paid.customerPlans ?? []);
+      }
+      void fetchNetDebtByCustomer(branchFilter);
+    },
+    onTypeOne: (customer, item) => openOneCollect(customer.name, item),
+    onTypeMany: (customer) =>
+      router.push({
+        pathname: "/(app)/(tabs)/customers/[id]",
+        params: { id: customer.id, quickPay: "1" },
+      }),
+    sendReceipt: (customer, collection) =>
+      sendCollectionInvoice({
+        phone: customer.phoneNumber,
+        customerName: customer.name,
+        collection,
+      }),
+    onNotice: setBulkNotice,
+  });
+
+  const busy = bulkBusy || quickPay.bulkBusy;
+
+  const quickPayTarget = (customer: Customer) => ({
+    customer,
+    status: customerStatuses.get(customer.id) ?? null,
   });
 
   const openMenu = useCallback((customer: Customer) => {
@@ -491,7 +292,7 @@ export function CustomerListScreen() {
           onPress={openDetail}
           onMenu={openMenu}
           menuLoading={
-            quickPayCustomerId === item.id || collectBusyId === item.id
+            quickPay.busyCustomerId === item.id || collectBusyId === item.id
           }
           selectionMode={selectionActive}
           selected={selectedIds.has(item.id)}
@@ -506,7 +307,7 @@ export function CustomerListScreen() {
       displayCurrency,
       openDetail,
       openMenu,
-      quickPayCustomerId,
+      quickPay.busyCustomerId,
       collectBusyId,
       selectionActive,
       selectedIds,
@@ -549,54 +350,8 @@ export function CustomerListScreen() {
     return deleted;
   }
 
-  // Bulk quick pay ("collect all due"): pay every eligible fixed-price line of
-  // every selected customer (single AND multi-month) in ONE DB round-trip.
-  // Custom-price / plan-less and already-covered customers are skipped; multi-
-  // month lines are flagged in the confirm. All-or-nothing (single upsert) — on
-  // failure the slice records the reason and 0 are paid.
-  async function runBulkQuickPay(selected: Customer[]) {
-    if (bulkBusy || selected.length === 0 || !user) return;
-    const eligible = selected.filter(shouldShowQuickPay);
-    const requests = eligible.flatMap(eligibleFixedLines);
-    const customCount = eligible.reduce((n, c) => n + typedLinesDueCount(c), 0);
-    const multiCount = requests.filter((r) => r.durationMonths > 1).length;
-
-    if (requests.length === 0) {
-      await confirm({
-        title: t("payments.quick_pay.pay_now"),
-        message: t("customers.bulk_pay_none"),
-        confirmLabel: t("common.ok"),
-        hideCancel: true,
-      });
-      return;
-    }
-
-    const warnings: string[] = [];
-    if (multiCount > 0)
-      warnings.push(t("customers.bulk_pay_warn_multi", { count: multiCount }));
-    if (customCount > 0)
-      warnings.push(
-        t("customers.bulk_pay_skip_custom", { count: customCount }),
-      );
-    await confirm({
-      title: t("payments.quick_pay.pay_now"),
-      message:
-        t("customers.bulk_pay_lines_message", { count: requests.length }) +
-        (warnings.length > 0 ? "\n\n" + warnings.join("\n") : ""),
-      confirmLabel: t("payments.quick_pay.pay_now"),
-      onConfirm: async () => {
-        setBulkBusy(true);
-        try {
-          await executePay(requests);
-        } finally {
-          setBulkBusy(false);
-        }
-      },
-    });
-  }
-
   async function runBulkDelete(selected: Customer[]) {
-    if (bulkBusy || selected.length === 0) return;
+    if (busy || selected.length === 0) return;
     if (selected.length === 1) {
       if (await handleDeleteCustomer(selected[0])) clearSelection();
       return;
@@ -657,7 +412,7 @@ export function CustomerListScreen() {
         icon: "trash-outline",
         label: t("common.delete"),
         destructive: true,
-        disabled: bulkBusy,
+        disabled: busy,
         onPress: () => void runBulkDelete(selected),
       });
     }
@@ -666,13 +421,13 @@ export function CustomerListScreen() {
       group: "money",
       icon: "flash-outline",
       label: t("payments.quick_pay.pay_now"),
-      disabled: bulkBusy,
+      disabled: busy,
       onPress: () => {
         if (selected.length === 1) {
-          handleQuickPay(selected[0]);
+          void quickPay.quickPay(quickPayTarget(selected[0]));
           clearSelection();
         } else {
-          void runBulkQuickPay(selected);
+          void quickPay.bulkQuickPay(selected.map(quickPayTarget));
         }
       },
     });
@@ -685,14 +440,13 @@ export function CustomerListScreen() {
   async function handleCollectDebt(customer: Customer) {
     setCollectBusyId(customer.id);
     try {
-      await fetchOwed(customer, customer.customerPlans ?? [], currencies);
-      const ledger = getStore().getState().ledger;
-      if (ledger.error) return;
-      if (ledger.owed.length === 0) {
+      const owed = await loadOwed(customer);
+      if (!owed) return;
+      if (owed.length === 0) {
         setBulkNotice(t("ledger.nothing_owed"));
         return;
       }
-      openCollectSheet(customer.id, customer.name, ledger.owed);
+      openCollectSheet(customer.id, customer.name, owed);
     } finally {
       setCollectBusyId(null);
     }
@@ -701,10 +455,9 @@ export function CustomerListScreen() {
   async function handleWriteOffAll(customer: Customer) {
     setCollectBusyId(customer.id);
     try {
-      await fetchOwed(customer, customer.customerPlans ?? [], currencies);
-      const ledger = getStore().getState().ledger;
-      if (ledger.error) return;
-      const billed = ledger.owed.filter((i) => !!i.chargeId);
+      const owed = await loadOwed(customer);
+      if (!owed) return;
+      const billed = owed.filter((i) => !!i.chargeId);
       if (billed.length === 0) {
         setBulkNotice(t("ledger.nothing_to_write_off"));
         return;
@@ -720,18 +473,18 @@ export function CustomerListScreen() {
   function buildMenuActions(customer: Customer | null): ActionMenuItem[] {
     if (!customer) return [];
     const items: ActionMenuItem[] = [];
-    const isMulti = startedActiveLines(customer).length >= 2;
-    if (shouldShowQuickPay(customer)) {
+    const target = quickPayTarget(customer);
+    if (canQuickPay(customer, target.status)) {
       items.push({
         key: "quick-pay",
         group: "money",
-        label: isMulti
+        label: isMultiPlan(customer)
           ? t("payments.quick_pay.pay_unpaid_plans")
           : t("payments.quick_pay.menu_label"),
         icon: "flash-outline",
-        onPress: () => handleQuickPay(customer),
+        onPress: () => void quickPay.quickPay(target),
       });
-      if (eligibleFixedLines(customer).length > 0) {
+      if (fixedMonthItems(customer, target.status, currencies).length > 0) {
         const sendable = canSend(customer.phoneNumber);
         items.push({
           key: "quick-pay-whatsapp",
@@ -743,7 +496,7 @@ export function CustomerListScreen() {
           ),
           disabled: !sendable,
           caption: sendable ? undefined : t("invoice.no_phone"),
-          onPress: () => void handleQuickPay(customer, true),
+          onPress: () => void quickPay.quickPay(target, true),
         });
       }
     }

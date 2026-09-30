@@ -1,5 +1,4 @@
 export { CollectSheet } from "./components/CollectSheet";
-export type { CollectGroupSubmit } from "./components/CollectSheet";
 export { useCollectSheet } from "./hooks/useCollectSheet";
 export { useWriteOffActions } from "./hooks/useWriteOffActions";
 export type { WriteOffTarget } from "./hooks/useWriteOffActions";

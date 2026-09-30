@@ -32,8 +32,8 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 
 | #   | Scenario           | Steps                                                        | Expected result                                                                                                  |
 | --- | ------------------ | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| 2.1 | Menu (admin)       | ⋮ on an active customer with a phone                         | Open WhatsApp chat, Edit, History, Deactivate, Delete — in that order (the phone menu bands)                        |
-| 2.2 | Menu (staff)       | Log in as a user (not admin)                                 | WhatsApp, Edit, History only; no checkboxes; History says "Admins only"                                            |
+| 2.1 | Menu (admin)       | ⋮ on an active customer with a phone who paid this month and owes nothing | Open WhatsApp chat, Edit, History, Deactivate, Delete — in that order (the phone menu bands); the money items are in §6 |
+| 2.2 | Menu (staff)       | Log in as a user (not admin)                                 | WhatsApp, Edit, History (plus the money items of §6); no Deactivate / Delete; History says "Admins only"; checkboxes are there, for Quick pay and Edit (§6.9) |
 | 2.3 | No phone           | A customer with no phone number                              | No WhatsApp item                                                                                                  |
 | 2.4 | WhatsApp chat      | Open WhatsApp chat                                           | wa.me opens in a NEW tab with the number; the app keeps its page                                                   |
 | 2.5 | History            | History on a customer who was renamed and had a month paid   | One list: the rename, the line changes, the month payment; clicking one opens its details                          |
@@ -41,9 +41,10 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 | 2.7 | Activate           | Activate an inactive customer                                | Back in Active; usage goes up again                                                                               |
 | 2.8 | Delete unused      | Delete a customer who never paid                             | Row gone for good                                                                                                 |
 | 2.9 | Delete paid        | Delete a customer with payments                              | Not removed: the customer becomes inactive (history kept)                                                         |
-| 2.10 | Bulk one          | Tick one row                                                  | Bulk bar: Edit, Deactivate/Activate, Delete                                                                        |
+| 2.10 | Bulk one          | Tick one row                                                  | Bulk bar: Quick pay, Edit, Deactivate/Activate, Delete (a user: Quick pay, Edit)                                    |
 | 2.11 | Bulk many         | Tick three rows → Delete                                      | "Delete 3 customers?"; unused ones go, paid ones become inactive                                                  |
-| 2.12 | Money actions     | Look for Collect / Quick pay                                  | Not there yet — they come with the collect dialog (phase E1)                                                       |
+| 2.12 | Money actions     | Look for Collect / Quick pay                                  | In the menu and the bulk bar — see §6                                                                              |
+| 2.13 | Not there yet     | Look for Write off all, Record sale, Add custom debt           | Not there yet — they come with phases E2, F2 and F3                                                                |
 
 ## 3. The customer form
 
@@ -86,3 +87,26 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 | 5.1 | Any page            | On Products (admin) or Customers, click the person-plus header icon | Tooltip "Add Customer"; the customer form opens                          |
 | 5.2 | Staff see it        | Log in as a user                                                 | The icon is there (every role may add customers, like the phone)         |
 | 5.3 | List refreshes      | Customers page open → quick action → save                        | The new customer appears without a page reload                            |
+
+## 6. Money actions (quick pay, collect)
+
+The collect dialog itself is [collect.md](collect.md). The rules are the phone list's ([../customers.md](../customers.md), [../payments.md](../payments.md)); the shared logic is [quickPay.ts](Shared/src/modules/customer/customers/utils/quickPay.ts) + [useQuickPay.ts](Shared/src/modules/customer/customers/hooks/useQuickPay.ts) (unit tests: `tests/suites/quickPay.test.ts`, TC-QP-*). Every one of these WRITES money — test project only.
+
+| #    | Scenario                  | Steps                                                                               | Expected result                                                                                                                                                  |
+| ---- | ------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 6.1  | Quick pay, one plan       | A customer with one $20 monthly plan, this month unpaid → ⋮ → Quick pay             | No question; the ⋮ turns into a small spinner, then "Saved $20.00 from {name}."; the row re-reads (it leaves the Unpaid tab)                                      |
+| 6.2  | Quick pay, many plans     | Two unpaid priced plans → ⋮ → "Quick pay unpaid plans"                              | "Pay 2 subscription(s) now?" → Pay → one payment per currency; the confirm button spins while it saves                                                           |
+| 6.3  | Multi-month plan          | A 3-month plan → Quick pay                                                          | The confirm warns it is charged for its full duration                                                                                                           |
+| 6.4  | No set price, one line    | A customer whose only due plan is custom-priced → Quick pay                         | The collect dialog opens for that month with "Amount for this month" (see [collect.md](collect.md) §3)                                                           |
+| 6.5  | No set price, two lines   | Two custom-priced lines due → Quick pay                                             | Blue notice: each month needs its own typed amount, on the customer page (E4 will open that page instead)                                                       |
+| 6.6  | Older month unpaid        | A line with LAST month unpaid                                                       | That line is not quick-paid (months are paid oldest first); if it is the only line, there is no Quick pay item                                                  |
+| 6.7  | Pay & send on WhatsApp    | A customer with a phone → "Pay & send on WhatsApp"                                  | Pays like 6.1, then WhatsApp opens in a new tab with the receipt; if the browser blocks the tab, a "Send it on WhatsApp" dialog with an "Open WhatsApp" button |
+| 6.8  | No phone                  | A customer with no phone                                                            | "Pay & send on WhatsApp" is greyed, with "No phone number for this customer" under it                                                                           |
+| 6.9  | Bulk quick pay (any role) | Tick 3 customers (one custom-priced, one already paid) → Quick pay                  | "Pay N subscription(s) now?" with "1 on custom plans will be skipped."; after Pay: "Saved payments from 2 customers."; the page re-reads                          |
+| 6.10 | Bulk, nothing to pay      | Tick only customers who already paid → Quick pay                                    | "None of the selected customers can be quick-paid." with OK                                                                                                    |
+| 6.11 | Collect money             | A customer with an unpaid month and a sale debt → ⋮ → Collect money                 | Spinner on the row, then the collect dialog with every bill, oldest first; Save → "Saved …" and the Debt column updates                                          |
+| 6.12 | Collect, owes nothing     | Collect money on a row whose debt was just paid on the phone                        | Blue notice "This customer owes nothing."                                                                                                                      |
+| 6.13 | Collect is hidden         | A customer who paid this month and has no debt                                      | No "Collect money" item                                                                                                                                         |
+| 6.14 | A failed pay              | Turn the network off → Quick pay                                                    | Red banner with the reason above the table; nothing says "Saved"; the spinner stops                                                                            |
+| 6.15 | Keyboard                  | Tab through a row's ⋮, the bulk bar and the dialog                                  | Every button shows a blue outline when it has keyboard focus                                                                                                   |
+

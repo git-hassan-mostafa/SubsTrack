@@ -3,6 +3,7 @@ import type { SvgIconComponent } from "@mui/icons-material";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import MoveToInboxOutlined from "@mui/icons-material/MoveToInboxOutlined";
+import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import PersonAddOutlined from "@mui/icons-material/PersonAddOutlined";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { sortActions, type ActionGroup } from "@shared/shared/lib/actionOrder";
@@ -21,6 +22,13 @@ function useQuickActions(): QuickAction[] {
   const { isAdmin } = useAuth();
   const openQuickAction = useUiStore((s) => s.openQuickAction);
   const actions: QuickAction[] = [
+    {
+      key: "collect",
+      group: "money",
+      labelKey: "ledger.collect_money",
+      icon: PaymentsOutlined,
+      onClick: () => openQuickAction("collect"),
+    },
     {
       key: "customer",
       group: "create",

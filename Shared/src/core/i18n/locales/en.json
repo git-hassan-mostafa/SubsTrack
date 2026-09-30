@@ -1429,6 +1429,8 @@
     "open_amount_hint": "This plan has no set price — type what this month costs.",
     "open_amount_one_at_a_time": "This plan has no set price, so each month needs its own amount. Collect one month at a time.",
     "nothing_owed": "This customer owes nothing.",
+    "partly_saved_title": "Part of the payment was not saved",
+    "partly_saved_message": "{{error}}\n\nThe amounts in the other currencies were saved. Open Collect money again to take what is still owed.",
     "nothing_to_write_off": "This customer has no bills to write off. Unpaid months are not billed yet.",
     "view_bill": "View bill",
     "due_date": "Due",

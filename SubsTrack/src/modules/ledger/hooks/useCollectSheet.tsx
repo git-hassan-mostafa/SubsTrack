@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import type { Collection, OpenItem } from "@shared/core/types";
-import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
+import { useCollectSubmit } from "@shared/modules/ledger/hooks/useCollectSubmit";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { CollectSheet } from "../components/CollectSheet";
 
@@ -15,26 +15,9 @@ interface Options {
   onCollected?: (collection: Collection) => void;
 }
 
-/**
- * The one way any list opens the collect sheet.
- *
- * The items are passed IN rather than fetched: every debts surface already
- * holds what the customer owes, and re-reading it would let the preview drift
- * from the list the user is looking at. The branch comes off the items for the
- * same reason — a debts list never loads the whole customer.
- *
- * Returns `{ open, openOne, close, sheet }`: render `sheet`, call `open` with a
- * customer's whole pool (waterfall + split preview) or `openOne` with a single
- * bill.
- *
- * `open` / `openOne` / `close` are STABLE; the returned object is not (it holds
- * `sheet`, a fresh element every render). An effect that opens the sheet must
- * depend on the callback, never on the object — depending on the object makes
- * open → setState → re-render → open an infinite loop.
- */
+// open/openOne/close are stable, the returned object is not — depend on the callbacks.
 export function useCollectSheet({ onCollected }: Options = {}) {
-  const { user } = useAuth();
-  const collectMulti = useLedgerSlice((s) => s.collectMulti);
+  const submit = useCollectSubmit();
   const loading = useLedgerSlice((s) => s.loadingCollect);
   const [target, setTarget] = useState<Target | null>(null);
 
@@ -65,27 +48,9 @@ export function useCollectSheet({ onCollected }: Options = {}) {
       singleItem={target.single ? target.items[0] : null}
       loading={loading}
       onDismiss={close}
-      onSubmit={async (values) => {
-        if (!user) return;
-        const { collections, failed } = await collectMulti(
-          values.groups.map((group) => ({
-            tenantId: user.tenantId,
-            customerId: target.customerId,
-            branchId: group.lines[0]?.item.branchId ?? user.branchId,
-            amount: group.amount,
-            currencyId: group.currencyId,
-            ratePerUsdSnapshot: group.ratePerUsdSnapshot,
-            receivedAt: values.receivedAt,
-            receivedByUserId: user.id,
-            notes: values.notes,
-            lines: group.lines.map((l) => ({
-              item: l.item,
-              amount: l.amount,
-              settles: l.amount >= l.item.balance,
-            })),
-          })),
-        );
-        if (failed) return;
+      onSubmit={async (submission) => {
+        const collections = await submit(submission, target.customerId);
+        if (collections.length === 0) return;
         setTarget(null);
         for (const created of collections) onCollected?.(created);
       }}

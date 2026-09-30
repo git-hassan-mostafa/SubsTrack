@@ -653,3 +653,12 @@ everything about that one hand-over.
 23.3.4 Close with the header **Close**, the Back button or by dragging down → returns to the screen underneath, which is unchanged.
 23.3.5 Offline (native): Payment details opens from every entry point with no network.
 23.3.6 Arabic: the sheet reads right-to-left and every label is translated (تفاصيل الدفعة).
+
+## 24. A two-currency Save that fails half way
+
+The phone sheet and the web dialog share one submit ([useCollectSubmit.ts](Shared/src/modules/ledger/hooks/useCollectSubmit.ts)). Each currency is its own hand-over and they are written one after the other, so the first can be saved when the second fails (gotcha #108b).
+
+24.1 A customer owes USD and LBP → Collect money → both amounts → Save while the second write fails (native: rarely possible; web: block the second request in DevTools) → the sheet **closes**, and a dialog "Part of the payment was not saved" names the reason.
+24.2 The USD payment **is** saved (Money received shows it); the LBP debt is still owed.
+24.3 Open Collect money again → only the LBP debt is offered. The USD part is **never** collected a second time (before, the sheet stayed open with the old amounts and a second Save recorded the USD cash twice).
+24.4 A Save where the FIRST currency fails → nothing is saved, the sheet stays open with the red banner, exactly as before.

@@ -60,7 +60,8 @@ import { BillHistorySheet, BillSheet, CollectSheet, useWriteOffActions, VoidConf
 import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 import { monthItemFromEntry } from "@shared/modules/ledger/utils/openItems";
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
-import type { CollectGroupSubmit, WriteOffTarget } from "@/src/modules/ledger";
+import type { WriteOffTarget } from "@/src/modules/ledger";
+import type { CollectGroupSubmit } from "@shared/modules/ledger/utils/collectForm";
 import { usePaymentSlice } from "@shared/state/hooks/usePaymentSlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";

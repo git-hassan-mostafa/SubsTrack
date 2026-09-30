@@ -45,6 +45,11 @@ export const theme = createTheme({
   components: {
     MuiButtonBase: {
       defaultProps: { disableRipple: true, LinkComponent: LinkBehavior },
+      styleOverrides: {
+        root: {
+          "&.Mui-focusVisible": { outline: `2px solid ${COLORS.primary}`, outlineOffset: 2 },
+        },
+      },
     },
     MuiLink: {
       defaultProps: { component: LinkBehavior } as LinkProps,

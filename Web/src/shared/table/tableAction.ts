@@ -5,6 +5,7 @@ export interface TableAction {
   key: string;
   group?: ActionGroup;
   label: string;
+  caption?: string;
   icon: SvgIconComponent;
   destructive?: boolean;
   disabled?: boolean;

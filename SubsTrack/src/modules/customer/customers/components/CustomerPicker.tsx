@@ -34,14 +34,8 @@ export function CustomerPicker({
   const { user } = useAuth();
 
   const loadPage = useCallback(
-    async (search: string, page: number) => {
-      const result = await customerService.getCustomers(
-        page,
-        search,
-        resolveBranchFilter(user),
-      );
-      return result.customers;
-    },
+    (search: string, page: number) =>
+      customerService.searchCustomers(page, search, resolveBranchFilter(user)),
     [user],
   );
 

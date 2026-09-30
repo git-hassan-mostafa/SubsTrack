@@ -12,7 +12,7 @@ import {
 import { useBillingSlice } from "@shared/state/hooks/useBillingSlice";
 import { useSupportWhatsAppNumber } from "@shared/state/hooks/useOptionSlice";
 import { FormDialog } from "@/shared/components/FormDialog";
-import { openWhatsApp } from "@/shared/lib/openWhatsApp";
+import { openWhatsAppAfterSave } from "@/shared/lib/openWhatsAppAfterSave";
 import { AllowanceField } from "./AllowanceField";
 
 interface UpdateAllowanceDialogProps {
@@ -55,7 +55,7 @@ export function UpdateAllowanceDialog({ editing, onClose }: UpdateAllowanceDialo
     }
     const extra = await form.send();
     if (!extra) return;
-    if (alsoWhatsApp) openWhatsApp(supportNumber, form.requestMessage(extra));
+    if (alsoWhatsApp) void openWhatsAppAfterSave(supportNumber, form.requestMessage(extra));
     onClose();
   };
 

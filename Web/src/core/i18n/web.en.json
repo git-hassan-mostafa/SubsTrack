@@ -20,7 +20,8 @@
     "clear_selection": "Clear selection",
     "no_results_hint": "Try another search or clear the filters.",
     "export_this_page": "Only this page ({{count}})",
-    "export_all": "All matching rows ({{count}})"
+    "export_all": "All matching rows ({{count}})",
+    "working_on": "Working on {{name}}…"
   },
   "branches": {
     "add": "Add branch",
@@ -71,7 +72,10 @@
     "groups": "Customer groups",
     "tab_count": "{{label}} ({{count}})",
     "new_plan": "Add a new plan",
-    "new_portal_password": "Make a new password"
+    "new_portal_password": "Make a new password",
+    "quick_pay_typed_many": "These plans have no set price, so each month needs its own typed amount. Collect them one month at a time on the customer page.",
+    "paid_one": "Saved {{amount}} from {{name}}.",
+    "paid_many": "Saved payments from {{count}} customers."
   },
   "audit": {
     "change": "Change",
@@ -86,5 +90,18 @@
     "decrease": "Lower by one",
     "increase": "Raise by one",
     "no_change": "Change one of the numbers first."
+  },
+  "collect": {
+    "skip_hint": "Untick a bill to skip it — the money goes to the next one.",
+    "pay_this_bill": "Pay {{name}}",
+    "type_amount": "Type the amount you received.",
+    "type_month_amount": "Type what this month costs first.",
+    "lower_amount": "Lower the amount — it is more than what is owed.",
+    "pick_customer": "Pick the customer who is paying."
+  },
+  "whatsapp": {
+    "blocked_title": "Send it on WhatsApp",
+    "blocked_message": "It was saved. Your browser did not let WhatsApp open by itself — click Open WhatsApp to send the message.",
+    "open": "Open WhatsApp"
   }
 }

@@ -7,7 +7,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { CustomerPicker } from "@/src/modules/customer/customers";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer } from "@shared/core/types";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { useCustomerOwed } from "@shared/modules/ledger/hooks/useCustomerOwed";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useCollectSheet } from "../hooks/useCollectSheet";
 
@@ -15,46 +15,24 @@ interface Props {
   onDismiss: () => void;
 }
 
-/**
- * "Collect money" from anywhere in the app: pick a customer, and everything
- * they owe — debts AND plain unpaid months — is poured over oldest-first.
- *
- * This is the door for the case the whole rewrite is about: a customer walks in
- * and hands over cash without saying what it is for. Picking the customer is
- * the only question; the waterfall answers the rest, and the split preview
- * shows it before anything is written.
- */
+// Pick a customer; everything they owe is poured over oldest-first by the waterfall.
 export function CollectQuickActionSheet({ onDismiss }: Props) {
   const { t } = useTranslation();
-  const currencies = useCurrencySlice((s) => s.items);
-  const owed = useLedgerSlice((s) => s.owed);
-  const loading = useLedgerSlice((s) => s.loadingOwed);
   const error = useLedgerSlice((s) => s.error);
-  const fetchOwed = useLedgerSlice((s) => s.fetchOwed);
-  const clearOwed = useLedgerSlice((s) => s.clearOwed);
   const clearError = useLedgerSlice((s) => s.clearError);
 
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const { loading, owed, nothingOwed } = useCustomerOwed(customer);
   const { open: openCollect, sheet } = useCollectSheet({
     onCollected: onDismiss,
   });
   const showError = error != null && sheet == null;
 
   useEffect(() => {
-    if (!customer) {
-      clearOwed();
-      return;
-    }
-    void fetchOwed(customer, customer.customerPlans ?? [], currencies);
-  }, [customer, currencies, fetchOwed, clearOwed]);
-
-  useEffect(() => {
-    if (customer && !loading && owed.length > 0) {
+    if (customer && owed.length > 0) {
       openCollect(customer.id, customer.name, owed);
     }
-  }, [customer, loading, owed, openCollect]);
-
-  const nothingOwed = customer && !loading && owed.length === 0;
+  }, [customer, owed, openCollect]);
 
   return (
     <>

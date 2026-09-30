@@ -4455,6 +4455,10 @@ src/modules/ledger/
                 CollectQuickActionSheet · VoidCollectionDialog · CollectionsVoidDialog
                 AmountCollectedSection
   hooks/        useCollectSheet — the one way a list opens the collect sheet
+Shared (both apps): hooks/useCollectForm (the sheet's state) · useCollectSubmit (one
+                hand-over per currency; a half-saved Save closes, never retries) ·
+                useLoadOwed · useCustomerOwed; utils/collectForm.ts (single bill, groups, inputs)
+Web:           Web/src/modules/ledger/collect/ — CollectDialog · useCollectDialog · CollectQuickActionDialog
   screens/      CollectionsPanel
 ```
 
@@ -4519,7 +4523,7 @@ A **skipped month** is a month one service line is **not expected to pay** — a
 
 **Customer-list badge.** `status === "skipped"` means the customer owes nothing at all **and** the reason no line owes this month is a skip on **every** started active line. The card shows a slate **"Skipped"** pill and the list's **Unpaid** tab leaves them out. A customer with one skipped and one unpaid line is still `"unpaid"` — only _all_ lines skipped counts. An older unpaid month outranks the slate pill entirely: the customer owes money, so the card reads **"Overdue"** instead — a skip excuses its own month, never a backlog.
 
-**`coveredLineIds` was renamed `notDueLineIds`** (now `CustomerStatus.notDueLineIds`) because it means "must not be quick-paid this month" — already covered by a payment **or** skipped. `CustomerListScreen`'s `eligibleFixedLines` / `hasUnpaidStartedLine` read it per customer, so "Collect all due" leaves skipped lines alone.
+**`coveredLineIds` was renamed `notDueLineIds`** (now `CustomerStatus.notDueLineIds`) because it means "must not be quick-paid this month" — already covered by a payment **or** skipped. The shared quick-pay rules ([quickPay.ts](../Shared/src/modules/customer/customers/utils/quickPay.ts): `canQuickPay` / `currentMonthItems` / `fixedMonthItems`, used by the phone list and the web Customers page) read it per customer, so "Collect all due" leaves skipped lines alone.
 
 **UI.** `SkipMonthSheet` (a `ConfirmDialog`, like `VoidSheet`) handles both directions: skipping takes the optional note, unskipping echoes back the note it was skipped with. Entry points: the month cell's 3-dot menu (**Skip month** on unpaid/future, **Unskip month** on skipped **unless a later month is paid**), a tap on a skipped cell, and the grid's **multi-select** toolbar — a selection can hold both kinds, so _Skip_ and _Unskip_ appear together and each acts on its own subset. A skipped cell's selection unit is always just itself (never part of a payable block). The year card shows a **"N skipped"** chip next to paid/unpaid when the year has any.
 
@@ -4724,16 +4728,18 @@ A reusable list selection mode: long-press a card to enter it, every card's avat
 **Customers wiring** ([`CustomerListScreen.tsx`](../SubsTrack/src/modules/customers/screens/CustomerListScreen.tsx)): selected ids are resolved against the **visible** `filtered` list (`selectedCustomers`) so a filtered-out row can't be acted on. Toolbar actions are count-dependent — **1 selected:** edit · activate/deactivate · delete · quick-pay (toggle + delete admin-only); **>1:** delete · quick-pay only (a single toggle verb is ambiguous over a mixed active/inactive set). In selection mode the search box and FAB are hidden. Selection is cleared on tab switch, pull-to-refresh, and branch change (search/branch are unreachable while selecting; pagination keeps it).
 
 **Bulk quick pay** collects from every eligible customer, ONE hand-over per
-customer per currency (`executePay` groups the items and calls `ledger.collect`
-for each group). Selected customers are partitioned in the screen: eligible
+customer per currency (`quickPayInputs` in [quickPay.ts](../Shared/src/modules/customer/customers/utils/quickPay.ts)
+groups the items; [useQuickPay.ts](../Shared/src/modules/customer/customers/hooks/useQuickPay.ts) calls
+`ledger.collect` for each group — the phone list and the web Customers page both run it). Selected customers are partitioned by `bulkQuickPayPlan`: eligible
 fixed-price lines → collected (single + multi-month, each at its own resolved
 price for the current month); custom-price / plan-less → **skipped**; ineligible
 (inactive / non-regular / already covered / backlogged / before start) → silently
 dropped. A confirm dialog always shows, warning how many multi-month lines will
-be charged for their full duration and how many custom-price lines are skipped
-(an info dialog with `hideCancel` when nothing is payable). Each group is its
-own write, so a partial failure is real and is reported as a `bulkNotice`
-`ErrorBanner` — the earlier all-or-nothing single upsert is gone with the
+be charged for their full duration and how many lines with no usable price are skipped
+(counted per LINE — every line that became an open item, a zero-priced fixed plan included;
+an info dialog with `hideCancel` when nothing is payable). Each group is its
+own write, so a partial failure is real and is reported through the hook's `onNotice`
+(the phone's `bulkNotice` `ErrorBanner`, the web's info banner) — the earlier all-or-nothing single upsert is gone with the
 batched `createMany` it depended on. **Bulk delete** is a real batch via `customerSlice.bulkDeleteCustomers` → `CustomerService.deleteManyCustomers` → one `customersWithPayments` query + parallel `deactivateMany`/`deleteMany` (see the batch-delete note under [Multi-Select & Bulk Actions](#multi-select--bulk-actions)); the slice adjusts `activeCount` by however many deleted rows were active. A lone selection still reuses the single-item `handleDeleteCustomer` confirm.
 
 **Rolled out to every list screen.** The same pattern now lives in Products, Plans, Users, Branches, Currencies, and both Sales lists. Each card (`ProductCard`/`PlanCard`/`UserCard`/`BranchCard`/`CurrencyCard`/`SaleCard`) gained the four optional props + `<Checkbox>` swap; each screen wires `useSelection()` + `useSelectionBackHandler()`, resolves selected ids against its **visible** list, passes `selection={…}` to its `<PageHeader>`, and hides search/FAB while selecting. Toolbar actions are count-dependent — **1 selected:** edit (+ the row's state toggle: deactivate/reactivate for branches/currencies, reactivate for inactive products, activate/deactivate for manageable users); **all counts:** the destructive verb.

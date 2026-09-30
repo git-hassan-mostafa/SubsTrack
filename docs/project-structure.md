@@ -39,10 +39,11 @@ Web/src/
 │   ├── table/             # DataTable, RowActionsMenu, BulkActionBar, useTableExport, TableAction,
 │   │                      #   RowLink, ActiveFilterSelect, activeStatusColumn, useBranchColumn
 │   ├── hooks/             # useMoneyPair
-│   └── lib/               # downloadCsv, openWhatsApp, copyText
+│   └── lib/               # downloadCsv, openWhatsApp (+ openWhatsAppAfterSave), copyText
 ├── state/                 # web-only stores: createPagedStore + one table store per list, webSession.ts
 └── modules/<group>/<module>/  # pages + dialogs (admin/{branches,currencies,services,plans,products,users,
-                               #   audit,billing,tenant-settings}, customer/{customers,customer-plans} so far)
+                               #   audit,billing,tenant-settings}, customer/{customers,customer-plans},
+                               #   ledger/collect (collect dialog + quick action), invoicing (receipts) so far)
 ```
 
 Each module keeps the SAME folder path in both halves: its logic under

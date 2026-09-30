@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
@@ -12,31 +12,14 @@ import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { CARD_SURFACE } from "@/src/shared/constants";
-import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
-import type { AllocationLine, OpenItem } from "@shared/core/types";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { dayToInstantIso, getNowDateTimeString } from "@shared/core/utils/date";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import type { OpenItem } from "@shared/core/types";
+import { useCollectForm } from "@shared/modules/ledger/hooks/useCollectForm";
+import type { CollectSubmission } from "@shared/modules/ledger/utils/collectForm";
+import { groupKey } from "@shared/modules/ledger/utils/currencyGroups";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
-import {
-  fundedPlans,
-  groupKey,
-  groupOwedByCurrency,
-  planCollection,
-  totalCollectingUsd,
-} from "@shared/modules/ledger/utils/currencyGroups";
-import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { CollectAllButton } from "./CollectAllButton";
 import { CollectHero } from "./CollectHero";
 import { CurrencyCollectSection } from "./CurrencyCollectSection";
-
-export interface CollectGroupSubmit {
-  currencyId: string | null;
-  ratePerUsdSnapshot: number;
-  amount: number;
-  lines: { item: OpenItem; amount: number }[];
-}
 
 interface Props {
   visible: boolean;
@@ -44,11 +27,7 @@ interface Props {
   customerName: string;
   owed: OpenItem[];
   loading: boolean;
-  onSubmit: (args: {
-    receivedAt: string;
-    notes: string | null;
-    groups: CollectGroupSubmit[];
-  }) => void;
+  onSubmit: (submission: CollectSubmission) => void;
   singleItem?: OpenItem | null;
 }
 
@@ -63,10 +42,10 @@ export function CollectSheet({
   singleItem = null,
 }: Props) {
   const { t } = useTranslation();
-  const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
   const error = useLedgerSlice((s) => s.error);
   const clearError = useLedgerSlice((s) => s.clearError);
+  const form = useCollectForm(owed, singleItem);
+  const { single, pool, currencies, display } = form;
 
   useEffect(() => {
     if (visible) clearError();
@@ -77,156 +56,19 @@ export function CollectSheet({
     if (error) scrollBody.current?.(0);
   }, [error]);
 
-  const openItem = singleItem?.openAmount ? singleItem : null;
-
-  const groups = useMemo(
-    () => (singleItem ? [] : groupOwedByCurrency(owed, currencies)),
-    [singleItem, owed, currencies],
-  );
-
-  const [amounts, setAmounts] = useState<ReadonlyMap<string, number | null>>(
-    () => new Map(groups.map((g) => [groupKey(g), g.owed])),
-  );
-
-  useEffect(() => {
-    setAmounts((prev) => {
-      const missing = groups.filter((g) => !prev.has(groupKey(g)));
-      if (missing.length === 0) return prev;
-      const next = new Map(prev);
-      for (const group of missing) next.set(groupKey(group), group.owed);
-      return next;
-    });
-  }, [groups]);
-  const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
-  const [receivedAt, setReceivedAt] = useState(getNowDateTimeString);
-  const [receivedAtPicked, setReceivedAtPicked] = useState(false);
-  const [notes, setNotes] = useState("");
-
-  const [openBill, setOpenBill] = useState<number | null>(null);
-  const [singleCurrencyId, setSingleCurrencyId] = useState<string | null>(
-    () => singleItem?.currencyId ?? null,
-  );
-  const [singleAmount, setSingleAmount] = useState<number | null>(() =>
-    singleItem && !singleItem.openAmount ? singleItem.balance : null,
-  );
-
-  const dirty = useDirtyForm({
-    amounts,
-    singleAmount,
-    openBill,
-    receivedAt,
-    notes,
-  });
-
-  const display = findCurrency(currencies, displayCurrencyId);
-  const singleCurrency = findCurrency(currencies, singleCurrencyId);
-
-  const plans = useMemo(
-    () => planCollection(groups, amounts, excluded),
-    [groups, amounts, excluded],
-  );
-  const funded = useMemo(() => fundedPlans(plans), [plans]);
-  const owedUsd = groups.reduce((sum, g) => sum + g.owedUsd, 0);
-  const collectingUsd = totalCollectingUsd(plans);
-  const overpaying = plans.some((p) => p.leftover > 0);
-  const multiCurrency = groups.length > 1;
-  const soleCurrency = multiCurrency ? null : (groups[0]?.currency ?? null);
-  const heroAmount = multiCurrency
-    ? formatMoney(owedUsd, null, display)
-    : formatMoney(groups[0]?.owed ?? 0, soleCurrency, soleCurrency);
-  const heroApprox =
-    !multiCurrency && (soleCurrency?.id ?? null) !== (display?.id ?? null)
-      ? `≈ ${formatMoney(owedUsd, null, display)}`
-      : null;
-
-  const billedOpenItem = useMemo(
-    () =>
-      openItem
-        ? {
-            ...openItem,
-            amount: openBill ?? 0,
-            balance: openBill ?? 0,
-            currencyId: singleCurrencyId,
-            ratePerUsdSnapshot: singleCurrency?.ratePerUsd ?? 1,
-          }
-        : null,
-    [openItem, openBill, singleCurrencyId, singleCurrency],
-  );
-
-  const singleTarget = billedOpenItem ?? singleItem;
-  const singleMax = billedOpenItem
-    ? (openBill ?? 0)
-    : (singleItem?.balance ?? 0);
-  const singleLines = useMemo<AllocationLine[]>(() => {
-    if (!singleTarget) return [];
-    const value = singleAmount ?? 0;
-    if (value <= 0 || singleMax <= 0) return [];
-    const take = Math.min(value, singleMax);
-    return [{ item: singleTarget, amount: take, settles: take >= singleMax }];
-  }, [singleTarget, singleAmount, singleMax]);
-  const singleOverpaying = (singleAmount ?? 0) > singleMax;
-
-  const money = (value: number) =>
-    formatMoney(value, singleCurrency, singleCurrency);
-
-  const canSubmit = singleItem
-    ? !loading && singleLines.length > 0 && !singleOverpaying
-    : !loading && funded.length > 0 && !overpaying;
+  const openItem = single?.item.openAmount ? single : null;
+  const canSubmit = !loading && form.canSubmit;
 
   const submit = () => {
-    if (!canSubmit) return;
-    const groupsOut: CollectGroupSubmit[] = singleItem
-      ? [
-          {
-            currencyId: singleCurrencyId,
-            ratePerUsdSnapshot: singleCurrency?.ratePerUsd ?? 1,
-            amount: singleLines.reduce((sum, l) => sum + l.amount, 0),
-            lines: singleLines.map((l) => ({ item: l.item, amount: l.amount })),
-          },
-        ]
-      : funded.map((p) => ({
-          currencyId: p.currencyId,
-          ratePerUsdSnapshot: p.ratePerUsd,
-          amount: p.lines.reduce((sum, l) => sum + l.amount, 0),
-          lines: p.lines.map((l) => ({ item: l.item, amount: l.amount })),
-        }));
-
-    onSubmit({
-      receivedAt: receivedAtPicked
-        ? dayToInstantIso(receivedAt)
-        : new Date().toISOString(),
-      notes: notes.trim() || null,
-      groups: groupsOut,
-    });
+    const submission = loading ? null : form.submission();
+    if (submission) onSubmit(submission);
   };
-
-  const pickReceivedAt = (value: string) => {
-    if (value === receivedAt) return;
-    setReceivedAt(value);
-    setReceivedAtPicked(true);
-  };
-
-  const setAmount = (key: string, amount: number | null) =>
-    setAmounts((prev) => new Map(prev).set(key, amount));
-
-  const toggle = (item: OpenItem) => {
-    const key = keyOf(item);
-    setExcluded((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
-
-  const collectEverything = () =>
-    setAmounts(new Map(groups.map((g) => [groupKey(g), g.owed])));
 
   return (
     <FormSheet
       visible={visible}
       onDismiss={onDismiss}
-      dirty={dirty}
+      dirty={form.dirty}
       scrollRef={scrollBody}
       title={t("ledger.collect_money")}
       subject={singleItem ? singleItem.label : customerName}
@@ -234,7 +76,7 @@ export function CollectSheet({
       <View>
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
-        {singleItem ? (
+        {single ? (
           <>
             {openItem ? (
               <Text
@@ -243,93 +85,85 @@ export function CollectSheet({
                 {t("ledger.open_amount_hint")}
               </Text>
             ) : (
-              <CollectHero amount={money(singleMax)} billCount={1} />
+              <CollectHero amount={single.money(single.plan.max)} billCount={1} />
             )}
 
             {openItem && (
               <CurrencyInput
                 label={t("ledger.month_amount")}
-                amount={openBill}
-                currencyId={singleCurrencyId}
+                amount={single.openBill}
+                currencyId={single.currencyId}
                 currencies={currencies}
-                onChange={(next) => {
-                  setOpenBill(next.amount);
-                  setSingleCurrencyId(next.currencyId);
-                  setSingleAmount(next.amount);
-                }}
+                onChange={single.setOpenBill}
               />
             )}
 
             <CurrencyInput
               label={t("ledger.amount")}
               labelAction={
-                openItem ? null : (
-                  <CollectAllButton
-                    onPress={() => setSingleAmount(singleMax)}
-                  />
-                )
+                openItem ? null : <CollectAllButton onPress={single.collectAll} />
               }
-              amount={singleAmount}
-              currencyId={singleCurrencyId}
+              amount={single.amount}
+              currencyId={single.currencyId}
               currencies={currencies}
               lockCurrency
-              onChange={(next) => setSingleAmount(next.amount)}
+              onChange={(next) => single.setAmount(next.amount)}
             />
 
-            {(singleAmount ?? 0) > 0 && (singleAmount ?? 0) < singleMax && (
+            {single.plan.partial && (
               <Text className="-mt-2 mb-4 text-xs text-amber-700">
                 {t("ledger.partial_leaves_debt")}
               </Text>
             )}
 
-            {singleOverpaying && (
+            {single.plan.overpaying && (
               <ErrorBanner
                 message={t("ledger.over_by_single", {
-                  max: money(singleMax),
+                  max: single.money(single.plan.max),
                 })}
-                onDismiss={() => setSingleAmount(singleMax)}
+                onDismiss={single.collectAll}
               />
             )}
           </>
         ) : (
           <>
             <CollectHero
-              amount={heroAmount}
-              approx={heroApprox}
-              billCount={owed.length}
+              amount={pool.heroAmount}
+              approx={pool.heroApprox}
+              billCount={pool.billCount}
             />
 
-            {multiCurrency && (
+            {pool.multiCurrency && (
               <View
                 className={`${CARD_SURFACE} mb-4 flex-row items-center gap-3 px-4 py-3`}
               >
                 <Text className="flex-1 text-xs text-gray-500">
                   {t("ledger.multi_currency_hint")}
                 </Text>
-                <CollectAllButton onPress={collectEverything} />
+                <CollectAllButton onPress={pool.collectEverything} />
               </View>
             )}
 
-            {plans.map((plan) => (
+            {pool.plans.map((plan) => (
               <CurrencyCollectSection
                 key={groupKey(plan)}
                 plan={plan}
                 currencies={currencies}
                 display={display}
-                excluded={excluded}
-                grouped={multiCurrency}
-                onChangeAmount={(amount) => setAmount(groupKey(plan), amount)}
-                onToggle={toggle}
+                excluded={pool.excluded}
+                grouped={pool.multiCurrency}
+                onChangeAmount={(amount) => pool.setAmount(groupKey(plan), amount)}
+                onToggle={pool.toggle}
               />
             ))}
 
-            {multiCurrency && (
+            {pool.multiCurrency && (
               <View className="mb-4 flex-row items-center justify-between border-t border-gray-100 pt-3">
                 <Text fontWeight="Bold" className="text-sm text-gray-900">
                   {t("ledger.total_collecting")}
                 </Text>
                 <Text fontWeight="Bold" className="text-base text-gray-900">
-                  {formatMoney(collectingUsd, null, display)}
+                  {pool.collectingText}
                 </Text>
               </View>
             )}
@@ -338,16 +172,16 @@ export function CollectSheet({
 
         <DatePickerInput
           label={t("ledger.received_at")}
-          value={receivedAt}
-          onChange={pickReceivedAt}
+          value={form.receivedAt}
+          onChange={form.pickReceivedAt}
           showTime
         />
 
         <Input
           label={t("ledger.notes")}
           placeholder={t("ledger.notes_placeholder")}
-          value={notes}
-          onChangeText={setNotes}
+          value={form.notes}
+          onChangeText={form.setNotes}
           multiline
         />
 

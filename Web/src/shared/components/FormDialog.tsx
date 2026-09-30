@@ -1,4 +1,4 @@
-import { useId, useState, type SyntheticEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type SyntheticEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -8,6 +8,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import CloseIcon from "@mui/icons-material/Close";
 import { useUnsavedChangesGuard } from "@shared/shared/hooks/useUnsavedChangesGuard";
 import { ErrorBanner } from "./ErrorBanner";
@@ -15,6 +16,7 @@ import { ErrorBanner } from "./ErrorBanner";
 interface FormDialogProps {
   open: boolean;
   title: string;
+  subtitle?: string;
   onClose: () => void;
   onSubmit: () => void | Promise<void>;
   dirty?: boolean;
@@ -30,6 +32,7 @@ interface FormDialogProps {
 export function FormDialog({
   open,
   title,
+  subtitle,
   onClose,
   onSubmit,
   dirty = false,
@@ -44,6 +47,11 @@ export function FormDialog({
   const [saving, setSaving] = useState(false);
   const [guardedClose] = useUnsavedChangesGuard(dirty, onClose);
   const titleId = useId();
+  const contentRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (error) contentRef.current?.scrollTo({ top: 0 });
+  }, [error]);
 
   const close = () => {
     if (!saving) guardedClose();
@@ -73,6 +81,11 @@ export function FormDialog({
     >
       <DialogTitle id={titleId} sx={{ fontWeight: 700, paddingInlineEnd: 7 }}>
         {title}
+        {subtitle ? (
+          <Typography component="span" variant="body2" color="text.secondary" sx={{ display: "block" }}>
+            {subtitle}
+          </Typography>
+        ) : null}
       </DialogTitle>
       <IconButton
         aria-label={t("common.close")}
@@ -88,7 +101,7 @@ export function FormDialog({
         onSubmit={handleSubmit}
         sx={{ display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0 }}
       >
-        <DialogContent dividers>
+        <DialogContent dividers ref={contentRef}>
           <Stack spacing={2.5}>
             <ErrorBanner message={error} onDismiss={onDismissError} />
             {children}

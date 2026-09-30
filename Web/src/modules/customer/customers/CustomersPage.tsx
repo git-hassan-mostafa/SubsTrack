@@ -4,31 +4,44 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
+import BoltOutlined from "@mui/icons-material/BoltOutlined";
 import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
 import EditOutlined from "@mui/icons-material/EditOutlined";
 import PauseCircleOutlined from "@mui/icons-material/PauseCircleOutlined";
+import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import PlayCircleOutlined from "@mui/icons-material/PlayCircleOutlined";
 import WhatsApp from "@mui/icons-material/WhatsApp";
 import type { GridColDef } from "@mui/x-data-grid";
-import type { Customer } from "@shared/core/types";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import type { Collection, Customer } from "@shared/core/types";
+import { findCurrency, formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
 import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { planSummary } from "@shared/modules/customer/customer-plans/utils/lineLabel";
-import { hasDebtFlag } from "@shared/modules/customer/customers/utils/customerFlags";
+import { useQuickPay } from "@shared/modules/customer/customers/hooks/useQuickPay";
+import { hasAnythingOwed, hasDebtFlag } from "@shared/modules/customer/customers/utils/customerFlags";
 import {
   CUSTOMER_TAB_LABEL_KEYS,
   CUSTOMER_TABS,
   type CustomerTab,
 } from "@shared/modules/customer/customers/utils/customerTabs";
+import {
+  canQuickPay,
+  fixedMonthItems,
+  isMultiPlan,
+  type QuickPayTarget,
+} from "@shared/modules/customer/customers/utils/quickPay";
+import { useLoadOwed } from "@shared/modules/ledger/hooks/useLoadOwed";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { confirm } from "@shared/shared/lib/confirm";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
+import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { MoneyText } from "@/shared/components/MoneyText";
 import { openWhatsApp } from "@/shared/lib/openWhatsApp";
+import { useSendCollectionReceipt } from "@/modules/invoicing/useSendCollectionReceipt";
+import { useCollectDialog } from "@/modules/ledger/collect/useCollectDialog";
 import { DataTable } from "@/shared/table/DataTable";
 import { RowLink } from "@/shared/table/RowLink";
 import type { TableAction } from "@/shared/table/tableAction";
@@ -43,7 +56,7 @@ import { CustomerFormDialog } from "./CustomerFormDialog";
 import { CustomerPills } from "./CustomerPills";
 import { useCustomerHistoryAction } from "./useCustomerHistoryAction";
 
-// Money row actions (pay, collect, write off) arrive with the collect dialog.
+// Every money action re-reads the page: a payment can move a customer to another tab.
 export function CustomersPage() {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
@@ -67,18 +80,67 @@ export function CustomersPage() {
   const reactivateCustomer = useCustomerSlice((s) => s.reactivateCustomer);
   const deleteCustomer = useCustomerSlice((s) => s.deleteCustomer);
   const bulkDeleteCustomers = useCustomerSlice((s) => s.bulkDeleteCustomers);
+  const ledgerError = useLedgerSlice((s) => s.error);
+  const clearLedgerError = useLedgerSlice((s) => s.clearError);
+  const loadOwed = useLoadOwed();
+  const sendReceipt = useSendCollectionReceipt();
   const currencies = useCurrencySlice((s) => s.items);
   const display = findCurrency(currencies, useDisplayCurrencyId());
   const branch = useEffectiveBranchFilter();
   const branchColumn = useBranchColumn<CustomerRow>(t("branches.unassigned"));
   const history = useCustomerHistoryAction();
   const [form, setForm] = useState<{ customer: Customer | null } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [loadingOwedFor, setLoadingOwedFor] = useState<string | null>(null);
 
   useEffect(() => {
     void open(branch);
   }, [open, branch]);
 
   const reload = () => void load();
+
+  const announcePaid = (collections: Collection[]) => {
+    if (collections.length === 0) return;
+    const customerIds = new Set(collections.map((c) => c.customerId));
+    if (customerIds.size > 1) {
+      setNotice(t("web.customers.paid_many", { count: customerIds.size }));
+      return;
+    }
+    const name = rows.find((row) => row.id === collections[0].customerId)?.customer.name ?? "";
+    const amount = collections
+      .map((c) => {
+        const currency = snapshotCurrency(c, currencies);
+        return formatMoney(c.amount, currency, currency);
+      })
+      .join(" + ");
+    setNotice(t("web.customers.paid_one", { amount, name }));
+  };
+
+  const afterPayment = (collections: Collection[]) => {
+    announcePaid(collections);
+    reload();
+  };
+
+  const collect = useCollectDialog({ onCollected: afterPayment });
+
+  const quickPay = useQuickPay({
+    onPaid: afterPayment,
+    onTypeOne: (customer, item) => collect.openOne(customer.name, item),
+    onTypeMany: () => setNotice(t("web.customers.quick_pay_typed_many")),
+    sendReceipt,
+    onNotice: setNotice,
+  });
+
+  const targetOf = (row: CustomerRow): QuickPayTarget => ({ customer: row.customer, status: row.status });
+
+  const collectOwed = async (customer: Customer) => {
+    setNotice(null);
+    setLoadingOwedFor(customer.id);
+    const owed = await loadOwed(customer).finally(() => setLoadingOwedFor(null));
+    if (!owed) return;
+    if (owed.length === 0) setNotice(t("ledger.nothing_owed"));
+    else collect.open(customer.id, customer.name, owed);
+  };
 
   const confirmToggleActive = (customer: Customer) =>
     confirm({
@@ -149,17 +211,83 @@ export function CustomersPage() {
     onClick: () => void confirmDelete(customers),
   });
 
-  const rowActions = ({ customer }: CustomerRow): TableAction[] => [
+  const quickPayAction = (row: CustomerRow, label: string): TableAction => ({
+    key: "quick-pay",
+    group: "money",
+    label,
+    icon: BoltOutlined,
+    disabled: quickPay.bulkBusy,
+    onClick: () => void quickPay.quickPay(targetOf(row)),
+  });
+
+  const moneyActions = (row: CustomerRow): TableAction[] => {
+    const { customer, status } = row;
+    const actions: TableAction[] = [];
+    if (canQuickPay(customer, status)) {
+      actions.push(
+        quickPayAction(
+          row,
+          isMultiPlan(customer) ? t("payments.quick_pay.pay_unpaid_plans") : t("payments.quick_pay.menu_label"),
+        ),
+      );
+      if (fixedMonthItems(customer, status, currencies).length > 0) {
+        const sendable = whatsAppChatUrl(customer.phoneNumber) !== null;
+        actions.push({
+          key: "quick-pay-whatsapp",
+          group: "money",
+          label: t("invoice.pay_and_send_whatsapp"),
+          icon: WhatsApp,
+          disabled: !sendable,
+          caption: sendable ? undefined : t("invoice.no_phone"),
+          onClick: () => void quickPay.quickPay(targetOf(row), true),
+        });
+      }
+    }
+    if (hasAnythingOwed(status, row.debtUsd)) {
+      actions.push({
+        key: "collect",
+        group: "money",
+        label: t("ledger.collect_money"),
+        icon: PaymentsOutlined,
+        onClick: () => void collectOwed(customer),
+      });
+    }
+    return actions;
+  };
+
+  const customerActions = (customer: Customer): TableAction[] => [
     editAction(customer),
     history.action(customer),
     ...(whatsAppChatUrl(customer.phoneNumber) ? [whatsAppAction(customer)] : []),
     ...(isAdmin ? [toggleActiveAction(customer), deleteAction([customer])] : []),
   ];
 
+  const rowActions = (row: CustomerRow): TableAction[] => [
+    ...moneyActions(row),
+    ...customerActions(row.customer),
+  ];
+
   const bulkActions = (selected: CustomerRow[]): TableAction[] => {
     const customers = selected.map((row) => row.customer);
-    if (customers.length > 1) return [deleteAction(customers)];
-    return [editAction(customers[0]), toggleActiveAction(customers[0]), deleteAction(customers)];
+    const adminOnly = (actions: TableAction[]) => (isAdmin ? actions : []);
+    if (customers.length > 1) {
+      return [
+        {
+          key: "quick-pay",
+          group: "money",
+          label: t("payments.quick_pay.menu_label"),
+          icon: BoltOutlined,
+          disabled: quickPay.bulkBusy,
+          onClick: () => void quickPay.bulkQuickPay(selected.map(targetOf)),
+        },
+        ...adminOnly([deleteAction(customers)]),
+      ];
+    }
+    return [
+      editAction(customers[0]),
+      quickPayAction(selected[0], t("payments.quick_pay.menu_label")),
+      ...adminOnly([toggleActiveAction(customers[0]), deleteAction(customers)]),
+    ];
   };
 
   const columns: GridColDef<CustomerRow>[] = [
@@ -221,6 +349,8 @@ export function CustomersPage() {
   return (
     <Stack spacing={2}>
       <ErrorBanner message={form ? null : writeError} onDismiss={clearWriteError} />
+      <ErrorBanner message={collect.dialog ? null : ledgerError} onDismiss={clearLedgerError} />
+      <ErrorBanner message={notice} onDismiss={() => setNotice(null)} severity="info" />
       <Paper variant="outlined">
         <Tabs
           value={query.filters.tab}
@@ -257,7 +387,8 @@ export function CustomersPage() {
         }}
         rowLabel={(row) => row.customer.name}
         rowActions={rowActions}
-        bulkActions={isAdmin ? bulkActions : undefined}
+        rowBusy={(row) => quickPay.busyCustomerId === row.id || loadingOwedFor === row.id}
+        bulkActions={bulkActions}
         empty={{ title: t("customers.no_customers"), hint: t("web.customers.empty_hint") }}
         filtered={query.search !== "" || query.filters.tab !== DEFAULT_CUSTOMER_TAB}
         autoRowHeight
@@ -277,6 +408,7 @@ export function CustomersPage() {
         />
       ) : null}
       {history.dialog}
+      {collect.dialog}
     </Stack>
   );
 }
