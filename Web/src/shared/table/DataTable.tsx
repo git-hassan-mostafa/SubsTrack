@@ -20,13 +20,12 @@ import { EmptyState } from "@/shared/components/EmptyState";
 import { SearchField } from "@/shared/components/SearchField";
 import { PAGE_SIZE_OPTIONS } from "@/state/createPagedStore";
 import { BulkActionBar } from "./BulkActionBar";
-import { RowActionsMenu } from "./RowActionsMenu";
+import { actionsColumn } from "./actionsColumn";
+import { AUTO_ROW_HEIGHT, gridSx, LOCKED_GRID } from "./gridBase";
 import type { TableAction } from "./tableAction";
 import { useTableExport, type TableExport } from "./useTableExport";
 
-const ACTIONS_FIELD = "__actions";
 const NO_IDS: ReadonlySet<GridRowId> = new Set();
-const AUTO_ROW_HEIGHT = () => "auto" as const;
 
 interface TableEmpty {
   title: string;
@@ -108,23 +107,10 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
 
   const allColumns = useMemo<GridColDef<T>[]>(() => {
     if (!rowActions) return columns;
-    const actionsColumn: GridColDef<T> = {
-      field: ACTIONS_FIELD,
-      headerName: t("web.table.actions"),
-      width: 72,
-      align: "center",
-      headerAlign: "center",
-      sortable: false,
-      renderCell: (params) => (
-        <RowActionsMenu
-          rowLabel={rowLabel(params.row)}
-          actions={rowActions(params.row)}
-          tabIndex={params.tabIndex}
-          busy={rowBusy?.(params.row) ?? false}
-        />
-      ),
-    };
-    return [...columns, actionsColumn];
+    return [
+      ...columns,
+      actionsColumn<T>({ headerName: t("web.table.actions"), rowLabel, rowActions, rowBusy }),
+    ];
   }, [columns, rowActions, rowBusy, rowLabel, t]);
 
   const showEmpty = loaded && !loading && !error && rows.length === 0;
@@ -215,21 +201,12 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
           rowSelectionModel={selectionModel}
           onRowSelectionModelChange={(model) => setSelection({ rows, ids: model.ids })}
           hideFooterSelectedRowCount
-          disableColumnSorting
-          disableColumnMenu
-          disableColumnFilter
-          disableColumnSelector
-          disableColumnResize
-          autoHeight
+          {...LOCKED_GRID}
           getRowHeight={autoRowHeight ? AUTO_ROW_HEIGHT : undefined}
           slotProps={{
             loadingOverlay: { variant: "linear-progress", noRowsVariant: "linear-progress" },
           }}
-          sx={{
-            bgcolor: "background.paper",
-            "--DataGrid-overlayHeight": "160px",
-            ...(autoRowHeight ? { "& .MuiDataGrid-cell": { py: 1.5 } } : {}),
-          }}
+          sx={gridSx(autoRowHeight)}
         />
       )}
     </Stack>

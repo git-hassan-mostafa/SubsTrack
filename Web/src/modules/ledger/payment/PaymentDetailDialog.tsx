@@ -7,13 +7,9 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemText from "@mui/material/ListItemText";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import type { GridColDef } from "@mui/x-data-grid";
 import type { CollectionItem, CollectionListItem } from "@shared/core/types";
 import { findCurrency, formatMoney, formatMoneyPair, snapshotCurrency } from "@shared/core/utils/currency";
 import { formatDate } from "@shared/core/utils/date";
@@ -25,6 +21,8 @@ import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice"
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { InfoRows } from "@/shared/components/InfoRows";
 import { StatusChip } from "@/shared/components/StatusChip";
+import { LocalTable } from "@/shared/table/LocalTable";
+import { RowLink } from "@/shared/table/RowLink";
 
 export type OpenPaidBill = (item: CollectionItem, label: string, customerName: string | null) => void;
 
@@ -49,7 +47,7 @@ export function PaymentDetailDialog({
   const titleId = useId();
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth aria-labelledby={titleId}>
+    <Dialog open onClose={onClose} maxWidth="md" fullWidth aria-labelledby={titleId}>
       <DialogTitle id={titleId} sx={{ fontWeight: 700 }}>
         {t("ledger.payment_details")}
         {collection ? (
@@ -81,6 +79,15 @@ interface PaymentBodyProps {
   loadingItemId: string | null;
 }
 
+interface PaymentBodyProps {
+  collection: CollectionListItem;
+  onOpenItem?: OpenPaidBill;
+  loadingItemId: string | null;
+}
+
+type PaidRow = CollectionItem & { label: string };
+
+// Laid out like the bill dialog: the figure beside its facts, the bills below.
 function PaymentBody({ collection, onOpenItem, loadingItemId }: PaymentBodyProps) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
@@ -90,33 +97,95 @@ function PaymentBody({ collection, onOpenItem, loadingItemId }: PaymentBodyProps
   const total = formatMoneyPair(collection.amount, source, display);
   const money = (value: number) => formatMoney(value, source, source);
   const voided = collection.voidedAt !== null;
+  const rows: PaidRow[] = collection.items.map((item, index) => ({
+    ...item,
+    label: collection.itemLabels[index] || t("ledger.payment"),
+  }));
+
+  const columns: GridColDef<PaidRow>[] = [
+    {
+      field: "label",
+      headerName: t("web.collect.bill_column"),
+      flex: 1,
+      minWidth: 200,
+      renderCell: (params) => {
+        if (!onOpenItem) return params.row.label;
+        if (loadingItemId === params.row.id) {
+          return <CircularProgress size={18} aria-label={t("web.loading")} />;
+        }
+        return (
+          <RowLink
+            label={params.row.label}
+            tabIndex={loadingItemId === null ? params.tabIndex : -1}
+            onClick={() => {
+              if (loadingItemId === null) onOpenItem(params.row, params.row.label, collection.customerName);
+            }}
+          />
+        );
+      },
+    },
+    {
+      field: "billTotal",
+      headerName: t("ledger.bill_total"),
+      width: 140,
+      align: "right",
+      headerAlign: "right",
+      valueGetter: (_value, row) => (row.charge ? money(row.charge.amount) : ""),
+    },
+    {
+      field: "dueDate",
+      headerName: t("ledger.due_date"),
+      width: 130,
+      valueGetter: (_value, row) => (row.charge ? formatDate(row.charge.dueDate) : ""),
+    },
+    {
+      field: "amount",
+      headerName: t("web.bill.paid_here"),
+      width: 160,
+      align: "right",
+      headerAlign: "right",
+      renderCell: (params) => (
+        <Box component="span" sx={{ fontWeight: 700, textDecoration: voided ? "line-through" : "none" }}>
+          {money(params.row.amount)}
+        </Box>
+      ),
+    },
+  ];
 
   return (
     <Stack spacing={2.5}>
-      <Stack spacing={0.5} sx={{ alignItems: "center", py: 1 }}>
-        <Typography
-          variant="h4"
-          component="p"
-          sx={{
-            fontWeight: 700,
-            color: voided ? "text.disabled" : "text.primary",
-            textDecoration: voided ? "line-through" : "none",
-          }}
-        >
-          {total.primary}
-        </Typography>
-        {total.approx ? (
-          <Typography variant="body2" color="text.secondary">
-            {total.approx}
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", sm: "minmax(0, 1fr) minmax(0, 1.4fr)" },
+          gap: 3,
+          alignItems: "center",
+        }}
+      >
+        <Stack spacing={0.5} sx={{ alignItems: "center", py: 1 }}>
+          <Typography
+            variant="h4"
+            component="p"
+            sx={{
+              fontWeight: 700,
+              color: voided ? "text.disabled" : "text.primary",
+              textDecoration: voided ? "line-through" : "none",
+            }}
+          >
+            {total.primary}
           </Typography>
-        ) : null}
-        <Stack direction="row" spacing={1}>
-          <StatusChip tone="gray" label={t(`ledger.kind_${collection.kind}`)} />
-          {voided ? <StatusChip tone="red" label={t("ledger.voided")} /> : null}
+          {total.approx ? (
+            <Typography variant="body2" color="text.secondary">
+              {total.approx}
+            </Typography>
+          ) : null}
+          <Stack direction="row" spacing={1}>
+            <StatusChip tone="gray" label={t(`ledger.kind_${collection.kind}`)} />
+            {voided ? <StatusChip tone="red" label={t("ledger.voided")} /> : null}
+          </Stack>
         </Stack>
-      </Stack>
-
-      <InfoRows rows={collectionInfoRows(collection, t, userName)} />
+        <InfoRows rows={collectionInfoRows(collection, t, userName)} />
+      </Box>
 
       <Stack spacing={1}>
         <Typography sx={{ fontWeight: 700 }}>
@@ -127,53 +196,12 @@ function PaymentBody({ collection, onOpenItem, loadingItemId }: PaymentBodyProps
             {t("ledger.voided_hint")}
           </Typography>
         ) : null}
-        <Paper variant="outlined">
-          <List disablePadding>
-            {collection.items.map((item, index) => {
-              const label = collection.itemLabels[index] || t("ledger.payment");
-              const charge = item.charge;
-              const text = (
-                <ListItemText
-                  primary={label}
-                  secondary={
-                    charge
-                      ? `${t("ledger.bill_total")} ${money(charge.amount)} · ${t("ledger.due_on", {
-                          date: formatDate(charge.dueDate),
-                        })}`
-                      : null
-                  }
-                />
-              );
-              const amount = (
-                <Typography variant="body2" sx={{ fontWeight: 700, flexShrink: 0, marginInlineStart: 2 }}>
-                  {money(item.amount)}
-                </Typography>
-              );
-              return (
-                <ListItem key={item.id} divider={index < collection.items.length - 1} disablePadding>
-                  {onOpenItem ? (
-                    <ListItemButton
-                      onClick={() => onOpenItem(item, label, collection.customerName)}
-                      disabled={loadingItemId !== null}
-                    >
-                      {text}
-                      {loadingItemId === item.id ? (
-                        <CircularProgress size={18} aria-label={t("web.loading")} sx={{ marginInlineStart: 2 }} />
-                      ) : (
-                        amount
-                      )}
-                    </ListItemButton>
-                  ) : (
-                    <Stack direction="row" sx={{ alignItems: "center", width: "100%", px: 2, py: 1 }}>
-                      {text}
-                      {amount}
-                    </Stack>
-                  )}
-                </ListItem>
-              );
-            })}
-          </List>
-        </Paper>
+        <LocalTable<PaidRow>
+          label={voided ? t("ledger.this_paid") : t("ledger.this_pays")}
+          columns={columns}
+          rows={rows}
+          rowTone={() => (voided ? "muted" : null)}
+        />
       </Stack>
     </Stack>
   );

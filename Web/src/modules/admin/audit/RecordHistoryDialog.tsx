@@ -7,11 +7,8 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemText from "@mui/material/ListItemText";
 import Typography from "@mui/material/Typography";
+import type { GridColDef } from "@mui/x-data-grid";
 import type { AuditEntry, AuditRecordTarget, AuditTable, Customer } from "@shared/core/types";
 import { formatDateTimeShort } from "@shared/core/utils/date";
 import {
@@ -29,6 +26,8 @@ import {
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import { LocalTable } from "@/shared/table/LocalTable";
+import { RowLink } from "@/shared/table/RowLink";
 import { AuditEntryDialog } from "./AuditEntryDialog";
 import { AuditSummaryText } from "./AuditSummaryText";
 
@@ -89,7 +88,7 @@ function HistoryDialogFrame({ title, name, onClose, children }: HistoryDialogFra
   const titleId = useId();
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth aria-labelledby={titleId}>
+    <Dialog open onClose={onClose} maxWidth="md" fullWidth aria-labelledby={titleId}>
       <DialogTitle id={titleId} sx={{ fontWeight: 700 }}>
         {title}
         {name ? (
@@ -142,26 +141,50 @@ function HistoryEntries({ timeline }: { timeline: RecordHistoryState }) {
   if (timeline.entries.length === 0) {
     return <EmptyState title={t("audit.record_empty_title")} hint={t("audit.record_empty_desc")} />;
   }
+  const columns: GridColDef<AuditEntry>[] = [
+    {
+      field: "occurredAt",
+      headerName: t("audit.occurred_at"),
+      width: 160,
+      renderCell: (params) => (
+        <RowLink
+          label={formatDateTimeShort(params.row.occurredAt)}
+          tabIndex={params.tabIndex}
+          onClick={() => setOpened(params.row)}
+        />
+      ),
+    },
+    {
+      field: "summary",
+      headerName: t("web.audit.change"),
+      flex: 1,
+      minWidth: 280,
+      renderCell: (params) => (
+        <Box sx={{ whiteSpace: "normal", lineHeight: 1.5 }}>
+          <AuditSummaryText
+            parts={buildAuditSummary(params.row, fieldContext(base, params.row), {
+              showSubject: false,
+            })}
+          />
+        </Box>
+      ),
+    },
+    {
+      field: "actorUsername",
+      headerName: t("audit.filter_by_actor"),
+      width: 140,
+      valueGetter: (_value, row) => row.actorUsername ?? t("audit.unknown_actor"),
+    },
+  ];
+
   return (
     <>
-      <List disablePadding>
-        {timeline.entries.map((entry) => (
-          <ListItem key={entry.id} divider disablePadding>
-            <ListItemButton onClick={() => setOpened(entry)}>
-              <ListItemText
-                primary={
-                  <AuditSummaryText
-                    parts={buildAuditSummary(entry, fieldContext(base, entry), {
-                      showSubject: false,
-                    })}
-                  />
-                }
-                secondary={formatDateTimeShort(entry.occurredAt)}
-              />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
+      <LocalTable<AuditEntry>
+        label={t("audit.record_history_title")}
+        columns={columns}
+        rows={timeline.entries}
+        autoRowHeight
+      />
       {opened ? (
         <AuditEntryDialog entry={opened} base={base} onClose={() => setOpened(null)} />
       ) : null}

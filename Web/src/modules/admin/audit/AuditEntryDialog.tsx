@@ -6,11 +6,10 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import ArrowForward from "@mui/icons-material/ArrowForward";
-import type { AuditEntry } from "@shared/core/types";
+import type { GridColDef } from "@mui/x-data-grid";
+import type { AuditChange, AuditEntry } from "@shared/core/types";
 import { formatDateTime } from "@shared/core/utils/date";
 import {
   actionLabel,
@@ -28,6 +27,7 @@ import {
   type AuditFieldContext,
 } from "@shared/modules/admin/audit/utils/valueDisplay";
 import { InfoRows } from "@/shared/components/InfoRows";
+import { LocalTable } from "@/shared/table/LocalTable";
 import { AuditSummaryText } from "./AuditSummaryText";
 
 interface AuditEntryDialogProps {
@@ -44,7 +44,7 @@ export function AuditEntryDialog({ entry, base, onClose }: AuditEntryDialogProps
   const snapshot = shownSnapshotFields(entry);
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth aria-labelledby={titleId}>
+    <Dialog open onClose={onClose} maxWidth="md" fullWidth aria-labelledby={titleId}>
       <DialogTitle id={titleId} sx={{ fontWeight: 700 }}>
         {`${actionLabel(t, entry.action)} · ${tableLabel(t, entry.table)}`}
       </DialogTitle>
@@ -87,48 +87,40 @@ export function AuditEntryDialog({ entry, base, onClose }: AuditEntryDialogProps
   );
 }
 
+type ChangeRow = AuditChange & { id: string };
+
 function ChangeList({ entry, ctx }: { entry: AuditEntry; ctx: AuditFieldContext }) {
   const { t } = useTranslation();
-  return (
-    <Paper variant="outlined" component="ul" sx={{ m: 0, p: 0, listStyle: "none" }}>
-      {entry.changes.map((change, index) => (
-        <Box
-          component="li"
-          key={change.field}
-          sx={{
-            px: 2,
-            py: 1.5,
-            borderTop: index === 0 ? 0 : 1,
-            borderColor: "divider",
-          }}
-        >
-          <Typography variant="caption" color="text.secondary">
-            {formatFieldLabel(change.field, ctx)}
-          </Typography>
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 0.5 }}>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ textDecoration: "line-through" }}
-              aria-label={t("web.audit.before", {
-                value: formatField(change.field, change.before, ctx),
-              })}
-            >
-              {formatField(change.field, change.before, ctx)}
-            </Typography>
-            <ArrowForward fontSize="small" color="disabled" aria-hidden />
-            <Typography
-              variant="body2"
-              sx={{ fontWeight: 600 }}
-              aria-label={t("web.audit.after", {
-                value: formatField(change.field, change.after, ctx),
-              })}
-            >
-              {formatField(change.field, change.after, ctx)}
-            </Typography>
-          </Stack>
+  const rows: ChangeRow[] = entry.changes.map((change) => ({ ...change, id: change.field }));
+  const columns: GridColDef<ChangeRow>[] = [
+    {
+      field: "field",
+      headerName: t("web.audit.field_column"),
+      width: 180,
+      valueGetter: (_value, row) => formatFieldLabel(row.field, ctx),
+    },
+    {
+      field: "before",
+      headerName: t("web.audit.before_column"),
+      flex: 1,
+      minWidth: 140,
+      renderCell: (params) => (
+        <Box component="span" sx={{ color: "text.secondary", textDecoration: "line-through", whiteSpace: "normal" }}>
+          {formatField(params.row.field, params.row.before, ctx)}
         </Box>
-      ))}
-    </Paper>
-  );
+      ),
+    },
+    {
+      field: "after",
+      headerName: t("web.audit.after_column"),
+      flex: 1,
+      minWidth: 140,
+      renderCell: (params) => (
+        <Box component="span" sx={{ fontWeight: 600, whiteSpace: "normal" }}>
+          {formatField(params.row.field, params.row.after, ctx)}
+        </Box>
+      ),
+    },
+  ];
+  return <LocalTable<ChangeRow> label={t("audit.changed_fields")} columns={columns} rows={rows} autoRowHeight />;
 }

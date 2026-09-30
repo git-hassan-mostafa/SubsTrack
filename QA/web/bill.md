@@ -21,7 +21,7 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 | --- | ------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | 1.1 | Part paid          | Open the $20 month paid $5                 | A spinner, then "$5.00 / $20.00" in amber, "Remaining $15.00", pill "Partial"; the details (Month billed, Bill total, Due, Billed on, Billed by) |
 | 1.2 | Paid in full       | Open a month paid in full                  | "$20.00" in green, pill "Settled", no Remaining line, no Collect button                                                                   |
-| 1.3 | Payments table     | Look under the details                     | "1 payment", one row: received date (a link), who collected it, notes, "Paid to this bill" — only the part that reached THIS bill        |
+| 1.3 | Payments table     | Look under the details                     | "1 payment", one row: received date (a link), who collected it, notes, "Paid to this bill" — only the part that reached THIS bill; Status and ⋮ at the end, same look as the page tables |
 | 1.4 | Covers others      | Open the month whose payment also paid a sale | That row says "also paid other bills" under the amount                                                                                |
 | 1.5 | Own currency       | Open the LBP custom fee                    | Every figure in L.L.; "≈ $…" under the big figure only                                                                                    |
 | 1.6 | Collect remaining  | Part-paid bill → "Collect $15.00"          | The caller's collect dialog opens for that bill                                                                                           |
@@ -37,7 +37,7 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 | --- | ---------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | 2.1 | Opens            | Click a payment's date, or ⋮ → Payment details | The amount, a kind pill (Month / Sale / Custom / Mixed), received on, collected by, "Cash now with" the holder  |
 | 2.2 | Banked cash      | A payment handed over to the owner           | "Cash now with: Banked / handed over", Banked on, Banked by                                                       |
-| 2.3 | This pays        | A payment that paid two bills                | "This pays" lists both bills, each with its amount, "Bill total … · Due …"                                       |
+| 2.3 | This pays        | A payment that paid two bills                | Beside the figure, the details; under them a "This pays" table: Bill, Bill total, Due, Paid to this bill — one row per bill |
 | 2.4 | Voided payment   | Open a voided one                            | Struck amount, red "Voided" pill, "This had paid", "These bills are owed again.", Voided on / by / reason; no custody row |
 
 ## 3. Correct amount

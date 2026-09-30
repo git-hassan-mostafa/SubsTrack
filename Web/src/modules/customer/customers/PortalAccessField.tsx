@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import IconButton from "@mui/material/IconButton";
@@ -119,18 +120,23 @@ export function PortalAccessField({
             }}
           />
           {link ? (
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                {t("customers.portal_link_label")}
-              </Typography>
-              <Typography variant="body2" sx={{ wordBreak: "break-all", my: 1 }}>
-                {isolate(link)}
-              </Typography>
+            <Paper
+              variant="outlined"
+              sx={{ px: 2, py: 1.5, display: "flex", alignItems: "center", gap: 2 }}
+            >
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                  {t("customers.portal_link_label")}
+                </Typography>
+                <Typography variant="body2" sx={{ wordBreak: "break-all" }}>
+                  {isolate(link)}
+                </Typography>
+              </Box>
               <Button
-                size="small"
                 color={copied ? "success" : "primary"}
                 startIcon={copied ? <CheckCircleOutlined /> : <ContentCopyOutlined />}
                 onClick={() => void copyLink()}
+                sx={{ flexShrink: 0 }}
               >
                 {copied ? t("customers.portal_copied") : t("customers.portal_copy_link")}
               </Button>

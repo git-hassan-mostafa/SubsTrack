@@ -53,7 +53,10 @@
     "cost": "Cost",
     "restock_several": "Restock several",
     "new_stock": "New stock",
-    "pick_one": "Type a quantity for at least one product."
+    "pick_one": "Type a quantity for at least one product.",
+    "history_date": "Date",
+    "history_type": "Type",
+    "history_by": "By"
   },
   "users": {
     "add": "Add staff member",
@@ -81,9 +84,10 @@
     "change": "Change",
     "details": "Details",
     "record_history": "History of this record",
-    "before": "Before: {{value}}",
-    "after": "After: {{value}}",
-    "no_branch": "Whole organization"
+    "no_branch": "Whole organization",
+    "field_column": "Field",
+    "before_column": "Before",
+    "after_column": "After"
   },
   "organization": {
     "limits_title": "Limits and billing",

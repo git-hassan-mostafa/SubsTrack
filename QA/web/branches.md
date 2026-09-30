@@ -102,7 +102,7 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 
 | #   | Scenario         | Steps                                    | Expected result                                                                                   |
 | --- | ---------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| 8.1 | Open             | ⋮ → History on a renamed branch          | "Change history" with the branch name under it; each change as a sentence (names in bold) with its date and time, newest first |
+| 8.1 | Open             | ⋮ → History on a renamed branch          | "Change history" with the branch name under it; a table with When (a link to the entry), Change (the sentence, names in bold) and Staff, newest first |
 | 8.2 | Never changed    | History on a new branch                  | The "created" entry only, or "No changes recorded" if the audit log started later                 |
 | 8.3 | Close            | Close button, Esc, or a click outside    | Closes                                                                                            |
 

@@ -43,7 +43,7 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 | #   | Scenario          | Steps                                                 | Expected result                                                                                     |
 | --- | ----------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | 3.1 | Open              | Click the date in a row (or ⋮ → Details)              | Dialog "Edited · Customer": the sentence, then Customer / Staff / When / Fields changed              |
-| 3.2 | Changes           | An edit entry                                          | One line per field: old value struck through → new value in bold                                   |
+| 3.2 | Changes           | An edit entry                                          | A table: Field, Before (struck through), After (bold) — one row per field                          |
 | 3.3 | Created record    | An "Added" entry                                       | The record's fields as label / value rows; hidden columns (ids, tenant) are not shown               |
 | 3.4 | Nothing recorded  | An entry with no fields                                | "No field values recorded."                                                                          |
 | 3.5 | Record history    | ⋮ → History of this record                            | The Change history dialog for that one record, with its name under the title                        |

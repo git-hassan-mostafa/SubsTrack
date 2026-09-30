@@ -1,14 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import type { GridColDef } from "@mui/x-data-grid";
 import type { Collection, Currency } from "@shared/core/types";
 import { formatMoney } from "@shared/core/utils/currency";
 import { formatDateTime } from "@shared/core/utils/date";
@@ -19,7 +13,7 @@ import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { StatusChip } from "@/shared/components/StatusChip";
-import { RowActionsMenu } from "@/shared/table/RowActionsMenu";
+import { LocalTable } from "@/shared/table/LocalTable";
 import { RowLink } from "@/shared/table/RowLink";
 import { useSendCollectionReceipt } from "@/modules/invoicing/useSendCollectionReceipt";
 import type { BillRecipient } from "@/modules/invoicing/useSendBillReceipt";
@@ -63,6 +57,64 @@ export function BillPaymentsList({ bill, chargeId, source, billVoided, recipient
       onVoid: () => setVoidTarget(payment),
     });
 
+  const isVoided = (payment: Collection) => billVoided || payment.voidedAt !== null;
+
+  const columns: GridColDef<Collection>[] = [
+    {
+      field: "receivedAt",
+      headerName: t("ledger.received_at"),
+      width: 170,
+      renderCell: (params) => (
+        <RowLink
+          label={formatDateTime(params.row.receivedAt)}
+          tabIndex={params.tabIndex}
+          onClick={() => setDetailId(params.row.id)}
+        />
+      ),
+    },
+    {
+      field: "receivedByUserId",
+      headerName: t("ledger.collected_by"),
+      width: 150,
+      valueGetter: (_value, row) => userName(row.receivedByUserId) ?? t("common.unknown"),
+    },
+    {
+      field: "notes",
+      headerName: t("ledger.notes"),
+      flex: 1,
+      minWidth: 140,
+    },
+    {
+      field: "paidHere",
+      headerName: t("web.bill.paid_here"),
+      width: 170,
+      align: "right",
+      headerAlign: "right",
+      renderCell: (params) => (
+        <Stack sx={{ alignItems: "flex-end" }}>
+          <Typography
+            variant="body2"
+            sx={{ fontWeight: 600, textDecoration: isVoided(params.row) ? "line-through" : "none" }}
+          >
+            {money(paidToCharge(params.row, chargeId))}
+          </Typography>
+          {(params.row.items?.length ?? 0) > 1 ? (
+            <Typography variant="caption" color="text.secondary">
+              {t("ledger.covers_others")}
+            </Typography>
+          ) : null}
+        </Stack>
+      ),
+    },
+    {
+      field: "voidedAt",
+      headerName: t("web.status"),
+      width: 110,
+      renderCell: (params) =>
+        isVoided(params.row) ? <StatusChip tone="gray" label={t("ledger.voided")} /> : null,
+    },
+  ];
+
   return (
     <Stack spacing={1}>
       <Typography sx={{ fontWeight: 700 }}>
@@ -79,59 +131,15 @@ export function BillPaymentsList({ bill, chargeId, source, billVoided, recipient
           {t("ledger.no_payments_yet")}
         </Typography>
       ) : (
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small" aria-label={t("web.bill.payments_table")}>
-            <TableHead>
-              <TableRow>
-                <TableCell>{t("ledger.received_at")}</TableCell>
-                <TableCell>{t("ledger.collected_by")}</TableCell>
-                <TableCell>{t("ledger.notes")}</TableCell>
-                <TableCell align="right">{t("web.bill.paid_here")}</TableCell>
-                <TableCell sx={{ width: 48 }} />
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map((payment) => {
-                const voided = billVoided || payment.voidedAt !== null;
-                const coversMore = (payment.items?.length ?? 0) > 1;
-                const date = formatDateTime(payment.receivedAt);
-                return (
-                  <TableRow key={payment.id} sx={{ opacity: voided ? 0.6 : 1 }}>
-                    <TableCell>
-                      <RowLink label={date} tabIndex={0} onClick={() => setDetailId(payment.id)} />
-                    </TableCell>
-                    <TableCell>{userName(payment.receivedByUserId) ?? t("common.unknown")}</TableCell>
-                    <TableCell sx={{ maxWidth: 220 }}>
-                      <Typography variant="body2" noWrap title={payment.notes ?? undefined}>
-                        {payment.notes ?? ""}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography
-                        variant="body2"
-                        sx={{ fontWeight: 600, textDecoration: voided ? "line-through" : "none" }}
-                      >
-                        {money(paidToCharge(payment, chargeId))}
-                      </Typography>
-                      {coversMore ? (
-                        <Typography variant="caption" color="text.secondary">
-                          {t("ledger.covers_others")}
-                        </Typography>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      {voided ? (
-                        <StatusChip tone="gray" label={t("ledger.voided")} />
-                      ) : (
-                        <RowActionsMenu rowLabel={date} actions={actionsFor(payment)} />
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <LocalTable<Collection>
+          label={t("web.bill.payments_table")}
+          columns={columns}
+          rows={rows}
+          rowLabel={(payment) => formatDateTime(payment.receivedAt)}
+          rowActions={(payment) => (isVoided(payment) ? [] : actionsFor(payment))}
+          rowTone={(payment) => (isVoided(payment) ? "muted" : null)}
+          autoRowHeight
+        />
       )}
 
       {voidTarget ? (

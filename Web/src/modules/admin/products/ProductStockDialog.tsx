@@ -2,14 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import EditOutlined from "@mui/icons-material/EditOutlined";
 import UndoOutlined from "@mui/icons-material/UndoOutlined";
+import type { GridColDef } from "@mui/x-data-grid";
 import type { Product, StockMovement } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { formatDateTime } from "@shared/core/utils/date";
@@ -28,7 +26,7 @@ import { useProductSlice } from "@shared/state/hooks/useProductSlice";
 import { CurrencyInput } from "@/shared/components/CurrencyInput";
 import { FormDialog } from "@/shared/components/FormDialog";
 import { StatusChip } from "@/shared/components/StatusChip";
-import { RowActionsMenu } from "@/shared/table/RowActionsMenu";
+import { LocalTable } from "@/shared/table/LocalTable";
 import type { TableAction } from "@/shared/table/tableAction";
 import { useRecordHistoryAction } from "@/modules/admin/audit/useRecordHistoryAction";
 
@@ -138,34 +136,73 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
     onClose();
   };
 
+  const columns: GridColDef<StockMovement>[] = [
+    {
+      field: "occurredAt",
+      headerName: t("web.products.history_date"),
+      width: 160,
+      valueGetter: (_value, row) => formatDateTime(row.occurredAt),
+    },
+    {
+      field: "reason",
+      headerName: t("web.products.history_type"),
+      width: 190,
+      renderCell: (params) => <EntryTypeCell movement={params.row} />,
+    },
+    {
+      field: "quantityDelta",
+      headerName: t("products.stock_quantity_label"),
+      width: 100,
+      align: "right",
+      headerAlign: "right",
+      renderCell: (params) => <QuantityCell movement={params.row} />,
+    },
+    {
+      field: "unitCost",
+      headerName: t("web.products.cost"),
+      width: 180,
+      align: "right",
+      headerAlign: "right",
+      renderCell: (params) => <CostCell movement={params.row} />,
+    },
+    {
+      field: "note",
+      headerName: t("products.stock_note_label"),
+      flex: 1,
+      minWidth: 160,
+    },
+    {
+      field: "recordedByUserId",
+      headerName: t("web.products.history_by"),
+      width: 140,
+      valueGetter: (_value, row) => userName(row.recordedByUserId) ?? "",
+    },
+  ];
+
   return (
     <FormDialog
       open
       title={t("products.adjust_stock_title")}
+      subtitle={product.name}
       onClose={onClose}
       onSubmit={submit}
       dirty={form.dirty}
       error={error}
       onDismissError={clearError}
       submitLabel={t(editing ? "products.save_stock_changes" : "products.save_stock")}
-      maxWidth="md"
+      maxWidth="lg"
     >
-      <Paper variant="outlined" sx={{ px: 2, py: 1.5 }}>
-        <Typography variant="body2" color="text.secondary">
-          {product.name}
-        </Typography>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "baseline" }}>
+        <Typography color="text.secondary">{t("products.stock_on_hand")}</Typography>
         <Typography
-          variant="h4"
+          variant="h6"
           component="p"
           sx={{ fontWeight: 700 }}
           color={onHand > 0 ? "text.primary" : "error"}
         >
           {onHand}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {t("products.stock_on_hand")}
-        </Typography>
-      </Paper>
+      </Stack>
       {editing ? (
         <Alert severity="info" onClose={form.reset}>
           <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -179,18 +216,28 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
           <Typography variant="caption">{t("products.editing_entry_hint")}</Typography>
         </Alert>
       ) : null}
-      <TextField
-        label={t("products.stock_quantity_label")}
-        value={form.quantity}
-        onChange={(event) => form.changeQuantity(digitsOnly(event.target.value))}
-        placeholder="0"
-        required
-        autoFocus
-        fullWidth
-        slotProps={{ htmlInput: { inputMode: "numeric" } }}
-      />
       <Stack spacing={1}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "1fr",
+              md: "140px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr)",
+            },
+            gap: 2,
+            alignItems: "start",
+          }}
+        >
+          <TextField
+            label={t("products.stock_quantity_label")}
+            value={form.quantity}
+            onChange={(event) => form.changeQuantity(digitsOnly(event.target.value))}
+            placeholder="0"
+            required
+            autoFocus
+            fullWidth
+            slotProps={{ htmlInput: { inputMode: "numeric" } }}
+          />
           <CurrencyInput
             label={t("products.cost_per_unit_label")}
             amount={form.unitCost}
@@ -206,7 +253,14 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
             currencies={currencies}
             lockCurrency
           />
-        </Stack>
+          <TextField
+            label={t("products.stock_note_label")}
+            value={form.note}
+            onChange={(event) => form.setNote(event.target.value)}
+            placeholder={t("products.stock_note_placeholder")}
+            fullWidth
+          />
+        </Box>
         {costEffect != null ? (
           <Typography variant="body2" color={adding ? "warning.dark" : "success.dark"}>
             {t(adding ? "products.total_cost_adds_note" : "products.total_cost_back_note", {
@@ -215,21 +269,11 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
           </Typography>
         ) : null}
       </Stack>
-      <TextField
-        label={t("products.stock_note_label")}
-        value={form.note}
-        onChange={(event) => form.setNote(event.target.value)}
-        placeholder={t("products.stock_note_placeholder")}
-        fullWidth
-      />
       {projected != null && projected < 0 ? (
         <Alert severity="warning">{t("products.stock_goes_negative", { value: projected })}</Alert>
       ) : null}
-      <Box>
-        <Stack
-          direction="row"
-          sx={{ alignItems: "baseline", justifyContent: "space-between", mb: 1 }}
-        >
+      <Stack spacing={1}>
+        <Stack direction="row" sx={{ alignItems: "baseline", justifyContent: "space-between" }}>
           <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 700 }}>
             {t("products.stock_history")}
           </Typography>
@@ -244,88 +288,69 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
             {t("products.stock_history_empty")}
           </Typography>
         ) : (
-          <Paper variant="outlined">
-            <List disablePadding>
-              {history.map((movement) => (
-                <StockEntryRow
-                  key={movement.id}
-                  movement={movement}
-                  highlighted={editing?.id === movement.id}
-                  byName={userName(movement.recordedByUserId)}
-                  actions={movement.reason === "sale" ? [] : entryActions(movement)}
-                />
-              ))}
-            </List>
-          </Paper>
+          <LocalTable<StockMovement>
+            label={t("products.stock_history")}
+            columns={columns}
+            rows={history}
+            rowLabel={(movement) =>
+              `${t(`products.stock_reason_${movement.reason}`)} ${signedQuantity(movement.quantityDelta)}`
+            }
+            rowActions={(movement) => (movement.reason === "sale" ? [] : entryActions(movement))}
+            rowTone={(movement) =>
+              editing?.id === movement.id ? "highlighted" : movement.voidedAt ? "muted" : null
+            }
+          />
         )}
-      </Box>
+      </Stack>
       {recordHistory.dialog}
     </FormDialog>
   );
 }
 
-interface StockEntryRowProps {
-  movement: StockMovement;
-  highlighted: boolean;
-  byName: string | null;
-  actions: TableAction[];
-}
-
-function StockEntryRow({ movement, highlighted, byName, actions }: StockEntryRowProps) {
+function EntryTypeCell({ movement }: { movement: StockMovement }) {
   const { t } = useTranslation();
-  const currencies = useCurrencySlice((s) => s.items);
-  const added = movement.quantityDelta > 0;
   const voided = movement.voidedAt !== null;
-  const currency = findCurrency(currencies, movement.currencyId);
-  const reason = t(`products.stock_reason_${movement.reason}`);
-  const quantityColor = voided ? "text.disabled" : added ? "success.main" : "error.main";
-
   return (
-    <ListItem
-      divider
-      sx={{ alignItems: "flex-start", bgcolor: highlighted ? "action.selected" : undefined }}
-      secondaryAction={
-        <RowActionsMenu rowLabel={`${reason} ${signedQuantity(movement.quantityDelta)}`} actions={actions} />
-      }
-    >
-      <Stack sx={{ flexGrow: 1, pr: 6, minWidth: 0 }} spacing={0.25}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-          <Typography
-            variant="body2"
-            sx={{ fontWeight: 600, textDecoration: voided ? "line-through" : undefined }}
-            color={voided ? "text.disabled" : "text.primary"}
-          >
-            {reason}
-          </Typography>
-          <Typography
-            variant="body2"
-            sx={{ fontWeight: 700, textDecoration: voided ? "line-through" : undefined }}
-            color={quantityColor}
-          >
-            {signedQuantity(movement.quantityDelta)}
-          </Typography>
-          {voided ? <StatusChip label={t("products.stock_reversed")} tone="gray" /> : null}
-        </Stack>
-        <Typography variant="caption" color="text.secondary">
-          {[formatDateTime(movement.occurredAt), byName].filter(Boolean).join(" · ")}
-        </Typography>
-        {movement.unitCost != null && !voided ? (
-          <Typography variant="caption" color={added ? "text.secondary" : "success.dark"}>
-            {t(added ? "products.stock_cost_line" : "products.stock_cost_back_line", {
-              amount: formatMoney(
-                Math.abs(movement.quantityDelta * movement.unitCost),
-                currency,
-                currency,
-              ),
-            })}
-          </Typography>
-        ) : null}
-        {movement.note ? (
-          <Typography variant="caption" color="text.secondary">
-            {movement.note}
-          </Typography>
-        ) : null}
-      </Stack>
-    </ListItem>
+    <Stack direction="row" spacing={1} sx={{ alignItems: "center", height: "100%" }}>
+      <Typography
+        variant="body2"
+        sx={{ fontWeight: 600, textDecoration: voided ? "line-through" : undefined }}
+        color={voided ? "text.disabled" : "text.primary"}
+      >
+        {t(`products.stock_reason_${movement.reason}`)}
+      </Typography>
+      {voided ? <StatusChip label={t("products.stock_reversed")} tone="gray" /> : null}
+    </Stack>
   );
 }
+
+function QuantityCell({ movement }: { movement: StockMovement }) {
+  const voided = movement.voidedAt !== null;
+  const added = movement.quantityDelta > 0;
+  return (
+    <Typography
+      variant="body2"
+      component="span"
+      sx={{ fontWeight: 700, textDecoration: voided ? "line-through" : undefined }}
+      color={voided ? "text.disabled" : added ? "success.main" : "error.main"}
+    >
+      {signedQuantity(movement.quantityDelta)}
+    </Typography>
+  );
+}
+
+// A removal with a cost gives money back; a reversed entry costs nothing.
+function CostCell({ movement }: { movement: StockMovement }) {
+  const { t } = useTranslation();
+  const currencies = useCurrencySlice((s) => s.items);
+  if (movement.unitCost == null || movement.voidedAt !== null) return null;
+  const currency = findCurrency(currencies, movement.currencyId);
+  const amount = formatMoney(Math.abs(movement.quantityDelta * movement.unitCost), currency, currency);
+  if (movement.quantityDelta > 0) return <>{amount}</>;
+  return (
+    <Typography variant="body2" component="span" color="success.dark">
+      {t("products.stock_cost_back_line", { amount })}
+    </Typography>
+  );
+}
+
