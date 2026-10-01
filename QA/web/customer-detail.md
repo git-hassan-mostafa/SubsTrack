@@ -1,15 +1,17 @@
-# Web — Customer Page (months) — QA Scenarios
+# Web — Customer Page — QA Scenarios
 
-The web customer page, part 1: the **service-line tabs**, the **year card**, the months as a **list** (a table, one row per month) or a **grid** (coloured tiles) — switched by two icons at the top right — with their click rules and ⋮ menus, picking several months and the bulk bar, the **skip / unskip** dialog, **Void this month**, and the `?quickPay=1` link. The details card, sales, debts and the customer's full history panel come in E5.
+The web customer page, part 1: the **service-line tabs**, the **year card**, the months as a **list** (a table, one row per month) or a **grid** (coloured tiles) — switched by two icons at the top right — with their click rules and ⋮ menus, picking several months and the bulk bar, the **skip / unskip** dialog, **Void this month**, and the `?quickPay=1` link. Part 2 (§11–§15): the **Details** panel (map link, portal link copy, status), Activate / Delete in the ⋮ beside Edit, the **Debts** panel (owed now / written off, collect, write off, undo, remove a custom debt, collect all, write off all) and the **Sales** panel (latest 10, collect the rest, the bill, history). Recording / editing a sale, the receipt, voiding a sale and adding / editing a custom debt come with the Sales and Debts pages (F1–F3).
 
 The rules are the phone's, and both apps now run the **same Shared code** for them — [../monthly-grid.md](../monthly-grid.md), [../payments.md](../payments.md), [../multiple-plans.md](../multiple-plans.md), [../ledger-collections.md](../ledger-collections.md). Months are paid **oldest first** and voided **newest first**; a skip that a later paid month locks can only be collected.
 
 **Reference code:**
 
 - Web: [CustomerDetailPage.tsx](Web/src/modules/customer/customer-detail/CustomerDetailPage.tsx), [MonthPanel.tsx](Web/src/modules/customer/customer-payments/MonthPanel.tsx), [YearCard.tsx](Web/src/modules/customer/customer-payments/YearCard.tsx), [MonthsTable.tsx](Web/src/modules/customer/customer-payments/MonthsTable.tsx), [monthStatusLook.ts](Web/src/modules/customer/customer-payments/monthStatusLook.ts), [MonthGrid.tsx](Web/src/modules/customer/customer-payments/MonthGrid.tsx), [MonthCell.tsx](Web/src/modules/customer/customer-payments/MonthCell.tsx), [monthCellLook.ts](Web/src/modules/customer/customer-payments/monthCellLook.ts), [LineTabs.tsx](Web/src/modules/customer/customer-payments/LineTabs.tsx), [SkipMonthsDialog.tsx](Web/src/modules/customer/customer-payments/SkipMonthsDialog.tsx)
+- Web part 2: [CustomerDetailsPanel.tsx](Web/src/modules/customer/customer-detail/CustomerDetailsPanel.tsx), [CustomerDebtsPanel.tsx](Web/src/modules/transaction/debts/CustomerDebtsPanel.tsx), [CustomerSalesPanel.tsx](Web/src/modules/transaction/sales/CustomerSalesPanel.tsx), [useCustomerAdminActions.ts](Web/src/modules/customer/customers/useCustomerAdminActions.ts), [useBillDialog.tsx](Web/src/modules/ledger/bill/useBillDialog.tsx)
+- Shared part 2 (both apps): [useCustomerDebts.ts](Shared/src/modules/transaction/debts/hooks/useCustomerDebts.ts), [useRemoveCustomDebt.ts](Shared/src/modules/transaction/debts/hooks/useRemoveCustomDebt.ts), [debtItemView.ts](Shared/src/modules/transaction/debts/utils/debtItemView.ts), [useCustomerSalesPreview.ts](Shared/src/modules/transaction/sales/hooks/useCustomerSalesPreview.ts), [saleView.ts](Shared/src/modules/transaction/sales/utils/saleView.ts), [locationLink.ts](Shared/src/core/utils/locationLink.ts), `owedUsd` in [debtRule.ts](Shared/src/modules/ledger/utils/debtRule.ts) (unit tests: `tests/suites/customerPanels.test.ts` TC-CP-*)
 - Shared with the phone: [useCustomerMonthGrid.ts](Shared/src/modules/customer/customer-payments/hooks/useCustomerMonthGrid.ts), [useLineGrid.ts](Shared/src/modules/customer/customer-payments/hooks/useLineGrid.ts), [useSkipMonths.ts](Shared/src/modules/customer/customer-payments/hooks/useSkipMonths.ts), [monthActions.ts](Shared/src/modules/customer/customer-payments/utils/monthActions.ts), [monthGridLayout.ts](Shared/src/modules/customer/customer-payments/utils/monthGridLayout.ts), [gridSummary.ts](Shared/src/modules/customer/customer-payments/utils/gridSummary.ts), [skipText.ts](Shared/src/modules/customer/customer-payments/utils/skipText.ts) (unit tests: `tests/suites/monthActions.test.ts` TC-MA-*)
 
-Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** project (check the URL first — every pay, skip and void WRITES). Use: a regular customer on a $20 monthly plan started in January with Jan–Mar paid and April paid $5; a customer with two lines (monthly + 3-month); a customer on a custom-priced plan; a non-regular customer; a customer with no phone; a cancelled line.
+Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** project (check the URL first — every pay, skip and void WRITES). Use: a regular customer on a $20 monthly plan started in January with Jan–Mar paid and April paid $5; a customer with two lines (monthly + 3-month); a customer on a custom-priced plan; a non-regular customer; a customer with no phone; a cancelled line. For part 2 also: a customer with a part-paid custom debt 10 days late, a written-off sale, a pay-later sale, a voided sale, an address + area + map link + notes, and the portal switched on (the SaaS owner has set `CustomerPortalUrl`).
 
 ---
 
@@ -158,3 +160,75 @@ Run on a phone dev build — JS-only change, the fingerprint is unchanged.
 | 10.6 | Void error inside   | Network off → Void this month → Void                              | The red reason now shows INSIDE the void dialog (before, it showed behind it)          |
 | 10.7 | Banner text         | This month unpaid                                                 | "<Month Year> Unpaid" + "Amount due" — the English-only "N days into the month" is gone |
 | 10.8 | Selection elsewhere | Long-press on Customers, Plans, Sales, Money received, Wallet     | Selection still works (the hook moved to Shared, unchanged)                            |
+
+## 11. Page layout and the ⋮ beside Edit
+
+| #    | Scenario            | Steps                                                     | Expected result                                                                                           |
+| ---- | ------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| 11.1 | Order               | Open a customer on a wide screen                          | Months on top; below them **Details** (left, narrow) beside **Debts** (right, wide); **Sales** under both |
+| 11.2 | Narrow window       | Make the window narrow                                    | Details, Debts and Sales stack one under the other; nothing scrolls sideways                              |
+| 11.3 | Not admin           | Sign in as a plain user                                   | No ⋮ beside Edit                                                                                          |
+| 11.4 | Deactivate          | Admin → ⋮ → Deactivate → confirm                          | Status in Details turns orange "Inactive"; the ⋮ now says **Activate**                                    |
+| 11.5 | Activate            | ⋮ → Activate → confirm                                    | Status green "Active" again                                                                               |
+| 11.6 | Delete, no history  | Admin, a customer with no payments → ⋮ → Delete → confirm | Back on the Customers list; the customer is gone                                                          |
+| 11.7 | Delete with history | Same on a customer who has payments                       | Stays on the page; the customer is kept as cancelled (inactive)                                           |
+| 11.8 | Same on the list    | Customers → ⋮ → Deactivate / Delete, and bulk Delete      | Same popups and results as before (both doors run one hook now)                                           |
+
+## 12. Details panel
+
+| #    | Scenario    | Steps                                             | Expected result                                                                                |
+| ---- | ----------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 12.1 | Rows        | Customer with phone, branch, address, area, notes | Each shows with its icon; empty fields are not listed                                          |
+| 12.2 | Map link    | Click **Open in Maps**                            | The saved link opens in a NEW tab; a link saved without `https://` still opens                 |
+| 12.3 | No map link | Customer without a location                       | No "Location on map" row                                                                       |
+| 12.4 | Portal on   | Portal switched on for the customer               | "Customer portal link" row with the link and **Copy link**                                     |
+| 12.5 | Copy        | Click Copy link, paste it in a new tab            | Button reads **Copied** in green for 2 s; the pasted link opens the portal for this customer   |
+| 12.6 | Portal off  | Portal switched off                               | No portal row at all                                                                           |
+| 12.7 | After edit  | Edit → change the address → Save                  | Details shows the new address without a reload                                                 |
+
+## 13. Debts panel
+
+| #     | Scenario              | Steps                                                                               | Expected result                                                                                                       |
+| ----- | --------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 13.1  | What is listed        | Customer with a part-paid month, a custom debt, a pay-later sale, and unpaid months | The part-paid month, the custom debt and the sale are rows; plain unpaid months are NOT (the months above show them) |
+| 13.2  | Columns               | Look at a row                                                                       | Bill (link), Type pill, Due, Status chips, Still owed (own currency + "≈" display currency)                          |
+| 13.3  | Chips                 | The 10-days-late part-paid custom debt                                              | Red "**10 days late**" (plural — not "10 day late") and amber "Paid x of y"; a clean on-time row has no chip          |
+| 13.4  | Total                 | Header                                                                              | "Owed: $…" = the sum of the rows, each at its own rate                                                               |
+| 13.5  | Open a bill           | Click a bill name                                                                   | The bill dialog opens with its payments; History (admin), Write off, Collect the rest                                 |
+| 13.6  | Collect from the bill | In the bill dialog → Collect the rest                                               | The bill closes and the collect dialog opens for that bill with the right amount; Save → the row's balance drops      |
+| 13.7  | Collect from ⋮        | Row ⋮ → Collect                                                                     | Collect dialog for that one bill                                                                                      |
+| 13.8  | Collect all           | Header → **Collect all**                                                            | Collect dialog with every listed bill, oldest first                                                                   |
+| 13.9  | Write off             | Row ⋮ → Write off → confirm                                                         | The row leaves "Owed now" and appears under "Written off", greyed with an orange chip                                 |
+| 13.10 | Undo                  | Written off tab → ⋮ → Undo write-off → confirm                                      | It moves back to "Owed now"                                                                                           |
+| 13.11 | Write off all         | Header ⋮ → Write off all → confirm                                                  | Every billed row moves to "Written off"; the confirm names the total and the count                                    |
+| 13.12 | Remove custom debt    | Unpaid custom debt → ⋮ → Remove → confirm                                           | The row is gone                                                                                                       |
+| 13.13 | Remove a paid one     | Part-paid custom debt → ⋮ → Remove → confirm                                        | Refused; the reason shows in the red bar at the top of the months panel; the row stays                               |
+| 13.14 | No Edit yet           | Custom debt ⋮                                                                       | No Edit row (the custom-debt form comes in F3)                                                                        |
+| 13.15 | Empty                 | A customer who owes nothing on bills                                                | "No open bills. Unpaid months are shown above."; Written off tab: "Nothing written off for this customer."            |
+| 13.16 | Months follow         | Collect a part-paid month from this panel                                           | The month tile above turns full green (every panel re-reads after a payment)                                          |
+
+## 14. Sales panel
+
+| #    | Scenario         | Steps                                                       | Expected result                                                                                                                       |
+| ---- | ---------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| 14.1 | Latest 10        | Customer with 12 sales                                      | 10 rows, newest first; header says "Showing the latest 10 sales"                                                                      |
+| 14.2 | Columns          | Look at a row                                               | Receipt ID (#ABC123), Sold at, Items, Total, Still owed (blank when paid or voided), Status chips                                      |
+| 14.3 | Status chips     | Paid / part-paid / unpaid / voided / written off / no items | Paid in full (green) · Part paid (amber) · Not paid (red) · Voided (red, reason on hover) · Written off (orange) · No items (violet) |
+| 14.4 | Voided row       | A voided sale                                               | Greyed row; no Collect in its ⋮                                                                                                       |
+| 14.5 | Collect the rest | Pay-later sale → ⋮ → Collect $x                             | Collect dialog for that sale's bill; Save → Still owed drops and the Debts panel follows                                              |
+| 14.6 | The bill         | Click the receipt ID (or ⋮ → Bill and payments)             | The sale's bill dialog with its payments (the full receipt comes in F1)                                                               |
+| 14.7 | History          | Admin → ⋮ → History                                         | The sale's trail with its bill and payments; a plain user has no History row                                                          |
+| 14.8 | Empty            | Customer with no sales                                      | "No sales for this customer yet."                                                                                                     |
+
+## 15. Phone regression (the phone debts / sales panels now run the same Shared code)
+
+Run on a phone dev build — JS-only change, the fingerprint is unchanged.
+
+| #    | Scenario           | Steps                                                       | Expected result                                                                           |
+| ---- | ------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| 15.1 | Debts panel        | Customer detail → Debts                                     | Same rows, total, chips and ⋮ rows (Collect / Undo / Edit / Write off / Remove) as before |
+| 15.2 | Plural text        | A bill 3 days late; a debt history "settled 2 days late"    | "3 days late" — no longer "3 day late"                                                    |
+| 15.3 | Remove custom debt | ⋮ → Remove                                                  | Same popup; the row goes                                                                  |
+| 15.4 | Sales panel        | Customer detail → Sales; long-press a sale; pull to refresh | 5 cards + Show all; selection clears when the list re-reads                               |
+| 15.5 | Sale collect       | Pay-later sale → ⋮                                          | "Collect" row only when the sale owes, has a customer, and is not voided                  |
+| 15.6 | Open location      | Details → Open in Maps                                      | The Maps app opens the saved link (also one saved without https://)                       |

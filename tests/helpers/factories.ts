@@ -8,6 +8,7 @@ import type {
   MonthBill,
   OpenItem,
   Plan,
+  Sale,
   SkippedMonth,
 } from "@shared/core/types";
 
@@ -221,6 +222,32 @@ export function collection(over: Partial<Collection> = {}): Collection {
     remittedAt: null,
     remittedBy: null,
     items: [],
+    ...over,
+  };
+}
+
+export function sale(over: Partial<Sale> = {}): Sale {
+  return {
+    id: "s1",
+    tenantId: "t1",
+    branchId: null,
+    itemsSummary: "Router",
+    customerId: "cust-1",
+    recordedByUserId: "user-1",
+    totalAmount: 30,
+    amountPaid: 0,
+    chargeId: "chg-1",
+    charge: null,
+    currencyId: null,
+    ratePerUsdSnapshot: 1,
+    soldAt: "2026-02-01T00:00:00.000Z",
+    voidedAt: null,
+    voidedBy: null,
+    voidReason: null,
+    notes: null,
+    createdAt: "2026-02-01T00:00:00.000Z",
+    items: [],
+    customer: null,
     ...over,
   };
 }

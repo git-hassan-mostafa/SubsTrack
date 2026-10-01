@@ -42,7 +42,7 @@ interface BillDialogProps {
   customerName?: string | null;
   recipient?: BillRecipient | null;
   onClose: () => void;
-  onCollect?: (charge: Charge) => void;
+  onCollect?: (charge: Charge, balance: number) => void;
   onVoidBill?: (charge: Charge) => boolean | Promise<boolean>;
   onWriteOff?: (charge: Charge, balance: number) => void;
   onRevertWriteOff?: (charge: Charge, balance: number) => Promise<void>;
@@ -199,7 +199,7 @@ export function BillDialog({
           </Tooltip>
         ) : null}
         {facts.canCollect && onCollect && !bill.loading ? (
-          <Button variant="contained" onClick={() => onCollect(charge)}>
+          <Button variant="contained" onClick={() => onCollect(charge, facts.balance)}>
             {t("ledger.collect_remaining", { amount: formatMoney(facts.balance, source, source) })}
           </Button>
         ) : null}

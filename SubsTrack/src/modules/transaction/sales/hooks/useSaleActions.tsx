@@ -8,6 +8,7 @@ import {
 import { BillHistorySheet, useCollectSheet } from "@/src/modules/ledger";
 import { openItemFromCharge } from "@shared/modules/ledger/utils/openItems";
 import { saleTitle } from "@shared/core/utils/receiptId";
+import { saleFacts } from "@shared/modules/transaction/sales/utils/saleView";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";
 import type { SaleVoidResult } from "@shared/modules/transaction/sales/utils/types";
@@ -42,11 +43,7 @@ export function useSaleActions({
     chargeIds: string[];
   } | null>(null);
 
-  // Collect what is still owed on a pay-later or partly-paid sale. It goes
-  // through the SAME sheet as any other bill — one door for money in, so the
-  // custody, audit and currency rules are written in exactly one place.
-  // Synchronous on purpose: the bill rode in on the sale, so the sheet opens on
-  // the tap instead of after a query — the debts card has always behaved that way.
+  // Synchronous: the bill rode in on the sale, so the sheet opens on the tap.
   function handleCollect(sale: Sale) {
     if (!sale.charge) return;
     collectSheet.openOne(
@@ -62,7 +59,7 @@ export function useSaleActions({
 
   function buildActions(sale: Sale | null): ActionMenuItem[] {
     if (!sale) return [];
-    const voided = sale.voidedAt !== null;
+    const { voided, canCollect } = saleFacts(sale);
     const actions: ActionMenuItem[] = [
       {
         key: "view",
@@ -82,8 +79,7 @@ export function useSaleActions({
         onPress: () => onEdit(sale),
       });
 
-      const owed = sale.totalAmount - sale.amountPaid;
-      if (owed > 1e-9 && sale.customerId) {
+      if (canCollect) {
         actions.push({
           key: "collect",
           group: "money",

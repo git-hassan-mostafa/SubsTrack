@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter, type Href } from "expo-router";
@@ -13,10 +13,8 @@ import {
 } from "@/src/shared/hooks/useSelectionBackHandler";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer, Sale } from "@shared/core/types";
-import saleService from "@shared/modules/transaction/sales/services/SaleService";
-import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import { useSaleActions } from "../hooks/useSaleActions";
-import { saleListPatches } from "@shared/modules/transaction/sales/utils/saleListPatch";
+import { useCustomerSalesPreview } from "@shared/modules/transaction/sales/hooks/useCustomerSalesPreview";
 import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { SaleCard } from "./SaleCard";
 import { SaleFormSheet } from "./SaleFormSheet";
@@ -28,16 +26,10 @@ interface Props {
   customer: Customer;
 }
 
-// Renders at the bottom of the customer detail screen. Shows a short preview
-// (PREVIEW_LIMIT) of the customer's most recent sales with a "Show all" link to
-// the full customer-scoped sales page. Reads independently from saleSlice so the
-// customer-scoped view never collides with the global Sales tab's list state.
+// Its own read, never saleSlice, so it cannot collide with the Sales tab's list.
 export function CustomerSalesPanel({ customer }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
-  const [sales, setSales] = useState<Sale[]>([]);
-  const [serverHasMore, setServerHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [activeSale, setActiveSale] = useState<Sale | null>(null);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
@@ -50,34 +42,13 @@ export function CustomerSalesPanel({ customer }: Props) {
     clear: clearSelection,
   } = selection;
   useSelectionBackHandler(selectionActive, clearSelection);
-  const tokenRef = useRef(0);
-
-  const refresh = useCallback(async () => {
-    const token = ++tokenRef.current;
-    setLoading(true);
-    clearSelection();
-    try {
-      const items = await saleService.getSalesForCustomer(
-        customer.id,
-        PREVIEW_LIMIT + 1,
-      );
-      if (tokenRef.current !== token) return;
-      setSales(items);
-      setServerHasMore(items.length > PREVIEW_LIMIT);
-    } finally {
-      if (tokenRef.current === token) setLoading(false);
-    }
-  }, [customer.id, clearSelection]);
-
-  const patch = useMemo(
-    () => saleListPatches(setSales, customer.id),
-    [customer.id],
-  );
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-  useOwedChanged(refresh);
+  const {
+    items: preview,
+    hasMore,
+    loading,
+    refresh,
+    patch,
+  } = useCustomerSalesPreview(customer.id, PREVIEW_LIMIT, clearSelection);
 
   // The receipt closes as the form opens — two stacked full sheets are a maze.
   function openEdit(sale: Sale) {
@@ -89,8 +60,6 @@ export function CustomerSalesPanel({ customer }: Props) {
     router.push(`/(app)/(tabs)/customers/${customer.id}/sales` as Href);
   }
 
-  const preview = sales.slice(0, PREVIEW_LIMIT);
-  const hasMore = serverHasMore || sales.length > PREVIEW_LIMIT;
   const selectedSales = preview.filter((s) => selectedIds.has(s.id));
   const invoiceAction = useSaleInvoiceAction(selectedSales, clearSelection);
   const saleActions = useSaleActions({
@@ -134,7 +103,7 @@ export function CustomerSalesPanel({ customer }: Props) {
         <View className="py-6 items-center">
           <ActivityIndicator color={COLORS.primary} />
         </View>
-      ) : sales.length === 0 ? (
+      ) : preview.length === 0 ? (
         <View className="py-6 items-center">
           <Text className="text-sm text-gray-400">
             {t("sales.no_sales_for_customer")}

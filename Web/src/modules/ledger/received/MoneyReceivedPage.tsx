@@ -66,7 +66,7 @@ export function MoneyReceivedPage() {
   const branchColumn = useBranchColumn<CollectionListItem>(t("web.money_received.no_branch"));
   const sendReceipt = useSendCollectionReceipt();
   const reload = () => void load();
-  const bill = useBillDialog(reload);
+  const bill = useBillDialog({ onChanged: reload });
   const [detail, setDetail] = useState<CollectionListItem | null>(null);
   const [correctId, setCorrectId] = useState<string | null>(null);
   const [voidRows, setVoidRows] = useState<CollectionListItem[] | null>(null);

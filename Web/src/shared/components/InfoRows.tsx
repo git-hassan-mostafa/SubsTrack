@@ -1,10 +1,11 @@
+import type { ReactNode } from "react";
 import type { SvgIconComponent } from "@mui/icons-material";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 
 export interface InfoRow {
   label: string;
-  value: string | null | undefined;
+  value: ReactNode;
   icon?: SvgIconComponent;
 }
 
@@ -40,7 +41,11 @@ export function InfoRows({ rows }: { rows: InfoRow[] }) {
             {row.icon ? <row.icon sx={{ fontSize: 18 }} aria-hidden /> : null}
             {row.label}
           </Typography>
-          <Typography component="dd" variant="body2" sx={{ m: 0, textAlign: "end", fontWeight: 500 }}>
+          <Typography
+            component="dd"
+            variant="body2"
+            sx={{ m: 0, textAlign: "end", fontWeight: 500, overflowWrap: "anywhere", whiteSpace: "pre-line" }}
+          >
             {row.value}
           </Typography>
         </Box>

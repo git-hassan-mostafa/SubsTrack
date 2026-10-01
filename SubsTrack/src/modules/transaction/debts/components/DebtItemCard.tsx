@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { Ionicons } from "@expo/vector-icons";
 import {
   CardAmount,
   CardChips,
@@ -25,7 +26,23 @@ import {
 } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
-import { daysLate, formatDate } from "@shared/core/utils/date";
+import { formatDate } from "@shared/core/utils/date";
+import {
+  debtItemActions,
+  debtItemFacts,
+  type DebtItemActionKey,
+} from "@shared/modules/transaction/debts/utils/debtItemView";
+
+const DEBT_ACTION_ICONS: Record<
+  DebtItemActionKey,
+  keyof typeof Ionicons.glyphMap
+> = {
+  collect: "cash-outline",
+  revert_write_off: "arrow-undo-outline",
+  edit: "create-outline",
+  write_off: "remove-circle-outline",
+  remove: "trash-outline",
+};
 
 interface Props {
   item: OpenItem;
@@ -40,12 +57,7 @@ interface Props {
   muted?: boolean;
 }
 
-/**
- * ONE bill that still owes money — the debts twin of `CollectionCard`.
- *
- * The kind is the icon, so it wears no chip; a chip here means something is
- * WRONG with the bill — late, part paid, written off — so a clean row is bare.
- */
+// The kind is the icon, so a chip here always means something is wrong.
 export function DebtItemCard({
   item,
   onCollect,
@@ -66,12 +78,12 @@ export function DebtItemCard({
   const source = snapshotCurrency(item, currencies);
   const display = findCurrency(currencies, displayCurrencyId);
   const money = formatMoneyPair(item.balance, source, display);
-  const paidFraction =
-    item.paid > 0
-      ? formatPaidFraction(item.paid, item.amount, source, source)
-      : null;
-  const late = daysLate(item.dueDate);
-  const writtenOff = item.charge?.writtenOffAt != null;
+  const facts = debtItemFacts(item);
+  const paidFraction = facts.partlyPaid
+    ? formatPaidFraction(item.paid, item.amount, source, source)
+    : null;
+  const late = facts.daysLate;
+  const writtenOff = facts.writtenOff;
   const dead = muted || writtenOff;
 
   const titlesCustomer = !hideCustomerName || item.kind === "manual";
@@ -79,70 +91,34 @@ export function DebtItemCard({
 
   const handleOpen = onOpen && item.chargeId ? () => onOpen(item) : undefined;
 
-  const actions: ActionMenuItem[] = [];
-  if (onCollect && !writtenOff) {
-    actions.push({
-      key: "collect",
-      group: "money",
-      label: t("payments.collect"),
-      icon: "cash-outline",
-      onPress: () => {
-        setMenuOpen(false);
-        onCollect(item);
+  const handlers: Record<
+    DebtItemActionKey,
+    ((item: OpenItem) => void) | undefined
+  > = {
+    collect: onCollect,
+    revert_write_off: onRevertWriteOff,
+    edit: onEdit,
+    write_off: onWriteOff,
+    remove: onVoid,
+  };
+  const actions: ActionMenuItem[] = debtItemActions(item).flatMap((entry) => {
+    const handler = handlers[entry.key];
+    if (!handler) return [];
+    return [
+      {
+        key: entry.key,
+        group: entry.group,
+        label: t(entry.labelKey),
+        caption: entry.captionKey ? t(entry.captionKey) : undefined,
+        icon: DEBT_ACTION_ICONS[entry.key],
+        destructive: entry.destructive,
+        onPress: () => {
+          setMenuOpen(false);
+          handler(item);
+        },
       },
-    });
-  }
-  if (onRevertWriteOff && writtenOff && item.chargeId) {
-    actions.push({
-      key: "revert_write_off",
-      group: "manage",
-      label: t("ledger.revert_write_off"),
-      icon: "arrow-undo-outline",
-      caption: t("ledger.revert_write_off_caption"),
-      onPress: () => {
-        setMenuOpen(false);
-        onRevertWriteOff(item);
-      },
-    });
-  }
-  if (onEdit && item.kind === "manual" && item.chargeId) {
-    actions.push({
-      key: "edit",
-      group: "manage",
-      label: t("common.edit"),
-      icon: "create-outline",
-      onPress: () => {
-        setMenuOpen(false);
-        onEdit(item);
-      },
-    });
-  }
-  if (onWriteOff && item.chargeId && !writtenOff) {
-    actions.push({
-      key: "write_off",
-      group: "danger",
-      label: t("ledger.write_off"),
-      icon: "remove-circle-outline",
-      caption: t("ledger.write_off_caption"),
-      onPress: () => {
-        setMenuOpen(false);
-        onWriteOff(item);
-      },
-    });
-  }
-  if (onVoid && item.kind === "manual" && item.chargeId) {
-    actions.push({
-      key: "remove",
-      group: "danger",
-      label: t("debts.remove"),
-      icon: "trash-outline",
-      destructive: true,
-      onPress: () => {
-        setMenuOpen(false);
-        onVoid(item);
-      },
-    });
-  }
+    ];
+  });
 
   return (
     <EntityCard

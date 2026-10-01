@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -22,9 +22,7 @@ import {
   generatePortalPassword,
   portalPasswordOnEnable,
 } from "@shared/core/utils/portalPassword";
-import { copyText } from "@/shared/lib/copyText";
-
-const COPIED_MS = 2000;
+import { useCopyText } from "@/shared/hooks/useCopyText";
 
 interface PortalAccessFieldProps {
   customerId: string | null;
@@ -44,13 +42,7 @@ export function PortalAccessField({
 }: PortalAccessFieldProps) {
   const { t } = useTranslation();
   const [revealed, setRevealed] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (!copied) return;
-    const timer = window.setTimeout(() => setCopied(false), COPIED_MS);
-    return () => window.clearTimeout(timer);
-  }, [copied]);
+  const { copied, copy } = useCopyText();
 
   if (!portalBaseUrl?.trim()) return null;
   const link = customerId ? buildPortalLink(portalBaseUrl, customerId) : null;
@@ -62,7 +54,7 @@ export function PortalAccessField({
   };
 
   const copyLink = async () => {
-    if (link && (await copyText(link))) setCopied(true);
+    if (link) await copy(link);
   };
 
   const revealLabel = revealed ? t("web.hide_password") : t("web.show_password");

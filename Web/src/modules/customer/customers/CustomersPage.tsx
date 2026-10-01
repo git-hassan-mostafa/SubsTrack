@@ -6,11 +6,8 @@ import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import BoltOutlined from "@mui/icons-material/BoltOutlined";
-import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
 import EditOutlined from "@mui/icons-material/EditOutlined";
-import PauseCircleOutlined from "@mui/icons-material/PauseCircleOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
-import PlayCircleOutlined from "@mui/icons-material/PlayCircleOutlined";
 import RemoveCircleOutlineOutlined from "@mui/icons-material/RemoveCircleOutlineOutlined";
 import WhatsApp from "@mui/icons-material/WhatsApp";
 import type { GridColDef } from "@mui/x-data-grid";
@@ -35,7 +32,6 @@ import {
 import { useLoadOwed } from "@shared/modules/ledger/hooks/useLoadOwed";
 import { useWriteOffActions } from "@shared/modules/ledger/hooks/useWriteOffActions";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
-import { confirm } from "@shared/shared/lib/confirm";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
@@ -57,6 +53,7 @@ import {
 } from "@/state/customersTable";
 import { CustomerFormDialog } from "./CustomerFormDialog";
 import { CustomerPills } from "./CustomerPills";
+import { useCustomerAdminActions } from "./useCustomerAdminActions";
 import { useCustomerHistoryAction } from "./useCustomerHistoryAction";
 
 // Every money action re-reads the page: a payment can move a customer to another tab.
@@ -80,10 +77,7 @@ export function CustomersPage() {
   const clearTableError = useCustomersTable((s) => s.clearError);
   const writeError = useCustomerSlice((s) => s.error);
   const clearWriteError = useCustomerSlice((s) => s.clearError);
-  const deactivateCustomer = useCustomerSlice((s) => s.deactivateCustomer);
-  const reactivateCustomer = useCustomerSlice((s) => s.reactivateCustomer);
-  const deleteCustomer = useCustomerSlice((s) => s.deleteCustomer);
-  const bulkDeleteCustomers = useCustomerSlice((s) => s.bulkDeleteCustomers);
+  const adminActions = useCustomerAdminActions();
   const ledgerError = useLedgerSlice((s) => s.error);
   const clearLedgerError = useLedgerSlice((s) => s.clearError);
   const loadOwed = useLoadOwed();
@@ -162,42 +156,6 @@ export function CustomersPage() {
     if (await writeOffAll(customer.name, billed)) reload();
   };
 
-  const confirmToggleActive = (customer: Customer) =>
-    confirm({
-      title: customer.active ? t("customers.deactivate_title") : t("customers.reactivate_title"),
-      message: customer.active
-        ? t("customers.deactivate_message", { name: customer.name })
-        : t("customers.reactivate_message", { name: customer.name }),
-      confirmLabel: customer.active ? t("customers.deactivate") : t("customers.activate"),
-      destructive: customer.active,
-      onConfirm: async () => {
-        const saved = customer.active
-          ? await deactivateCustomer(customer)
-          : await reactivateCustomer(customer);
-        if (saved) reload();
-      },
-    });
-
-  const confirmDelete = (customers: Customer[]) => {
-    const single = customers.length === 1 ? customers[0] : null;
-    return confirm({
-      title: single
-        ? t("customers.delete_title")
-        : t("customers.bulk_delete_title", { count: customers.length }),
-      message: single
-        ? t("customers.delete_message", { name: single.name })
-        : t("customers.bulk_delete_message", { count: customers.length }),
-      confirmLabel: t("common.delete"),
-      destructive: true,
-      onConfirm: async () => {
-        const done = single
-          ? (await deleteCustomer(single)) !== null
-          : await bulkDeleteCustomers(customers);
-        if (done) reload();
-      },
-    });
-  };
-
   const editAction = (customer: Customer): TableAction => ({
     key: "edit",
     group: "manage",
@@ -214,22 +172,9 @@ export function CustomersPage() {
     onClick: () => void openWhatsApp(customer.phoneNumber),
   });
 
-  const toggleActiveAction = (customer: Customer): TableAction => ({
-    key: "toggle-active",
-    group: "status",
-    label: customer.active ? t("customers.deactivate") : t("customers.activate"),
-    icon: customer.active ? PauseCircleOutlined : PlayCircleOutlined,
-    onClick: () => void confirmToggleActive(customer),
-  });
+  const toggleActiveAction = (customer: Customer) => adminActions.toggleActive(customer, reload);
 
-  const deleteAction = (customers: Customer[]): TableAction => ({
-    key: "delete",
-    group: "danger",
-    label: t("common.delete"),
-    icon: DeleteOutlined,
-    destructive: true,
-    onClick: () => void confirmDelete(customers),
-  });
+  const deleteAction = (customers: Customer[]) => adminActions.remove(customers, reload);
 
   const quickPayAction = (row: CustomerRow, label: string): TableAction => ({
     key: "quick-pay",

@@ -12,6 +12,7 @@ import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { formatDate } from "@shared/core/utils/date";
 import { receiptId } from "@shared/core/utils/receiptId";
+import { saleFacts } from "@shared/modules/transaction/sales/utils/saleView";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import {
   CardAmount,
@@ -47,9 +48,7 @@ export function SaleCard({
 
   const source = snapshotCurrency(sale, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
-  const voided = sale.voidedAt !== null;
-  const writtenOff = !voided && sale.charge?.writtenOffAt != null;
-  const fullyPaid = sale.amountPaid >= sale.totalAmount;
+  const { voided, writtenOff, fullyPaid } = saleFacts(sale);
   const totalLabel = fullyPaid
     ? formatMoney(sale.totalAmount, source, target)
     : formatPaidFraction(sale.amountPaid, sale.totalAmount, source, target);

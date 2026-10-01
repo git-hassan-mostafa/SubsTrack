@@ -10,6 +10,7 @@ import {
 import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 import { collectionService } from "@shared/modules/ledger/services/CollectionService";
 import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
+import { balanceUsd } from "@shared/modules/ledger/utils/debtRule";
 import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
 import expenseService from "@shared/modules/transaction/expenses/services/ExpenseService";
 import { sumByKey, sumUsdOf, topN } from "@shared/modules/reports/utils/aggregate";
@@ -149,7 +150,7 @@ class ReportsService {
         sumByKey(
           view.customers.flatMap((c) => c.items),
           (i) => i.kind,
-          (i) => i.balance / i.ratePerUsdSnapshot,
+          (i) => balanceUsd(i.balance, i.ratePerUsdSnapshot),
         ),
         6,
       ),

@@ -12,3 +12,13 @@ export function balanceUsd(
 ): number {
   return balance / ratePerUsdSnapshot;
 }
+
+// What these bills still owe, summed in USD at each bill's own frozen rate.
+export function owedUsd(
+  items: { balance: number; ratePerUsdSnapshot: number }[],
+): number {
+  return items.reduce(
+    (sum, i) => sum + balanceUsd(i.balance, i.ratePerUsdSnapshot),
+    0,
+  );
+}

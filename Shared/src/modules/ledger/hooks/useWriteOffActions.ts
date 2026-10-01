@@ -7,6 +7,7 @@ import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
+import { owedUsd } from "@shared/modules/ledger/utils/debtRule";
 
 export interface WriteOffTarget {
   chargeId: string | null;
@@ -82,10 +83,7 @@ export function useWriteOffActions() {
       const billed = items.filter((i) => !!i.chargeId);
       const ids = [...new Set(billed.map((i) => i.chargeId as string))];
       if (ids.length === 0) return false;
-      const totalUsd = billed.reduce(
-        (sum, i) => sum + i.balance / i.ratePerUsdSnapshot,
-        0,
-      );
+      const totalUsd = owedUsd(billed);
       let wrote = false;
       await confirm({
         title: t("ledger.write_off_all_title"),

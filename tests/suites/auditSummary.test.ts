@@ -46,7 +46,7 @@ function mockTranslate(key: string, opts?: Record<string, unknown>): string {
   const count = opts?.count;
   const raw =
     (typeof count === "number" && count !== 1
-      ? lookupKey(`${key}_plural`)
+      ? lookupKey(`${key}_other`)
       : undefined) ?? lookupKey(key);
   if (raw === undefined) return key;
   return raw.replace(/\{\{(\w+)\}\}/g, (_, name: string) =>

@@ -1,6 +1,7 @@
 import type { ChargeKind, DebtsView, OpenItem } from "@shared/core/types";
 import { compareOpenItems } from "@shared/modules/ledger/utils/waterfall";
 import { daysLate } from "@shared/core/utils/date";
+import { balanceUsd } from "@shared/modules/ledger/utils/debtRule";
 
 export type AllDebtsStatus = "late" | "not_late" | "partial";
 export type AllDebtsSort =
@@ -52,7 +53,7 @@ function matchesStatus(
 }
 
 function usdOf(item: OpenItem): number {
-  return item.balance / item.ratePerUsdSnapshot;
+  return balanceUsd(item.balance, item.ratePerUsdSnapshot);
 }
 
 function updatedAtOf(item: OpenItem): string {

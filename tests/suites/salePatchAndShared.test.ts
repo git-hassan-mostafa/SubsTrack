@@ -19,39 +19,13 @@ import {
   sharedBillsAcross,
   sharedBillsOf,
 } from "@shared/modules/ledger/utils/sharedBills";
-import type { Product, Sale, SaleItem } from "@shared/core/types";
-import { charge, collection, collectionItem, LBP } from "../helpers/factories";
+import type { Product, SaleItem } from "@shared/core/types";
+import { charge, collection, collectionItem, LBP, sale } from "../helpers/factories";
 
 // TC-SP-* — the pure patches every sales list applies instead of re-reading.
 // TC-SS-* — naming the OTHER bills a shared hand-over settled, before a void.
 
 const product = { id: "p1", name: "Router" } as Product;
-
-function sale(over: Partial<Sale> = {}): Sale {
-  return {
-    id: "s1",
-    tenantId: "t1",
-    branchId: null,
-    itemsSummary: "Router",
-    customerId: "cust-1",
-    recordedByUserId: "user-1",
-    totalAmount: 30,
-    amountPaid: 0,
-    chargeId: "chg-1",
-    charge: null,
-    currencyId: null,
-    ratePerUsdSnapshot: 1,
-    soldAt: "2026-02-01T00:00:00.000Z",
-    voidedAt: null,
-    voidedBy: null,
-    voidReason: null,
-    notes: null,
-    createdAt: "2026-02-01T00:00:00.000Z",
-    items: [],
-    customer: null,
-    ...over,
-  };
-}
 
 describe("sale list patches", () => {
   it("TC-SP-01 a new sale goes to the top (every list is newest first)", () => {

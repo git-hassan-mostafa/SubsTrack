@@ -42,7 +42,7 @@ describe("i18n: the two locales line up", () => {
     for (const [key, text] of english) {
       const other = arabic.get(key);
       if (other === undefined) continue;
-      const plural = english.has(`${key}_plural`) || key.endsWith("_plural");
+      const plural = english.has(`${key}_other`) || key.endsWith("_other");
       const drop = (list: string[]) =>
         plural ? list.filter((p) => p !== "count") : list;
       const a = drop(placeholdersOf(text)).join(",");

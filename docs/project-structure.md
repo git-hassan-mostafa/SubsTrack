@@ -35,14 +35,15 @@ Web/src/
 │   ├── layout/            # AppFrame, SideNav, AppHeader, QuickActions + QuickActionDialogs, UserMenu
 │   └── theme/
 ├── shared/
-│   ├── components/        # ErrorBanner, FormDialog, ConfirmDialogHost, ReasonConfirmDialog, BranchSelector, BranchPicker, inputs, MoneyText, EmptyState, StatusChip…
+│   ├── components/        # ErrorBanner, FormDialog, ConfirmDialogHost, ReasonConfirmDialog, BranchSelector, BranchPicker, inputs, MoneyText, EmptyState, StatusChip, InfoRows, PanelSection…
 │   ├── table/             # DataTable, RowActionsMenu, BulkActionBar, useTableExport, TableAction,
 │   │                      #   RowLink, ActiveFilterSelect, activeStatusColumn, useBranchColumn
-│   ├── hooks/             # useMoneyPair
+│   ├── hooks/             # useMoneyPair, useCopyText
 │   └── lib/               # downloadCsv, openWhatsApp (+ openWhatsAppAfterSave), copyText
 ├── state/                 # web-only stores: createPagedStore + one table store per list, webSession.ts
 └── modules/<group>/<module>/  # pages + dialogs (admin/{branches,currencies,services,plans,products,users,
-                               #   audit,billing,tenant-settings}, customer/{customers,customer-plans,customer-detail,customer-payments (months panel + table)},
+                               #   audit,billing,tenant-settings}, customer/{customers,customer-plans,customer-detail (page + details panel),customer-payments (months panel + table)},
+                               #   transaction/{debts,sales} (the customer page's debts + sales panels),
                                #   ledger/{collect,bill,payment,void,received} (collect, bill + useBillDialog,
                                #   payment detail, correct + void dialogs, the Money received page),
                                #   invoicing (receipts) so far)

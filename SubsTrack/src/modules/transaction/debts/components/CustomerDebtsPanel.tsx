@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect } from "expo-router";
@@ -7,14 +7,13 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import { COLORS } from "@/src/shared/constants";
-import type { Customer, OpenItem } from "@shared/core/types";
+import type { Customer } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { useCollectSheet, useOpenBill } from "@/src/modules/ledger";
-import { chargeService } from "@shared/modules/ledger/services/ChargeService";
-import { isDebtItem } from "@shared/modules/ledger/utils/debtRule";
-import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
+import { owedUsd } from "@shared/modules/ledger/utils/debtRule";
+import { useCustomerDebts } from "@shared/modules/transaction/debts/hooks/useCustomerDebts";
 import { useDebtRowActions } from "../hooks/useDebtRowActions";
 import {
   useWrittenOffDebts,
@@ -29,46 +28,22 @@ interface Props {
   onOpenSale?: (saleId: string) => Promise<void> | void;
 }
 
-/**
- * This customer's open bills, on the customer detail screen.
- *
- * Reads the service directly rather than the global `ledger` slice, so the
- * customer-scoped view never collides with the Transactions → Debts tab's list
- * state — the same pattern as CustomerSalesPanel. Plain unpaid months are NOT
- * listed here: the month grid above already shows them.
- */
+// Plain unpaid months stay out: the month grid above already shows them.
 export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
 
-  const [items, setItems] = useState<OpenItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { items, loading, refresh } = useCustomerDebts(
+    customer.id,
+    customer.name,
+  );
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [scope, setScope] = useState<DebtScope>("live");
-  const tokenRef = useRef(0);
 
   const showingWrittenOff = scope === "written_off";
   const writtenOff = useWrittenOffDebts(customer.id, customer.name);
-
-  const refresh = useCallback(async () => {
-    const token = ++tokenRef.current;
-    setLoading(true);
-    try {
-      const open = await chargeService.getOpenCharges({
-        customerId: customer.id,
-      });
-      if (tokenRef.current !== token) return;
-      setItems(
-        open
-          .filter((i) => isDebtItem(i.kind, i.paid))
-          .map((i) => ({ ...i, customerName: customer.name })),
-      );
-    } finally {
-      if (tokenRef.current === token) setLoading(false);
-    }
-  }, [customer.id, customer.name]);
 
   const collectSheet = useCollectSheet();
   const {
@@ -86,13 +61,9 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
       void refresh();
     }, [refresh]),
   );
-  useOwedChanged(refresh);
 
   const target = findCurrency(currencies, displayCurrencyId);
-  const totalUsd = items.reduce(
-    (sum, i) => sum + i.balance / i.ratePerUsdSnapshot,
-    0,
-  );
+  const totalUsd = owedUsd(items);
 
   return (
     <View className="px-4 mt-4">

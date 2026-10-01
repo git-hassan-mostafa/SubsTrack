@@ -1,14 +1,8 @@
 import { applyWriteOffToSales } from "@shared/modules/transaction/sales/utils/saleListPatch";
-import type { Sale } from "@shared/core/types";
+import { charge, sale as baseSale } from "../helpers/factories";
 
-const sale = (over: Partial<Sale> = {}) =>
-  ({
-    id: "s1",
-    chargeId: "c1",
-    charge: { id: "c1", writtenOffAt: null },
-    amountPaid: 0,
-    totalAmount: 50,
-  }) as unknown as Sale;
+const sale = () =>
+  baseSale({ chargeId: "c1", charge: charge({ id: "c1" }), totalAmount: 50 });
 
 describe("applyWriteOffToSales", () => {
   it("stamps the write-off on the sale owning that charge", () => {

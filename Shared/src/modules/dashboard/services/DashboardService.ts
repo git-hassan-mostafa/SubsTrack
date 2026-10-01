@@ -8,6 +8,7 @@ import { repositories } from "@shared/core/runtime/repositories";
 import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
 import { collectionService } from "@shared/modules/ledger/services/CollectionService";
 import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
+import { owedUsd } from "@shared/modules/ledger/utils/debtRule";
 import saleService from "@shared/modules/transaction/sales/services/SaleService";
 import expenseService from "@shared/modules/transaction/expenses/services/ExpenseService";
 import walletService from "@shared/modules/wallet/services/WalletService";
@@ -109,15 +110,9 @@ class DashboardService {
     const walletCollectors = wallets.length;
     const walletTransactions = wallets.reduce((sum, w) => sum + w.itemCount, 0);
 
-    // Debt by kind, in USD. Every row carries its own balance, so unlike the old
-    // gross-vs-net split these three ADD UP to totalDebt exactly.
     const debtOf = (kind: ChargeKind) =>
       debtsView.customers.reduce(
-        (sum, c) =>
-          sum +
-          c.items
-            .filter((i) => i.kind === kind)
-            .reduce((s, i) => s + i.balance / i.ratePerUsdSnapshot, 0),
+        (sum, c) => sum + owedUsd(c.items.filter((i) => i.kind === kind)),
         0,
       );
 

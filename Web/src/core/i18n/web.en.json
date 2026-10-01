@@ -169,7 +169,16 @@
   "customer_detail": {
     "back": "Back to customers",
     "not_found": "This customer was not found.",
-    "not_found_hint": "It may have been deleted, or it belongs to a branch you cannot see."
+    "not_found_hint": "It may have been deleted, or it belongs to a branch you cannot see.",
+    "bill_column": "Bill",
+    "type_column": "Type",
+    "still_owed": "Still owed",
+    "owed_total": "Owed: {{amount}}",
+    "debt_scope": "Which bills to show",
+    "no_debts": "No open bills. Unpaid months are shown above.",
+    "sale_bill": "Bill and payments",
+    "latest_sales": "Showing the latest {{limit}} sales",
+    "part_paid": "Part paid"
   },
   "month_grid": {
     "lines": "Service lines",
