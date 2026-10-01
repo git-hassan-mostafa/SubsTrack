@@ -1,10 +1,22 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { DataGrid, type GridColDef, type GridValidRowModel } from "@mui/x-data-grid";
+import {
+  DataGrid,
+  type GridColDef,
+  type GridRowSelectionModel,
+  type GridValidRowModel,
+} from "@mui/x-data-grid";
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "@/state/createPagedStore";
 import { actionsColumn } from "./actionsColumn";
 import { AUTO_ROW_HEIGHT, gridSx, LOCKED_GRID, rowClassName, type RowTone } from "./gridBase";
 import type { TableAction } from "./tableAction";
+
+// The caller owns the picked ids, so it may widen a pick (a whole bundle).
+export interface LocalSelection<T> {
+  ids: ReadonlySet<string>;
+  onChange: (ids: Set<string>) => void;
+  isSelectable?: (row: T) => boolean;
+}
 
 interface LocalTableProps<T extends GridValidRowModel & { id: string }> {
   label: string;
@@ -15,6 +27,7 @@ interface LocalTableProps<T extends GridValidRowModel & { id: string }> {
   rowBusy?: (row: T) => boolean;
   rowTone?: (row: T) => RowTone;
   autoRowHeight?: boolean;
+  selection?: LocalSelection<T>;
 }
 
 // DataTable's look for rows already in memory (dialogs); pages only past one page.
@@ -27,9 +40,16 @@ export function LocalTable<T extends GridValidRowModel & { id: string }>({
   rowBusy,
   rowTone,
   autoRowHeight = false,
+  selection,
 }: LocalTableProps<T>) {
   const { t } = useTranslation();
   const paged = rows.length > DEFAULT_PAGE_SIZE;
+  const pickedIds = selection?.ids;
+  const isSelectable = selection?.isSelectable;
+  const selectionModel = useMemo<GridRowSelectionModel>(
+    () => ({ type: "include", ids: new Set(pickedIds ?? []) }),
+    [pickedIds],
+  );
 
   const allColumns = useMemo<GridColDef<T>[]>(() => {
     if (!rowActions || !rowLabel) return columns;
@@ -46,6 +66,12 @@ export function LocalTable<T extends GridValidRowModel & { id: string }>({
       columns={allColumns}
       {...LOCKED_GRID}
       disableRowSelectionOnClick
+      checkboxSelection={Boolean(selection)}
+      disableRowSelectionExcludeModel
+      rowSelectionModel={selectionModel}
+      onRowSelectionModelChange={(model) => selection?.onChange(new Set([...model.ids].map(String)))}
+      isRowSelectable={isSelectable ? (params) => isSelectable(params.row) : undefined}
+      hideFooterSelectedRowCount
       hideFooter={!paged}
       pageSizeOptions={PAGE_SIZE_OPTIONS}
       initialState={{ pagination: { paginationModel: { pageSize: DEFAULT_PAGE_SIZE } } }}

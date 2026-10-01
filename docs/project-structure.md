@@ -42,7 +42,7 @@ Web/src/
 │   └── lib/               # downloadCsv, openWhatsApp (+ openWhatsAppAfterSave), copyText
 ├── state/                 # web-only stores: createPagedStore + one table store per list, webSession.ts
 └── modules/<group>/<module>/  # pages + dialogs (admin/{branches,currencies,services,plans,products,users,
-                               #   audit,billing,tenant-settings}, customer/{customers,customer-plans},
+                               #   audit,billing,tenant-settings}, customer/{customers,customer-plans,customer-detail,customer-payments (months panel + table)},
                                #   ledger/{collect,bill,payment,void,received} (collect, bill + useBillDialog,
                                #   payment detail, correct + void dialogs, the Money received page),
                                #   invoicing (receipts) so far)
@@ -96,6 +96,8 @@ Shared/
     │     customer/customer-payments/utils/monthStatus.ts   # buildMonthGrid / buildCustomerStatus — the ONLY month rules
     │     customer/customer-payments/utils/monthDueRules.ts # isNotDueYet / isNotLateYet (#83)
     │     customer/customer-payments/services/PaymentService.ts  # pay / void / unskip ORDER gates only
+    │     customer/customer-payments/utils/monthActions.ts  # every month door: click, ⋮ rows, selection, ?quickPay=1
+    │     customer/customer-payments/hooks/useCustomerMonthGrid.ts # the month panel's flows, both apps (+ useLineGrid, useSkipMonths)
     │     customer/customers/utils/customerTabs.ts          # the customer list tabs (phone list + server)
     │     customer/customers/utils/customerStatusPage.ts    # server paging of the exact tabs (customer-status function)
     │     customer/customers/utils/customerStatusFacts.ts   # the compact facts customer_status_facts() returns
@@ -154,7 +156,7 @@ SubsTrack/
 │   └── shared/
 │       ├── components/            # Button, Input, AppTextInput, CurrencyInput, AppBottomSheet, FormSheet,
 │       │                          #   PageHeader, ErrorBanner, ConfirmDialog, SelectionBar, … (see ui-patterns.md)
-│       ├── hooks/                 # RN hooks: useTextField, useSelection,
+│       ├── hooks/                 # RN hooks: useTextField, useSelectionBackHandler,
 │       │                          #   useExportRows, useSyncStatus, useSwipeableTabs, useAppUpdate, …
 │       ├── constants/colors.ts    # Design tokens
 │       └── lib/                   # supabase.ts (client), storage.ts, exportCsv, shareFile, clipboard, maps, whatsapp

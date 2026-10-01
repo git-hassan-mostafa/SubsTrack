@@ -1,6 +1,4 @@
 import { useCallback, useState } from "react";
-import { BackHandler } from "react-native";
-import { useFocusEffect } from "expo-router";
 
 export interface UseSelectionResult {
   active: boolean;
@@ -13,14 +11,7 @@ export interface UseSelectionResult {
   clear: () => void;
 }
 
-/**
- * Reusable list multi-selection state. Pure, platform-agnostic, ephemeral UI
- * state — keep it in the screen (Presentation layer), not in a Zustand slice.
- *
- * `active` is derived from the set size so it can never desync from the
- * selection. Pair with {@link useSelectionBackHandler} on screen to make the
- * Android hardware back button exit selection mode.
- */
+// Ephemeral screen state; `active` is the set size, so it can never desync.
 export function useSelection(): UseSelectionResult {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     () => new Set<string>(),
@@ -69,25 +60,4 @@ export function useSelection(): UseSelectionResult {
     enterWith,
     clear,
   };
-}
-
-/**
- * While `active` and the screen is focused, the Android hardware back button
- * runs `onExit` (e.g. clear the selection) instead of navigating away.
- * No-op on iOS/web.
- */
-export function useSelectionBackHandler(
-  active: boolean,
-  onExit: () => void,
-): void {
-  useFocusEffect(
-    useCallback(() => {
-      if (!active) return;
-      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-        onExit();
-        return true;
-      });
-      return () => sub.remove();
-    }, [active, onExit]),
-  );
 }

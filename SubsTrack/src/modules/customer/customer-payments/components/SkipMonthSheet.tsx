@@ -9,25 +9,24 @@ import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Text } from "@/src/shared/components/Text";
 import type { CustomerPlan, MonthEntry } from "@shared/core/types";
-import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
-import { usePaymentSlice } from "@shared/state/hooks/usePaymentSlice";
-import { getStore } from "@shared/state/globalStore";
+import { useSkipMonths } from "@shared/modules/customer/customer-payments/hooks/useSkipMonths";
+import {
+  skipText,
+  type SkipMode,
+} from "@shared/modules/customer/customer-payments/utils/skipText";
 import { COLORS } from "@/src/shared/constants";
 import { useTextField } from "@/src/shared/hooks/useTextField";
 
 interface Props {
   entries: MonthEntry[];
-  mode: "skip" | "unskip";
+  mode: SkipMode;
   customerId: string;
   line: CustomerPlan;
   onDone: () => void;
   onDismiss: () => void;
 }
 
-/**
- * Skip / unskip confirmation. Skipping takes an optional note; unskipping only
- * confirms (and shows the note that was written, if any).
- */
+// Skipping takes an optional note; unskipping only confirms and shows it.
 export function SkipMonthSheet({
   entries,
   mode,
@@ -37,89 +36,55 @@ export function SkipMonthSheet({
   onDismiss,
 }: Props) {
   const { t } = useTranslation();
-  const { user } = useAuth();
-  const setMonthsSkipped = usePaymentSlice((s) => s.setMonthsSkipped);
-  const error = usePaymentSlice((s) => s.error);
-  const clearError = usePaymentSlice((s) => s.clearError);
+  const skip = useSkipMonths(customerId, line.id);
   const [note, setNote] = useState("");
   const field = useTextField(note, setNote);
-
-  const isSkip = mode === "skip";
-  const single = entries.length === 1 ? entries[0] : null;
-  const monthLabel = single
-    ? `${t(`months.${single.label}`)} ${single.year}`
-    : String(entries.length);
-  const existingNote = single?.skip?.note ?? null;
+  const text = skipText(entries, mode, t);
 
   async function handleConfirm() {
-    if (!user || entries.length === 0) return;
-    await setMonthsSkipped(
-      entries.map((entry) => ({
-        customerId,
-        customerPlanId: line.id,
-        billingMonth: entry.billingMonth,
-        note: isSkip ? note : (entry.skip?.note ?? null),
-      })),
-      isSkip,
-      user.tenantId,
-      user.id,
-    );
-    if (!getStore().getState().payments.error) {
-      setNote("");
-      onDone();
-    }
+    if (!(await skip.submit(entries, mode, note))) return;
+    setNote("");
+    onDone();
   }
 
   function handleDismiss() {
     setNote("");
-    clearError();
+    skip.clearError();
     onDismiss();
   }
 
   return (
     <ConfirmDialog
       visible
-      title={
-        isSkip ? t("payments.skip.skip_title") : t("payments.skip.unskip_title")
-      }
-      message={
-        isSkip
-          ? single
-            ? t("payments.skip.skip_message", { monthYear: monthLabel })
-            : t("payments.skip.skip_message_many", { count: entries.length })
-          : single
-            ? t("payments.skip.unskip_message", { monthYear: monthLabel })
-            : t("payments.skip.unskip_message_many", { count: entries.length })
-      }
-      confirmLabel={
-        isSkip
-          ? t("payments.skip.skip_action")
-          : t("payments.skip.unskip_action")
-      }
+      title={text.title}
+      message={text.message}
+      confirmLabel={text.confirmLabel}
       onConfirm={handleConfirm}
       onCancel={handleDismiss}
     >
-      {error ? (
+      {skip.error ? (
         <View className="mb-2">
-          <ErrorBanner message={error} onDismiss={clearError} />
+          <ErrorBanner message={skip.error} onDismiss={skip.clearError} />
         </View>
       ) : null}
-      {isSkip ? (
+      {mode === "skip" ? (
         <AppTextInput
           {...field}
           placeholder={t("payments.skip.note_placeholder")}
           multiline
           numberOfLines={3}
-          onFocus={clearError}
+          onFocus={skip.clearError}
           style={NOTE_FIELD_STYLE}
           placeholderTextColor={COLORS.gray400}
         />
-      ) : existingNote ? (
+      ) : text.existingNote ? (
         <View className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
           <Text className="text-xs text-gray-500">
             {t("payments.skip.note_label")}
           </Text>
-          <Text className="text-sm text-gray-800 mt-0.5">{existingNote}</Text>
+          <Text className="text-sm text-gray-800 mt-0.5">
+            {text.existingNote}
+          </Text>
         </View>
       ) : null}
     </ConfirmDialog>

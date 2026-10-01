@@ -25,10 +25,10 @@ import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
 import { FilterChipsRow } from "@/src/shared/components/FilterChipsRow";
 import { groupByMonth } from "@shared/shared/lib/monthSections";
+import { useSelection } from "@shared/shared/hooks/useSelection";
 import {
-  useSelection,
   useSelectionBackHandler,
-} from "@/src/shared/hooks/useSelection";
+} from "@/src/shared/hooks/useSelectionBackHandler";
 import {
   Dropdown,
   type DropdownOption,

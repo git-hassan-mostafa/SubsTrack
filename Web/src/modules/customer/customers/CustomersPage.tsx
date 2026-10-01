@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
@@ -62,6 +63,7 @@ import { useCustomerHistoryAction } from "./useCustomerHistoryAction";
 export function CustomersPage() {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const rows = useCustomersTable((s) => s.rows);
   const total = useCustomersTable((s) => s.total);
   const counts = useCustomersTable((s) => s.meta);
@@ -129,7 +131,7 @@ export function CustomersPage() {
   const quickPay = useQuickPay({
     onPaid: afterPayment,
     onTypeOne: (customer, item) => collect.openOne(customer.name, item),
-    onTypeMany: () => setNotice(t("web.customers.quick_pay_typed_many")),
+    onTypeMany: (customer) => void navigate(`/customers/${customer.id}?quickPay=1`),
     sendReceipt,
     onNotice: setNotice,
   });
@@ -328,7 +330,7 @@ export function CustomersPage() {
         <RowLink
           label={params.row.customer.name}
           tabIndex={params.tabIndex}
-          onClick={() => setForm({ customer: params.row.customer })}
+          href={`/customers/${params.row.id}`}
         />
       ),
     },

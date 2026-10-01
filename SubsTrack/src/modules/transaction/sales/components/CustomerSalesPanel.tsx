@@ -7,10 +7,10 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { InlineSelectionToolbar } from "@/src/shared/components/InlineSelectionToolbar";
+import { useSelection } from "@shared/shared/hooks/useSelection";
 import {
-  useSelection,
   useSelectionBackHandler,
-} from "@/src/shared/hooks/useSelection";
+} from "@/src/shared/hooks/useSelectionBackHandler";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer, Sale } from "@shared/core/types";
 import saleService from "@shared/modules/transaction/sales/services/SaleService";

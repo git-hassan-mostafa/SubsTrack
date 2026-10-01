@@ -20,10 +20,10 @@ import {
 import { FAB } from "@/src/shared/components/FAB";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
+import { useSelection } from "@shared/shared/hooks/useSelection";
 import {
-  useSelection,
   useSelectionBackHandler,
-} from "@/src/shared/hooks/useSelection";
+} from "@/src/shared/hooks/useSelectionBackHandler";
 import type { Sale } from "@shared/core/types";
 import { SaleCard } from "../components/SaleCard";
 import { SaleFormSheet } from "../components/SaleFormSheet";

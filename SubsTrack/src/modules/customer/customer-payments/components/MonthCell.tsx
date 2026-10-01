@@ -4,7 +4,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
-import { getCurrentYearMonth } from "@shared/core/utils/date";
+import {
+  CELL_BADGE_KEYS,
+  cellBadge,
+  isCurrentMonth as isCurrentMonthOf,
+  showsPartialRing,
+} from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
 import type { MonthEntry, MonthStatus } from "@shared/core/types";
@@ -73,13 +78,11 @@ export const MonthCell = memo(function MonthCell({
   onLongPress,
 }: Props) {
   const { t } = useTranslation();
-  const { year: cy, month: cm } = getCurrentYearMonth();
-  const isCurrentMonth = entry.year === cy && entry.month === cm;
+  const isCurrentMonth = isCurrentMonthOf(entry);
 
   const selectable = entry.status !== "before_start";
 
-  const isPartial = entry.status === "paid" && entry.balance > 0;
-  const showPartialRing = isPartial && !entry.isGroupSecondary;
+  const showPartialRing = showsPartialRing(entry);
 
   const bgColor = isRegular ? regularBgColor : nonRegularBgColor;
   const textColor = isRegular ? regularTextColor : nonRegularTextColor;
@@ -110,15 +113,12 @@ export const MonthCell = memo(function MonthCell({
         ? COLORS.white
         : COLORS.gray500;
 
-  const sublabel = (() => {
-    if (entry.status === "paid" && entry.isGroupSecondary)
-      return t("payments.included_label");
-    if (isPartial) return t("payments.partial_badge");
-    if (entry.status === "paid") return t("common.paid");
-    if (entry.status === "skipped") return t("payments.skip.skipped_label");
-    if (isCurrentMonth) return t("payments.this_month").toUpperCase();
-    return null;
-  })();
+  const badge = cellBadge(entry);
+  const sublabel = badge
+    ? badge === "this_month"
+      ? t(CELL_BADGE_KEYS[badge]).toUpperCase()
+      : t(CELL_BADGE_KEYS[badge])
+    : null;
 
   const padClass = `${connectLeft ? "ps-0" : "ps-1"} ${
     connectRight ? "pe-0" : "pe-1"

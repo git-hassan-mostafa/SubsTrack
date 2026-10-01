@@ -28,10 +28,10 @@ import {
   type DropdownOption,
 } from "@/src/shared/components/Dropdown";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
+import { useSelection } from "@shared/shared/hooks/useSelection";
 import {
-  useSelection,
   useSelectionBackHandler,
-} from "@/src/shared/hooks/useSelection";
+} from "@/src/shared/hooks/useSelectionBackHandler";
 import { COLORS } from "@/src/shared/constants";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { formatDate } from "@shared/core/utils/date";

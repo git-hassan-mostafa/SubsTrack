@@ -30,10 +30,10 @@ import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySl
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { useExportRows } from "@/src/shared/hooks/useExportRows";
+import { useSelection } from "@shared/shared/hooks/useSelection";
 import {
-  useSelection,
   useSelectionBackHandler,
-} from "@/src/shared/hooks/useSelection";
+} from "@/src/shared/hooks/useSelectionBackHandler";
 import type { Product } from "@shared/core/types";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { ProductCard } from "../components/ProductCard";

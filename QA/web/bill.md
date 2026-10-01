@@ -2,7 +2,7 @@
 
 The dialogs the web opens for ONE bill and the payments on it: the **bill dialog** (figure, status, details, every payment), **payment details**, **Correct amount**, **Void payment**, **Void this month** (the bill and its cash), **Write off / Undo write-off**, and **Write off all** on the Customers list. The money rules are the phone's — [../ledger-collections.md](../ledger-collections.md), [../shared-handover-void.md](../shared-handover-void.md), [../debts.md](../debts.md) — and both apps now run the same shared rules for what a bill allows.
 
-**Where they open:** Write off all is on the Customers list now (§6). The bill dialog and payment details get their doors in the next phases: Money received rows (E3, now — see [money-received.md](money-received.md) §3–§4), a month cell on the customer page (E4, with Void this month), the customer's debts panel (E5, with Write off / Undo). Run §1–§5 once a door exists; run §6 and §7 now.
+**Where they open:** Write off all is on the Customers list now (§6). The bill dialog and payment details get their doors in the next phases: Money received rows (E3, now — see [money-received.md](money-received.md) §3–§4), a month on the customer page (E4, now — see [customer-detail.md](customer-detail.md) §4–§5, with Void this month and Write off / Undo), the customer's debts panel (E5, with Write off / Undo). Run §1–§5 once a door exists; run §6 and §7 now.
 
 **Reference code:**
 

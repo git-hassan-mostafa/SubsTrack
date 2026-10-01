@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
@@ -12,9 +13,10 @@ interface BulkActionBarProps {
   count: number;
   actions: TableAction[];
   onClear: () => void;
+  children?: ReactNode;
 }
 
-export function BulkActionBar({ count, actions, onClear }: BulkActionBarProps) {
+export function BulkActionBar({ count, actions, onClear, children }: BulkActionBarProps) {
   const { t } = useTranslation();
   return (
     <Stack
@@ -58,6 +60,7 @@ export function BulkActionBar({ count, actions, onClear }: BulkActionBarProps) {
           </Button>
         );
       })}
+      {children}
     </Stack>
   );
 }

@@ -99,3 +99,19 @@ export function groupPayableBlocks(
     .sort((a, b) => a - b)
     .map((abs) => ({ startBillingMonth: billingMonthFromAbs(abs) }));
 }
+
+// A checkbox table reports the new set; every changed month brings its unit.
+export function applySelectionChange(
+  current: ReadonlySet<string>,
+  next: ReadonlySet<string>,
+  unitOf: (billingMonth: string) => string[],
+): string[] {
+  const result = new Set(current);
+  for (const month of current) {
+    if (!next.has(month)) unitOf(month).forEach((m) => result.delete(m));
+  }
+  for (const month of next) {
+    if (!current.has(month)) unitOf(month).forEach((m) => result.add(m));
+  }
+  return [...result];
+}

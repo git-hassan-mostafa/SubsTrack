@@ -24,10 +24,10 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
+import { useSelection } from "@shared/shared/hooks/useSelection";
 import {
-  useSelection,
   useSelectionBackHandler,
-} from "@/src/shared/hooks/useSelection";
+} from "@/src/shared/hooks/useSelectionBackHandler";
 import type { Currency } from "@shared/core/types";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";

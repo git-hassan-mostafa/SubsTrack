@@ -22,10 +22,10 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
+import { useSelection } from "@shared/shared/hooks/useSelection";
 import {
-  useSelection,
   useSelectionBackHandler,
-} from "@/src/shared/hooks/useSelection";
+} from "@/src/shared/hooks/useSelectionBackHandler";
 import type { Branch } from "@shared/core/types";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { useBranchSlice } from "@shared/state/hooks/useBranchSlice";

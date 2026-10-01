@@ -68,10 +68,10 @@ import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySl
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
+import { useSelection } from "@shared/shared/hooks/useSelection";
 import {
-  useSelection,
   useSelectionBackHandler,
-} from "@/src/shared/hooks/useSelection";
+} from "@/src/shared/hooks/useSelectionBackHandler";
 import { SaleFormSheet } from "@/src/modules/transaction/sales";
 
 export function CustomerListScreen() {

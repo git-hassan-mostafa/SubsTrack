@@ -26,10 +26,10 @@ import {
   SelectionBar,
   type SelectionAction,
 } from "@/src/shared/components/SelectionBar";
+import { useSelection } from "@shared/shared/hooks/useSelection";
 import {
-  useSelection,
   useSelectionBackHandler,
-} from "@/src/shared/hooks/useSelection";
+} from "@/src/shared/hooks/useSelectionBackHandler";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { CustomerPicker } from "@/src/modules/customer/customers";
 import { useSendInvoice } from "@/src/modules/invoicing";

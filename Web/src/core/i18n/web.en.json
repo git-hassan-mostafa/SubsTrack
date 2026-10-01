@@ -76,7 +76,6 @@
     "tab_count": "{{label}} ({{count}})",
     "new_plan": "Add a new plan",
     "new_portal_password": "Make a new password",
-    "quick_pay_typed_many": "These plans have no set price, so each month needs its own typed amount. Collect them one month at a time on the customer page.",
     "paid_one": "Saved {{amount}} from {{name}}.",
     "paid_many": "Saved payments from {{count}} customers."
   },
@@ -166,5 +165,39 @@
     "voided_when": "Voided {{when}}.",
     "voided_reason": "Reason: {{reason}}.",
     "voided_effect": "It no longer counts, and the bills it paid are owed again."
+  },
+  "customer_detail": {
+    "back": "Back to customers",
+    "not_found": "This customer was not found.",
+    "not_found_hint": "It may have been deleted, or it belongs to a branch you cannot see."
+  },
+  "month_grid": {
+    "lines": "Service lines",
+    "line_paid": "Paid this year",
+    "line_unpaid": "A month is not paid",
+    "previous_year": "Previous year",
+    "next_year": "Next year",
+    "unpaid_banner": "{{month}} is not paid yet.",
+    "status_paid": "Paid",
+    "status_partial": "Part paid",
+    "status_unpaid": "Not paid",
+    "status_future": "Not due yet",
+    "status_before_start": "Before the plan started",
+    "status_skipped": "Skipped",
+    "table_label": "Months of {{year}}",
+    "col_month": "Month",
+    "col_status": "Status",
+    "col_bill": "Bill",
+    "col_paid": "Paid",
+    "col_owed": "Still owed",
+    "col_note": "Note",
+    "covers": "Covers {{range}}",
+    "in_bill": "Part of the {{range}} bill",
+    "status_written_off": "Written off",
+    "view_label": "Show months as",
+    "view_list": "Show as a list",
+    "view_grid": "Show as a grid",
+    "cell_label": "{{month}}: {{status}}",
+    "pick_month": "Pick {{month}}"
   }
 }

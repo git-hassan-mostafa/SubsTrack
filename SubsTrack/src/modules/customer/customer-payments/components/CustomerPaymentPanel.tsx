@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   InteractionManager,
@@ -14,85 +14,75 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { confirm } from "@shared/shared/lib/confirm";
 import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
 import { InlineSelectionToolbar } from "@/src/shared/components/InlineSelectionToolbar";
-import type {
-  AuditRecordTarget,
-  Charge,
-  Collection,
-  Customer,
-  MonthEntry,
-  OpenItem,
-} from "@shared/core/types";
-import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import type { SelectionAction } from "@/src/shared/components/PageHeader";
+import type { Collection, Customer, MonthEntry } from "@shared/core/types";
+import { billingMonthLabel } from "@shared/core/utils/billingMonth";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
-import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
-import { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/utils/blockRangeLabel";
-import { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
 import { lineLabel } from "@shared/modules/customer/customer-plans/utils/lineLabel";
+import { useCustomerMonthGrid } from "@shared/modules/customer/customer-payments/hooks/useCustomerMonthGrid";
+import type { LineIndicator } from "@shared/modules/customer/customer-payments/utils/gridSummary";
+import type {
+  MonthMenuKey,
+  MonthSelectionKey,
+} from "@shared/modules/customer/customer-payments/utils/monthActions";
 import { MonthGrid } from "./MonthGrid";
 import { SkipMonthSheet } from "./SkipMonthSheet";
 import {
-  expandSelectionUnit,
-  groupPayableBlocks,
-} from "@shared/modules/customer/customer-payments/utils/monthSelection";
-import { isAfterMonth, lastBillableMonth } from "@shared/modules/customer/customer-payments/utils/payWindow";
-import {
-  billingMonthLabel,
-  blockingPaidMonths,
-  blockingUnpaidMonths,
-  coveredBillingMonths,
-} from "@shared/modules/customer/customer-payments/utils/payOrder";
-import {
-  useSelection,
   useSelectionBackHandler,
-} from "@/src/shared/hooks/useSelection";
-import type { SelectionAction } from "@/src/shared/components/PageHeader";
+} from "@/src/shared/hooks/useSelectionBackHandler";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
-import { BillHistorySheet, BillSheet, CollectSheet, VoidConfirmDialog } from "@/src/modules/ledger";
-import { useWriteOffActions, writeOffTargetOf } from "@shared/modules/ledger/hooks/useWriteOffActions";
-import { chargeService } from "@shared/modules/ledger/services/ChargeService";
-import { monthItemFromEntry } from "@shared/modules/ledger/utils/openItems";
-import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
-import type { CollectGroupSubmit } from "@shared/modules/ledger/utils/collectForm";
-import { usePaymentSlice } from "@shared/state/hooks/usePaymentSlice";
-import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import {
+  BillHistorySheet,
+  BillSheet,
+  useCollectSheet,
+  VoidConfirmDialog,
+} from "@/src/modules/ledger";
 
 interface CustomerPaymentPanelProps {
   customer: Customer;
   refreshToken?: number;
 }
 
-const EMPTY_GRID: MonthEntry[] = [];
-const EMPTY_MONTHS: string[] = [];
-
-// A single at-a-glance payment status for a line's tab, derived from the viewed
-// year's grid (reuses buildMonthGrid's statuses — no status logic here). Worst
-// state wins so an overdue plan is flagged first: unpaid > paid (a partial
-// payment reports as paid). Null means nothing is due yet this year (all future
-// / before start) → no dot.
-type LineIndicator = "paid" | "unpaid";
+type IconName = keyof typeof Ionicons.glyphMap;
 
 const INDICATOR_DOT: Record<LineIndicator, string> = {
   paid: "bg-green-500",
   unpaid: "bg-red-500",
 };
 
-function lineIndicatorStatus(grid: MonthEntry[]): LineIndicator | null {
-  let hasPaid = false;
-  for (const m of grid) {
-    if (m.status === "unpaid") return "unpaid";
-    if (m.status === "paid") hasPaid = true;
-  }
-  if (hasPaid) return "paid";
-  return null;
+const MENU_ICONS: Record<MonthMenuKey, IconName> = {
+  open: "open-outline",
+  "quick-pay": "flash-outline",
+  "quick-pay-whatsapp": "logo-whatsapp",
+  "collect-part": "cash-outline",
+  skip: "play-skip-forward-outline",
+  unskip: "refresh-outline",
+  bill: "receipt-outline",
+  "collect-remaining": "cash-outline",
+  history: "time-outline",
+  "void-month": "close-circle-outline",
+};
+
+const SELECTION_ICONS: Record<MonthSelectionKey, IconName> = {
+  pay: "cash-outline",
+  "pay-whatsapp": "logo-whatsapp",
+  skip: "play-skip-forward-outline",
+  unskip: "refresh-outline",
+};
+
+// The deep-linked collect sheet waits for the screen push to finish.
+function afterInteractions(run: () => void): () => void {
+  const task = InteractionManager.runAfterInteractions(run);
+  return () => task.cancel();
+}
+
+function payAndSendIcon(size: number) {
+  return <WhatsAppComboIcon variant="pay" size={size} />;
 }
 
 export function CustomerPaymentPanel({
@@ -102,860 +92,76 @@ export function CustomerPaymentPanel({
   const { t } = useTranslation();
   const router = useRouter();
   const { quickPay } = useLocalSearchParams<{ quickPay?: string }>();
-  const { user, isAdmin } = useAuth();
-  const writeOffActions = useWriteOffActions();
-  const bills = usePaymentSlice((s) => s.bills);
-  const skips = usePaymentSlice((s) => s.skips);
-  const monthGridsByLine = usePaymentSlice((s) => s.monthGridsByLine);
-  const uncoveredMonthsByLine = usePaymentSlice((s) => s.uncoveredMonthsByLine);
-  const paidMonthsByLine = usePaymentSlice((s) => s.paidMonthsByLine);
-  const paymentsLoading = usePaymentSlice((s) => s.loading);
-  const billsCustomerId = usePaymentSlice((s) => s.billsCustomerId);
-  const paymentsError = usePaymentSlice((s) => s.error);
-  const fetchBills = usePaymentSlice((s) => s.fetchBills);
-  const buildGrids = usePaymentSlice((s) => s.buildGrids);
-  const clearPaymentError = usePaymentSlice((s) => s.clearError);
-  const resetPayments = usePaymentSlice((s) => s.reset);
-  const collect = useLedgerSlice((s) => s.collect);
-  const collectMulti = useLedgerSlice((s) => s.collectMulti);
-  const voidMonthBill = usePaymentSlice((s) => s.voidMonthBill);
-  const collecting = useLedgerSlice((s) => s.loadingCollect);
-  const ledgerError = useLedgerSlice((s) => s.error);
-  const clearLedgerError = useLedgerSlice((s) => s.clearError);
-  const currencies = useCurrencySlice((s) => s.items);
   const { canSend, sendCollectionInvoice } = useSendInvoice();
-  const displayCurrencyId = useDisplayCurrencyId();
-  const displayCurrency = findCurrency(currencies, displayCurrencyId);
-
-  const lines = useMemo(
-    () => customer.customerPlans ?? [],
-    [customer.customerPlans],
-  );
-  const linesKey = lines
-    .map((l) => `${l.id}:${l.active}:${l.startDate}:${l.planId}`)
-    .join(",");
-
-  const billsReady = billsCustomerId === customer.id;
-
-  const [year, setYear] = useState(getCurrentYearMonth().year);
-  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
   const [menuEntry, setMenuEntry] = useState<MonthEntry | null>(null);
-  const [busyMonth, setBusyMonth] = useState<string | null>(null);
-  const [billEntry, setBillEntry] = useState<MonthEntry | null>(null);
-  const [voidEntry, setVoidEntry] = useState<MonthEntry | null>(null);
-  const [history, setHistory] = useState<{
-    chargeId: string | null;
-    targets: AuditRecordTarget[];
-    subtitle: string;
-  } | null>(null);
-  const [collectFor, setCollectFor] = useState<{
-    items: OpenItem[];
-    single: boolean;
-    send: boolean;
-  } | null>(null);
-  const quickPayHandledRef = useRef(false);
+  const sendable = canSend(customer.phoneNumber);
 
-  const selection = useSelection();
-  useSelectionBackHandler(selection.active, selection.clear);
-  const bulkBusy = collecting;
-  const [skipRequest, setSkipRequest] = useState<{
-    entries: MonthEntry[];
-    mode: "skip" | "unskip";
-  } | null>(null);
-
-  useEffect(() => {
-    if (lines.length === 0) {
-      setSelectedLineId(null);
-      return;
-    }
-    if (!selectedLineId || !lines.some((l) => l.id === selectedLineId)) {
-      const firstActive = lines.find((l) => l.active) ?? lines[0];
-      setSelectedLineId(firstActive.id);
-    }
-  }, [linesKey, lines, selectedLineId]);
-
-  const selectedLine = lines.find((l) => l.id === selectedLineId) ?? null;
-  const plan = selectedLine?.plan ?? null;
-  const linePrice = resolveLinePrice(
-    selectedLine ?? { customPrice: null, customCurrencyId: null, plan: null },
-  );
-  const grid = selectedLine
-    ? (monthGridsByLine[selectedLine.id] ?? EMPTY_GRID)
-    : EMPTY_GRID;
-  const gridPending = !paymentsError && (!billsReady || grid.length === 0);
-  const lineUncoveredMonths = selectedLine
-    ? (uncoveredMonthsByLine[selectedLine.id] ?? EMPTY_MONTHS)
-    : EMPTY_MONTHS;
-  const linePaidMonths = selectedLine
-    ? (paidMonthsByLine[selectedLine.id] ?? EMPTY_MONTHS)
-    : EMPTY_MONTHS;
-
-  // Price shown next to the plan name above the grid. A custom-price or
-  // plan-less line has no fixed amount, so it reads "Custom" instead. Multi-month
-  // plans say so, since the price covers the whole block, not one month.
-  const linePriceLabel = (() => {
-    if (!selectedLine) return null;
-    if (!linePrice.isFixed) return t("common.custom");
-    const amount = formatMoney(
-      linePrice.amount!,
-      findCurrency(currencies, linePrice.currencyId),
-      displayCurrency,
-    );
-    const withPeriod =
-      linePrice.durationMonths > 1
-        ? `${amount} / ${t("plans.n_months", { count: linePrice.durationMonths })}`
-        : `${amount} ${t("plans.per_month_suffix")}`;
-    return linePrice.kind === "special"
-      ? `${withPeriod} · ${t("subscriptions.special_badge")}`
-      : withPeriod;
-  })();
-
-  useEffect(() => {
-    if (lines.length > 0) void fetchBills(customer.id);
-  }, [customer.id, lines.length, fetchBills, refreshToken]);
-
-  const reloadBills = useCallback(() => {
-    if (lines.length > 0) void fetchBills(customer.id);
-  }, [customer.id, lines.length, fetchBills]);
-  useOwedChanged(reloadBills);
-
-  useEffect(() => {
-    if (lines.length > 0 && billsReady) buildGrids(lines, year);
-  }, [year, linesKey, lines, bills, skips, billsReady, buildGrids]);
-
-  const clearGridSelection = selection.clear;
-  useEffect(() => {
-    clearGridSelection();
-  }, [year, selectedLineId, clearGridSelection]);
-
-  useEffect(() => {
-    return () => resetPayments();
-  }, [resetPayments]);
-
-  const lineActive = selectedLine?.active ?? false;
-
-  const payLimit = lastBillableMonth(customer, selectedLine ?? null);
-  const payLimitLabel = payLimit
-    ? billingMonthLabel(toBillingMonth(payLimit.year, payLimit.month))
-    : null;
-
-  // The single gate every collect path shares — cell tap, quick pay and bulk.
-  function isPayBlocked(entry: MonthEntry): boolean {
-    return payLimit !== null && isAfterMonth(entry, payLimit);
-  }
-
-  // Months are settled OLDEST FIRST: returns the oldest month that must be
-  // collected before `entries` may be paid, or null when the pay is allowed.
-  // Months inside the same write never block it, so paying a whole backlog in
-  // one selection is fine while cherry-picking a later month is not.
-  function payOrderBlocker(entries: MonthEntry[]): string | null {
-    return (
-      blockingUnpaidMonths(
-        lineUncoveredMonths,
-        entries.map((e) => e.billingMonth),
-      )[0] ?? null
-    );
-  }
-
-  const showPayOrderBlocked = useCallback(
-    (month: string) => {
-      void confirm({
-        title: t("common.not_available"),
-        message: t("payments.earlier_month_unpaid", {
-          month: billingMonthLabel(month),
-        }),
-        confirmLabel: t("common.close"),
-        hideCancel: true,
-      });
-    },
-    [t],
-  );
-
-  // Voids run NEWEST FIRST — the mirror of payOrderBlocker. Returns the newest
-  // paid month standing in the way, or null when the void is allowed. Months
-  // inside the same write never block it, so a whole block goes at once.
-  //
-  // An UNSKIP shares this helper on purpose: it is a void of an EXPECTATION, so
-  // it too is locked while a LATER month is paid — that would leave an unpaid
-  // month under a paid one.
-  function voidOrderBlocker(months: string[]): string | null {
-    return blockingPaidMonths(linePaidMonths, months)[0] ?? null;
-  }
-
-  const showVoidOrderBlocked = useCallback(
-    (month: string) => {
-      void confirm({
-        title: t("common.not_available"),
-        message: t("payments.later_month_paid", {
-          month: billingMonthLabel(month),
-        }),
-        confirmLabel: t("common.close"),
-        hideCancel: true,
-      });
-    },
-    [t],
-  );
-
-  // A skipped month whose unskip is locked can never go back to unpaid, so
-  // COLLECTING it is the only way left to settle it. It therefore joins the
-  // payable statuses (money outranks the skip in buildMonthGrid, leaving the
-  // skip inert) and its unskip action is hidden instead.
-  function isLockedSkipped(entry: MonthEntry): boolean {
-    return (
-      entry.status === "skipped" &&
-      voidOrderBlocker([entry.billingMonth]) !== null
-    );
-  }
-
-  // The statuses money can be collected for: nothing collected yet, or a
-  // skipped month that can no longer be unskipped.
-  function isPayableStatus(entry: MonthEntry): boolean {
-    return (
-      entry.status === "unpaid" ||
-      entry.status === "future" ||
-      isLockedSkipped(entry)
-    );
-  }
-
-  const monthLabelOf = useCallback(
-    (entry: MonthEntry): string => {
-      const span = entry.charge?.durationMonths ?? linePrice.durationMonths;
-      const base =
-        span > 1
-          ? getBlockRangeLabel(entry.billingMonth, span, t)
-          : `${t(`months.${entry.label}`)} ${entry.year}`;
-      return plan?.name ? `${base} · ${plan.name}` : base;
-    },
-    [linePrice.durationMonths, plan?.name, t],
-  );
-
-  const itemFor = useCallback(
-    (entry: MonthEntry): OpenItem | null => {
-      if (!selectedLine) return null;
-      return monthItemFromEntry({
-        entry,
-        customerId: customer.id,
-        customerName: customer.name,
-        branchId: customer.branchId,
-        customerPlanId: selectedLine.id,
-        planId: selectedLine.planId,
-        label: monthLabelOf(entry),
-        price: {
-          amount: linePrice.amount,
-          currencyId: linePrice.currencyId,
-          durationMonths: linePrice.durationMonths,
-        },
-        ratePerUsd:
-          findCurrency(currencies, linePrice.currencyId)?.ratePerUsd ?? 1,
-      });
-    },
-    [selectedLine, customer, linePrice, currencies, monthLabelOf],
-  );
-
-  const itemsForEntries = useCallback(
-    (entries: MonthEntry[]): OpenItem[] => {
-      if (!selectedLine) return [];
-      if (linePrice.durationMonths > 1) {
-        const blocks = groupPayableBlocks(entries, selectedLine);
-        return blocks
-          .map((b) => {
-            const cell =
-              entries.find((e) => e.billingMonth === b.startBillingMonth) ??
-              entries.find((e) => e.billingMonth >= b.startBillingMonth);
-            if (!cell) return null;
-            return itemFor({ ...cell, billingMonth: b.startBillingMonth });
-          })
-          .filter((i): i is OpenItem => i !== null);
-      }
-      return entries.map(itemFor).filter((i): i is OpenItem => i !== null);
-    },
-    [selectedLine, linePrice, itemFor],
-  );
-
-  const openCollect = useCallback(
-    (entries: MonthEntry[], send = false) => {
-      const items = itemsForEntries(entries);
-      if (items.length === 0) return;
-      if (items.length > 1 && items.some((i) => i.openAmount)) {
-        void confirm({
-          title: t("common.not_available"),
-          message: t("ledger.open_amount_one_at_a_time"),
-          confirmLabel: t("common.close"),
-          hideCancel: true,
-        });
-        return;
-      }
-      setCollectFor({ items, single: items.length === 1, send });
-    },
-    [itemsForEntries, t],
-  );
-
-  // A written-off month is "unpaid" by the grid's money rule, yet HAS a bill.
-  function hasViewableBill(entry: MonthEntry): boolean {
-    return (
-      !!entry.charge &&
-      (entry.status === "paid" || entry.charge.writtenOffAt !== null)
-    );
-  }
-
-  function handleCellPress(entry: MonthEntry) {
-    if (entry.status === "before_start") {
-      void confirm({
-        title: t("common.not_available"),
-        message: t("payments.before_start_date"),
-        confirmLabel: t("common.close"),
-        hideCancel: true,
-      });
-      return;
-    }
-
-    if (entry.status === "skipped" && !isLockedSkipped(entry)) {
-      setSkipRequest({ entries: [entry], mode: "unskip" });
-      return;
-    }
-
-    if (hasViewableBill(entry)) {
-      setBillEntry(entry);
-      return;
-    }
-
-    if (isPayBlocked(entry)) {
-      void confirm({
-        title: t("common.not_available"),
-        message: t(
-          !customer.active
-            ? "payments.inactive_month_blocked"
-            : "payments.cancelled_plan_month_blocked",
-          { month: payLimitLabel },
-        ),
-        confirmLabel: t("common.close"),
-        hideCancel: true,
-      });
-      return;
-    }
-
-    const blocker = payOrderBlocker([entry]);
-    if (blocker) {
-      showPayOrderBlocked(blocker);
-      return;
-    }
-
-    openCollect([entry]);
-  }
-
-  useEffect(() => {
-    if (quickPay !== "1") quickPayHandledRef.current = false;
-  }, [quickPay]);
-
-  useEffect(() => {
-    if (quickPay !== "1" || quickPayHandledRef.current) return;
-    if (paymentsLoading || grid.length === 0) return;
-    const { year: cy, month: cm } = getCurrentYearMonth();
-    const currentEntry = grid.find((m) => m.year === cy && m.month === cm);
-    if (!currentEntry) return;
-    quickPayHandledRef.current = true;
-    router.setParams({ quickPay: undefined });
-    if (
-      currentEntry.status === "skipped" &&
-      blockingPaidMonths(linePaidMonths, [currentEntry.billingMonth]).length ===
-        0
-    ) {
-      void confirm({
-        title: t("common.not_available"),
-        message: t("payments.skip.pay_blocked"),
-        confirmLabel: t("common.close"),
-        hideCancel: true,
-      });
-      return;
-    }
-    const blocker = blockingUnpaidMonths(lineUncoveredMonths, [
-      currentEntry.billingMonth,
-    ])[0];
-    if (blocker) {
-      showPayOrderBlocked(blocker);
-      return;
-    }
-    const task = InteractionManager.runAfterInteractions(() =>
-      openCollect([currentEntry]),
-    );
-    return () => task.cancel();
-  }, [
-    quickPay,
-    paymentsLoading,
-    grid,
-    lineUncoveredMonths,
-    linePaidMonths,
-    router,
-    t,
-    openCollect,
-    showPayOrderBlocked,
-  ]);
-
-  /**
-   * Sends ONE receipt for a hand-over — the split it covers is listed inside.
-   * No-op when the write failed or the customer has no number: the money must
-   * still count as collected.
-   */
-  async function sendReceipt(collection: Collection | null) {
-    if (!collection || !canSend(customer.phoneNumber)) return;
-    await sendCollectionInvoice({
-      phone: customer.phoneNumber,
-      customerName: customer.name,
-      collection,
-    });
-  }
-
-  /**
-   * Everything the grid writes goes through here — one door, one refresh.
-   *
-   * Returns the created row rather than a flag so a SHEET caller can close
-   * before the follow-on work runs — see `afterCollect`.
-   */
-  async function runCollect(args: {
-    items: OpenItem[];
-    amount: number;
-    currencyId: string | null;
-    ratePerUsdSnapshot: number;
-    receivedAt: string;
-    notes: string | null;
-    lines: { item: OpenItem; amount: number }[];
-  }): Promise<Collection | null> {
-    if (!user) return null;
-    return collect({
-      tenantId: user.tenantId,
-      customerId: customer.id,
-      branchId: customer.branchId,
-      amount: args.amount,
-      currencyId: args.currencyId,
-      ratePerUsdSnapshot: args.ratePerUsdSnapshot,
-      receivedAt: args.receivedAt,
-      receivedByUserId: user.id,
-      notes: args.notes,
-      lines: args.lines.map((l) => ({
-        item: l.item,
-        amount: l.amount,
-        settles: l.amount >= l.item.balance,
-      })),
-    });
-  }
-
-  /**
-   * The sheet's door: one hand-over per currency the customer paid in (#108).
-   */
-  async function runCollectGroups(args: {
-    receivedAt: string;
-    notes: string | null;
-    groups: CollectGroupSubmit[];
-  }): Promise<Collection[]> {
-    if (!user) return [];
-    const { collections } = await collectMulti(
-      args.groups.map((group) => ({
-        tenantId: user.tenantId,
-        customerId: customer.id,
-        branchId: customer.branchId,
-        amount: group.amount,
-        currencyId: group.currencyId,
-        ratePerUsdSnapshot: group.ratePerUsdSnapshot,
-        receivedAt: args.receivedAt,
-        receivedByUserId: user.id,
-        notes: args.notes,
-        lines: group.lines.map((l) => ({
-          item: l.item,
-          amount: l.amount,
-          settles: l.amount >= l.item.balance,
-        })),
-      })),
-    );
-    return collections;
-  }
-
-  /**
-   * The rest of a successful collect, run AFTER the sheet was told to close.
-   *
-   * The grid needs nothing done here: the ledger slice patched the bills from
-   * the created row as part of the write, so this only sends the receipt.
-   */
-  async function afterCollect(created: Collection, send: boolean) {
-    if (send) await sendReceipt(created);
-  }
-
-  /**
-   * Void a month outright: the bill and every payment that reached it.
-   *
-   * The narrow door is BillSheet, which undoes one hand-over at a time and is
-   * the right tool when only the cash was wrong. This is the wide one, for a
-   * month that should never have been billed at all — so the confirm says the
-   * money goes with it, and NAMES the other bills a shared hand-over would
-   * un-pay (#125). It still never counts them: a bare number warns nobody.
-   *
-   * Voids run NEWEST FIRST, so it is refused while a LATER month of the same
-   * line is paid — undoing July under a paid August is precisely the "paid month
-   * sitting on an unpaid one" shape the pay rule exists to prevent. The whole
-   * BILL is the write, so a multi-month block is judged by every month it covers
-   * (months inside the same write never block each other).
-   */
-  function voidBill(entry: MonthEntry): boolean {
-    const charge = entry.charge;
-    if (!user || !charge) return false;
-    const blocker = voidOrderBlocker(
-      coveredBillingMonths(
-        charge.billingMonth ?? entry.billingMonth,
-        charge.durationMonths,
-      ),
-    );
-    if (blocker) {
-      showVoidOrderBlocked(blocker);
-      return false;
-    }
-    setVoidEntry(entry);
-    return true;
-  }
-
-  async function confirmVoidBill(reason: string) {
-    const entry = voidEntry;
-    const charge = entry?.charge;
-    if (!user || !entry || !charge) return;
-    setBusyMonth(entry.billingMonth);
-    try {
-      const result = await voidMonthBill(charge.id, user.id, reason || null);
-      if (result.blockedBy) {
-        setVoidEntry(null);
-        showVoidOrderBlocked(result.blockedBy);
-        return;
-      }
-      if (!result.ok) return;
-      await fetchBills(customer.id);
-      setVoidEntry(null);
-    } finally {
-      setBusyMonth(null);
-    }
-  }
-
-  // No re-read: the ledger slice bumps `owedVersion` and this panel re-reads on it.
-  function writeOffBill(charge: Charge, balance: number): Promise<void> {
-    return writeOffActions.writeOff(writeOffTargetOf(charge, balance, customer.name));
-  }
-
-  function revertWriteOffBill(charge: Charge, balance: number): Promise<void> {
-    return writeOffActions.revert(writeOffTargetOf(charge, balance, customer.name));
-  }
-
-  // A custom-price line qualifies too — it opens the sheet instead of charging.
-  function canQuickPay(entry: MonthEntry): boolean {
-    return (
-      !isPayBlocked(entry) &&
-      payOrderBlocker([entry]) === null &&
-      isPayableStatus(entry)
-    );
-  }
-
-  // Charges a remembered price outright; a custom one hands off to the sheet.
-  async function handleQuickPay(entry: MonthEntry, send = false) {
-    const orderBlocker = payOrderBlocker([entry]);
-    if (orderBlocker) {
-      showPayOrderBlocked(orderBlocker);
-      return;
-    }
-    if (!selectedLine || !linePrice.isFixed || !user) {
-      openCollect([entry], send);
-      return;
-    }
-    const items = itemsForEntries([entry]);
-    const item = items[0];
-    if (!item) {
-      openCollect([entry], send);
-      return;
-    }
-    async function collect() {
-      setBusyMonth(entry.billingMonth);
-      try {
-        const created = await runCollect({
-          items,
-          amount: item.balance,
-          currencyId: item.currencyId,
-          ratePerUsdSnapshot: item.ratePerUsdSnapshot,
-          receivedAt: new Date().toISOString(),
-          notes: null,
-          lines: [{ item, amount: item.balance }],
-        });
-        if (created) await afterCollect(created, send);
-      } finally {
-        setBusyMonth(null);
-      }
-    }
-
-    if (linePrice.durationMonths > 1) {
-      await confirm({
-        title: t("payments.quick_pay.confirm_multi_month_title"),
-        message: t("payments.quick_pay.confirm_multi_month_message", {
-          amount: formatMoney(
-            item.balance,
-            findCurrency(currencies, item.currencyId),
-            displayCurrency,
-          ),
-          months: getBlockRangeLabel(
-            item.billingMonth!,
-            item.durationMonths,
-            t,
-          ),
-        }),
-        confirmLabel: t("payments.quick_pay.confirm"),
-        onConfirm: collect,
-      });
-      return;
-    }
-    await collect();
-  }
-
-  // A VOIDED month keeps its trail but loses its charge — the grid's read drops
-  // voided rows — so the bill id is rebuilt from the line + month it is a hash of.
-  async function openHistory(entry: MonthEntry) {
-    const chargeId =
-      entry.charge?.id ??
-      (selectedLine
-        ? await chargeService.monthChargeId(selectedLine.id, entry.billingMonth)
-        : null);
-    setHistory({
-      chargeId,
-      targets: entry.skip
-        ? [{ table: "skipped_months", recordId: entry.skip.id }]
-        : [],
-      subtitle: monthLabelOf(entry),
-    });
-  }
-
-  function buildMonthMenuActions(entry: MonthEntry | null): ActionMenuItem[] {
-    if (!entry) return [];
-    const items: ActionMenuItem[] = [
-      {
-        key: "open",
-        group: "open",
-        label: t("common.open"),
-        icon: "open-outline",
-        onPress: () => handleCellPress(entry),
-      },
-    ];
-    if (canQuickPay(entry)) {
-      items.push({
-        key: "quick-pay",
-        group: "money",
-        label: t("payments.quick_pay.pay_now"),
-        icon: "flash-outline",
-        caption: linePrice.isFixed
-          ? undefined
-          : t("payments.quick_pay.type_amount"),
-        onPress: () => void handleQuickPay(entry),
-      });
-      const sendable = canSend(customer.phoneNumber);
-      items.push({
-        key: "quick-pay-whatsapp",
-        group: "money",
-        label: t("invoice.pay_and_send_whatsapp"),
-        icon: "logo-whatsapp",
-        renderIcon: (size: number) => (
-          <WhatsAppComboIcon variant="pay" size={size} />
-        ),
-        disabled: !sendable,
-        caption: sendable ? undefined : t("invoice.no_phone"),
-        onPress: () => void handleQuickPay(entry, true),
-      });
-      if (linePrice.isFixed) {
-        items.push({
-          key: "collect-part",
-          group: "money",
-          label: t("ledger.collect_part"),
-          icon: "cash-outline",
-          onPress: () => openCollect([entry]),
-        });
-      }
-    }
-    if (entry.status === "unpaid" || entry.status === "future") {
-      items.push({
-        key: "skip",
-        group: "manage",
-        label: t("payments.skip.skip_action"),
-        icon: "play-skip-forward-outline",
-        onPress: () => setSkipRequest({ entries: [entry], mode: "skip" }),
-      });
-    }
-    if (entry.status === "skipped" && !isLockedSkipped(entry)) {
-      items.push({
-        key: "unskip",
-        group: "manage",
-        label: t("payments.skip.unskip_action"),
-        icon: "refresh-outline",
-        onPress: () => setSkipRequest({ entries: [entry], mode: "unskip" }),
-      });
-    }
-    if (hasViewableBill(entry)) {
-      items.push({
-        key: "bill",
-        group: "open",
-        label: t("ledger.view_bill"),
-        icon: "receipt-outline",
-        onPress: () => setBillEntry(entry),
-      });
-      if (entry.balance > 0 && entry.charge?.writtenOffAt == null) {
-        items.push({
-          key: "collect-remaining",
-          group: "money",
-          label: t("ledger.collect_rest"),
-          icon: "cash-outline",
-          onPress: () => openCollect([entry]),
-        });
-      }
-    }
-    if (isAdmin && entry.status !== "before_start") {
-      items.push({
-        key: "history",
-        group: "history",
-        label: t("audit.history"),
-        icon: "time-outline",
-        onPress: () => void openHistory(entry),
-      });
-    }
-    if (entry.charge) {
-      items.push({
-        key: "void-month",
-        group: "danger",
-        label: t("ledger.void_month"),
-        icon: "close-circle-outline",
-        destructive: true,
-        onPress: () => void voidBill(entry),
-      });
-    }
-    return items;
-  }
-
-  const selectedEntries = grid.filter((m) =>
-    selection.selectedIds.has(m.billingMonth),
-  );
-  const payableEntries = selectedEntries.filter(
-    (e) =>
-      !isPayBlocked(e) &&
-      (isPayableStatus(e) || (e.status === "paid" && e.balance > 0)),
-  );
-  const skippableEntries = selectedEntries.filter(
-    (e) => e.status === "unpaid" || e.status === "future",
-  );
-  const skippedEntries = selectedEntries.filter(
-    (e) => e.status === "skipped" && !isLockedSkipped(e),
-  );
-
-  function handleCellToggle(entry: MonthEntry) {
-    if (!selectedLine) return;
-    const unit = expandSelectionUnit(entry, grid, selectedLine);
-    if (unit.length > 0) selection.toggleMany(unit);
-  }
-
-  function handleCellLongPress(entry: MonthEntry) {
-    if (!selectedLine) return;
-    const unit = expandSelectionUnit(entry, grid, selectedLine);
-    if (unit.length > 0) selection.enterWith(unit);
-  }
-
-  function runBulkPay(send = false) {
-    if (bulkBusy || payableEntries.length === 0) return;
-    const blocker = payOrderBlocker(payableEntries);
-    if (blocker) {
-      showPayOrderBlocked(blocker);
-      return;
-    }
-    openCollect(payableEntries, send);
-  }
-
-  const selectionActions: SelectionAction[] = [];
-  if (payableEntries.length > 0) {
-    selectionActions.push({
-      key: "pay",
-      group: "money",
-      icon: "cash-outline",
-      label: t("payments.collect"),
-      disabled: bulkBusy,
-      onPress: () => runBulkPay(),
-    });
-    if (canSend(customer.phoneNumber)) {
-      selectionActions.push({
-        key: "pay-whatsapp",
-        group: "money",
-        icon: "logo-whatsapp",
-        renderIcon: (size) => <WhatsAppComboIcon variant="pay" size={size} />,
-        label: t("invoice.pay_and_send_whatsapp"),
-        disabled: bulkBusy,
-        onPress: () => runBulkPay(true),
-      });
-    }
-  }
-  if (skippableEntries.length > 0) {
-    selectionActions.push({
-      key: "skip",
-      group: "manage",
-      icon: "play-skip-forward-outline",
-      label: t("payments.skip.skip_action"),
-      disabled: bulkBusy,
-      onPress: () =>
-        setSkipRequest({ entries: skippableEntries, mode: "skip" }),
-    });
-  }
-  if (skippedEntries.length > 0) {
-    selectionActions.push({
-      key: "unskip",
-      group: "manage",
-      icon: "refresh-outline",
-      label: t("payments.skip.unskip_action"),
-      disabled: bulkBusy,
-      onPress: () =>
-        setSkipRequest({ entries: skippedEntries, mode: "unskip" }),
-    });
-  }
-
-  const { year: cy, month: cm } = getCurrentYearMonth();
-  const currentMonthEntry = grid.find((m) => m.year === cy && m.month === cm);
-  const showUnpaidBanner =
-    customer.isRegular &&
-    lineActive &&
-    currentMonthEntry?.status === "unpaid" &&
-    year === cy;
-  const daysIntoMonth = new Date().getDate();
-
-  const paidCount = grid.filter((m) => m.status === "paid").length;
-  const unpaidCount = grid.filter((m) => m.status === "unpaid").length;
-  const skippedCount = grid.filter((m) => m.status === "skipped").length;
-  const collectedTotalUsd = bills
-    .filter(
-      (b) =>
-        b.charge.customerPlanId === selectedLine?.id &&
-        (b.charge.billingMonth ?? "").startsWith(String(year)),
-    )
-    .reduce((sum, b) => sum + b.collected / b.charge.ratePerUsdSnapshot, 0);
-  const collectedTotalLabel = formatMoney(
-    collectedTotalUsd,
-    null,
-    displayCurrency,
-  );
-
-  const minYear = selectedLine
-    ? new Date(selectedLine.startDate).getFullYear()
-    : Math.min(
-        ...lines.map((l) => new Date(l.startDate).getFullYear()),
-        getCurrentYearMonth().year,
-      );
-
-  const stepYear = useCallback(
-    (delta: number) =>
-      setYear((y) => (delta < 0 && y <= minYear ? y : y + delta)),
-    [minYear],
-  );
-  const yearSwipe = useHorizontalSwipe({
-    onNext: () => stepYear(1),
-    onPrev: () => stepYear(-1),
+  const collectSheet = useCollectSheet({
+    onCollected: (collection) => void grid.collected([collection]),
   });
 
-  const error = paymentsError ?? (collectFor ? null : ledgerError);
-  const clearErrors = () => {
-    clearPaymentError();
-    clearLedgerError();
-  };
+  const grid = useCustomerMonthGrid({
+    customer,
+    refreshToken,
+    canSend: sendable,
+    openCollect: (items, single) =>
+      single
+        ? collectSheet.openOne(customer.name, items[0])
+        : collectSheet.open(customer.id, customer.name, items),
+    sendReceipt: async (collection: Collection) => {
+      if (!sendable) return;
+      await sendCollectionInvoice({
+        phone: customer.phoneNumber,
+        customerName: customer.name,
+        collection,
+      });
+    },
+    quickPayLink: {
+      requested: quickPay === "1",
+      consume: () => router.setParams({ quickPay: undefined }),
+      schedule: afterInteractions,
+    },
+  });
+  const { selection, selectedLine, lines, year } = grid;
+
+  useSelectionBackHandler(selection.active, selection.clear);
+
+  const yearSwipe = useHorizontalSwipe({
+    onNext: () => grid.stepYear(1),
+    onPrev: () => grid.stepYear(-1),
+  });
+
+  const menuActions: ActionMenuItem[] = menuEntry
+    ? grid.menuItems(menuEntry).map((item) => ({
+        key: item.key,
+        group: item.group,
+        label: t(item.labelKey),
+        icon: MENU_ICONS[item.key],
+        renderIcon:
+          item.key === "quick-pay-whatsapp" ? payAndSendIcon : undefined,
+        caption: item.captionKey ? t(item.captionKey) : undefined,
+        disabled: item.disabled,
+        destructive: item.destructive,
+        onPress: () => grid.runMenu(item.key, menuEntry),
+      }))
+    : [];
+
+  const selectionActions: SelectionAction[] = selection.items.map((item) => ({
+    key: item.key,
+    group: item.group,
+    icon: SELECTION_ICONS[item.key],
+    renderIcon: item.key === "pay-whatsapp" ? payAndSendIcon : undefined,
+    label: t(item.labelKey),
+    disabled: selection.busy,
+    onPress: () => selection.run(item.key),
+  }));
+
+  const error =
+    grid.paymentsError ??
+    (collectSheet.sheet || grid.voidRequest ? null : grid.ledgerError);
+  const banner = grid.unpaidBanner;
+  const bill = grid.bill;
+  const voidRequest = grid.voidRequest;
 
   if (lines.length === 0) {
     return (
@@ -972,13 +178,10 @@ export function CustomerPaymentPanel({
     <>
       {error ? (
         <View className="px-4 mt-4">
-          <ErrorBanner message={error} onDismiss={clearErrors} />
+          <ErrorBanner message={error} onDismiss={grid.clearErrors} />
         </View>
       ) : null}
 
-      {/* Service-line selector — view only (add/edit/remove plans from the
-          customer form). Hidden when there's a single line so a one-plan
-          customer looks exactly like before. */}
       {lines.length > 1 && (
         <View className="mx-4 mt-4">
           <ScrollView
@@ -987,14 +190,12 @@ export function CustomerPaymentPanel({
             contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
           >
             {lines.map((line) => {
-              const isSel = line.id === selectedLineId;
-              const dot = lineIndicatorStatus(
-                monthGridsByLine[line.id] ?? EMPTY_GRID,
-              );
+              const isSel = line.id === selectedLine?.id;
+              const dot = grid.indicatorOf(line.id);
               return (
                 <PressableOpacity
                   key={line.id}
-                  onPress={() => setSelectedLineId(line.id)}
+                  onPress={() => grid.selectLine(line.id)}
                   className={`flex-row items-center rounded-full px-3 py-1.5 border ${
                     isSel
                       ? "bg-gray-900 border-gray-900"
@@ -1021,12 +222,10 @@ export function CustomerPaymentPanel({
         </View>
       )}
 
-      {/* Year card */}
       <GestureDetector gesture={yearSwipe}>
         <View className={`${CARD_SURFACE} mx-4 mt-3 overflow-hidden`}>
           <View className="relative">
             <View className="px-4 pt-4 pb-2">
-              {/* Selected line header — the plan this grid is for, plus its price. */}
               {selectedLine ? (
                 <View className="mb-1 flex-row items-baseline">
                   <Text
@@ -1039,30 +238,29 @@ export function CustomerPaymentPanel({
                       ? ""
                       : ` · ${t("subscriptions.cancelled")}`}
                   </Text>
-                  {linePriceLabel ? (
+                  {grid.priceLabel ? (
                     <Text
                       className="text-xs text-gray-400 ms-2"
                       numberOfLines={1}
                     >
-                      · {linePriceLabel}
+                      · {grid.priceLabel}
                     </Text>
                   ) : null}
                 </View>
               ) : null}
 
-              {/* Row 1 — year + year navigation */}
               <View className="flex-row items-center justify-between">
                 <Text fontWeight="Bold" className="text-2xl text-gray-900">
                   {year}
                 </Text>
                 <View className="flex-row gap-2">
                   <PressableOpacity
-                    onPress={() => setYear((y) => y - 1)}
-                    disabled={year <= minYear}
+                    onPress={() => grid.stepYear(-1)}
+                    disabled={year <= grid.minYear}
                     className="w-10 h-10 rounded-full items-center justify-center"
                     style={{
                       backgroundColor: COLORS.primaryLight,
-                      opacity: year <= minYear ? 0.35 : 1,
+                      opacity: year <= grid.minYear ? 0.35 : 1,
                     }}
                   >
                     <DirectionalIcon
@@ -1072,7 +270,7 @@ export function CustomerPaymentPanel({
                     />
                   </PressableOpacity>
                   <PressableOpacity
-                    onPress={() => setYear((y) => y + 1)}
+                    onPress={() => grid.stepYear(1)}
                     className="w-10 h-10 rounded-full items-center justify-center"
                     style={{ backgroundColor: COLORS.primaryLight }}
                   >
@@ -1084,45 +282,25 @@ export function CustomerPaymentPanel({
                   </PressableOpacity>
                 </View>
               </View>
-              {/* Row 2 — year summary chips */}
               <View className="flex-row items-center flex-wrap mt-1.5 gap-1.5">
-                <View className="flex-row items-center bg-gray-100 rounded-full px-2 py-0.5">
-                  <Text fontWeight="SemiBold" className="text-xs text-gray-900">
-                    {paidCount}
-                  </Text>
-                  <Text className="text-xs text-gray-500 ms-1">
-                    {t("customers.year_paid").toLowerCase()}
-                  </Text>
-                </View>
-                <View className="flex-row items-center bg-gray-100 rounded-full px-2 py-0.5">
-                  <Text fontWeight="SemiBold" className="text-xs text-gray-900">
-                    {unpaidCount}
-                  </Text>
-                  <Text className="text-xs text-gray-500 ms-1">
-                    {t("customers.year_unpaid").toLowerCase()}
-                  </Text>
-                </View>
-                {skippedCount > 0 ? (
-                  <View className="flex-row items-center bg-gray-100 rounded-full px-2 py-0.5">
-                    <Text
-                      fontWeight="SemiBold"
-                      className="text-xs text-gray-900"
-                    >
-                      {skippedCount}
-                    </Text>
-                    <Text className="text-xs text-gray-500 ms-1">
-                      {t("payments.skip.skipped_label").toLowerCase()}
-                    </Text>
-                  </View>
+                <SummaryChip
+                  value={String(grid.summary.paid)}
+                  label={t("customers.year_paid")}
+                />
+                <SummaryChip
+                  value={String(grid.summary.unpaid)}
+                  label={t("customers.year_unpaid")}
+                />
+                {grid.summary.skipped > 0 ? (
+                  <SummaryChip
+                    value={String(grid.summary.skipped)}
+                    label={t("payments.skip.skipped_label")}
+                  />
                 ) : null}
-                <View className="flex-row items-center bg-gray-100 rounded-full px-2 py-0.5">
-                  <Text fontWeight="SemiBold" className="text-xs text-gray-900">
-                    {collectedTotalLabel}
-                  </Text>
-                  <Text className="text-xs text-gray-500 ms-1">
-                    {t("customers.year_collected").toLowerCase()}
-                  </Text>
-                </View>
+                <SummaryChip
+                  value={grid.collectedLabel}
+                  label={t("customers.year_collected")}
+                />
               </View>
             </View>
             {selection.active ? (
@@ -1136,47 +314,43 @@ export function CustomerPaymentPanel({
             ) : null}
           </View>
 
-          {gridPending ? (
+          {grid.gridPending ? (
             <View className="h-40 items-center justify-center">
               <ActivityIndicator color={COLORS.primary} />
             </View>
           ) : (
             <MonthGrid
-              months={grid}
-              onCellPress={handleCellPress}
+              months={grid.grid}
+              onCellPress={grid.tap}
               onCellMenu={setMenuEntry}
-              loadingBillingMonth={busyMonth}
-              isRegular={customer.isRegular}
+              loadingBillingMonth={grid.busyMonth}
+              isRegular={grid.isRegular}
               selectionMode={selection.active}
-              isSelected={(bm) => selection.selectedIds.has(bm)}
-              onCellToggle={handleCellToggle}
-              onCellLongPress={handleCellLongPress}
+              isSelected={selection.isSelected}
+              onCellToggle={selection.toggle}
+              onCellLongPress={selection.start}
             />
           )}
         </View>
       </GestureDetector>
 
-      {/* Unpaid banner */}
-      {showUnpaidBanner && currentMonthEntry ? (
+      {banner ? (
         <View className="mx-4 mt-3 bg-red-50 border border-red-200 rounded-2xl px-4 py-3 flex-row items-center">
           <Text className="text-base me-2">⚠️</Text>
           <View className="flex-1">
             <Text fontWeight="SemiBold" className="text-sm text-red-600">
-              {billingMonthLabel(toBillingMonth(cy, cm))}{" "}
-              {t("dashboard.unpaid")}
+              {billingMonthLabel(banner.billingMonth)} {t("dashboard.unpaid")}
             </Text>
             <Text className="text-xs text-gray-500 mt-0.5">
-              {t("payments.amount_due")} · {daysIntoMonth} days into the month
+              {t("payments.amount_due")}
             </Text>
           </View>
-          {/* Collects straight away — falls back to the sheet only when the line
-              has no fixed price to charge (handleQuickPay opens it itself). */}
           <PressableOpacity
-            onPress={() => void handleQuickPay(currentMonthEntry)}
-            disabled={busyMonth === currentMonthEntry.billingMonth}
+            onPress={() => void grid.quickPay(banner)}
+            disabled={grid.busyMonth === banner.billingMonth}
             className="bg-red-500 rounded-xl px-3 py-2 ms-2"
           >
-            {busyMonth === currentMonthEntry.billingMonth ? (
+            {grid.busyMonth === banner.billingMonth ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <Text fontWeight="SemiBold" className="text-white text-sm">
@@ -1187,88 +361,54 @@ export function CustomerPaymentPanel({
         </View>
       ) : null}
 
-      {collectFor && (
-        <CollectSheet
-          visible
-          customerName={customer.name}
-          owed={collectFor.items}
-          singleItem={collectFor.single ? collectFor.items[0] : null}
-          loading={collecting}
-          onSubmit={async (values) => {
-            const send = collectFor.send;
-            const created = await runCollectGroups({
-              receivedAt: values.receivedAt,
-              notes: values.notes,
-              groups: values.groups,
-            });
-            if (created.length === 0) return;
-            setCollectFor(null);
-            selection.clear();
-            for (const row of created) await afterCollect(row, send);
-          }}
-          onDismiss={() => setCollectFor(null)}
-        />
-      )}
+      {collectSheet.sheet}
 
-      {billEntry?.charge && (
+      {bill?.charge && (
         <BillSheet
           visible
-          charge={billEntry.charge}
-          label={monthLabelOf(billEntry)}
+          charge={bill.charge}
+          label={grid.monthLabelOf(bill)}
           recipient={{ name: customer.name, phone: customer.phoneNumber }}
-          onCollect={() => {
-            const entry = billEntry;
-            setBillEntry(null);
-            if (entry) openCollect([entry]);
-          }}
-          onVoidBill={async () => {
-            const entry = billEntry;
-            return entry ? voidBill(entry) : false;
-          }}
-          onWriteOff={(charge, balance) => {
-            setBillEntry(null);
-            void writeOffBill(charge, balance);
-          }}
-          onRevertWriteOff={revertWriteOffBill}
-          onDismiss={() => setBillEntry(null)}
+          onCollect={grid.collectFromBill}
+          onVoidBill={async () => grid.voidFromBill()}
+          onWriteOff={grid.writeOffFromBill}
+          onRevertWriteOff={grid.revertWriteOff}
+          onDismiss={grid.closeBill}
         />
       )}
 
-      {voidEntry?.charge && (
+      {voidRequest?.charge && (
         <VoidConfirmDialog
-          chargeIds={[voidEntry.charge.id]}
+          chargeIds={[voidRequest.charge.id]}
           title={t("ledger.void_month_title")}
           message={t("ledger.void_month_message", {
-            month: monthLabelOf(voidEntry),
+            month: grid.monthLabelOf(voidRequest),
           })}
           confirmLabel={t("ledger.void_month")}
-          error={paymentsError}
-          onClearError={clearPaymentError}
-          onConfirm={confirmVoidBill}
-          onDismiss={() => setVoidEntry(null)}
+          error={grid.ledgerError}
+          onClearError={grid.clearErrors}
+          onConfirm={grid.confirmVoid}
+          onDismiss={grid.closeVoid}
         />
       )}
 
-      {history && (
+      {grid.history && (
         <BillHistorySheet
-          targets={history.targets}
-          chargeId={history.chargeId}
-          subtitle={history.subtitle}
-          onDismiss={() => setHistory(null)}
+          targets={grid.history.targets}
+          chargeId={grid.history.chargeId}
+          subtitle={grid.history.subtitle}
+          onDismiss={grid.closeHistory}
         />
       )}
 
-      {skipRequest && selectedLine && (
+      {grid.skipRequest && selectedLine && (
         <SkipMonthSheet
-          entries={skipRequest.entries}
-          mode={skipRequest.mode}
+          entries={grid.skipRequest.entries}
+          mode={grid.skipRequest.mode}
           customerId={customer.id}
           line={selectedLine}
-          onDone={() => {
-            setSkipRequest(null);
-            selection.clear();
-          }}
-          onDismiss={() => setSkipRequest(null)}
+          onDone={grid.skipDone}
+          onDismiss={grid.closeSkip}
         />
       )}
 
@@ -1279,9 +419,20 @@ export function CustomerPaymentPanel({
             ? `${t(`months.${menuEntry.label}`)} ${menuEntry.year}`
             : undefined
         }
-        actions={buildMonthMenuActions(menuEntry)}
+        actions={menuActions}
         onDismiss={() => setMenuEntry(null)}
       />
     </>
+  );
+}
+
+function SummaryChip({ value, label }: { value: string; label: string }) {
+  return (
+    <View className="flex-row items-center bg-gray-100 rounded-full px-2 py-0.5">
+      <Text fontWeight="SemiBold" className="text-xs text-gray-900">
+        {value}
+      </Text>
+      <Text className="text-xs text-gray-500 ms-1">{label.toLowerCase()}</Text>
+    </View>
   );
 }
