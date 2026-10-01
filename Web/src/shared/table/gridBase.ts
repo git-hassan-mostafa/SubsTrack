@@ -25,6 +25,7 @@ export function gridSx(autoRowHeight: boolean) {
   return {
     bgcolor: "background.paper",
     "--DataGrid-overlayHeight": "160px",
+    "& .MuiDataGrid-columnHeaderTitle": { fontWeight: 700 },
     "& .row-striped": { bgcolor: "background.default" },
     "& .row-muted": { color: "text.disabled" },
     "& .row-highlighted": { bgcolor: "action.selected" },
