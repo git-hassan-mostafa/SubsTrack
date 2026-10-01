@@ -113,12 +113,58 @@
   },
   "bill": {
     "payments_table": "Payments on this bill",
-    "paid_here": "Paid to this bill"
+    "paid_here": "Paid to this bill",
+    "kind_month": "Monthly bill",
+    "kind_sale": "Sale bill",
+    "kind_manual": "Custom charge",
+    "for_customer": "For {{name}}",
+    "still_owed": "Still owed",
+    "paid_in_full": "Paid in full",
+    "written_off_amount": "Written off",
+    "voided_amount": "Voided bill",
+    "paid_of": "Paid {{paid}} of {{total}}",
+    "label_open": "Not paid",
+    "label_settled": "Paid in full",
+    "status_open": "Nothing has been paid on this bill yet.",
+    "status_partial": "Part of this bill is paid. {{amount}} is still owed.",
+    "status_settled": "This bill is fully paid. Nothing is owed.",
+    "status_written_off": "This bill was written off: the last {{amount}} will not be collected.",
+    "status_void": "This bill was voided. It does not count, and nothing is owed on it.",
+    "payments_title": "Payments on this bill",
+    "counted": "Counted",
+    "counted_count_one": "{{count}} counted",
+    "counted_count_other": "{{count}} counted",
+    "voided_count_one": "{{count}} voided",
+    "voided_count_other": "{{count}} voided",
+    "payments_hint": "Each row is one payment of cash. Crossed-out rows were voided and do not count."
   },
   "correct": {
     "type_new_amount": "Type the amount that was really received. It is the same as the amount already recorded."
   },
   "void": {
     "reason": "Reason (optional)"
+  },
+  "money_received": {
+    "customer": "Customer",
+    "paid_for": "Paid for",
+    "search": "Search by customer name",
+    "empty_hint": "Payments show here as soon as money is collected.",
+    "no_branch": "Unassigned"
+  },
+  "payment": {
+    "kind_received": "Payment received",
+    "kind_voided": "Voided payment",
+    "received_when": "Received {{when}}",
+    "from_this_payment": "From this payment",
+    "paid_toward_one": "Paid toward 1 bill",
+    "paid_toward_other": "Split across {{count}} bills",
+    "paid_for": "What this payment paid for",
+    "had_paid_for": "What this payment had paid for",
+    "open_bill_hint": "Click a bill to see all of its payments.",
+    "voided_title": "This payment was voided",
+    "voided_when_by": "Voided {{when}} by {{name}}.",
+    "voided_when": "Voided {{when}}.",
+    "voided_reason": "Reason: {{reason}}.",
+    "voided_effect": "It no longer counts, and the bills it paid are owed again."
   }
 }

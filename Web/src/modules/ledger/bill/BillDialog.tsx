@@ -10,7 +10,6 @@ import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
-import Typography from "@mui/material/Typography";
 import CancelOutlined from "@mui/icons-material/CancelOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import HistoryOutlined from "@mui/icons-material/HistoryOutlined";
@@ -18,11 +17,11 @@ import RemoveCircleOutlineOutlined from "@mui/icons-material/RemoveCircleOutline
 import UndoOutlined from "@mui/icons-material/UndoOutlined";
 import WhatsApp from "@mui/icons-material/WhatsApp";
 import type { Charge, Collection } from "@shared/core/types";
-import { findCurrency, formatMoney, formatMoneyPair, snapshotCurrency } from "@shared/core/utils/currency";
+import { findCurrency, formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
 import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useBillPayments } from "@shared/modules/ledger/hooks/useBillPayments";
-import { billFacts, billHeadline, billInfoRows } from "@shared/modules/ledger/utils/billView";
+import { billFacts, billInfoRows } from "@shared/modules/ledger/utils/billView";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
@@ -32,6 +31,9 @@ import { RowActionsMenu } from "@/shared/table/RowActionsMenu";
 import { BillHistoryDialog } from "@/modules/admin/audit/RecordHistoryDialog";
 import { useSendBillReceipt, type BillRecipient } from "@/modules/invoicing/useSendBillReceipt";
 import { BillPaymentsList } from "./BillPaymentsList";
+import { DialogHeading } from "@/shared/components/DialogHeading";
+import { KIND_ICON, KIND_TONE } from "../kindLook";
+import { withInfoIcons } from "../infoIcons";
 import { BillSummary } from "./BillSummary";
 
 interface BillDialogProps {
@@ -72,8 +74,6 @@ export function BillDialog({
 
   const source = snapshotCurrency(charge, currencies);
   const facts = billFacts(charge, bill.collected);
-  const headline = billHeadline(charge, facts, bill.collected, source, t);
-  const approx = formatMoneyPair(charge.amount, source, display).approx;
   const sendable = !!recipient && whatsAppChatUrl(recipient.phone) !== null;
   const subject = customerName ?? recipient?.name ?? null;
 
@@ -130,13 +130,15 @@ export function BillDialog({
 
   return (
     <Dialog open onClose={onClose} maxWidth="md" fullWidth aria-labelledby={titleId}>
-      <DialogTitle id={titleId} sx={{ fontWeight: 700, paddingInlineEnd: 12 }}>
-        {label}
-        {subject ? (
-          <Typography component="span" variant="body2" color="text.secondary" sx={{ display: "block" }}>
-            {subject}
-          </Typography>
-        ) : null}
+      <DialogTitle component="div" sx={{ paddingInlineEnd: 14 }}>
+        <DialogHeading
+          id={titleId}
+          icon={KIND_ICON[charge.kind]}
+          tone={KIND_TONE[charge.kind]}
+          kind={t(`web.bill.kind_${charge.kind}`)}
+          title={label}
+          subtitle={subject ? t("web.bill.for_customer", { name: subject }) : null}
+        />
       </DialogTitle>
       <Stack direction="row" spacing={0.5} sx={{ position: "absolute", insetInlineEnd: 12, top: 12 }}>
         <RowActionsMenu rowLabel={label} actions={actions} />
@@ -155,12 +157,19 @@ export function BillDialog({
               sx={{
                 display: "grid",
                 gridTemplateColumns: { xs: "1fr", sm: "minmax(0, 1fr) minmax(0, 1.4fr)" },
-                gap: 3,
-                alignItems: "center",
+                gap: 2,
+                alignItems: "start",
               }}
             >
-              <BillSummary status={facts.status} amount={headline.amount} approx={approx} note={headline.note} />
-              <InfoRows rows={billInfoRows(charge, source, t, userName)} />
+              <BillSummary
+                status={facts.status}
+                total={charge.amount}
+                collected={bill.collected}
+                balance={facts.balance}
+                source={source}
+                display={display}
+              />
+              <InfoRows rows={withInfoIcons(billInfoRows(charge, source, t, userName))} />
             </Box>
             <BillPaymentsList
               bill={bill}

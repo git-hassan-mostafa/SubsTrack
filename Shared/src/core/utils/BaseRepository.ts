@@ -29,6 +29,15 @@ export type BranchScope =
   | { kind: "shared"; column?: string }
   | { kind: "inherited"; joinedTable: string; column?: string };
 
+const ROW_CAP = 1000;
+const RANGE_READS_AT_ONCE = 6;
+
+export interface RangeRead {
+  data: unknown;
+  error: unknown;
+  count: number | null;
+}
+
 export abstract class BaseRepository {
   protected get db(): SupabaseClient {
     return runtime().supabase;
@@ -213,6 +222,31 @@ export abstract class BaseRepository {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (data ?? []).map((row: any) => row[column] as string),
     );
+  }
+
+  // Every row of a read PostgREST would cut at its row cap — gotcha #175.
+  protected async readEveryRow<R>(
+    readRange: (from: number, to: number) => PromiseLike<RangeRead>,
+  ): Promise<R[]> {
+    const first = await readRange(0, ROW_CAP - 1);
+    if (first.error) this.handleError(first.error);
+    const rows = [...((first.data ?? []) as R[])];
+    const total = first.count ?? rows.length;
+    const step = rows.length > 0 && rows.length < ROW_CAP ? rows.length : ROW_CAP;
+    const starts: number[] = [];
+    for (let from = rows.length; from < total; from += step) starts.push(from);
+    for (let i = 0; i < starts.length; i += RANGE_READS_AT_ONCE) {
+      const batch = await Promise.all(
+        starts
+          .slice(i, i + RANGE_READS_AT_ONCE)
+          .map((from) => readRange(from, from + step - 1)),
+      );
+      for (const page of batch) {
+        if (page.error) this.handleError(page.error);
+        rows.push(...((page.data ?? []) as R[]));
+      }
+    }
+    return rows;
   }
 
   protected BRANCH_SCOPES = {

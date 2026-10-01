@@ -1,6 +1,11 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 import { OFFLINE_PAGE_SIZE, type BranchFilter } from "@shared/core/constants";
-import type { CashRow, CashStream, WalletSource } from "@shared/core/types";
+import type {
+  CashRow,
+  CashStream,
+  Page,
+  WalletSource,
+} from "@shared/core/types";
 import type {
   DbCharge,
   DbCollection,
@@ -16,6 +21,7 @@ import {
   receivedCustody,
 } from "@shared/modules/wallet/utils/custodyValues";
 import type {
+  CollectionPageQuery,
   CollectionSortField,
   CollectionSwap,
   CollectionSwapResult,
@@ -31,6 +37,11 @@ import {
 } from "@shared/modules/ledger/repository/chargeRevive";
 import { collectionPlanId } from "@shared/modules/ledger/utils/collectionPlan";
 import { sumByMonth } from "@shared/modules/ledger/utils/monthTotals";
+
+interface WherePart {
+  clause: string;
+  params: unknown[];
+}
 
 interface AuditContext {
   branchId: string | null;
@@ -92,64 +103,47 @@ export class OfflineCollectionRepository
   async find(opts: FindCollectionsOptions): Promise<DbCollection[]> {
     const limit = opts.limit ?? OFFLINE_PAGE_SIZE;
     const offset = opts.offset ?? 0;
-    const dir = opts.sortDirection === "asc" ? "ASC" : "DESC";
-    const sortCol =
-      SORT_COLUMNS[opts.sortField ?? "received_at"] ?? "received_at";
-    const parts: { clause: string; params: unknown[] }[] = [];
-    if (!opts.includeVoided)
-      parts.push({ clause: "c.voided_at IS NULL", params: [] });
-    if (opts.voidedOnly)
-      parts.push({ clause: "c.voided_at IS NOT NULL", params: [] });
-    if (opts.kind) parts.push(kindWhere(opts.kind));
-    if (opts.customerId)
-      parts.push({ clause: "c.customer_id = ?", params: [opts.customerId] });
-    if (opts.heldByUserId)
-      parts.push({
-        clause: "c.held_by_user_id = ?",
-        params: [opts.heldByUserId],
-      });
-    if (opts.receivedByUserId)
-      parts.push({
-        clause: "c.received_by_user_id = ?",
-        params: [opts.receivedByUserId],
-      });
-    if (opts.startIso)
-      parts.push({ clause: "c.received_at >= ?", params: [opts.startIso] });
-    if (opts.endExclusiveIso)
-      parts.push({
-        clause: "c.received_at < ?",
-        params: [opts.endExclusiveIso],
-      });
-    const search = sanitizeSearchTerm(opts.searchTerm);
-    if (search)
-      parts.push({ clause: "cu.name LIKE ?", params: [`%${search}%`] });
-    parts.push(
-      this.branchWhere(
-        opts.branchFilter ?? null,
-        this.BRANCH_SCOPES.collections,
-        "c",
-      ),
-    );
-
-    const where = this.combineWhere(parts);
+    const where = this.combineWhere(this.listWhere(opts));
     const rows = await this.all(
       `SELECT c.* FROM collections c
          LEFT JOIN customers cu ON cu.id = c.customer_id
         ${where.sql}
-        ORDER BY c.${sortCol} ${dir}, c.created_at ${dir}
+        ${listOrder(opts)}
         LIMIT ? OFFSET ?`,
       [...where.params, limit, offset],
     );
     return this.hydrate(this.decodeAll<DbCollection>("collections", rows));
   }
 
-  async monthlyTotals(
-    opts: FindCollectionsOptions,
-  ): Promise<Record<string, number>> {
-    if (opts.voidedOnly) return {};
-    const parts: { clause: string; params: unknown[] }[] = [
-      { clause: "c.voided_at IS NULL", params: [] },
-    ];
+  async findPage(query: CollectionPageQuery): Promise<Page<DbCollection>> {
+    const where = this.combineWhere(this.listWhere(query));
+    const from = `FROM collections c
+         LEFT JOIN customers cu ON cu.id = c.customer_id
+        ${where.sql}`;
+    const [rows, total] = await Promise.all([
+      this.all(`SELECT c.* ${from} ${listOrder(query)} LIMIT ? OFFSET ?`, [
+        ...where.params,
+        query.limit,
+        query.offset,
+      ]),
+      this.count(`SELECT COUNT(*) AS n ${from}`, where.params),
+    ]);
+    const decoded = this.decodeAll<DbCollection>("collections", rows);
+    return { rows: await this.hydrate(decoded), total };
+  }
+
+  private listWhere(opts: FindCollectionsOptions): WherePart[] {
+    const parts = this.filterWhere(opts);
+    if (!opts.includeVoided)
+      parts.push({ clause: "c.voided_at IS NULL", params: [] });
+    if (opts.voidedOnly)
+      parts.push({ clause: "c.voided_at IS NOT NULL", params: [] });
+    return parts;
+  }
+
+  // Every filter but the void ones, which a list and a total read differently.
+  private filterWhere(opts: FindCollectionsOptions): WherePart[] {
+    const parts: WherePart[] = [];
     if (opts.kind) parts.push(kindWhere(opts.kind));
     if (opts.customerId)
       parts.push({ clause: "c.customer_id = ?", params: [opts.customerId] });
@@ -180,8 +174,17 @@ export class OfflineCollectionRepository
         "c",
       ),
     );
+    return parts;
+  }
 
-    const where = this.combineWhere(parts);
+  async monthlyTotals(
+    opts: FindCollectionsOptions,
+  ): Promise<Record<string, number>> {
+    if (opts.voidedOnly) return {};
+    const where = this.combineWhere([
+      { clause: "c.voided_at IS NULL", params: [] },
+      ...this.filterWhere(opts),
+    ]);
     const rows = await this.all<{
       received_at: string;
       amount: number;
@@ -680,7 +683,14 @@ const SORT_COLUMNS: Record<CollectionSortField, string> = {
   updated_at: "updated_at",
 };
 
-function kindWhere(kind: WalletSource): { clause: string; params: unknown[] } {
+function listOrder(opts: FindCollectionsOptions): string {
+  const dir = opts.sortDirection === "asc" ? "ASC" : "DESC";
+  const sortCol =
+    SORT_COLUMNS[opts.sortField ?? "received_at"] ?? "received_at";
+  return `ORDER BY c.${sortCol} ${dir}, c.created_at ${dir}, c.id ${dir}`;
+}
+
+function kindWhere(kind: WalletSource): WherePart {
   return {
     clause: `COALESCE(c.kind, (
         SELECT CASE WHEN COUNT(DISTINCT ch.kind) = 1 THEN MIN(ch.kind) ELSE 'mixed' END

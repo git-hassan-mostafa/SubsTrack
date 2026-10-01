@@ -18,21 +18,23 @@ export function collectionInfoRows(
   const unknown = t("common.unknown");
   const heldBy = banked ? t("ledger.banked") : (userName(collection.heldByUserId) ?? unknown);
   return [
-    { label: t("ledger.received_at"), value: received },
-    { label: t("ledger.recorded_at"), value: recorded !== received ? recorded : null },
-    { label: t("ledger.collected_by"), value: userName(collection.receivedByUserId) ?? unknown },
-    { label: t("ledger.held_by"), value: voided ? null : heldBy },
+    { key: "received_at", label: t("ledger.received_at"), value: received },
+    { key: "recorded_at", label: t("ledger.recorded_at"), value: recorded !== received ? recorded : null },
+    { key: "collected_by", label: t("ledger.collected_by"), value: userName(collection.receivedByUserId) ?? unknown },
+    { key: "held_by", label: t("ledger.held_by"), value: voided ? null : heldBy },
     {
+      key: "banked_at",
       label: t("ledger.banked_at"),
       value: banked && collection.remittedAt ? formatDateTime(collection.remittedAt) : null,
     },
-    { label: t("ledger.banked_by"), value: banked ? userName(collection.remittedBy) : null },
-    { label: t("ledger.notes"), value: collection.notes },
+    { key: "banked_by", label: t("ledger.banked_by"), value: banked ? userName(collection.remittedBy) : null },
+    { key: "notes", label: t("ledger.notes"), value: collection.notes },
     {
+      key: "voided_at",
       label: t("ledger.voided_at"),
       value: collection.voidedAt ? formatDateTime(collection.voidedAt) : null,
     },
-    { label: t("ledger.voided_by"), value: userName(collection.voidedBy) },
-    { label: t("ledger.void_reason_label"), value: collection.voidReason },
+    { key: "voided_by", label: t("ledger.voided_by"), value: userName(collection.voidedBy) },
+    { key: "void_reason", label: t("ledger.void_reason_label"), value: collection.voidReason },
   ];
 }

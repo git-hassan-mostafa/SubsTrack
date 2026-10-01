@@ -8,7 +8,28 @@ import { roundMoney } from "./waterfall";
 type Translate = (key: string, opts?: Record<string, unknown>) => string;
 type UserName = (id: string | null) => string | null;
 
+export type InfoKey =
+  | "billing_month"
+  | "bill_total"
+  | "due_date"
+  | "issued_at"
+  | "recorded_by"
+  | "received_at"
+  | "recorded_at"
+  | "collected_by"
+  | "held_by"
+  | "banked_at"
+  | "banked_by"
+  | "notes"
+  | "voided_at"
+  | "voided_by"
+  | "void_reason"
+  | "written_off_at"
+  | "written_off_by"
+  | "write_off_reason";
+
 export interface LabeledValue {
+  key: InfoKey;
   label: string;
   value: string | null | undefined;
 }
@@ -91,20 +112,21 @@ export function billInfoRows(
       ? getBlockRangeLabel(charge.billingMonth, charge.durationMonths, t)
       : null;
   return [
-    { label: t("ledger.billing_month"), value: monthLabel },
-    { label: t("ledger.bill_total"), value: formatMoney(charge.amount, source, source) },
-    { label: t("ledger.due_date"), value: formatDate(charge.dueDate) },
-    { label: t("ledger.issued_at"), value: formatDateTime(charge.issuedAt) },
-    { label: t("ledger.recorded_by"), value: userName(charge.recordedByUserId) },
-    { label: t("ledger.notes"), value: charge.notes },
-    { label: t("ledger.voided_at"), value: charge.voidedAt ? formatDateTime(charge.voidedAt) : null },
-    { label: t("ledger.voided_by"), value: userName(charge.voidedBy) },
-    { label: t("ledger.void_reason_label"), value: charge.voidReason },
+    { key: "billing_month", label: t("ledger.billing_month"), value: monthLabel },
+    { key: "bill_total", label: t("ledger.bill_total"), value: formatMoney(charge.amount, source, source) },
+    { key: "due_date", label: t("ledger.due_date"), value: formatDate(charge.dueDate) },
+    { key: "issued_at", label: t("ledger.issued_at"), value: formatDateTime(charge.issuedAt) },
+    { key: "recorded_by", label: t("ledger.recorded_by"), value: userName(charge.recordedByUserId) },
+    { key: "notes", label: t("ledger.notes"), value: charge.notes },
+    { key: "voided_at", label: t("ledger.voided_at"), value: charge.voidedAt ? formatDateTime(charge.voidedAt) : null },
+    { key: "voided_by", label: t("ledger.voided_by"), value: userName(charge.voidedBy) },
+    { key: "void_reason", label: t("ledger.void_reason_label"), value: charge.voidReason },
     {
+      key: "written_off_at",
       label: t("ledger.written_off_at"),
       value: charge.writtenOffAt ? formatDateTime(charge.writtenOffAt) : null,
     },
-    { label: t("ledger.written_off_by"), value: userName(charge.writtenOffBy) },
-    { label: t("ledger.write_off_reason_label"), value: charge.writeOffReason },
+    { key: "written_off_by", label: t("ledger.written_off_by"), value: userName(charge.writtenOffBy) },
+    { key: "write_off_reason", label: t("ledger.write_off_reason_label"), value: charge.writeOffReason },
   ];
 }

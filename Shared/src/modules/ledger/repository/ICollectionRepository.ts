@@ -1,5 +1,5 @@
 import type { BranchFilter } from "@shared/core/constants";
-import type { CashRow, WalletSource } from "@shared/core/types";
+import type { CashRow, Page, PageWindow, WalletSource } from "@shared/core/types";
 import type { DbCollection, DbCollectionItem } from "@shared/core/types/db";
 import type { CustodyValues } from "@shared/modules/wallet/utils/custodyValues";
 import type { CreateChargePayload } from "./IChargeRepository";
@@ -63,10 +63,14 @@ export interface FindCollectionsOptions {
   sortDirection?: SortDirection;
 }
 
+export type CollectionPageQuery = Omit<FindCollectionsOptions, "limit" | "offset"> &
+  PageWindow;
+
 export interface ICollectionRepository {
   findById(id: string): Promise<DbCollection | null>;
   findByIds(ids: string[]): Promise<DbCollection[]>;
   find(opts: FindCollectionsOptions): Promise<DbCollection[]>;
+  findPage(query: CollectionPageQuery): Promise<Page<DbCollection>>;
   findItemsForCharges(
     chargeIds: string[],
     includeVoided?: boolean,

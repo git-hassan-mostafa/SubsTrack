@@ -27,6 +27,7 @@ import { ServicesPage } from "@/modules/admin/services/ServicesPage";
 import { OrganizationPage } from "@/modules/admin/tenant-settings/OrganizationPage";
 import { UsersPage } from "@/modules/admin/users/UsersPage";
 import { CustomersPage } from "@/modules/customer/customers/CustomersPage";
+import { MoneyReceivedPage } from "@/modules/ledger/received/MoneyReceivedPage";
 import type { RouteAccess } from "./access";
 
 export type NavSection = "main" | "admin";
@@ -80,6 +81,7 @@ export const APP_PAGES: readonly AppPage[] = [
     access: ANY_ROLE,
     icon: PaymentsOutlined,
     nav: "main",
+    component: MoneyReceivedPage,
   },
   {
     path: "expenses",

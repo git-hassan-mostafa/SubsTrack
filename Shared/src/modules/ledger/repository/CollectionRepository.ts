@@ -1,6 +1,6 @@
 import { BaseRepository } from "@shared/core/utils/BaseRepository";
 import { PAGE_SIZE, type BranchFilter } from "@shared/core/constants";
-import type { CashRow, CashStream } from "@shared/core/types";
+import type { CashRow, CashStream, Page } from "@shared/core/types";
 import type {
   DbCharge,
   DbCollection,
@@ -13,6 +13,7 @@ import {
   receivedCustody,
 } from "@shared/modules/wallet/utils/custodyValues";
 import type {
+  CollectionPageQuery,
   CollectionSwap,
   CollectionSwapResult,
   CreateCollectionItemPayload,
@@ -85,6 +86,19 @@ function toCashRow(r: CollectedItemRow): CashRow {
 }
 const COLLECTION_SELECT_LEAN = "*, customers(*)";
 
+interface MonthTotalRow {
+  received_at: string;
+  amount: number;
+  rate_per_usd_snapshot: number;
+}
+
+interface ListFilterQuery<T> {
+  eq(column: string, value: string): T;
+  gte(column: string, value: string): T;
+  lt(column: string, value: string): T;
+  ilike(column: string, pattern: string): T;
+}
+
 export class CollectionRepository
   extends BaseRepository
   implements ICollectionRepository
@@ -112,38 +126,41 @@ export class CollectionRepository
   async find(opts: FindCollectionsOptions): Promise<DbCollection[]> {
     const limit = opts.limit ?? PAGE_SIZE;
     const offset = opts.offset ?? 0;
+    const { data, error } = await this.listQuery(opts, false).range(
+      offset,
+      offset + limit - 1,
+    );
+    if (error) this.handleError(error);
+    return (data ?? []) as DbCollection[];
+  }
+
+  async findPage(query: CollectionPageQuery): Promise<Page<DbCollection>> {
+    const { data, error, count } = await this.listQuery(query, true).range(
+      query.offset,
+      query.offset + query.limit - 1,
+    );
+    if (error) this.handleError(error);
+    return { rows: (data ?? []) as DbCollection[], total: count ?? 0 };
+  }
+
+  // One shape for a list read and its page count, so the two never disagree.
+  private listQuery(opts: FindCollectionsOptions, counted: boolean) {
     const search = sanitizeSearchTerm(opts.searchTerm);
     const asc = opts.sortDirection === "asc";
     const sortField = opts.sortField ?? "received_at";
     let query = this.db
       .from("collections")
-      .select(search ? COLLECTION_SELECT_SEARCH : COLLECTION_SELECT)
+      .select(
+        search ? COLLECTION_SELECT_SEARCH : COLLECTION_SELECT,
+        counted ? { count: "exact" } : undefined,
+      )
       .order(sortField, { ascending: asc });
     if (sortField !== "created_at")
       query = query.order("created_at", { ascending: asc });
-    query = query.range(offset, offset + limit - 1);
-
+    query = query.order("id", { ascending: asc });
     if (!opts.includeVoided) query = query.is("voided_at", null);
     if (opts.voidedOnly) query = query.not("voided_at", "is", null);
-    if (opts.kind) query = query.eq("kind", opts.kind);
-    if (opts.customerId) query = query.eq("customer_id", opts.customerId);
-    if (opts.heldByUserId)
-      query = query.eq("held_by_user_id", opts.heldByUserId);
-    if (opts.receivedByUserId)
-      query = query.eq("received_by_user_id", opts.receivedByUserId);
-    if (opts.startIso) query = query.gte("received_at", opts.startIso);
-    if (opts.endExclusiveIso)
-      query = query.lt("received_at", opts.endExclusiveIso);
-    if (search) query = query.ilike("customers.name", `%${search}%`);
-    query = this.applyBranchFilter(
-      query,
-      opts.branchFilter ?? null,
-      this.BRANCH_SCOPES.collections,
-    );
-
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    return (data ?? []) as DbCollection[];
+    return this.applyListFilters(query, opts);
   }
 
   async monthlyTotals(
@@ -151,41 +168,44 @@ export class CollectionRepository
   ): Promise<Record<string, number>> {
     if (opts.voidedOnly) return {};
     const search = sanitizeSearchTerm(opts.searchTerm);
-    let query = this.db
-      .from("collections")
-      .select(
-        search
-          ? "received_at, amount, rate_per_usd_snapshot, customers!inner(name)"
-          : "received_at, amount, rate_per_usd_snapshot",
-      )
-      .is("voided_at", null);
+    const rows = await this.readEveryRow<MonthTotalRow>((from, to) =>
+      this.applyListFilters(
+        this.db
+          .from("collections")
+          .select(
+            search
+              ? "received_at, amount, rate_per_usd_snapshot, customers!inner(name)"
+              : "received_at, amount, rate_per_usd_snapshot",
+            { count: "exact" },
+          )
+          .is("voided_at", null)
+          .order("id")
+          .range(from, to),
+        opts,
+      ),
+    );
+    return sumByMonth(rows);
+  }
 
-    if (opts.customerId) query = query.eq("customer_id", opts.customerId);
-    if (opts.heldByUserId)
-      query = query.eq("held_by_user_id", opts.heldByUserId);
+  // Every filter but the void ones, which a list and a total read differently.
+  private applyListFilters<T extends ListFilterQuery<T>>(
+    query: T,
+    opts: FindCollectionsOptions,
+  ): T {
+    let q = query;
+    if (opts.kind) q = q.eq("kind", opts.kind);
+    if (opts.customerId) q = q.eq("customer_id", opts.customerId);
+    if (opts.heldByUserId) q = q.eq("held_by_user_id", opts.heldByUserId);
     if (opts.receivedByUserId)
-      query = query.eq("received_by_user_id", opts.receivedByUserId);
-    if (opts.startIso) query = query.gte("received_at", opts.startIso);
-    if (opts.endExclusiveIso)
-      query = query.lt("received_at", opts.endExclusiveIso);
-    if (opts.kind) query = query.eq("kind", opts.kind);
-    if (search) query = query.ilike("customers.name", `%${search}%`);
-    query = this.applyBranchFilter(
-      query,
+      q = q.eq("received_by_user_id", opts.receivedByUserId);
+    if (opts.startIso) q = q.gte("received_at", opts.startIso);
+    if (opts.endExclusiveIso) q = q.lt("received_at", opts.endExclusiveIso);
+    const search = sanitizeSearchTerm(opts.searchTerm);
+    if (search) q = q.ilike("customers.name", `%${search}%`);
+    return this.applyBranchFilter(
+      q,
       opts.branchFilter ?? null,
       this.BRANCH_SCOPES.collections,
-    );
-
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    return sumByMonth(
-      (data as unknown as
-        | {
-            received_at: string;
-            amount: number;
-            rate_per_usd_snapshot: number;
-          }[]
-        | null) ?? [],
     );
   }
 

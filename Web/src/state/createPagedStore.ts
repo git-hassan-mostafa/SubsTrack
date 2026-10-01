@@ -38,7 +38,7 @@ export type PagedResult<T, M> = Page<T> & { meta: M };
 
 export type PageFetcher<T, F, M> = (query: PagedQuery<F>) => Promise<PagedResult<T, M>>;
 
-// Customers + audit change from everywhere, so they re-read on every open.
+// Customers, audit and money received change from everywhere: re-read on open.
 export interface PagedStoreOptions {
   rereadOnOpen?: boolean;
 }

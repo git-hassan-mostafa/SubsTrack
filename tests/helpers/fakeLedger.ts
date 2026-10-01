@@ -1,4 +1,4 @@
-import type { CashRow } from "@shared/core/types";
+import type { CashRow, Page } from "@shared/core/types";
 import type {
   DbCharge,
   DbChargeBalance,
@@ -12,6 +12,7 @@ import type {
   UpdateChargePayload,
 } from "@shared/modules/ledger/repository/IChargeRepository";
 import type {
+  CollectionPageQuery,
   CollectionSwap,
   CollectionSwapResult,
   CreateCollectionPayload,
@@ -383,6 +384,13 @@ export const fakeCollectionRepository = {
       asc ? key(a).localeCompare(key(b)) : key(b).localeCompare(key(a)),
     );
     return fakeCollectionRepository.findByIds(rows.map((r) => r.id));
+  },
+  async findPage(query: CollectionPageQuery): Promise<Page<DbCollection>> {
+    const all = await fakeCollectionRepository.find(query);
+    return {
+      rows: all.slice(query.offset, query.offset + query.limit),
+      total: all.length,
+    };
   },
   // A voided hand-over pays nothing; only a DISPLAY caller asks to see it.
   async findItemsForCharges(

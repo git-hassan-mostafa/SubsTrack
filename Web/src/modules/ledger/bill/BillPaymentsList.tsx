@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import BlockOutlined from "@mui/icons-material/BlockOutlined";
+import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
+import TaskAltOutlined from "@mui/icons-material/TaskAltOutlined";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Collection, Currency } from "@shared/core/types";
 import { formatMoney } from "@shared/core/utils/currency";
@@ -42,6 +46,7 @@ export function BillPaymentsList({ bill, chargeId, source, billVoided, recipient
   const money = (value: number) => formatMoney(value, source, source);
   const rows = bill.payments;
   const sendable = !!recipient && whatsAppChatUrl(recipient.phone) !== null;
+  const voidedCount = rows.length - bill.live.length;
 
   const corrected = (correction: CollectionCorrection) => {
     setCorrectId(null);
@@ -94,7 +99,11 @@ export function BillPaymentsList({ bill, chargeId, source, billVoided, recipient
         <Stack sx={{ alignItems: "flex-end" }}>
           <Typography
             variant="body2"
-            sx={{ fontWeight: 600, textDecoration: isVoided(params.row) ? "line-through" : "none" }}
+            sx={{
+              fontWeight: 700,
+              color: isVoided(params.row) ? "text.disabled" : "success.dark",
+              textDecoration: isVoided(params.row) ? "line-through" : "none",
+            }}
           >
             {money(paidToCharge(params.row, chargeId))}
           </Typography>
@@ -109,20 +118,35 @@ export function BillPaymentsList({ bill, chargeId, source, billVoided, recipient
     {
       field: "voidedAt",
       headerName: t("web.status"),
-      width: 110,
+      width: 130,
       renderCell: (params) =>
-        isVoided(params.row) ? <StatusChip tone="gray" label={t("ledger.voided")} /> : null,
+        isVoided(params.row) ? (
+          <Tooltip title={params.row.voidReason ?? ""}>
+            <span>
+              <StatusChip tone="red" icon={BlockOutlined} label={t("ledger.voided")} />
+            </span>
+          </Tooltip>
+        ) : (
+          <StatusChip tone="emerald" icon={TaskAltOutlined} label={t("web.bill.counted")} />
+        ),
     },
   ];
 
   return (
     <Stack spacing={1}>
-      <Typography sx={{ fontWeight: 700 }}>
-        {t("ledger.payments_count", { count: billVoided ? rows.length : bill.live.length })}
-      </Typography>
-      {billVoided && rows.length > 0 ? (
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }} useFlexGap>
+        <PaymentsOutlined fontSize="small" sx={{ color: "text.secondary" }} aria-hidden />
+        <Typography sx={{ fontWeight: 700 }}>{t("web.bill.payments_title")}</Typography>
+        {rows.length > 0 && !billVoided ? (
+          <StatusChip tone="emerald" label={t("web.bill.counted_count", { count: bill.live.length })} />
+        ) : null}
+        {voidedCount > 0 && !billVoided ? (
+          <StatusChip tone="gray" label={t("web.bill.voided_count", { count: voidedCount })} />
+        ) : null}
+      </Stack>
+      {rows.length > 0 ? (
         <Typography variant="body2" color="text.secondary">
-          {t("ledger.bill_voided_payments_hint")}
+          {billVoided ? t("ledger.bill_voided_payments_hint") : t("web.bill.payments_hint")}
         </Typography>
       ) : null}
       <ErrorBanner message={bill.error} onDismiss={bill.clearError} />

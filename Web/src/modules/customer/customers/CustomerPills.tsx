@@ -6,7 +6,8 @@ import {
   customerPills,
   type CustomerPill,
 } from "@shared/modules/customer/customers/utils/customerPills";
-import { StatusChip, type ChipTone } from "@/shared/components/StatusChip";
+import type { ChipTone } from "@/shared/components/chipTones";
+import { StatusChip } from "@/shared/components/StatusChip";
 
 type StatusPill = Exclude<CustomerPill, "debt">;
 

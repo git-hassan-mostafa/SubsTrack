@@ -21,7 +21,7 @@ import { SearchField } from "@/shared/components/SearchField";
 import { PAGE_SIZE_OPTIONS } from "@/state/createPagedStore";
 import { BulkActionBar } from "./BulkActionBar";
 import { actionsColumn } from "./actionsColumn";
-import { AUTO_ROW_HEIGHT, gridSx, LOCKED_GRID } from "./gridBase";
+import { AUTO_ROW_HEIGHT, gridSx, LOCKED_GRID, rowClassName, type RowTone } from "./gridBase";
 import type { TableAction } from "./tableAction";
 import { useTableExport, type TableExport } from "./useTableExport";
 
@@ -51,6 +51,7 @@ export interface DataTableProps<T extends GridValidRowModel & { id: string }> {
   rowLabel: (row: T) => string;
   rowActions?: (row: T) => TableAction[];
   rowBusy?: (row: T) => boolean;
+  rowTone?: (row: T) => RowTone;
   bulkActions?: (selected: T[]) => TableAction[];
   empty: TableEmpty;
   filtered: boolean;
@@ -81,6 +82,7 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
   rowLabel,
   rowActions,
   rowBusy,
+  rowTone,
   bulkActions,
   empty,
   filtered,
@@ -203,6 +205,7 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
           hideFooterSelectedRowCount
           {...LOCKED_GRID}
           getRowHeight={autoRowHeight ? AUTO_ROW_HEIGHT : undefined}
+          getRowClassName={(params) => rowClassName(params.indexRelativeToCurrentPage, rowTone?.(params.row))}
           slotProps={{
             loadingOverlay: { variant: "linear-progress", noRowsVariant: "linear-progress" },
           }}

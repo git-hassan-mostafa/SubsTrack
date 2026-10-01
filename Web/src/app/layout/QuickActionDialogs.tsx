@@ -1,4 +1,5 @@
 import { useUiStore } from "@shared/shared/lib/uiStore";
+import { reloadCollectionsTableIfLoaded } from "@/state/collectionsTable";
 import { reloadCustomersTableIfLoaded } from "@/state/customersTable";
 import { reloadProductsTableIfLoaded } from "@/state/productsTable";
 import { BatchRestockDialog } from "@/modules/admin/products/BatchRestockDialog";
@@ -18,6 +19,7 @@ export function QuickActionDialogs() {
           onCollected={() => {
             close();
             reloadCustomersTableIfLoaded();
+            reloadCollectionsTableIfLoaded();
           }}
         />
       );

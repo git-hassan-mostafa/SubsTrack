@@ -18,7 +18,8 @@ import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranc
 import { confirm } from "@shared/shared/lib/confirm";
 import { useUserSlice } from "@shared/state/hooks/useUserSlice";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
-import { StatusChip, type ChipTone } from "@/shared/components/StatusChip";
+import type { ChipTone } from "@/shared/components/chipTones";
+import { StatusChip } from "@/shared/components/StatusChip";
 import { ActiveFilterSelect } from "@/shared/table/ActiveFilterSelect";
 import { activeStatusColumn } from "@/shared/table/activeStatusColumn";
 import { DataTable } from "@/shared/table/DataTable";

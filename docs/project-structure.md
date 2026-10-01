@@ -43,8 +43,9 @@ Web/src/
 ├── state/                 # web-only stores: createPagedStore + one table store per list, webSession.ts
 └── modules/<group>/<module>/  # pages + dialogs (admin/{branches,currencies,services,plans,products,users,
                                #   audit,billing,tenant-settings}, customer/{customers,customer-plans},
-                               #   ledger/{collect,bill,payment,void} (collect, bill, payment detail,
-                               #   correct + void dialogs), invoicing (receipts) so far)
+                               #   ledger/{collect,bill,payment,void,received} (collect, bill + useBillDialog,
+                               #   payment detail, correct + void dialogs, the Money received page),
+                               #   invoicing (receipts) so far)
 ```
 
 Each module keeps the SAME folder path in both halves: its logic under
@@ -102,6 +103,7 @@ Shared/
     │     ledger/utils/openItems.ts                         # the OpenItem builders
     │     ledger/utils/debtRule.ts                          # isDebtItem + balanceUsd (no i18n, bundled by the edge function)
     │     ledger/utils/mergeOwed.ts                         # stored bills + virtual unpaid months
+    │     ledger/utils/collectionFilters.ts                 # Money received filter shape → find options (both apps)
     │     wallet/utils/custody.ts                           # the custody chain rules
     │
     └── shared/

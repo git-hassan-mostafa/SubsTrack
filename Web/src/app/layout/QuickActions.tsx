@@ -1,7 +1,9 @@
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 import type { SvgIconComponent } from "@mui/icons-material";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
+import HistoryOutlined from "@mui/icons-material/HistoryOutlined";
 import MoveToInboxOutlined from "@mui/icons-material/MoveToInboxOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import PersonAddOutlined from "@mui/icons-material/PersonAddOutlined";
@@ -21,6 +23,7 @@ export interface QuickAction {
 function useQuickActions(): QuickAction[] {
   const { isAdmin } = useAuth();
   const openQuickAction = useUiStore((s) => s.openQuickAction);
+  const navigate = useNavigate();
   const actions: QuickAction[] = [
     {
       key: "collect",
@@ -35,6 +38,13 @@ function useQuickActions(): QuickAction[] {
       labelKey: "customers.add",
       icon: PersonAddOutlined,
       onClick: () => openQuickAction("customer"),
+    },
+    {
+      key: "moneyReceived",
+      group: "history",
+      labelKey: "ledger.history_title",
+      icon: HistoryOutlined,
+      onClick: () => void navigate("/money-received"),
     },
   ];
   if (isAdmin) {

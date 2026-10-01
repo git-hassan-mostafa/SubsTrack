@@ -9,6 +9,7 @@ import type {
   Collection,
   CollectionListItem,
   OpenItem,
+  Page,
   WalletSource,
 } from "@shared/core/types";
 import { deterministicId, nowIso } from "@shared/core/utils/ids";
@@ -20,6 +21,7 @@ import {
 import { chargeService } from "./ChargeService";
 import type { CreateChargePayload } from "@shared/modules/ledger/repository/IChargeRepository";
 import type {
+  CollectionPageQuery,
   CreateCollectionItemPayload,
   CreateCollectionPayload,
   FindCollectionsOptions,
@@ -246,6 +248,19 @@ class CollectionService {
       includeVoided: opts.includeVoided ?? true,
     });
     return rows.map((row) => this.toListItem(row));
+  }
+
+  async getHistoryPage(
+    query: CollectionPageQuery,
+  ): Promise<Page<CollectionListItem>> {
+    const page = await repositories().collection.findPage({
+      ...query,
+      includeVoided: query.includeVoided ?? true,
+    });
+    return {
+      rows: page.rows.map((row) => this.toListItem(row)),
+      total: page.total,
+    };
   }
 
   private toListItem(row: DbCollection): CollectionListItem {

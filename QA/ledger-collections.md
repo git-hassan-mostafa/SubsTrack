@@ -672,3 +672,12 @@ The phone bill sheet and the web bill dialog read ONE rule for what a bill allow
 25.3 A written-off bill → ⋮ offers Undo write-off and Void; no Collect.
 25.4 A voided bill → nothing but History (admin).
 
+
+## 26. Money received: one filter rule and one bulk void (phone and web)
+
+The phone Money received sheet and the web Money received page read ONE filter rule ([collectionFilters.ts](Shared/src/modules/ledger/utils/collectionFilters.ts)) and void through ONE store action (`ledger.voidCollections`). Unit tests: `moneyReceived.test.ts`.
+
+26.1 Phone: Quick actions → Money received → change the period, staff, type, status and sort one by one → the list and the "Collected in this view" total follow each change; "Clear filters" shows only while something differs from this month / newest first.
+26.2 Phone: select 2 live payments → Void → type a reason → both rows stay, greyed with the "Voided · reason" chip; the month header total drops by both amounts; the customers list debt goes up.
+26.3 Expo web (it has no offline mirror): cut the network → Void → the error shows in the void dialog, the dialog stays open, nothing is greyed.
+26.4 Phone and web: more than 1000 payments in the chosen period (test project, seeded) → "Collected in this view" equals the sum of every payment, not of the first 1000 (gotcha #175).

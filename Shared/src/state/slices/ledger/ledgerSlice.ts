@@ -71,6 +71,11 @@ export interface LedgerSlice {
     voidedBy: string,
     reason: string | null,
   ) => Promise<Collection | null>;
+  voidCollections: (
+    ids: string[],
+    voidedBy: string,
+    reason: string | null,
+  ) => Promise<Collection[] | null>;
   correctCollection: (
     input: CorrectCollectionInput,
   ) => Promise<CollectionCorrection | null>;
@@ -291,6 +296,18 @@ export const createLedgerSlice: StateCreator<
         voidedBy: result.voidedBy,
         voidReason: result.voidReason,
       };
+    },
+
+    voidCollections: async (ids, voidedBy, reason) => {
+      const voided = await run("loading", () =>
+        collectionService.voidCollections(ids, voidedBy, reason),
+      );
+      if (voided === null) return null;
+      for (const collection of voided) {
+        get().sales.applyCollection(collection, -1);
+        get().payments.applyCollection(collection, -1);
+      }
+      return voided;
     },
 
     correctCollection: async (input) => {

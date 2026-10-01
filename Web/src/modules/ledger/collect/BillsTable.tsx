@@ -13,7 +13,8 @@ import Typography from "@mui/material/Typography";
 import type { AllocationLine, OpenItem } from "@shared/core/types";
 import { daysLate, formatDate } from "@shared/core/utils/date";
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
-import { StatusChip, type ChipTone } from "@/shared/components/StatusChip";
+import type { ChipTone } from "@/shared/components/chipTones";
+import { StatusChip } from "@/shared/components/StatusChip";
 
 interface BillsTableProps {
   title: string;

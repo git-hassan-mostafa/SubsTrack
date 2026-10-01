@@ -3,10 +3,8 @@ import { useTranslation } from "react-i18next";
 import { DataGrid, type GridColDef, type GridValidRowModel } from "@mui/x-data-grid";
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "@/state/createPagedStore";
 import { actionsColumn } from "./actionsColumn";
-import { AUTO_ROW_HEIGHT, gridSx, LOCKED_GRID } from "./gridBase";
+import { AUTO_ROW_HEIGHT, gridSx, LOCKED_GRID, rowClassName, type RowTone } from "./gridBase";
 import type { TableAction } from "./tableAction";
-
-export type RowTone = "muted" | "highlighted" | null;
 
 interface LocalTableProps<T extends GridValidRowModel & { id: string }> {
   label: string;
@@ -52,10 +50,7 @@ export function LocalTable<T extends GridValidRowModel & { id: string }>({
       pageSizeOptions={PAGE_SIZE_OPTIONS}
       initialState={{ pagination: { paginationModel: { pageSize: DEFAULT_PAGE_SIZE } } }}
       getRowHeight={autoRowHeight ? AUTO_ROW_HEIGHT : undefined}
-      getRowClassName={(params) => {
-        const tone = rowTone?.(params.row);
-        return tone ? `row-${tone}` : "";
-      }}
+      getRowClassName={(params) => rowClassName(params.indexRelativeToCurrentPage, rowTone?.(params.row))}
       sx={gridSx(autoRowHeight)}
     />
   );

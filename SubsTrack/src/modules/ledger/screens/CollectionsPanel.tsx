@@ -43,7 +43,14 @@ import type {
   CollectionSortField,
   SortDirection,
 } from "@shared/modules/ledger/repository/ICollectionRepository";
-import type { CollectionStatus } from "@shared/modules/ledger/state/collectionsListStore";
+import {
+  COLLECTION_KINDS,
+  COLLECTION_SORT_LABEL_KEYS,
+  COLLECTION_STATUS_LABEL_KEYS,
+  hasCollectionFilter,
+  SORT_DIRECTION_LABEL_KEYS,
+  type CollectionStatus,
+} from "@shared/modules/ledger/utils/collectionFilters";
 import { useCollectionsListStore } from "@shared/modules/ledger/state/collectionsListStore";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useUserSlice } from "@shared/state/hooks/useUserSlice";
@@ -60,6 +67,16 @@ import { collectionService } from "@shared/modules/ledger/services/CollectionSer
 interface Props {
   onOpenSale?: (saleId: string) => Promise<void> | void;
   inSheet?: boolean;
+}
+
+function labelledOptions<V extends string>(
+  keys: Record<V, string>,
+  t: (key: string) => string,
+): DropdownOption<V>[] {
+  return (Object.keys(keys) as V[]).map((value) => ({
+    label: t(keys[value]),
+    value,
+  }));
 }
 
 // Every hand-over of cash; for `inSheet`, see docs/ui-patterns.md.
@@ -154,7 +171,7 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
 
   const kindOptions: DropdownOption<WalletSource>[] = useMemo(
     () =>
-      (["month", "sale", "manual", "mixed"] as WalletSource[]).map((k) => ({
+      COLLECTION_KINDS.map((k) => ({
         label: t(`ledger.kind_${k}`),
         value: k,
       })),
@@ -162,38 +179,29 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
   );
 
   const statusOptions: DropdownOption<CollectionStatus>[] = useMemo(
-    () => [
-      { label: t("ledger.status_live"), value: "live" },
-      { label: t("ledger.status_voided"), value: "voided" },
-    ],
+    () => labelledOptions(COLLECTION_STATUS_LABEL_KEYS, t),
     [t],
   );
 
   const sortFieldOptions: DropdownOption<CollectionSortField>[] = useMemo(
-    () => [
-      { label: t("ledger.sort_by_received"), value: "received_at" },
-      { label: t("ledger.sort_by_recorded"), value: "created_at" },
-      { label: t("ledger.sort_by_updated"), value: "updated_at" },
-    ],
+    () => labelledOptions(COLLECTION_SORT_LABEL_KEYS, t),
     [t],
   );
 
   const sortOptions: DropdownOption<SortDirection>[] = useMemo(
-    () => [
-      { label: t("ledger.sort_newest"), value: "desc" },
-      { label: t("ledger.sort_oldest"), value: "asc" },
-    ],
+    () => labelledOptions(SORT_DIRECTION_LABEL_KEYS, t),
     [t],
   );
 
-  const hasActiveFilters =
-    !!customerFilter ||
-    !!receivedByUserId ||
-    !!kind ||
-    !!status ||
-    sortField !== "received_at" ||
-    sortDirection !== "desc" ||
-    period.preset !== "this_month";
+  const hasActiveFilters = hasCollectionFilter({
+    customerId: customerFilter?.id ?? null,
+    receivedByUserId,
+    period,
+    kind,
+    status,
+    sortField,
+    sortDirection,
+  });
 
   const List = (inSheet ? BottomSheetSectionList : SectionList) as typeof SectionList<
     CollectionListItem,

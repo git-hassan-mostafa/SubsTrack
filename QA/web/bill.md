@@ -2,7 +2,7 @@
 
 The dialogs the web opens for ONE bill and the payments on it: the **bill dialog** (figure, status, details, every payment), **payment details**, **Correct amount**, **Void payment**, **Void this month** (the bill and its cash), **Write off / Undo write-off**, and **Write off all** on the Customers list. The money rules are the phone's — [../ledger-collections.md](../ledger-collections.md), [../shared-handover-void.md](../shared-handover-void.md), [../debts.md](../debts.md) — and both apps now run the same shared rules for what a bill allows.
 
-**Where they open:** Write off all is on the Customers list now (§6). The bill dialog and payment details get their doors in the next phases: Money received rows (E3), a month cell on the customer page (E4, with Void this month), the customer's debts panel (E5, with Write off / Undo). Run §1–§5 once a door exists; run §6 and §7 now.
+**Where they open:** Write off all is on the Customers list now (§6). The bill dialog and payment details get their doors in the next phases: Money received rows (E3, now — see [money-received.md](money-received.md) §3–§4), a month cell on the customer page (E4, with Void this month), the customer's debts panel (E5, with Write off / Undo). Run §1–§5 once a door exists; run §6 and §7 now.
 
 **Reference code:**
 
@@ -19,9 +19,9 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 
 | #   | Scenario           | Steps                                      | Expected result                                                                                                                          |
 | --- | ------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| 1.1 | Part paid          | Open the $20 month paid $5                 | A spinner, then "$5.00 / $20.00" in amber, "Remaining $15.00", pill "Partial"; the details (Month billed, Bill total, Due, Billed on, Billed by) |
-| 1.2 | Paid in full       | Open a month paid in full                  | "$20.00" in green, pill "Settled", no Remaining line, no Collect button                                                                   |
-| 1.3 | Payments table     | Look under the details                     | "1 payment", one row: received date (a link), who collected it, notes, "Paid to this bill" — only the part that reached THIS bill; Status and ⋮ at the end, same look as the page tables |
+| 1.1 | Part paid | Open the $20 month paid $5 | Header: calendar icon, "MONTHLY BILL", the month + plan, "For <customer>". Amber panel: "Part paid" pill (icon), "Still owed" $15.00 big, a bar a quarter full, "Paid $5.00 of $20.00", "Part of this bill is paid. $15.00 is still owed." Beside it the details, each with an icon (Month billed, Bill total, Due, Billed on, Billed by) |
+| 1.2 | Paid in full | Open a month paid in full | Green panel: "Paid in full" pill, $20.00 big in green, a full green bar, "This bill is fully paid. Nothing is owed."; no Collect button |
+| 1.3 | Payments table | Look under the details | "Payments on this bill" with a "1 counted" pill (and "1 voided" when there is one), the hint "Each row is one payment of cash…"; rows: received date (a link), who took it, notes, "Paid to this bill" in green (only the part that reached THIS bill), Status "Counted" green or "Voided" red (hover → the reason), ⋮; rows striped white / light gray |
 | 1.4 | Covers others      | Open the month whose payment also paid a sale | That row says "also paid other bills" under the amount                                                                                |
 | 1.5 | Own currency       | Open the LBP custom fee                    | Every figure in L.L.; "≈ $…" under the big figure only                                                                                    |
 | 1.6 | Collect remaining  | Part-paid bill → "Collect $15.00"          | The caller's collect dialog opens for that bill                                                                                           |
@@ -35,10 +35,10 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 
 | #   | Scenario         | Steps                                        | Expected result                                                                                                  |
 | --- | ---------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| 2.1 | Opens            | Click a payment's date, or ⋮ → Payment details | The amount, a kind pill (Month / Sale / Custom / Mixed), received on, collected by, "Cash now with" the holder  |
+| 2.1 | Opens | Click a payment's date, or ⋮ → Payment details | Header: green payments icon, "PAYMENT RECEIVED", the customer (or "Walk-in / no customer"), "Received <date time>". Green panel: "Amount received", the amount big, ≈ display currency, the kind pill with its icon, "Paid toward 1 bill" / "Split across 2 bills". Beside it Received on, Taken by, Cash now with — each with an icon |
 | 2.2 | Banked cash      | A payment handed over to the owner           | "Cash now with: Banked / handed over", Banked on, Banked by                                                       |
-| 2.3 | This pays        | A payment that paid two bills                | Beside the figure, the details; under them a "This pays" table: Bill, Bill total, Due, Paid to this bill — one row per bill |
-| 2.4 | Voided payment   | Open a voided one                            | Struck amount, red "Voided" pill, "This had paid", "These bills are owed again.", Voided on / by / reason; no custody row |
+| 2.3 | This pays | A payment that paid two bills | "What this payment paid for" + "Click a bill to see all of its payments."; table: Bill (kind icon + link), Bill total, Due, "From this payment" in green — one row per bill |
+| 2.4 | Voided payment | Open a voided one | Header turns red: "VOIDED PAYMENT". A red box on top: "This payment was voided" — when, by whom, the reason, "It no longer counts, and the bills it paid are owed again." Gray panel, struck amount; "What this payment had paid for" with struck amounts; no custody row |
 
 ## 3. Correct amount
 
