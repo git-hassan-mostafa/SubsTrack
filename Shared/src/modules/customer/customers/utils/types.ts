@@ -5,14 +5,18 @@ import type {
   PageWindow,
 } from "@shared/core/types";
 import { DbCustomer } from "@shared/core/types/db";
-import type { CustomerTab } from "@shared/modules/customer/customers/utils/customerTabs";
+import type {
+  CustomerFilterQuery,
+  CustomerSort,
+} from "@shared/modules/customer/customers/utils/customerFilters";
 
 // A customer row with its lines and their plans (CUSTOMER_WITH_LINES_SELECT).
 export type DbCustomerWithLines = DbCustomer;
 
 export interface CustomerStatusQuery extends PageWindow {
   search: string;
-  tab: CustomerTab;
+  filters: CustomerFilterQuery;
+  sort: CustomerSort;
 }
 
 // `today` is the caller's own calendar day; the server clock is UTC.
@@ -30,7 +34,6 @@ export interface CustomerStatusRow {
 export interface CustomerStatusPage {
   rows: CustomerStatusRow[];
   total: number;
-  counts: Record<CustomerTab, number>;
 }
 
 export interface CustomerStatusResponse {
@@ -40,7 +43,6 @@ export interface CustomerStatusResponse {
     debtUsd: number;
   }[];
   total: number;
-  counts: Record<CustomerTab, number>;
 }
 
 export interface CustomerStatusListRow {
@@ -52,5 +54,4 @@ export interface CustomerStatusListRow {
 export interface CustomerStatusList {
   rows: CustomerStatusListRow[];
   total: number;
-  counts: Record<CustomerTab, number>;
 }

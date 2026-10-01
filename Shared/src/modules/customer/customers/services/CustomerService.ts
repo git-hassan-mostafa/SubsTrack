@@ -55,7 +55,7 @@ class CustomerService {
     return rows.map(mapDbCustomerToCustomer);
   }
 
-  // One page of an exact tab, worked out on the server over every customer.
+  // One filtered page, worked out on the server over every customer.
   async getCustomerStatusPage(
     query: Omit<CustomerStatusRequest, "today">,
   ): Promise<CustomerStatusList> {
@@ -70,7 +70,6 @@ class CustomerService {
         debtUsd: row.debtUsd,
       })),
       total: page.total,
-      counts: page.counts,
     };
   }
 

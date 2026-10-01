@@ -654,6 +654,17 @@ export class OfflineCollectionRepository
     return this.hydrate(this.decodeAll<DbCollection>("collections", rows));
   }
 
+  async lastReceivedByCustomer(): Promise<Map<string, string>> {
+    const rows = await this.all<{ customer_id: string; last_paid_at: string }>(
+      `SELECT customer_id, MAX(received_at) AS last_paid_at
+         FROM collections
+        WHERE voided_at IS NULL AND customer_id IS NOT NULL
+        GROUP BY customer_id`,
+      [],
+    );
+    return new Map(rows.map((r) => [r.customer_id, r.last_paid_at]));
+  }
+
   async transferCustody(
     ids: string[],
     fromUserId: string,

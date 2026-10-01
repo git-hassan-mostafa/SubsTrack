@@ -200,7 +200,7 @@ logs out only through `endWebSession()` (`Web/src/state/webSession.ts`), and
 every web-only store under `Web/src/state/` registers its reset there. Every web
 list is a `DataTable` over a `createPagedStore()` store reading
 `I*Repository.findPage()` (both impls) — Customers reads the `customer-status`
-edge function through `createPagedStoreWithMeta()` (the tab counts ride along);
+edge function (filters + sort decided on the server over every customer);
 writes still go through the Shared slice, then the page patches the row it got back (edit, status) or re-reads (add, delete). Opening a page again reads nothing — except Customers, Audit Log and Money received (`rereadOnOpen`); the toolbar Refresh icon reads on demand. Money comes in through ONE web dialog, `CollectDialog` (`Web/src/modules/ledger/collect/`), on the same Shared `useCollectForm` + `useCollectSubmit` the phone sheet runs; quick pay is Shared `useQuickPay` on both apps. A bill opens in `BillDialog` (`Web/src/modules/ledger/bill/`) on the same Shared `billView.ts` + `useBillPayments` + `useCorrectPayment` the phone bill sheet runs; every void that takes a reason is `ReasonConfirmDialog`. The customer page (`/customers/:id`, `Web/src/modules/customer/customer-detail/`) shows the year as a **grid** (taller tiles, the default) or a **list** (a months table), switched at the top right, over the same Shared `useCustomerMonthGrid` the phone panel runs — every month door (tap, ⋮ rows, selection, `?quickPay=1`) is decided in `customer-payments/utils/monthActions.ts`. Under the months sit the Details, Debts and Sales panels; a debt row's ⋮ is Shared `debtItemActions`, a sale's collect door Shared `saleFacts`, both read through Shared hooks the phone panels run too. `BranchesPage` is the reference (`docs/ui-patterns.md`). Also in the workspace:
 `sql scripts/` (`script.sql` schema+RLS, `reset.sql` teardown),
 `new-features.md` (backlog), `Design/`, `QA/`, `tests/` (Jest, money rules).
@@ -549,9 +549,12 @@ keeps `monthGridsByLine`. Full rules, the badge contract and the order helpers:
   decided, derived from `buildMonthGrid`. **"Paid" means owes nothing**, so it can
   never co-exist with "Overdue". Absence means unknown → **no pill**, never red.
   One query, one arrival. No SQL mirror. `customerFlags(status)` decides both the
-  pills and the filter tabs — never duplicate the suppression rule in the filter.
-  The list tabs themselves are ONE helper, `customerTabs.ts` → `matchesCustomerTab`.
-- **The web's exact tabs run the SAME file on the server**: the `customer-status`
+  pills and the Payment status filter — never duplicate the suppression rule.
+  Every list filter (status, payment, debts, plan, unpaid months, type, last
+  paid, phone, portal) is ONE helper, `customerFilters.ts` →
+  `matchesCustomerFilters`, run by the phone AND the server; both apps show them
+  as dropdowns in one sideways-scrolling row. Sort is web-only (server-side).
+- **The web's exact filters run the SAME file on the server**: the `customer-status`
   edge function bundles `customerStatusPage.ts` (→ `monthStatus.ts`) and feeds it
   compact facts from `customer_status_facts()` (SQL that decides no rule). The
   month rules read "today" ONLY through `currentDate()` (`core/utils/date.ts`),

@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import Tab from "@mui/material/Tab";
-import Tabs from "@mui/material/Tabs";
 import BoltOutlined from "@mui/icons-material/BoltOutlined";
 import EditOutlined from "@mui/icons-material/EditOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
@@ -18,11 +15,7 @@ import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { planSummary } from "@shared/modules/customer/customer-plans/utils/lineLabel";
 import { useQuickPay } from "@shared/modules/customer/customers/hooks/useQuickPay";
 import { hasAnythingOwed, hasDebtFlag } from "@shared/modules/customer/customers/utils/customerFlags";
-import {
-  CUSTOMER_TAB_LABEL_KEYS,
-  CUSTOMER_TABS,
-  type CustomerTab,
-} from "@shared/modules/customer/customers/utils/customerTabs";
+import { hasCustomerFilters } from "@shared/modules/customer/customers/utils/customerFilters";
 import {
   canQuickPay,
   fixedMonthItems,
@@ -46,24 +39,23 @@ import { RowLink } from "@/shared/table/RowLink";
 import type { TableAction } from "@/shared/table/tableAction";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
 import {
-  DEFAULT_CUSTOMER_TAB,
   readAllCustomers,
   useCustomersTable,
   type CustomerRow,
 } from "@/state/customersTable";
+import { CustomerFiltersBar } from "./CustomerFiltersBar";
 import { CustomerFormDialog } from "./CustomerFormDialog";
 import { CustomerPills } from "./CustomerPills";
 import { useCustomerAdminActions } from "./useCustomerAdminActions";
 import { useCustomerHistoryAction } from "./useCustomerHistoryAction";
 
-// Every money action re-reads the page: a payment can move a customer to another tab.
+// Every money action re-reads the page: a payment can move a customer out of a filter.
 export function CustomersPage() {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const rows = useCustomersTable((s) => s.rows);
   const total = useCustomersTable((s) => s.total);
-  const counts = useCustomersTable((s) => s.meta);
   const loaded = useCustomersTable((s) => s.loaded);
   const loading = useCustomersTable((s) => s.loading);
   const tableError = useCustomersTable((s) => s.error);
@@ -315,29 +307,12 @@ export function CustomersPage() {
     },
   ];
 
-  const tabLabel = (tab: CustomerTab) => {
-    const label = t(CUSTOMER_TAB_LABEL_KEYS[tab]);
-    return counts ? t("web.customers.tab_count", { label, count: counts[tab] }) : label;
-  };
-
   return (
     <Stack spacing={2}>
       <ErrorBanner message={form ? null : writeError} onDismiss={clearWriteError} />
       <ErrorBanner message={collect.dialog ? null : ledgerError} onDismiss={clearLedgerError} />
       <ErrorBanner message={notice} onDismiss={() => setNotice(null)} severity="info" />
-      <Paper variant="outlined">
-        <Tabs
-          value={query.filters.tab}
-          onChange={(_event, tab: CustomerTab) => setFilters({ tab })}
-          variant="scrollable"
-          scrollButtons="auto"
-          aria-label={t("web.customers.groups")}
-        >
-          {CUSTOMER_TABS.map((tab) => (
-            <Tab key={tab} value={tab} label={tabLabel(tab)} />
-          ))}
-        </Tabs>
-      </Paper>
+      <CustomerFiltersBar value={query.filters} onChange={setFilters} onClear={clearFilters} />
       <DataTable<CustomerRow>
         label={t("customers.title")}
         columns={columns}
@@ -364,7 +339,7 @@ export function CustomersPage() {
         rowBusy={(row) => quickPay.busyCustomerId === row.id || loadingOwedFor === row.id}
         bulkActions={bulkActions}
         empty={{ title: t("customers.no_customers"), hint: t("web.customers.empty_hint") }}
-        filtered={query.search !== "" || query.filters.tab !== DEFAULT_CUSTOMER_TAB}
+        filtered={query.search !== "" || hasCustomerFilters(query.filters)}
         autoRowHeight
         onClearFilters={clearFilters}
         error={tableError}

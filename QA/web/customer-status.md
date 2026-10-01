@@ -5,7 +5,7 @@ The `customer-status` edge function works out the customer list's **exact** stat
 **Reference code:**
 
 - Function: [index.ts](SubsTrack/supabase/functions/customer-status/index.ts), its bundle script [build-edge.mjs](Web/scripts/build-edge.mjs)
-- Pure logic (bundled into the function): [customerStatusPage.ts](Shared/src/modules/customer/customers/utils/customerStatusPage.ts), [customerStatusFacts.ts](Shared/src/modules/customer/customers/utils/customerStatusFacts.ts), [customerTabs.ts](Shared/src/modules/customer/customers/utils/customerTabs.ts), [monthStatus.ts](Shared/src/modules/customer/customer-payments/utils/monthStatus.ts) (unit tests: `tests/suites/customerStatusPage.test.ts`, TC-CT-*)
+- Pure logic (bundled into the function): [customerStatusPage.ts](Shared/src/modules/customer/customers/utils/customerStatusPage.ts), [customerStatusFacts.ts](Shared/src/modules/customer/customers/utils/customerStatusFacts.ts), [customerFilters.ts](Shared/src/modules/customer/customers/utils/customerFilters.ts), [monthStatus.ts](Shared/src/modules/customer/customer-payments/utils/monthStatus.ts) (unit tests: `tests/suites/customerStatusPage.test.ts`, TC-CT-*)
 - SQL: `customer_status_facts()` in `sql scripts/script.sql`
 - App side: [CustomerStatusRepository.ts](Shared/src/modules/customer/customers/repository/CustomerStatusRepository.ts), `CustomerService.getCustomerStatusPage`
 - Speed test: [seed.mjs](Web/scripts/status-speed/seed.mjs), [measure.mjs](Web/scripts/status-speed/measure.mjs)
@@ -18,7 +18,7 @@ The `customer-status` edge function works out the customer list's **exact** stat
 
 | #   | Step                  | How                                                                                                                                                                                     | Expected result                                                         |
 | --- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| 0.1 | Database              | Run `sql scripts/script.sql` on the test project (nothing new in `migration.sql`)                                                                                                        | `customer_status_facts` appears under Database → Functions              |
+| 0.1 | Database              | Run `sql scripts/script.sql` on the test project (nothing new in `migration.sql`)                                                                                                        | `customer_status_facts` and `customer_last_paid` appear under Database → Functions |
 | 0.2 | Secrets               | Check the test project has the `ANON_KEY` edge-function secret (the WhatsApp functions already use it)                                                                                  | Listed under Edge Functions → Secrets                                   |
 | 0.3 | Deploy                | `cd Web && npm run deploy-customer-status` on a machine with the Supabase CLI, linked to the test project — or run `npm run build-edge` and paste `SubsTrack/supabase/functions/customer-status/_generated/dashboard/index.ts` into Dashboard → Edge Functions → Deploy a new function → Via Editor | Function `customer-status` listed, "Verify JWT" ON                      |
 | 0.4 | Speed-test login      | Sign up a NEW, empty organization on the test project (e.g. code `speedtest`). Create `Web/.env.speed.local` with `SPEED_SUPABASE_URL`, `SPEED_SUPABASE_ANON_KEY`, `SPEED_TENANT_CODE`, `SPEED_USERNAME`, `SPEED_PASSWORD` (the owner) | The file is git-ignored (`*.local`)                                     |
@@ -48,7 +48,7 @@ Use a small organization on the test project (20–30 customers, a few lines eac
 | 2.6 | Skipped month                | Skip this month for a paid-up customer                                                          | Not in Unpaid / Overdue; the phone card shows the same                                                      |
 | 2.7 | Inactive / walk-in           | An inactive customer and a non-regular one                                                      | No status pill; inactive only in All / Inactive (and Has debts if they owe)                                 |
 | 2.8 | Branch scope                 | Pick a branch in the header (tenant-wide admin), then log in as a branch admin                  | Only that branch's customers; a branch admin never sees another branch's customers, whatever `branch` is sent |
-| 2.9 | Search                       | Search part of a name, a phone number, an address, an area, in any case                         | Same customers as the phone search; the tab counts shrink to the search                                     |
+| 2.9 | Search                       | Search part of a name, a phone number, an address, an area, in any case                         | Same customers as the phone search; the total shrinks to the search                                     |
 | 2.10 | Paging                      | 25 per page, move to page 2                                                                     | No customer on two pages; the total does not change between pages                                          |
 
 ## 3. The caller's day (gotcha #173)
@@ -66,3 +66,5 @@ Use a small organization on the test project (20–30 customers, a few lines eac
 | 4.1 | Not signed in             | Call the function with no `Authorization` header             | 401 from the gateway; nothing read                                               |
 | 4.2 | Bad page size             | Send `limit: 500`                                             | 400 "A page holds 1 to 100 customers."                                           |
 | 4.3 | Phone offline             | (When the phone uses it) call it with no connection          | The usual "needs a connection" banner, no crash                                  |
+| 4.4 | Old function, new page     | Open the web Customers page before redeploying the function     | "Unknown customer tab." — redeploy the function (0.3) and it goes away |
+| 4.5 | Bad filter                 | Send `filters.unpaidMonths: 4` or `sort: "price"`             | 400 "Unknown customer filter." / "Unknown customer sort."              |

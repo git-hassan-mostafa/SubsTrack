@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
-import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import HistoryOutlined from "@mui/icons-material/HistoryOutlined";
 import VisibilityOutlined from "@mui/icons-material/VisibilityOutlined";
 import type { GridColDef } from "@mui/x-data-grid";
@@ -26,6 +24,7 @@ import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranc
 import { useUserSlice } from "@shared/state/hooks/useUserSlice";
 import { DateField } from "@/shared/components/DateField";
 import { DataTable } from "@/shared/table/DataTable";
+import { FilterSelect } from "@/shared/table/FilterSelect";
 import { RowLink } from "@/shared/table/RowLink";
 import type { TableAction } from "@/shared/table/tableAction";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
@@ -33,8 +32,6 @@ import { readAllAuditEntries, useAuditTable } from "@/state/auditTable";
 import { AuditEntryDialog } from "./AuditEntryDialog";
 import { AuditSummaryText } from "./AuditSummaryText";
 import { RecordHistoryDialog } from "./RecordHistoryDialog";
-
-const ALL = "";
 
 // Newest first, read-only; admin-only is enforced by RLS as well as the route.
 export function AuditLogPage() {
@@ -136,62 +133,36 @@ export function AuditLogPage() {
         pageSize={query.pageSize}
         onPageChange={setPage}
         filters={
-          <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
-            <TextField
-              select
-              size="small"
+          <>
+            <FilterSelect<AuditTable | null>
               label={t("audit.filter_by_table")}
-              value={filters.table ?? ALL}
-              onChange={(event) =>
-                pick({ table: (event.target.value || null) as AuditTable | null })
-              }
-              sx={{ minWidth: 160 }}
-            >
-              <MenuItem value={ALL}>{t("audit.all_tables")}</MenuItem>
-              {AUDITED_TABLES.map((table) => (
-                <MenuItem key={table} value={table}>
-                  {tableLabel(t, table)}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              size="small"
+              anyLabel={t("audit.all_tables")}
+              value={filters.table}
+              onChange={(table) => pick({ table })}
+              options={AUDITED_TABLES.map((table) => ({ value: table, label: tableLabel(t, table) }))}
+            />
+            <FilterSelect<AuditAction | null>
               label={t("audit.filter_by_action")}
-              value={filters.action ?? ALL}
-              onChange={(event) =>
-                pick({ action: (event.target.value || null) as AuditAction | null })
-              }
-              sx={{ minWidth: 140 }}
-            >
-              <MenuItem value={ALL}>{t("audit.all_actions")}</MenuItem>
-              {AUDIT_ACTIONS.map((action) => (
-                <MenuItem key={action} value={action}>
-                  {actionLabel(t, action)}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              size="small"
+              anyLabel={t("audit.all_actions")}
+              value={filters.action}
+              onChange={(action) => pick({ action })}
+              options={AUDIT_ACTIONS.map((action) => ({ value: action, label: actionLabel(t, action) }))}
+              minWidth={140}
+            />
+            <FilterSelect<string | null>
               label={t("audit.filter_by_actor")}
-              value={filters.actor ?? ALL}
-              onChange={(event) => pick({ actor: event.target.value || null })}
-              sx={{ minWidth: 160 }}
-            >
-              <MenuItem value={ALL}>{t("audit.all_actors")}</MenuItem>
-              {users.map((user) => (
-                <MenuItem key={user.id} value={user.id}>
-                  {user.fullName}
-                </MenuItem>
-              ))}
-            </TextField>
+              anyLabel={t("audit.all_actors")}
+              value={filters.actor}
+              onChange={(actor) => pick({ actor })}
+              options={users.map((user) => ({ value: user.id, label: user.fullName }))}
+            />
             <Box sx={{ width: 170 }}>
               <DateField
                 label={t("audit.date_from")}
                 value={filters.from ?? ""}
                 onChange={(value) => pick({ from: value || null })}
                 maxDate={filters.to ?? undefined}
+                size="small"
                 clearable
               />
             </Box>
@@ -201,10 +172,11 @@ export function AuditLogPage() {
                 value={filters.to ?? ""}
                 onChange={(value) => pick({ to: value || null })}
                 minDate={filters.from ?? undefined}
+                size="small"
                 clearable
               />
             </Box>
-          </Stack>
+          </>
         }
         exportConfig={{ nameKey: "audit.title", loadAll: () => readAllAuditEntries(query) }}
         rowLabel={(entry) => formatDateTimeShort(entry.occurredAt)}

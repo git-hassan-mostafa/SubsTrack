@@ -15,11 +15,11 @@ import {
   type StatusListCustomer,
 } from "@shared/modules/customer/customers/utils/customerStatusFacts";
 import {
-  CUSTOMER_TABS,
-  isCustomerTab,
-  matchesCustomerTab,
-  type CustomerTab,
-} from "@shared/modules/customer/customers/utils/customerTabs";
+  isCustomerFilterQuery,
+  isCustomerSort,
+  matchesCustomerFilters,
+  type CustomerSort,
+} from "@shared/modules/customer/customers/utils/customerFilters";
 import type {
   CustomerStatusPage,
   CustomerStatusQuery,
@@ -48,20 +48,31 @@ export function matchesCustomerSearch(
   ].some((field) => field?.toLowerCase().includes(term));
 }
 
-function byName(a: StatusListCustomer, b: StatusListCustomer): number {
-  return (
-    a.name.localeCompare(b.name) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
-  );
+interface SortableRow {
+  customer: StatusListCustomer;
+  row: CustomerStatusRow;
 }
 
-function emptyCounts(): Record<CustomerTab, number> {
-  return Object.fromEntries(CUSTOMER_TABS.map((tab) => [tab, 0])) as Record<
-    CustomerTab,
-    number
-  >;
+function byName(a: SortableRow, b: SortableRow): number {
+  const x = a.customer;
+  const y = b.customer;
+  return x.name.localeCompare(y.name) || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
 }
 
-// Exact tabs over every customer in scope; counts follow the search only.
+function paidTime(customer: StatusListCustomer): number {
+  return customer.lastPaidAt ? Date.parse(customer.lastPaidAt) : -Infinity;
+}
+
+const SORTS: Record<CustomerSort, (a: SortableRow, b: SortableRow) => number> = {
+  name: () => 0,
+  debt: (a, b) => b.row.debtUsd - a.row.debtUsd,
+  unpaid_months: (a, b) =>
+    (b.row.status?.unpaidMonths ?? 0) - (a.row.status?.unpaidMonths ?? 0),
+  longest_unpaid: (a, b) => paidTime(a.customer) - paidTime(b.customer),
+  newest: (a, b) => b.customer.createdAt.localeCompare(a.customer.createdAt),
+};
+
+// Never-paid customers sort as the longest unpaid; every tie falls back to name.
 export function pageCustomerStatuses(
   facts: CustomerStatusFacts,
   query: CustomerStatusQuery,
@@ -73,30 +84,27 @@ export function pageCustomerStatuses(
     facts.unpaidRule,
   );
   const term = sanitizeSearchTerm(query.search).toLowerCase();
-  const found = facts.customers
-    .filter((customer) => matchesCustomerSearch(customer, term))
-    .sort(byName);
-
-  const counts = emptyCounts();
-  const inTab: CustomerStatusRow[] = [];
-  for (const customer of found) {
+  const matched: SortableRow[] = [];
+  for (const customer of facts.customers) {
+    if (!matchesCustomerSearch(customer, term)) continue;
     const row: CustomerStatusRow = {
       customerId: customer.id,
       status: statuses.get(customer.id) ?? null,
       debtUsd: facts.debtUsd.get(customer.id) ?? 0,
     };
-    for (const tab of CUSTOMER_TABS) {
-      if (!matchesCustomerTab(customer, row.status, row.debtUsd, tab))
-        continue;
-      counts[tab]++;
-      if (tab === query.tab) inTab.push(row);
+    const listFacts = { ...row, lastPaidAt: customer.lastPaidAt };
+    if (matchesCustomerFilters(customer, listFacts, query.filters)) {
+      matched.push({ customer, row });
     }
   }
+  const order = SORTS[query.sort];
+  matched.sort((a, b) => order(a, b) || byName(a, b));
 
   return {
-    rows: inTab.slice(query.offset, query.offset + query.limit),
-    total: inTab.length,
-    counts,
+    rows: matched
+      .slice(query.offset, query.offset + query.limit)
+      .map(({ row }) => row),
+    total: matched.length,
   };
 }
 
@@ -165,11 +173,21 @@ export function parseCustomerStatusRequest(
   body: Record<string, unknown>,
   now: Date,
 ): ParsedStatusRequest {
-  const { search = "", tab, branch = null, offset, limit, today } = body;
+  const {
+    search = "",
+    filters,
+    sort = "name",
+    branch = null,
+    offset,
+    limit,
+    today,
+  } = body;
   if (typeof search !== "string" || search.length > MAX_SEARCH_LENGTH)
     return { ok: false, message: "The search text is too long." };
-  if (!isCustomerTab(tab))
-    return { ok: false, message: "Unknown customer tab." };
+  if (!isCustomerFilterQuery(filters))
+    return { ok: false, message: "Unknown customer filter." };
+  if (!isCustomerSort(sort))
+    return { ok: false, message: "Unknown customer sort." };
   if (!isBranchFilter(branch))
     return { ok: false, message: "Unknown branch." };
   if (!isWholeNumber(offset, 0, Number.MAX_SAFE_INTEGER))
@@ -188,5 +206,8 @@ export function parseCustomerStatusRequest(
       ok: false,
       message: "Your device date looks wrong. Check it and try again.",
     };
-  return { ok: true, request: { search, tab, branch, offset, limit, today } };
+  return {
+    ok: true,
+    request: { search, filters, sort, branch, offset, limit, today },
+  };
 }

@@ -36,6 +36,7 @@ const status = (over: Partial<CustomerStatus> = {}): CustomerStatus => ({
   planCount: { paid: 0, total: 1 },
   notDueLineIds: [],
   uncoveredLineIds: [],
+  unpaidMonths: 0,
   ...over,
 });
 

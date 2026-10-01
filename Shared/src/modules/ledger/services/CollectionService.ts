@@ -513,6 +513,10 @@ class CollectionService {
   ) {
     return repositories().collection.transferCustody(ids, fromUserId, toUserId, actorUserId);
   }
+
+  getLastPaidByCustomer(): Promise<Map<string, string>> {
+    return repositories().collection.lastReceivedByCustomer();
+  }
 }
 
 /**

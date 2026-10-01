@@ -17,7 +17,7 @@ Customers can be touched by both `admin` and `user` roles for view + create + ed
 
 **Pagination:** PAGE_SIZE = 30 (see [constants/index.ts](Shared/src/core/constants/index.ts)).
 **Default sort:** by `name` ascending (server-side via `.order('name')`).
-**Default tab on open:** "Active".
+**Default on open:** Status = "Active", no other filter.
 
 ---
 
@@ -30,7 +30,7 @@ Customers can be touched by both `admin` and `user` roles for view + create + ed
 | 1.3    | First load empty                      | Tenant has zero customers                                                                                                                      | EmptyState "No customers found" + "Create First Customer" CTA when not searching                                                                                              |
 | 1.4    | First load with data                  | Tenant has ≥1 customer                                                                                                                         | Each customer rendered as a card: avatar (initials, color from name), name, plan name (or "No plan"), status pill, current month label, ⋮ menu icon at the right              |
 | 1.5    | Loading state                         | Pull-to-refresh on slow network                                                                                                                | Spinner; list does not flicker. After load, list returns to scroll position                                                                                                   |
-| 1.6    | Filter tabs                           | Look below search                                                                                                                              | Nine tabs on ONE line that scrolls sideways, in order: Active, Unpaid, Overdue, Partly paid, Paid, Not due yet, Has debts, All, Inactive                                      |
+| 1.6    | Filter tabs                           | Look below search                                                                                                                              | Dropdown filters on ONE line that scrolls sideways (see section 3b)                                                                                                             |
 | 1.7    | Default tab is Active                 | Open the screen                                                                                                                                | "Active" tab selected by default                                                                                                                                              |
 | 1.8    | Avatar color stability                | Same customer name                                                                                                                             | Avatar color deterministic (charCode of first char modulo palette)                                                                                                            |
 | 1.9    | Initials computed correctly           | Customer "Mary Jane Smith"                                                                                                                     | "MJ" (first letters of first two whitespace-separated parts)                                                                                                                  |
@@ -106,6 +106,32 @@ The five payment tabs are the card's payment pills, one tab per pill (`customerF
 | 3.8a | Tab tap while typing                      | Type in search (keyboard up), tap a tab                                                                  | The tab is selected on the first tap (the keyboard closing does not swallow it)                                                                                                                   |
 | 3.8b | Tabs scroll in Arabic                     | Switch to Arabic, open the filter row                                                                    | Row starts at the right; scrolls the other way; every tab reachable                                                                                                                               |
 | 3.9  | Tab set stays correct after a payment     | On Unpaid, quick-pay a customer, then check Paid                                                         | They leave Unpaid and appear in Paid without a manual refresh (badges refresh after the write)                                                                                                    |
+
+## 3b. Dropdown filters (phone + web)
+
+The tabs above are now the **Payment status** dropdown; Active / Inactive / All became **Status**, and Has debts became **Debts**. One shared rule decides every filter (`matchesCustomerFilters`, `customerFilters.ts`; unit tests TC-CT-*).
+
+| # | Scenario | Steps | Expected result |
+| --- | --- | --- | --- |
+| 3b.1 | Filter row | Tap the filter button | ONE row of chip dropdowns that scrolls sideways: Status, Payment status, Debts, Unpaid months, Plan, Customer type, Last paid from, Last paid to, Phone number, Portal access. Web: the same as select boxes in one row above the table, plus Sort by |
+| 3b.2 | Default view | Open the screen | Status = Active, every other filter on its "Any / All" value; the filter button shows no dot |
+| 3b.3 | Status | Pick Inactive, then All customers | Only inactive customers; then everyone |
+| 3b.4 | Payment status = old tabs | Pick each option (Unpaid, Overdue, Partly paid, Paid, Not due yet) | Exactly the customers the old tab of the same name held (section 3 rules all still apply) |
+| 3b.5 | Debts | Pick Has debts, then No debts | Customers with the red debt pill; then the rest (inactive ones included) |
+| 3b.6 | Unpaid months | Customer with Jan + Feb + Mar unpaid (today in March, rule = month start); pick 3+ then 6+ | Listed under 1+, 2+ and 3+, not under 6+. The number equals the reports aging "months owed" |
+| 3b.7 | Plan | Pick a plan | Only customers with an ACTIVE line on that plan; a customer whose line on it was cancelled is not listed |
+| 3b.8 | Customer type | Pick Regular, then Occasional | Monthly customers only; then occasional (non-regular) ones only |
+| 3b.9 | Last paid range | Pay a customer today; set Last paid from = today | That customer is listed; a customer who never paid is not. Set only "to" = yesterday → today's payer leaves the list |
+| 3b.10 | Last paid uses the newest payment | Customer paid in January and again today; set from/to = January | NOT listed — their LAST payment is today |
+| 3b.11 | Voided payment | Void a customer's only payment, set Last paid from = that day | Not listed any more (a voided hand-over does not count) |
+| 3b.12 | Phone number | Pick No phone number | Customers with an empty or blank phone only |
+| 3b.13 | Portal access | Turn the portal on for one customer, pick Portal on | Only that customer |
+| 3b.14 | Filters stack | Plan = X, Payment status = Unpaid, Debts = Has debts | Only customers matching ALL three |
+| 3b.15 | Clear filters | Set several filters, tap Clear filters | Back to the default view (Active, everything else Any); the chip disappears |
+| 3b.16 | Web sort | Web only: Sort by Highest debt, Most unpaid months, Longest since last payment, Newest customers | Order follows the pick across pages (page 2 continues page 1); never-paid customers come first for "Longest since last payment"; ties are by name |
+| 3b.17 | Search covers area and address | Type part of an area, then part of an address | Matching customers on both apps (no separate filter needed) |
+| 3b.18 | Arabic | Switch to Arabic, open the filters | All labels translated; the row still scrolls sideways (right to left) |
+| 3b.19 | Phone and web agree | Same filters on the phone (scroll to the end of the list) and on the web | Same customers |
 
 ## 4. Pagination & refresh
 

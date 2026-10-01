@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
 import EditOutlined from "@mui/icons-material/EditOutlined";
@@ -23,6 +21,7 @@ import { StatusChip } from "@/shared/components/StatusChip";
 import { ActiveFilterSelect } from "@/shared/table/ActiveFilterSelect";
 import { activeStatusColumn } from "@/shared/table/activeStatusColumn";
 import { DataTable } from "@/shared/table/DataTable";
+import { FilterSelect } from "@/shared/table/FilterSelect";
 import { RowLink } from "@/shared/table/RowLink";
 import type { TableAction } from "@/shared/table/tableAction";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
@@ -229,20 +228,12 @@ export function UsersPage() {
         }}
         filters={
           <>
-            <TextField
-              select
-              size="small"
+            <FilterSelect<UserRoleFilter>
               label={t("users.role_label")}
               value={query.filters.role}
-              onChange={(event) => setFilters({ role: event.target.value as UserRoleFilter })}
-              sx={{ minWidth: 160 }}
-            >
-              {ROLE_FILTERS.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {t(option.labelKey)}
-                </MenuItem>
-              ))}
-            </TextField>
+              onChange={(role) => setFilters({ role })}
+              options={ROLE_FILTERS.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
+            />
             <ActiveFilterSelect
               value={query.filters.status}
               onChange={(status) => setFilters({ status })}

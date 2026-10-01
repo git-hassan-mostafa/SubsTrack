@@ -72,8 +72,6 @@
     "add": "Add customer",
     "search": "Search by name, phone, address or area",
     "empty_hint": "Add your first customer to get started.",
-    "groups": "Customer groups",
-    "tab_count": "{{label}} ({{count}})",
     "new_plan": "Add a new plan",
     "new_portal_password": "Make a new password",
     "paid_one": "Saved {{amount}} from {{name}}.",

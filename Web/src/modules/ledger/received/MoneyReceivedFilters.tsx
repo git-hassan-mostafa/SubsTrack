@@ -1,8 +1,5 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import MenuItem from "@mui/material/MenuItem";
-import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import type { WalletSource } from "@shared/core/types";
 import type {
   CollectionSortField,
@@ -18,8 +15,7 @@ import {
 } from "@shared/modules/ledger/utils/collectionFilters";
 import { useUserSlice } from "@shared/state/hooks/useUserSlice";
 import { PeriodPicker } from "@/shared/components/PeriodPicker";
-
-const ALL = "";
+import { FilterSelect } from "@/shared/table/FilterSelect";
 
 interface MoneyReceivedFiltersProps {
   value: CollectionFilterChoice;
@@ -30,7 +26,7 @@ function keysOf<K extends string>(labels: Record<K, string>): K[] {
   return Object.keys(labels) as K[];
 }
 
-// The phone's filter chips as one wrapping row of selects.
+// The phone's filter chips as selects; the table's filter bar scrolls them sideways.
 export function MoneyReceivedFilters({ value, onChange }: MoneyReceivedFiltersProps) {
   const { t } = useTranslation();
   const users = useUserSlice((s) => s.items);
@@ -40,84 +36,47 @@ export function MoneyReceivedFilters({ value, onChange }: MoneyReceivedFiltersPr
     void getUsers();
   }, [getUsers]);
 
+  const labelled = <K extends string>(labels: Record<K, string>) =>
+    keysOf(labels).map((key) => ({ value: key, label: t(labels[key]) }));
+
   return (
-    <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+    <>
       <PeriodPicker value={value.period} onChange={(period) => onChange({ period })} />
-      <TextField
-        select
-        size="small"
+      <FilterSelect<string | null>
         label={t("payments.filter_by_user")}
-        value={value.receivedByUserId ?? ALL}
-        onChange={(event) => onChange({ receivedByUserId: event.target.value || null })}
-        sx={{ minWidth: 160 }}
-      >
-        <MenuItem value={ALL}>{t("payments.all_users")}</MenuItem>
-        {users.map((user) => (
-          <MenuItem key={user.id} value={user.id}>
-            {user.fullName}
-          </MenuItem>
-        ))}
-      </TextField>
-      <TextField
-        select
-        size="small"
+        anyLabel={t("payments.all_users")}
+        value={value.receivedByUserId}
+        onChange={(receivedByUserId) => onChange({ receivedByUserId })}
+        options={users.map((user) => ({ value: user.id, label: user.fullName }))}
+      />
+      <FilterSelect<WalletSource | null>
         label={t("ledger.filter_by_type")}
-        value={value.kind ?? ALL}
-        onChange={(event) => onChange({ kind: (event.target.value || null) as WalletSource | null })}
-        sx={{ minWidth: 140 }}
-      >
-        <MenuItem value={ALL}>{t("ledger.all_types")}</MenuItem>
-        {COLLECTION_KINDS.map((kind) => (
-          <MenuItem key={kind} value={kind}>
-            {t(`ledger.kind_${kind}`)}
-          </MenuItem>
-        ))}
-      </TextField>
-      <TextField
-        select
-        size="small"
+        anyLabel={t("ledger.all_types")}
+        value={value.kind}
+        onChange={(kind) => onChange({ kind })}
+        options={COLLECTION_KINDS.map((kind) => ({ value: kind, label: t(`ledger.kind_${kind}`) }))}
+        minWidth={140}
+      />
+      <FilterSelect<CollectionStatus | null>
         label={t("ledger.filter_by_status")}
-        value={value.status ?? ALL}
-        onChange={(event) =>
-          onChange({ status: (event.target.value || null) as CollectionStatus | null })
-        }
-        sx={{ minWidth: 160 }}
-      >
-        <MenuItem value={ALL}>{t("ledger.all_statuses")}</MenuItem>
-        {keysOf(COLLECTION_STATUS_LABEL_KEYS).map((status) => (
-          <MenuItem key={status} value={status}>
-            {t(COLLECTION_STATUS_LABEL_KEYS[status])}
-          </MenuItem>
-        ))}
-      </TextField>
-      <TextField
-        select
-        size="small"
+        anyLabel={t("ledger.all_statuses")}
+        value={value.status}
+        onChange={(status) => onChange({ status })}
+        options={labelled(COLLECTION_STATUS_LABEL_KEYS)}
+      />
+      <FilterSelect<CollectionSortField>
         label={t("ledger.sort_by_label")}
         value={value.sortField}
-        onChange={(event) => onChange({ sortField: event.target.value as CollectionSortField })}
-        sx={{ minWidth: 160 }}
-      >
-        {keysOf(COLLECTION_SORT_LABEL_KEYS).map((field) => (
-          <MenuItem key={field} value={field}>
-            {t(COLLECTION_SORT_LABEL_KEYS[field])}
-          </MenuItem>
-        ))}
-      </TextField>
-      <TextField
-        select
-        size="small"
+        onChange={(sortField) => onChange({ sortField })}
+        options={labelled(COLLECTION_SORT_LABEL_KEYS)}
+      />
+      <FilterSelect<SortDirection>
         label={t("ledger.sort_label")}
         value={value.sortDirection}
-        onChange={(event) => onChange({ sortDirection: event.target.value as SortDirection })}
-        sx={{ minWidth: 140 }}
-      >
-        {keysOf(SORT_DIRECTION_LABEL_KEYS).map((direction) => (
-          <MenuItem key={direction} value={direction}>
-            {t(SORT_DIRECTION_LABEL_KEYS[direction])}
-          </MenuItem>
-        ))}
-      </TextField>
-    </Stack>
+        onChange={(sortDirection) => onChange({ sortDirection })}
+        options={labelled(SORT_DIRECTION_LABEL_KEYS)}
+        minWidth={140}
+      />
+    </>
   );
 }

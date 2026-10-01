@@ -102,6 +102,8 @@ export interface ICollectionRepository {
 
   findHeld(userId: string, branchFilter: BranchFilter): Promise<DbCollection[]>;
   findAllHeld(branchFilter: BranchFilter): Promise<DbCollection[]>;
+  // Customer id → `received_at` of their newest live hand-over, any kind.
+  lastReceivedByCustomer(): Promise<Map<string, string>>;
   transferCustody(
     ids: string[],
     fromUserId: string,

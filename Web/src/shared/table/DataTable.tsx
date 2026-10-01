@@ -20,6 +20,7 @@ import { EmptyState } from "@/shared/components/EmptyState";
 import { SearchField } from "@/shared/components/SearchField";
 import { PAGE_SIZE_OPTIONS } from "@/state/createPagedStore";
 import { BulkActionBar } from "./BulkActionBar";
+import { FilterBar } from "./FilterBar";
 import { actionsColumn } from "./actionsColumn";
 import { AUTO_ROW_HEIGHT, gridSx, LOCKED_GRID, rowClassName, type RowTone } from "./gridBase";
 import type { TableAction } from "./tableAction";
@@ -130,7 +131,7 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
         <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={1.5}
-          sx={{ alignItems: { sm: "center" }, minHeight: 56 }}
+          sx={{ alignItems: { sm: "center" }, minHeight: 56, minWidth: 0 }}
         >
           {search ? (
             <SearchField
@@ -139,8 +140,7 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
               placeholder={search.placeholder}
             />
           ) : null}
-          {filters}
-          <Box sx={{ flexGrow: 1 }} />
+          {filters ? <FilterBar>{filters}</FilterBar> : <Box sx={{ flexGrow: 1 }} />}
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <Tooltip title={t("web.table.refresh")}>
               <span>

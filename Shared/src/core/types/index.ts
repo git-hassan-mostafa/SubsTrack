@@ -237,6 +237,7 @@ export interface CustomerStatus {
   planCount: PlanPaidCount;
   notDueLineIds: string[];
   uncoveredLineIds: string[];
+  unpaidMonths: number;
 }
 
 export interface DashboardMetrics {

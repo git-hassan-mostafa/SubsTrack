@@ -1,8 +1,10 @@
 import type {
   ChargeKind,
   Customer,
+  CustomerPlan,
   StatusBill,
   StatusCustomer,
+  StatusLine,
   StatusSkip,
   UnpaidStartRule,
 } from "@shared/core/types";
@@ -16,6 +18,9 @@ export type WireCustomer = [
   area: string | null,
   active: boolean,
   isRegular: boolean,
+  portalEnabled?: boolean,
+  createdAt?: string,
+  lastPaidAt?: string | null,
 ];
 
 export type WireBill = [
@@ -32,6 +37,7 @@ export type WireLine = [
   active: boolean,
   bills: WireBill[],
   skippedMonths: string[],
+  planId?: string | null,
 ];
 
 export type WireDebt = [
@@ -49,8 +55,16 @@ export interface CustomerStatusFactsWire {
   debts: WireDebt[];
 }
 
-export type StatusListCustomer = StatusCustomer &
-  Pick<Customer, "name" | "phoneNumber" | "address" | "area">;
+export type StatusListLine = StatusLine & Pick<CustomerPlan, "planId">;
+
+export type StatusListCustomer = Omit<StatusCustomer, "customerPlans"> &
+  Pick<
+    Customer,
+    "name" | "phoneNumber" | "address" | "area" | "portalEnabled" | "createdAt"
+  > & {
+    customerPlans: StatusListLine[];
+    lastPaidAt: string | null;
+  };
 
 export interface CustomerStatusFacts {
   customers: StatusListCustomer[];
@@ -73,6 +87,9 @@ export function readCustomerStatusFacts(
     area,
     active,
     isRegular,
+    portalEnabled = false,
+    createdAt = "",
+    lastPaidAt = null,
   ] of wire.customers) {
     customers.set(id, {
       id,
@@ -82,6 +99,9 @@ export function readCustomerStatusFacts(
       area,
       active,
       isRegular,
+      portalEnabled,
+      createdAt,
+      lastPaidAt,
       customerPlans: [],
     });
   }
@@ -95,8 +115,11 @@ export function readCustomerStatusFacts(
     active,
     lineBills,
     skipped,
+    planId = null,
   ] of wire.lines) {
-    customers.get(customerId)?.customerPlans?.push({ id, startDate, active });
+    customers
+      .get(customerId)
+      ?.customerPlans.push({ id, startDate, active, planId });
     for (const [billingMonth, durationMonths, amount, paid] of lineBills) {
       bills.push({
         charge: {

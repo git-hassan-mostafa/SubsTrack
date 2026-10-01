@@ -91,7 +91,8 @@ Deno.serve(async (req) => {
       }));
 
     log(reqId, "served", {
-      tab: request.tab,
+      filters: request.filters,
+      sort: request.sort,
       total: page.total,
       rows: rows.length,
       customers: facts.data.customers.length,
@@ -100,7 +101,7 @@ Deno.serve(async (req) => {
       computeMs,
       totalMs: Date.now() - started,
     });
-    return json({ rows, total: page.total, counts: page.counts });
+    return json({ rows, total: page.total });
   } catch (error) {
     log(reqId, "error", {
       message: error instanceof Error ? error.message : String(error?.message ?? error),

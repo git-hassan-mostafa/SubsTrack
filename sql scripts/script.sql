@@ -2102,6 +2102,24 @@ $$;
 GRANT EXECUTE ON FUNCTION lower_allowances(INT, INT) TO authenticated;
 REVOKE EXECUTE ON FUNCTION lower_allowances(INT, INT) FROM anon;
 
+-- Each customer's newest live hand-over (any kind) — the list's "last paid" fact.
+CREATE OR REPLACE FUNCTION customer_last_paid()
+RETURNS TABLE (customer_id UUID, last_paid_at TIMESTAMPTZ)
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = public
+AS $$
+    SELECT co.customer_id, MAX(co.received_at)
+      FROM collections co
+     WHERE co.voided_at IS NULL
+       AND co.customer_id IS NOT NULL
+     GROUP BY co.customer_id;
+$$;
+
+GRANT EXECUTE ON FUNCTION customer_last_paid() TO authenticated;
+REVOKE EXECUTE ON FUNCTION customer_last_paid() FROM anon, public;
+
 -- Facts for the customer-status function; decides no rule (edge-functions.md).
 CREATE OR REPLACE FUNCTION customer_status_facts(
     p_branch_id UUID DEFAULT NULL,
@@ -2115,13 +2133,15 @@ SET search_path = public
 AS $$
     WITH scoped AS (
         SELECT c.id, c.name, c.phone_number, c.address, c.area,
-               c.active, c.is_regular
+               c.active, c.is_regular, c.portal_enabled, c.created_at,
+               lp.last_paid_at
           FROM customers c
+          LEFT JOIN customer_last_paid() lp ON lp.customer_id = c.id
          WHERE (p_branch_id IS NULL OR c.branch_id = p_branch_id)
            AND (NOT p_unassigned OR c.branch_id IS NULL)
     ),
     lines AS (
-        SELECT cp.id, cp.customer_id, cp.start_date, cp.active
+        SELECT cp.id, cp.customer_id, cp.start_date, cp.active, cp.plan_id
           FROM customer_plans cp
           JOIN scoped s ON s.id = cp.customer_id
     ),
@@ -2158,13 +2178,15 @@ AS $$
         'customers', COALESCE((
             SELECT json_agg(json_build_array(s.id, s.name, s.phone_number,
                                              s.address, s.area, s.active,
-                                             s.is_regular))
+                                             s.is_regular, s.portal_enabled,
+                                             s.created_at, s.last_paid_at))
               FROM scoped s), '[]'::json),
         'lines', COALESCE((
             SELECT json_agg(json_build_array(l.id, l.customer_id, l.start_date,
                                              l.active,
                                              COALESCE(lb.bills, '[]'::json),
-                                             COALESCE(ls.months, '[]'::json)))
+                                             COALESCE(ls.months, '[]'::json),
+                                             l.plan_id))
               FROM lines l
               LEFT JOIN line_bills lb ON lb.customer_plan_id = l.id
               LEFT JOIN line_skips ls ON ls.customer_plan_id = l.id), '[]'::json),

@@ -5,7 +5,6 @@ import {
   RefreshControl,
   View,
 } from "react-native";
-import { PillTabs } from "@/src/shared/components/PillTabs";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -33,11 +32,14 @@ import {
   hasDebtFlag,
 } from "@shared/modules/customer/customers/utils/customerFlags";
 import {
-  CUSTOMER_TABS,
-  CUSTOMER_TAB_LABEL_KEYS,
-  matchesCustomerTab,
-  type CustomerTab,
-} from "@shared/modules/customer/customers/utils/customerTabs";
+  DEFAULT_CUSTOMER_FILTERS,
+  hasCustomerFilters,
+  matchesCustomerFilters,
+  toCustomerFilterQuery,
+  type CustomerFilters,
+} from "@shared/modules/customer/customers/utils/customerFilters";
+import { useLastPaidStore } from "@shared/modules/customer/customers/state/lastPaidStore";
+import { CustomerFilterChips } from "../components/CustomerFilterChips";
 import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomDebtFormSheet } from "@/src/modules/transaction/debts/components/CustomDebtFormSheet";
@@ -100,6 +102,8 @@ export function CustomerListScreen() {
   const currencies = useCurrencySlice((s) => s.items);
   const netDebtByCustomer = useLedgerSlice((s) => s.netByCustomer);
   const fetchNetDebtByCustomer = useLedgerSlice((s) => s.fetchNetByCustomer);
+  const lastPaidByCustomer = useLastPaidStore((s) => s.byCustomer);
+  const fetchLastPaid = useLastPaidStore((s) => s.fetchLastPaid);
   const loadOwed = useLoadOwed();
   const { sendCollectionInvoice } = useSendInvoice();
   const { canSend, openChat } = useWhatsApp();
@@ -109,7 +113,9 @@ export function CustomerListScreen() {
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const [formVisible, setFormVisible] = useState(false);
   const [searchText, setSearchText] = useState("");
-  const [activeTab, setActiveTab] = useState<CustomerTab>("active");
+  const [filters, setFilters] = useState<CustomerFilters>(
+    DEFAULT_CUSTOMER_FILTERS,
+  );
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [menuCustomer, setMenuCustomer] = useState<Customer | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -132,6 +138,7 @@ export function CustomerListScreen() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkNotice, setBulkNotice] = useState<string | null>(null);
   const debouncedSearch = useDebounce(searchText);
+  const narrowed = !!debouncedSearch || hasCustomerFilters(filters);
   const branchFilter = useEffectiveBranchFilter();
 
   useEffect(() => {
@@ -148,42 +155,36 @@ export function CustomerListScreen() {
     useCallback(() => {
       void fetchCustomerStatuses(customers);
       void fetchNetDebtByCustomer();
-    }, [customers, fetchCustomerStatuses, fetchNetDebtByCustomer]),
+      void fetchLastPaid();
+    }, [customers, fetchCustomerStatuses, fetchNetDebtByCustomer, fetchLastPaid]),
   );
 
-  const tabs = useMemo(
-    () =>
-      CUSTOMER_TABS.map((key) => ({
-        key,
-        label: t(CUSTOMER_TAB_LABEL_KEYS[key]),
-      })),
-    [t],
-  );
+  const filterQuery = useMemo(() => toCustomerFilterQuery(filters), [filters]);
 
-  const applyTab = useCallback(
+  const applyFilters = useCallback(
     (list: Customer[], statuses: Map<string, CustomerStatus>) =>
       list.filter((c) =>
-        matchesCustomerTab(
+        matchesCustomerFilters(
           c,
-          statuses.get(c.id) ?? null,
-          netDebtByCustomer[c.id],
-          activeTab,
+          {
+            status: statuses.get(c.id) ?? null,
+            debtUsd: netDebtByCustomer[c.id],
+            lastPaidAt: lastPaidByCustomer.get(c.id),
+          },
+          filterQuery,
         ),
       ),
-    [activeTab, netDebtByCustomer],
+    [filterQuery, netDebtByCustomer, lastPaidByCustomer],
   );
 
   const filtered = useMemo(
-    () => applyTab(customers, customerStatuses),
-    [applyTab, customers, customerStatuses],
+    () => applyFilters(customers, customerStatuses),
+    [applyFilters, customers, customerStatuses],
   );
 
-  const filterRef = useRef(applyTab);
-  filterRef.current = applyTab;
+  const filterRef = useRef(applyFilters);
+  filterRef.current = applyFilters;
 
-  // A status pill is decided from `customerStatuses`, which only covers the
-  // customers fetched so far — so the rows that arrive here need their statuses
-  // computed before `filtered` can judge them.
   const loadAllCustomers = useCallback(async () => {
     const all = await loadAllPages(
       () => getStore().getState().customers.items,
@@ -239,6 +240,7 @@ export function CustomerListScreen() {
         : null;
       if (paid) void syncCustomerStatus(paid.id, paid.customerPlans ?? []);
       void fetchNetDebtByCustomer(branchFilter);
+      void fetchLastPaid();
     },
   });
 
@@ -250,6 +252,7 @@ export function CustomerListScreen() {
         if (paid) void syncCustomerStatus(paid.id, paid.customerPlans ?? []);
       }
       void fetchNetDebtByCustomer(branchFilter);
+      void fetchLastPaid();
     },
     onTypeOne: (customer, item) => openOneCollect(customer.name, item),
     onTypeMany: (customer) =>
@@ -620,17 +623,17 @@ export function CustomerListScreen() {
           <EmptyState
             message={t("customers.no_customers")}
             subMessage={
-              debouncedSearch
+              narrowed
                 ? t("customers.no_search_results")
                 : t("customers.no_customers_hint")
             }
             actionLabel={
-              !debouncedSearch && customers.length === 0
+              !narrowed && customers.length === 0
                 ? t("customers.create_first_customer")
                 : undefined
             }
             onAction={
-              !debouncedSearch && customers.length === 0
+              !narrowed && customers.length === 0
                 ? () => setFormVisible(true)
                 : undefined
             }
@@ -644,7 +647,7 @@ export function CustomerListScreen() {
       loadingMore,
       renderItem,
       t,
-      debouncedSearch,
+      narrowed,
       customers.length,
       clearSelection,
       fetchCustomers,
@@ -671,12 +674,8 @@ export function CustomerListScreen() {
       />
 
       <ResponsiveContainer className="flex-1">
-        {/* Search + filter tabs stay mounted while selecting so their space
-          remains and the list never jumps; the selection toolbar (with the
-          select-all checkbox) is overlaid on the header instead. */}
         <SelectionOverlaySlot selecting={selectionActive}>
           <View className="px-4 pt-4">
-            {/* Search */}
             <View className="flex-row items-center gap-x-2">
               <View className="flex-1">
                 <SearchTextBox
@@ -687,18 +686,16 @@ export function CustomerListScreen() {
               </View>
               <FilterToggleButton
                 active={filtersOpen}
-                hasActiveFilters={activeTab !== "all"}
+                hasActiveFilters={hasCustomerFilters(filters)}
                 onPress={() => setFiltersOpen((v) => !v)}
               />
             </View>
-            {/* Filter tabs */}
             {filtersOpen ? (
-              <PillTabs<CustomerTab>
-                value={activeTab}
-                tabs={tabs}
+              <CustomerFilterChips
+                value={filters}
                 className="mt-4"
-                onChange={(key) => {
-                  setActiveTab(key);
+                onChange={(next) => {
+                  setFilters((current) => ({ ...current, ...next }));
                   clearSelection();
                 }}
               />

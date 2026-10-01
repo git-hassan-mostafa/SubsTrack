@@ -227,6 +227,7 @@ describe("customerFlags / hasDebtFlag", () => {
         planCount: { paid: 0, total: 1 },
         notDueLineIds: [],
         uncoveredLineIds: [],
+        unpaidMonths: 0,
       }),
     ).toEqual(["overdue"]);
   });
@@ -239,6 +240,7 @@ describe("customerFlags / hasDebtFlag", () => {
         planCount: { paid: 0, total: 1 },
         notDueLineIds: [],
         uncoveredLineIds: [],
+        unpaidMonths: 0,
       }),
     ).toEqual(["unpaid"]);
   });

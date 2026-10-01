@@ -1,4 +1,5 @@
 import { useAuditStore } from "@shared/modules/admin/audit/state/auditStore";
+import { useLastPaidStore } from "@shared/modules/customer/customers/state/lastPaidStore";
 import { useDashboardStore } from "@shared/modules/dashboard/state/dashboardStore";
 import { useCollectionsListStore } from "@shared/modules/ledger/state/collectionsListStore";
 import { useReportsStore } from "@shared/modules/reports/state/reportsStore";
@@ -38,4 +39,5 @@ export function resetAllDomainStores() {
   useAuditStore.getState().reset();
   useMessageHistoryStore.getState().reset();
   useConnectStore.getState().reset();
+  useLastPaidStore.getState().reset();
 }

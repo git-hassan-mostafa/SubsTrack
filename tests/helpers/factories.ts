@@ -151,6 +151,8 @@ export function customer(over: Partial<Customer> = {}): Customer {
     branchId: null,
     tenantId: "t1",
     cancelledAt: null,
+    portalPassword: null,
+    portalEnabled: false,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     customerPlans: [],

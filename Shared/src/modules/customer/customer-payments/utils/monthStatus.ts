@@ -134,6 +134,7 @@ export function buildCustomerStatus(
   const { year: currentYear, month: currentMonth } = getCurrentYearMonth();
   const notDueLineIds: string[] = [];
   const uncoveredLineIds: string[] = [];
+  const unpaidMonths = new Set<string>();
   let overdue = false;
   let anySkipped = false;
   let dueThisMonth = 0;
@@ -161,7 +162,10 @@ export function buildCustomerStatus(
       )) {
         if (entry.status === "paid" || entry.status === "unpaid") {
           lineRequired++;
-          if (entry.status === "unpaid") lineUnpaid++;
+        }
+        if (entry.status === "unpaid") {
+          lineUnpaid++;
+          unpaidMonths.add(entry.billingMonth);
         }
         if (entry.year === currentYear && entry.month >= currentMonth) {
           if (entry.month === currentMonth) current = entry;
@@ -210,6 +214,7 @@ export function buildCustomerStatus(
     planCount: { paid: settled, total: inPlay },
     notDueLineIds,
     uncoveredLineIds,
+    unpaidMonths: unpaidMonths.size,
   };
 }
 
@@ -238,35 +243,29 @@ export function getCustomerStatuses(
   return statuses;
 }
 
+// Reports' aging counts the same months the list's "unpaid months" filter reads.
 export function getOverdueMonthCounts(
-  customers: (StatusCustomer & {
+  customers: (Omit<StatusCustomer, "customerPlans"> & {
     customerPlans?: (StatusLine & { cancelledAt: string | null })[];
   })[],
   bills: StatusBill[],
   skips: StatusSkip[],
   unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
 ): Map<string, number> {
-  const billsByCustomer = groupBy(bills, (b) => b.charge.customerId ?? "");
-  const skipsByCustomer = groupBy(skips, (s) => s.customerId);
-
+  const live = customers.map((customer) => ({
+    ...customer,
+    customerPlans: (customer.customerPlans ?? []).filter(
+      (line) => !line.cancelledAt,
+    ),
+  }));
   const counts = new Map<string, number>();
-  for (const customer of customers) {
-    if (!customer.active || !customer.isRegular) continue;
-    const customerBills = billsByCustomer.get(customer.id) ?? [];
-    const skipRows = skipsByCustomer.get(customer.id) ?? [];
-    const months = new Set<string>();
-    for (const line of customer.customerPlans ?? []) {
-      if (!line.active || line.cancelledAt) continue;
-      for (const m of unpaidBillingMonths(
-        line,
-        customerBills.filter((b) => b.charge.customerPlanId === line.id),
-        skipRows.filter((sk) => sk.customerPlanId === line.id),
-        unpaidRule,
-      )) {
-        months.add(m);
-      }
-    }
-    if (months.size > 0) counts.set(customer.id, months.size);
+  for (const [id, status] of getCustomerStatuses(
+    live,
+    bills,
+    skips,
+    unpaidRule,
+  )) {
+    if (status.unpaidMonths > 0) counts.set(id, status.unpaidMonths);
   }
   return counts;
 }

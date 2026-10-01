@@ -42,6 +42,11 @@ function collectionPlanOf(row: DbCollection | null): string | null {
   );
 }
 
+interface LastPaidRow {
+  customer_id: string;
+  last_paid_at: string;
+}
+
 // The joined shape `collectedInRange` reads — one settled bill plus the
 // hand-over it came in on.
 interface CollectedItemRow {
@@ -599,6 +604,16 @@ export class CollectionRepository
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbCollection[];
+  }
+
+  async lastReceivedByCustomer(): Promise<Map<string, string>> {
+    const rows = await this.readEveryRow<LastPaidRow>((from, to) =>
+      this.db
+        .rpc("customer_last_paid", {}, { count: "exact" })
+        .order("customer_id")
+        .range(from, to),
+    );
+    return new Map(rows.map((r) => [r.customer_id, r.last_paid_at]));
   }
 
   async transferCustody(

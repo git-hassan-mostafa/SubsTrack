@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next";
-import MenuItem from "@mui/material/MenuItem";
-import TextField from "@mui/material/TextField";
 import type { ActiveFilter } from "@shared/core/types";
+import { FilterSelect } from "./FilterSelect";
 
 const OPTIONS: { value: ActiveFilter; labelKey: string }[] = [
   { value: "all", labelKey: "web.filter_all" },
@@ -17,19 +16,11 @@ interface ActiveFilterSelectProps {
 export function ActiveFilterSelect({ value, onChange }: ActiveFilterSelectProps) {
   const { t } = useTranslation();
   return (
-    <TextField
-      select
-      size="small"
+    <FilterSelect<ActiveFilter>
       label={t("web.status")}
       value={value}
-      onChange={(event) => onChange(event.target.value as ActiveFilter)}
-      sx={{ minWidth: 160 }}
-    >
-      {OPTIONS.map((option) => (
-        <MenuItem key={option.value} value={option.value}>
-          {t(option.labelKey)}
-        </MenuItem>
-      ))}
-    </TextField>
+      onChange={onChange}
+      options={OPTIONS.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
+    />
   );
 }

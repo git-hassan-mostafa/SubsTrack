@@ -99,8 +99,8 @@ Shared/
     │     customer/customer-payments/services/PaymentService.ts  # pay / void / unskip ORDER gates only
     │     customer/customer-payments/utils/monthActions.ts  # every month door: click, ⋮ rows, selection, ?quickPay=1
     │     customer/customer-payments/hooks/useCustomerMonthGrid.ts # the month panel's flows, both apps (+ useLineGrid, useSkipMonths)
-    │     customer/customers/utils/customerTabs.ts          # the customer list tabs (phone list + server)
-    │     customer/customers/utils/customerStatusPage.ts    # server paging of the exact tabs (customer-status function)
+    │     customer/customers/utils/customerFilters.ts       # the customer list filters (phone list + server)
+    │     customer/customers/utils/customerStatusPage.ts    # server filter + sort + paging (customer-status function)
     │     customer/customers/utils/customerStatusFacts.ts   # the compact facts customer_status_facts() returns
     │     ledger/utils/waterfall.ts                         # PURE oldest-first allocation
     │     ledger/utils/openItems.ts                         # the OpenItem builders

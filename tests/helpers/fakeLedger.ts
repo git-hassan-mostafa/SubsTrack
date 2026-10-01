@@ -585,6 +585,15 @@ export const fakeCollectionRepository = {
         .map((c) => c.id),
     );
   },
+  async lastReceivedByCustomer(): Promise<Map<string, string>> {
+    const last = new Map<string, string>();
+    for (const c of collections) {
+      if (c.voided_at || !c.customer_id) continue;
+      const seen = last.get(c.customer_id);
+      if (!seen || c.received_at > seen) last.set(c.customer_id, c.received_at);
+    }
+    return last;
+  },
   async transferCustody(
     ids: string[],
     fromUserId: string,

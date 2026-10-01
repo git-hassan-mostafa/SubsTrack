@@ -1,9 +1,12 @@
 import type { PageWindow } from "@shared/core/types";
 import customerService from "@shared/modules/customer/customers/services/CustomerService";
 import {
-  CUSTOMER_TABS,
-  type CustomerTab,
-} from "@shared/modules/customer/customers/utils/customerTabs";
+  DEFAULT_CUSTOMER_FILTERS,
+  DEFAULT_CUSTOMER_SORT,
+  toCustomerFilterQuery,
+  type CustomerFilters,
+  type CustomerSort,
+} from "@shared/modules/customer/customers/utils/customerFilters";
 import { MAX_STATUS_PAGE_SIZE } from "@shared/modules/customer/customers/utils/customerStatusPage";
 import type {
   CustomerStatusList,
@@ -11,23 +14,21 @@ import type {
 } from "@shared/modules/customer/customers/utils/types";
 import { readAllPages } from "@shared/shared/hooks/loadAllPages";
 import {
-  createPagedStoreWithMeta,
+  createPagedStore,
   pageWindow,
   type PagedQuery,
-  type PagedResult,
 } from "./createPagedStore";
 
-export interface CustomerFilters {
-  tab: CustomerTab;
-}
+export type CustomerTableFilters = CustomerFilters & { sort: CustomerSort };
 
 export type CustomerRow = CustomerStatusListRow & { id: string; branchId: string | null };
 
-export type TabCounts = Record<CustomerTab, number> | null;
+export const DEFAULT_CUSTOMER_TABLE_FILTERS: CustomerTableFilters = {
+  ...DEFAULT_CUSTOMER_FILTERS,
+  sort: DEFAULT_CUSTOMER_SORT,
+};
 
-export const DEFAULT_CUSTOMER_TAB: CustomerTab = CUSTOMER_TABS[0];
-
-function toCustomerRows(list: CustomerStatusList): PagedResult<CustomerRow, TabCounts> {
+function toCustomerRows(list: CustomerStatusList) {
   return {
     rows: list.rows.map((row) => ({
       ...row,
@@ -35,32 +36,32 @@ function toCustomerRows(list: CustomerStatusList): PagedResult<CustomerRow, TabC
       branchId: row.customer.branchId,
     })),
     total: list.total,
-    meta: list.counts,
   };
 }
 
 async function readCustomerPage(
-  query: PagedQuery<CustomerFilters>,
+  query: PagedQuery<CustomerTableFilters>,
   window: PageWindow,
-): Promise<PagedResult<CustomerRow, TabCounts>> {
+) {
+  const { sort, ...filters } = query.filters;
   const list = await customerService.getCustomerStatusPage({
     ...window,
     search: query.search,
-    tab: query.filters.tab,
+    filters: toCustomerFilterQuery(filters),
+    sort,
     branch: query.branch,
   });
   return toCustomerRows(list);
 }
 
-// Tabs, counts and debt are worked out on the server over EVERY customer (D1).
-export const useCustomersTable = createPagedStoreWithMeta<CustomerRow, CustomerFilters, TabCounts>(
+// Filters, sort and debt are worked out on the server over EVERY customer (D1).
+export const useCustomersTable = createPagedStore<CustomerRow, CustomerTableFilters>(
   (query) => readCustomerPage(query, pageWindow(query)),
-  { tab: DEFAULT_CUSTOMER_TAB },
-  null,
+  DEFAULT_CUSTOMER_TABLE_FILTERS,
   { rereadOnOpen: true },
 );
 
-export function readAllCustomers(query: PagedQuery<CustomerFilters>): Promise<CustomerRow[]> {
+export function readAllCustomers(query: PagedQuery<CustomerTableFilters>): Promise<CustomerRow[]> {
   return readAllPages((window) => readCustomerPage(query, window), MAX_STATUS_PAGE_SIZE);
 }
 
