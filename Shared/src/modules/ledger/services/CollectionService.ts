@@ -12,7 +12,8 @@ import type {
   Page,
   WalletSource,
 } from "@shared/core/types";
-import { deterministicId, nowIso } from "@shared/core/utils/ids";
+import { groupBy } from "@shared/core/utils/groupBy";
+import { deterministicId, newId, nowIso } from "@shared/core/utils/ids";
 import {
   custodyOf,
   sharedCustody,
@@ -31,7 +32,11 @@ import { collectionKind } from "@shared/modules/ledger/utils/collectionKind";
 import { hasClosedBill, withoutCollection } from "@shared/modules/ledger/utils/correction";
 import { chargeLabel } from "@shared/modules/ledger/utils/openItems";
 import { amountByCharge, paidToCharge } from "@shared/modules/ledger/utils/paidToCharge";
-import { allocate, keyOf } from "@shared/modules/ledger/utils/waterfall";
+import {
+  allocate,
+  keyOf,
+  roundMoney,
+} from "@shared/modules/ledger/utils/waterfall";
 
 export interface CollectInput {
   tenantId: string;
@@ -103,7 +108,7 @@ class CollectionService {
   private async toPayload(
     input: CollectInput,
   ): Promise<CreateCollectionPayload> {
-    const { lines } = input;
+    const lines = oneLinePerBill(input.lines);
     if (lines.length === 0) throw new Error(i18n.t("errors.collect_no_lines"));
     if (!Number.isFinite(input.amount) || input.amount <= 0) {
       throw new Error(i18n.t("errors.collect_amount_positive"));
@@ -135,9 +140,13 @@ class CollectionService {
 
     const charges: CreateChargePayload[] = [];
     const items: CreateCollectionItemPayload[] = [];
+    const paidBills = new Set(
+      lines.flatMap((l) => (l.item.chargeId ? [l.item.chargeId] : [])),
+    );
     for (const line of lines) {
       const chargeId =
-        line.item.chargeId ?? (await this.materialize(input, line, charges));
+        line.item.chargeId ??
+        (await this.materialize(input, line, charges, paidBills));
       items.push({
         tenant_id: input.tenantId,
         charge_id: chargeId,
@@ -180,19 +189,22 @@ class CollectionService {
     return { collections, failed: null };
   }
 
+  // A month's hash may already name a bill paid in this hand-over — gotcha #176.
   private async materialize(
     input: CollectInput,
     line: AllocationLine,
     into: CreateChargePayload[],
+    paidBills: ReadonlySet<string>,
   ): Promise<string> {
     const { item } = line;
     if (!item.customerPlanId || !item.billingMonth) {
       throw new Error(i18n.t("errors.collect_unknown_item"));
     }
-    const id = await chargeService.monthChargeId(
+    const hashed = await chargeService.monthChargeId(
       item.customerPlanId,
       item.billingMonth,
     );
+    const id = paidBills.has(hashed) ? newId() : hashed;
     into.push({
       id,
       tenant_id: input.tenantId,
@@ -512,6 +524,14 @@ function ceilingOf(line: AllocationLine): number {
   return line.item.openAmount && line.item.balance <= 0
     ? line.amount
     : line.item.balance;
+}
+
+// Items are unique per (hand-over, bill), so a bill listed twice is ONE slice.
+function oneLinePerBill(lines: AllocationLine[]): AllocationLine[] {
+  return [...groupBy(lines, (l) => keyOf(l.item)).values()].map((same) => {
+    const amount = roundMoney(sumItems(same));
+    return { ...same[0], amount, settles: amount >= same[0].item.balance };
+  });
 }
 
 function sumItems(items: { amount: number }[]): number {

@@ -333,6 +333,61 @@ describe("collect: the written rows", () => {
     expect(store.charge(unrelated.id)!.amount).toBe(99);
     expect((await fakeBalance(unrelated.id)).paid).toBe(0);
   });
+
+  it("TC-CL-23 one bill listed twice is written as ONE item carrying both slices", async () => {
+    store.seedCharge({ id: "a", amount: 50 });
+    const a = openItem({ chargeId: "a", amount: 50 });
+    const created = await collectionService.collect(
+      input({ amount: 40, lines: [lineOf(a, 20), lineOf(a, 20)] }),
+    );
+    expect(created.items).toHaveLength(1);
+    expect(created.items![0].amount).toBe(40);
+    expect((await fakeBalance("a")).paid).toBe(40);
+  });
+
+  it("TC-CL-24 one bill listed twice is still capped at what it owes", async () => {
+    store.seedCharge({ id: "a", amount: 50 });
+    const a = openItem({ chargeId: "a", amount: 50 });
+    await expect(
+      collectionService.collect(
+        input({ amount: 60, lines: [lineOf(a, 30), lineOf(a, 30)] }),
+      ),
+    ).rejects.toThrow(/errors\.collect_exceeds_balance/);
+  });
+
+  it("TC-CL-25 a month whose hash names a bill paid in the SAME hand-over gets its own bill", async () => {
+    const taken = await chargeService.monthChargeId("line-1", "2026-04-01");
+    store.seedCharge({
+      id: taken,
+      customer_plan_id: "line-2",
+      billing_month: "2026-05-01",
+      amount: 20,
+      due_date: "2026-05-01",
+    });
+    const stored = openItem({
+      chargeId: taken,
+      customerPlanId: "line-2",
+      billingMonth: "2026-05-01",
+      amount: 20,
+      dueDate: "2026-05-01",
+    });
+    const virtual = openItem({
+      chargeId: null,
+      customerPlanId: "line-1",
+      billingMonth: "2026-04-01",
+      amount: 20,
+      dueDate: "2026-04-01",
+    });
+    const created = await collectionService.collect(
+      input({ amount: 40, lines: [lineOf(virtual, 20), lineOf(stored, 20)] }),
+    );
+    const billIds = created.items!.map((i) => i.chargeId);
+    expect(new Set(billIds).size).toBe(2);
+    const raised = store.charges.find((c) => c.billing_month === "2026-04-01")!;
+    expect(raised.id).not.toBe(taken);
+    expect((await fakeBalance(taken)).paid).toBe(20);
+    expect((await fakeBalance(raised.id)).paid).toBe(20);
+  });
 });
 
 describe("collect: an OPEN month (a line with no set price)", () => {

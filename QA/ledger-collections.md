@@ -681,3 +681,13 @@ The phone Money received sheet and the web Money received page read ONE filter r
 26.2 Phone: select 2 live payments → Void → type a reason → both rows stay, greyed with the "Voided · reason" chip; the month header total drops by both amounts; the customers list debt goes up.
 26.3 Expo web (it has no offline mirror): cut the network → Void → the error shows in the void dialog, the dialog stays open, nothing is greyed.
 26.4 Phone and web: more than 1000 payments in the chosen period (test project, seeded) → "Collected in this view" equals the sum of every payment, not of the first 1000 (gotcha #175).
+
+## 27. Many bills in one payment never write a bill twice (phone and web)
+
+One hand-over holds ONE item per bill (gotcha #176). Unit tests: TC-CL-23..25.
+
+27.1 Phone: a customer owing 9 months → Collect → type less than the total (e.g. 350 of 450) → Save → the payment saves; the oldest 7 months turn green; no red banner.
+27.2 Phone, offline: repeat 27.1 → it saves; after sync the payment shows once on the web with the same 7 bills.
+27.3 Phone: month grid → select several months, including a part-paid one → Collect → each bill is listed ONCE in "This pays"; Save works.
+27.4 A customer whose line has an old multi-month bill (raised before the plan's length changed) → select its months → Collect → that bill is listed once, capped at what it still owes.
+

@@ -40,6 +40,8 @@ import {
 } from "@shared/modules/ledger/hooks/useWriteOffActions";
 import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 import { monthItemFromEntry } from "@shared/modules/ledger/utils/openItems";
+import { keyOf } from "@shared/modules/ledger/utils/waterfall";
+import { groupBy } from "@shared/core/utils/groupBy";
 import { useSelection } from "@shared/shared/hooks/useSelection";
 import { confirm } from "@shared/shared/lib/confirm";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
@@ -177,9 +179,10 @@ export function useCustomerMonthGrid({
               : null;
           })
         : entries;
-    return cells
+    const items = cells
       .map((cell) => (cell ? itemFor(cell) : null))
       .filter((item): item is OpenItem => item !== null);
+    return [...groupBy(items, keyOf).values()].map(([first]) => first);
   };
 
   const openCollectFor = (entries: MonthEntry[], send = false) => {
