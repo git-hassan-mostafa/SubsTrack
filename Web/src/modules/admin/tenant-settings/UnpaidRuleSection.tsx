@@ -7,6 +7,7 @@ import {
   useTenantSettingSlice,
   useUnpaidStartRule,
 } from "@shared/state/hooks/useTenantSettingSlice";
+import { markCustomersTableStale } from "@/state/customersTable";
 import { SettingsSection } from "./SettingsSection";
 
 const RULES: { value: UnpaidStartRule; labelKey: string; hintKey: string }[] = [
@@ -29,6 +30,11 @@ export function UnpaidRuleSection() {
   const setUnpaidStartRule = useTenantSettingSlice((s) => s.setUnpaidStartRule);
   const picked = RULES.find((option) => option.value === rule) ?? RULES[0];
 
+  const change = async (next: UnpaidStartRule) => {
+    await setUnpaidStartRule(next);
+    markCustomersTableStale();
+  };
+
   return (
     <SettingsSection
       title={t("tenant_settings.unpaid_section_title")}
@@ -39,7 +45,7 @@ export function UnpaidRuleSection() {
         label={t("tenant_settings.unpaid_rule_label")}
         value={rule}
         disabled={saving}
-        onChange={(event) => void setUnpaidStartRule(event.target.value as UnpaidStartRule)}
+        onChange={(event) => void change(event.target.value as UnpaidStartRule)}
         helperText={t(picked.hintKey)}
         slotProps={{
           select: {

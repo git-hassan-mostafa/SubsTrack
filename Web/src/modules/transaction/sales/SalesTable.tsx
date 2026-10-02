@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useStore } from "zustand";
 import Box from "@mui/material/Box";
@@ -20,6 +20,7 @@ import { MoneyText } from "@/shared/components/MoneyText";
 import { DataTable } from "@/shared/table/DataTable";
 import { RowLink } from "@/shared/table/RowLink";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
+import { useOpenPagedTable } from "@/shared/table/useOpenPagedTable";
 import type { SalesTable as SalesTableStore } from "@/state/salesTable";
 import { SalesFilters } from "./SalesFilters";
 import { SaleStatusChips } from "./SaleStatusChips";
@@ -33,7 +34,7 @@ interface SalesTableProps {
 
 const rowTone = (sale: Sale) => (sale.voidedAt ? "muted" : null);
 
-// The Sales page body; a customer's own sales page runs it on its own store.
+// Its writes all move money, so the stale signal re-reads it, never the doors.
 export function SalesTable({ table, branch, customerScoped = false }: SalesTableProps) {
   const { t } = useTranslation();
   const rows = useStore(table, (s) => s.rows);
@@ -44,7 +45,6 @@ export function SalesTable({ table, branch, customerScoped = false }: SalesTable
   const error = useStore(table, (s) => s.error);
   const query = useStore(table, (s) => s.query);
   const load = useStore(table, (s) => s.load);
-  const open = useStore(table, (s) => s.open);
   const setPage = useStore(table, (s) => s.setPage);
   const setSearch = useStore(table, (s) => s.setSearch);
   const setFilters = useStore(table, (s) => s.setFilters);
@@ -54,12 +54,10 @@ export function SalesTable({ table, branch, customerScoped = false }: SalesTable
   const display = findCurrency(currencies, useDisplayCurrencyId());
   const userName = useUserNames();
   const branchColumn = useBranchColumn<Sale>(t("web.money_received.no_branch"));
-  const doors = useSaleDoors({ onChanged: () => void load() });
+  const doors = useSaleDoors();
   const { openReceipt } = doors;
 
-  useEffect(() => {
-    void open(branch);
-  }, [open, branch]);
+  useOpenPagedTable(table, branch);
 
   const rowLabel = useCallback((sale: Sale) => saleTitle(sale.id, sale.itemsSummary), []);
 

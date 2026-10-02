@@ -6,6 +6,7 @@ import type { Customer } from "@shared/core/types";
 import { confirm } from "@shared/shared/lib/confirm";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 import type { TableAction } from "@/shared/table/tableAction";
+import { markCustomersTableStale, patchCustomerRow } from "@/state/customersTable";
 
 // `hardDeleted` is false when history kept the customer as a cancelled row.
 export function useCustomerAdminActions() {
@@ -15,7 +16,7 @@ export function useCustomerAdminActions() {
   const deleteCustomer = useCustomerSlice((s) => s.deleteCustomer);
   const bulkDeleteCustomers = useCustomerSlice((s) => s.bulkDeleteCustomers);
 
-  const toggleActive = (customer: Customer, onSaved?: () => void): TableAction => ({
+  const toggleActive = (customer: Customer): TableAction => ({
     key: "toggle-active",
     group: "status",
     label: customer.active ? t("customers.deactivate") : t("customers.activate"),
@@ -32,7 +33,7 @@ export function useCustomerAdminActions() {
           const saved = customer.active
             ? await deactivateCustomer(customer)
             : await reactivateCustomer(customer);
-          if (saved) onSaved?.();
+          if (saved) void patchCustomerRow(saved.id);
         },
       }),
   });
@@ -56,10 +57,14 @@ export function useCustomerAdminActions() {
           onConfirm: async () => {
             if (single) {
               const mode = await deleteCustomer(single);
-              if (mode) onDeleted?.(mode === "hard");
+              if (!mode) return;
+              markCustomersTableStale();
+              onDeleted?.(mode === "hard");
               return;
             }
-            if (await bulkDeleteCustomers(customers)) onDeleted?.(false);
+            if (!(await bulkDeleteCustomers(customers))) return;
+            markCustomersTableStale();
+            onDeleted?.(false);
           },
         }),
     };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import Stack from "@mui/material/Stack";
@@ -38,6 +38,7 @@ import { DataTable } from "@/shared/table/DataTable";
 import { RowLink } from "@/shared/table/RowLink";
 import type { TableAction } from "@/shared/table/tableAction";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
+import { useOpenPagedTable } from "@/shared/table/useOpenPagedTable";
 import {
   readAllCustomers,
   useCustomersTable,
@@ -49,7 +50,7 @@ import { CustomerPills } from "./CustomerPills";
 import { useCustomerAdminActions } from "./useCustomerAdminActions";
 import { useCustomerHistoryAction } from "./useCustomerHistoryAction";
 
-// Every money action re-reads the page: a payment can move a customer out of a filter.
+// A payment re-reads the page through the stale signal; it can change the filter.
 export function CustomersPage() {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
@@ -61,7 +62,6 @@ export function CustomersPage() {
   const tableError = useCustomersTable((s) => s.error);
   const query = useCustomersTable((s) => s.query);
   const load = useCustomersTable((s) => s.load);
-  const open = useCustomersTable((s) => s.open);
   const setPage = useCustomersTable((s) => s.setPage);
   const setSearch = useCustomersTable((s) => s.setSearch);
   const setFilters = useCustomersTable((s) => s.setFilters);
@@ -84,10 +84,6 @@ export function CustomersPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [loadingOwedFor, setLoadingOwedFor] = useState<string | null>(null);
 
-  useEffect(() => {
-    void open(branch);
-  }, [open, branch]);
-
   const reload = () => void load();
 
   const announcePaid = (collections: Collection[]) => {
@@ -107,20 +103,17 @@ export function CustomersPage() {
     setNotice(t("web.customers.paid_one", { amount, name }));
   };
 
-  const afterPayment = (collections: Collection[]) => {
-    announcePaid(collections);
-    reload();
-  };
-
-  const collect = useCollectDialog({ onCollected: afterPayment });
+  const collect = useCollectDialog({ onCollected: announcePaid });
 
   const quickPay = useQuickPay({
-    onPaid: afterPayment,
+    onPaid: announcePaid,
     onTypeOne: (customer, item) => collect.openOne(customer.name, item),
     onTypeMany: (customer) => void navigate(`/customers/${customer.id}?quickPay=1`),
     sendReceipt,
     onNotice: setNotice,
   });
+
+  useOpenPagedTable(useCustomersTable, branch, quickPay.bulkBusy || quickPay.busyCustomerId !== null);
 
   const targetOf = (row: CustomerRow): QuickPayTarget => ({ customer: row.customer, status: row.status });
 
@@ -145,7 +138,7 @@ export function CustomersPage() {
       setNotice(t("ledger.nothing_to_write_off"));
       return;
     }
-    if (await writeOffAll(customer.name, billed)) reload();
+    await writeOffAll(customer.name, billed);
   };
 
   const editAction = (customer: Customer): TableAction => ({
@@ -164,9 +157,9 @@ export function CustomersPage() {
     onClick: () => void openWhatsApp(customer.phoneNumber),
   });
 
-  const toggleActiveAction = (customer: Customer) => adminActions.toggleActive(customer, reload);
+  const toggleActiveAction = (customer: Customer) => adminActions.toggleActive(customer);
 
-  const deleteAction = (customers: Customer[]) => adminActions.remove(customers, reload);
+  const deleteAction = (customers: Customer[]) => adminActions.remove(customers);
 
   const quickPayAction = (row: CustomerRow, label: string): TableAction => ({
     key: "quick-pay",
@@ -350,10 +343,7 @@ export function CustomersPage() {
         <CustomerFormDialog
           customer={form.customer}
           onClose={() => setForm(null)}
-          onSaved={() => {
-            setForm(null);
-            reload();
-          }}
+          onSaved={() => setForm(null)}
         />
       ) : null}
       {history.dialog}

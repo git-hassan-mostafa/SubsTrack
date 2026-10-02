@@ -16,6 +16,7 @@ import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { BranchPicker } from "@/shared/components/BranchPicker";
 import { CurrencyInput } from "@/shared/components/CurrencyInput";
 import { FormDialog } from "@/shared/components/FormDialog";
+import { markCustomersTableStale } from "@/state/customersTable";
 import { usePlanDurationLabel } from "./usePlanDurationLabel";
 
 const DURATIONS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -68,7 +69,9 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
     const saved = plan
       ? await updatePlan(plan.id, data)
       : await createPlan(data, user.tenantId);
-    if (saved) onSaved(saved);
+    if (!saved) return;
+    if (plan) markCustomersTableStale();
+    onSaved(saved);
   };
 
   return (

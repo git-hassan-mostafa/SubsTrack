@@ -22,10 +22,14 @@ export interface PagedState<T, F, M = undefined> {
   meta: M;
   loaded: boolean;
   loading: boolean;
+  stale: boolean;
   error: string | null;
   load: () => Promise<void>;
   open: (branch?: BranchFilter) => Promise<void>;
+  markStale: () => void;
+  refreshIfStale: () => Promise<void>;
   patchRow: (row: T) => void;
+  addRow: (row: T) => void;
   setPage: (page: number, pageSize: number) => void;
   setSearch: (search: string) => void;
   setFilters: (filters: Partial<F>) => void;
@@ -43,7 +47,7 @@ export type PeriodTotal = number | null;
 
 export type PageFetcher<T, F, M> = (query: PagedQuery<F>) => Promise<PagedResult<T, M>>;
 
-// Customers, audit and money received change from everywhere: re-read on open.
+// Audit and money received have no stale signal yet: they re-read on open.
 export interface PagedStoreOptions {
   rereadOnOpen?: boolean;
 }
@@ -89,13 +93,14 @@ export function createPagedStoreWithMeta<T extends { id: string }, F, M>(
     meta: initialMeta,
     loaded: false,
     loading: false,
+    stale: false,
     error: null,
 
     load: async () => {
       const request = ++latestRequest;
       const epoch = currentDataEpoch();
       const { query } = get();
-      set({ loading: true, error: null });
+      set({ loading: true, stale: false, error: null });
       try {
         const page = await fetchPage(query);
         if (request !== latestRequest || isStaleEpoch(epoch)) return;
@@ -119,17 +124,37 @@ export function createPagedStoreWithMeta<T extends { id: string }, F, M>(
     },
 
     open: (branch = null) => {
-      const { query, loaded } = get();
+      const { query, loaded, stale } = get();
       if (branch !== query.branch) {
         set({ query: { ...query, branch, page: 0 } });
         return get().load();
       }
-      if (loaded && !rereadOnOpen) return Promise.resolve();
+      if (loaded && !stale && !rereadOnOpen) return Promise.resolve();
       return get().load();
+    },
+
+    markStale: () => {
+      const { loaded, loading } = get();
+      if (loaded || loading) set({ stale: true });
+    },
+
+    refreshIfStale: () => {
+      const { stale, loading } = get();
+      return stale && !loading ? get().load() : Promise.resolve();
     },
 
     patchRow: (row) =>
       set({ rows: get().rows.map((current) => (current.id === row.id ? row : current)) }),
+
+    addRow: (row) => {
+      const { rows, total, loaded, query } = get();
+      if (!loaded) return;
+      if (rows.some((current) => current.id === row.id)) {
+        get().patchRow(row);
+        return;
+      }
+      set({ rows: [row, ...rows].slice(0, query.pageSize), total: total + 1 });
+    },
 
     setPage: (page, pageSize) => {
       const { query } = get();
@@ -168,6 +193,7 @@ export function createPagedStoreWithMeta<T extends { id: string }, F, M>(
         meta: initialMeta,
         loaded: false,
         loading: false,
+        stale: false,
         error: null,
       });
     },

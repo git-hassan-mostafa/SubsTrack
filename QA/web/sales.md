@@ -96,3 +96,18 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 | 7.3 | Customer page — debts    | Debts panel → click a sale debt's name                         | The sale receipt opens; voiding it there re-reads the debts panel               |
 | 7.4 | Customer page — sales    | Sales panel → click a receipt number; ⋮ on a row               | The receipt; the ⋮ has View receipt, Collect, Send invoice, (History), Void sale |
 | 7.5 | Quick action             | Header Collect money → pay a sale → open Sales                 | The paid amount shows without pressing Refresh                                  |
+
+## 8. Fresh data — no re-read on open
+
+Open DevTools → Network and filter on `sales`: each check below says whether the table reads again. Store: [salesTable.ts](Web/src/state/salesTable.ts), [useOpenPagedTable.ts](Web/src/shared/table/useOpenPagedTable.ts), [useMoneyTablesFreshness.ts](Web/src/state/useMoneyTablesFreshness.ts).
+
+| #   | Scenario               | Steps                                                                                                   | Expected result                                                                                 |
+| --- | ---------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 8.1 | Open again             | Open Sales, go to Customers, come back                                                                  | No new sales read; the same page, search and filters are there                                  |
+| 8.2 | Collect here           | ⋮ → Collect on a part-paid sale → Save                                                                  | The table reads once by itself; Still owed and the chips update                                 |
+| 8.3 | Void here              | Void a sale; then bulk void two                                                                         | One read each time; the row is muted and the total drops                                        |
+| 8.4 | Payment in the receipt | Open a receipt → void one of its payments                                                               | One read; the sale is owed again                                                                |
+| 8.5 | Money elsewhere        | Open Sales → a customer page: collect a sale debt (then repeat with: void a payment on a sale bill, write off a sale) → open Sales | One read each time; the row shows the new paid amount                  |
+| 8.6 | Customer renamed       | Open Sales → rename a customer who has sales → open Sales                                               | One read; the Customer column shows the new name                                                |
+| 8.7 | Customer's sales page | `/customers/:id/sales` → open a receipt → void a payment                                                | The page reads again by itself                                                                  |
+| 8.8 | Another device         | Record a sale on the phone → open Sales on the web (already opened once)                                 | The sale is not there until you click Refresh                                                   |

@@ -4,6 +4,7 @@ import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
+import { useMoneyTablesFreshness } from "@/state/useMoneyTablesFreshness";
 import { AppHeader } from "./AppHeader";
 import { QuickActionDialogs } from "./QuickActionDialogs";
 import { SideNav } from "./SideNav";
@@ -16,6 +17,7 @@ export function AppFrame() {
   const desktop = useMediaQuery(theme.breakpoints.up("md"));
   const [navOpen, setNavOpen] = useState(false);
   const closeNav = () => setNavOpen(false);
+  useMoneyTablesFreshness();
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh" }}>

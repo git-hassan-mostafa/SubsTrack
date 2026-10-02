@@ -14,6 +14,8 @@ import { FormDialog } from "@/shared/components/FormDialog";
 import { QuotaReachedDialog } from "@/modules/admin/billing/QuotaReachedDialog";
 import { HardDeleteChoice } from "@/modules/customer/customer-plans/HardDeleteChoice";
 import { ServiceLinesEditor } from "@/modules/customer/customer-plans/ServiceLinesEditor";
+import { patchCustomerRow } from "@/state/customersTable";
+import { markSalesTableStale } from "@/state/salesTable";
 import { PortalAccessField } from "./PortalAccessField";
 
 interface CustomerFormDialogProps {
@@ -39,7 +41,10 @@ export function CustomerFormDialog({ customer, onClose, onSaved }: CustomerFormD
 
   const save = async () => {
     const saved = await submit();
-    if (saved) onSaved(saved);
+    if (!saved) return;
+    void patchCustomerRow(saved.id, customer === null);
+    if (customer && customer.name !== saved.name) markSalesTableStale();
+    onSaved(saved);
   };
 
   return (

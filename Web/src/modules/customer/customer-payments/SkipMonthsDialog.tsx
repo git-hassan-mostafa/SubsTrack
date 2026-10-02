@@ -15,6 +15,7 @@ import type { MonthEntry } from "@shared/core/types";
 import { useSkipMonths } from "@shared/modules/customer/customer-payments/hooks/useSkipMonths";
 import { skipText, type SkipMode } from "@shared/modules/customer/customer-payments/utils/skipText";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import { markCustomersTableStale } from "@/state/customersTable";
 
 interface SkipMonthsDialogProps {
   entries: MonthEntry[];
@@ -42,7 +43,9 @@ export function SkipMonthsDialog({ entries, mode, customerId, lineId, onDone, on
 
   const confirm = async () => {
     if (skip.saving) return;
-    if (await skip.submit(entries, mode, note.trim())) onDone();
+    if (!(await skip.submit(entries, mode, note.trim()))) return;
+    markCustomersTableStale();
+    onDone();
   };
 
   return (

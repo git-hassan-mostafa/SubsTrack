@@ -1,4 +1,6 @@
 import type { PageWindow } from "@shared/core/types";
+import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
+import { getCustomerStatuses } from "@shared/modules/customer/customer-payments/utils/monthStatus";
 import customerService from "@shared/modules/customer/customers/services/CustomerService";
 import {
   DEFAULT_CUSTOMER_FILTERS,
@@ -12,7 +14,11 @@ import type {
   CustomerStatusList,
   CustomerStatusListRow,
 } from "@shared/modules/customer/customers/utils/types";
+import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 import { readAllPages } from "@shared/shared/hooks/loadAllPages";
+import { ownedRowMatchesFilter } from "@shared/shared/lib/branchFilter";
+import { getStore } from "@shared/state/globalStore";
+import { getUnpaidRule } from "@shared/state/slices/payments/utils/unpaidRule";
 import {
   createPagedStore,
   pageWindow,
@@ -28,15 +34,12 @@ export const DEFAULT_CUSTOMER_TABLE_FILTERS: CustomerTableFilters = {
   sort: DEFAULT_CUSTOMER_SORT,
 };
 
+function toCustomerRow(row: CustomerStatusListRow): CustomerRow {
+  return { ...row, id: row.customer.id, branchId: row.customer.branchId };
+}
+
 function toCustomerRows(list: CustomerStatusList) {
-  return {
-    rows: list.rows.map((row) => ({
-      ...row,
-      id: row.customer.id,
-      branchId: row.customer.branchId,
-    })),
-    total: list.total,
-  };
+  return { rows: list.rows.map(toCustomerRow), total: list.total };
 }
 
 async function readCustomerPage(
@@ -58,15 +61,45 @@ async function readCustomerPage(
 export const useCustomersTable = createPagedStore<CustomerRow, CustomerTableFilters>(
   (query) => readCustomerPage(query, pageWindow(query)),
   DEFAULT_CUSTOMER_TABLE_FILTERS,
-  { rereadOnOpen: true },
 );
 
 export function readAllCustomers(query: PagedQuery<CustomerTableFilters>): Promise<CustomerRow[]> {
   return readAllPages((window) => readCustomerPage(query, window), MAX_STATUS_PAGE_SIZE);
 }
 
-// A customer saved from outside the page (a quick action) re-reads an open table.
-export function reloadCustomersTableIfLoaded(): void {
-  const table = useCustomersTable.getState();
-  if (table.loaded) void table.load();
+// One customer, read alone, through the same status rule the server page runs.
+async function readCustomerRow(customerId: string, debtUsd: number): Promise<CustomerRow> {
+  const customer = await customerService.getCustomer(customerId);
+  const lines = customer.customerPlans ?? [];
+  const [billsByLine, skips] = await Promise.all([
+    chargeService.getMonthBillsForLines(lines.map((line) => line.id)),
+    skippedMonthService.getSkipsForCustomer(customerId),
+  ]);
+  const statuses = getCustomerStatuses(
+    [customer],
+    [...billsByLine.values()].flat(),
+    skips,
+    getUnpaidRule(getStore().getState),
+  );
+  return toCustomerRow({ customer, status: statuses.get(customerId) ?? null, debtUsd });
+}
+
+// A customer write never moves its debt, so the row keeps the debt it had.
+export async function patchCustomerRow(customerId: string, added = false): Promise<void> {
+  const { loaded, rows } = useCustomersTable.getState();
+  if (!loaded) return;
+  const shown = rows.find((row) => row.id === customerId);
+  if (!shown && !added) return;
+  try {
+    const row = await readCustomerRow(customerId, shown?.debtUsd ?? 0);
+    const table = useCustomersTable.getState();
+    if (shown) table.patchRow(row);
+    else if (ownedRowMatchesFilter(row.branchId, table.query.branch)) table.addRow(row);
+  } catch {
+    useCustomersTable.getState().markStale();
+  }
+}
+
+export function markCustomersTableStale(): void {
+  useCustomersTable.getState().markStale();
 }

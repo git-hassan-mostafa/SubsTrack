@@ -35,14 +35,11 @@ export function createSalesTable(customerId: string | null): SalesTable {
     salePageReader(customerId),
     defaultSaleFilters(),
     null,
-    { rereadOnOpen: true },
   );
 }
 
 export const useSalesTable = createSalesTable(null);
 
-// A payment saved from outside the page (a quick action) re-reads an open table.
-export function reloadSalesTableIfLoaded(): void {
-  const table = useSalesTable.getState();
-  if (table.loaded) void table.load();
+export function markSalesTableStale(): void {
+  useSalesTable.getState().markStale();
 }
