@@ -60,3 +60,14 @@ export function ownedRowMatchesFilter(
   if (filter === BRANCH_FILTER_UNASSIGNED) return branchId === null;
   return branchId === filter;
 }
+
+// A 'shared'-scope row with no branch shows in every branch view.
+export function sharedRowMatchesFilter(
+  branchId: string | null,
+  filter: BranchFilter,
+): boolean {
+  if (filter === null || filter === BRANCH_FILTER_UNASSIGNED) {
+    return ownedRowMatchesFilter(branchId, filter);
+  }
+  return branchId === null || branchId === filter;
+}

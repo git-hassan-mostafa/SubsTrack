@@ -5,9 +5,9 @@ import { formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
 import { saleTitle } from "@shared/core/utils/receiptId";
 import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
-import { openItemFromCharge } from "@shared/modules/ledger/utils/openItems";
 import saleService from "@shared/modules/transaction/sales/services/SaleService";
 import {
+  saleCollectItem,
   saleFacts,
   saleMenuItems,
   saleVoidTarget,
@@ -20,7 +20,7 @@ import type { TableAction } from "@/shared/table/tableAction";
 import { BillHistoryDialog } from "@/modules/admin/audit/RecordHistoryDialog";
 import { useSendSalesInvoice } from "@/modules/invoicing/useSendSalesInvoice";
 import { useCollectDialog } from "@/modules/ledger/collect/useCollectDialog";
-import { reloadProductsTableIfLoaded } from "@/state/productsTable";
+import { markProductsTableStale } from "@/state/productsTable";
 import { SALE_ACTION_ICONS } from "./saleActionIcons";
 import { SaleFormDialog } from "./SaleFormDialog";
 import { SaleReceiptDialog } from "./SaleReceiptDialog";
@@ -64,10 +64,9 @@ export function useSaleDoors({ onChanged, onSaved }: SaleDoorOptions = {}): Sale
   const { openOne } = collect;
 
   const collectRest = useCallback(
-    (sale: Sale, owed: number) => {
-      if (!sale.charge) return;
-      const name = sale.customer?.name ?? "";
-      openOne(name, openItemFromCharge(sale.charge, sale.charge.amount - owed, sale.itemsSummary, name));
+    (sale: Sale, paid?: number) => {
+      const item = saleCollectItem(sale, paid);
+      if (item) openOne(item.customerName, item);
     },
     [openOne],
   );
@@ -92,7 +91,7 @@ export function useSaleDoors({ onChanged, onSaved }: SaleDoorOptions = {}): Sale
   const voided = (result: SaleVoidResult) => {
     setVoidTarget(null);
     setReceipt(null);
-    reloadProductsTableIfLoaded();
+    markProductsTableStale();
     if (result.failed > 0) setNotice(t("common.bulk_void_summary", { ok: result.ok, failed: result.failed }));
     onChanged?.();
   };
@@ -104,7 +103,7 @@ export function useSaleDoors({ onChanged, onSaved }: SaleDoorOptions = {}): Sale
       const run: Partial<Record<SaleActionKey, () => void>> = {
         view: () => setReceipt(sale),
         edit: () => edit(sale),
-        collect: () => collectRest(sale, owed),
+        collect: () => collectRest(sale),
         invoice: () => send(sale),
         history: () => setHistorySale(sale),
         void: () => setVoidTarget(saleVoidTarget([sale])),
@@ -172,9 +171,9 @@ export function useSaleDoors({ onChanged, onSaved }: SaleDoorOptions = {}): Sale
             onClose={() => setReceipt(null)}
             onSend={send}
             onEdit={edit}
-            onCollect={(sale, owed) => {
+            onCollect={(sale, paid) => {
               setReceipt(null);
-              collectRest(sale, owed);
+              collectRest(sale, paid);
             }}
             onVoid={(sale) => setVoidTarget(saleVoidTarget([sale]))}
             onChanged={() => onChanged?.()}

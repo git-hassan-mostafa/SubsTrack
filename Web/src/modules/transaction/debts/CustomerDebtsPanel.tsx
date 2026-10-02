@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
@@ -30,9 +30,11 @@ export function CustomerDebtsPanel({ customer }: { customer: Customer }) {
   const writtenOff = useWrittenOffDebts(customer.id, customer.name);
   const [scope, setScope] = useState<DebtScope>("live");
   const { refresh } = debts;
-  const doors = useDebtDoors({
-    recipientOf: () => ({ name: customer.name, phone: customer.phoneNumber }),
-  });
+  const recipientOf = useCallback(
+    () => ({ name: customer.name, phone: customer.phoneNumber }),
+    [customer.name, customer.phoneNumber],
+  );
+  const doors = useDebtDoors({ recipientOf });
 
   useEffect(() => {
     void refresh();
@@ -83,7 +85,7 @@ export function CustomerDebtsPanel({ customer }: { customer: Customer }) {
 
   return (
     <PanelSection title={t("debts.customer_panel_title")} actions={headerActions}>
-      <ErrorBanner message={debts.error} onDismiss={debts.clearError} />
+      <ErrorBanner message={source.error} onDismiss={source.clearError} />
       {doors.banners}
       <DebtScopeTabs value={scope} onChange={setScope} />
       <DebtItemsTable

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -58,7 +58,7 @@ export function DebtItemsTable({
   const { rowActions, openBill, loadingItemId } = doors;
   const rows = useMemo<DebtRow[]>(() => items.map((item) => ({ ...item, id: debtRowId(item) })), [items]);
 
-  const columns: GridColDef<DebtRow>[] = [
+  const columns = useMemo<GridColDef<DebtRow>[]>(() => [
     ...(showCustomer
       ? [
           {
@@ -124,7 +124,8 @@ export function DebtItemsTable({
         return <MoneyText primary={money.primary} approx={money.approx} />;
       },
     },
-  ];
+  ], [t, showCustomer, openBill, currencies, display]);
+  const rowBusy = useCallback((row: DebtRow) => loadingItemId === row.id, [loadingItemId]);
 
   if (loading && rows.length === 0) {
     return (
@@ -149,7 +150,7 @@ export function DebtItemsTable({
       rows={rows}
       rowLabel={rowLabel}
       rowActions={rowActions}
-      rowBusy={(row) => loadingItemId === row.id}
+      rowBusy={rowBusy}
       rowTone={rowTone}
       autoRowHeight
     />

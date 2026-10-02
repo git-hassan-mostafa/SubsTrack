@@ -38,7 +38,7 @@ import { DataTable } from "@/shared/table/DataTable";
 import { RowLink } from "@/shared/table/RowLink";
 import type { TableAction } from "@/shared/table/tableAction";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
-import { useOpenPagedTable } from "@/shared/table/useOpenPagedTable";
+import { usePagedTable } from "@/shared/table/usePagedTable";
 import {
   readAllCustomers,
   useCustomersTable,
@@ -55,18 +55,6 @@ export function CustomersPage() {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
-  const rows = useCustomersTable((s) => s.rows);
-  const total = useCustomersTable((s) => s.total);
-  const loaded = useCustomersTable((s) => s.loaded);
-  const loading = useCustomersTable((s) => s.loading);
-  const tableError = useCustomersTable((s) => s.error);
-  const query = useCustomersTable((s) => s.query);
-  const load = useCustomersTable((s) => s.load);
-  const setPage = useCustomersTable((s) => s.setPage);
-  const setSearch = useCustomersTable((s) => s.setSearch);
-  const setFilters = useCustomersTable((s) => s.setFilters);
-  const clearFilters = useCustomersTable((s) => s.clearFilters);
-  const clearTableError = useCustomersTable((s) => s.clearError);
   const writeError = useCustomerSlice((s) => s.error);
   const clearWriteError = useCustomerSlice((s) => s.clearError);
   const adminActions = useCustomerAdminActions();
@@ -83,8 +71,6 @@ export function CustomersPage() {
   const [form, setForm] = useState<{ customer: Customer | null } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loadingOwedFor, setLoadingOwedFor] = useState<string | null>(null);
-
-  const reload = () => void load();
 
   const announcePaid = (collections: Collection[]) => {
     if (collections.length === 0) return;
@@ -113,7 +99,13 @@ export function CustomersPage() {
     onNotice: setNotice,
   });
 
-  useOpenPagedTable(useCustomersTable, branch, quickPay.bulkBusy || quickPay.busyCustomerId !== null);
+  const paged = usePagedTable(
+    useCustomersTable,
+    branch,
+    quickPay.bulkBusy || quickPay.busyCustomerId !== null,
+  );
+  const { query, setFilters } = paged;
+  const { rows, onClearFilters: clearFilters } = paged.tableProps;
 
   const targetOf = (row: CustomerRow): QuickPayTarget => ({ customer: row.customer, status: row.status });
 
@@ -309,16 +301,9 @@ export function CustomersPage() {
       <DataTable<CustomerRow>
         label={t("customers.title")}
         columns={columns}
-        rows={rows}
-        total={total}
-        loaded={loaded}
-        loading={loading}
-        page={query.page}
-        pageSize={query.pageSize}
-        onPageChange={setPage}
+        {...paged.tableProps}
         search={{
-          value: query.search,
-          onSearch: setSearch,
+          ...paged.search,
           placeholder: t("web.customers.search"),
         }}
         add={{ label: t("web.customers.add"), onClick: () => setForm({ customer: null }) }}
@@ -334,10 +319,6 @@ export function CustomersPage() {
         empty={{ title: t("customers.no_customers"), hint: t("web.customers.empty_hint") }}
         filtered={query.search !== "" || hasCustomerFilters(query.filters)}
         autoRowHeight
-        onClearFilters={clearFilters}
-        error={tableError}
-        onDismissError={clearTableError}
-        onReload={reload}
       />
       {form ? (
         <CustomerFormDialog

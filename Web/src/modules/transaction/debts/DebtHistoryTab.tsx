@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { useStore } from "zustand";
 import Stack from "@mui/material/Stack";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { BranchFilter } from "@shared/core/constants";
@@ -31,9 +30,9 @@ import type { ChipTone } from "@/shared/components/chipTones";
 import { MoneyText } from "@/shared/components/MoneyText";
 import { StatusChip } from "@/shared/components/StatusChip";
 import { DataTable } from "@/shared/table/DataTable";
+import { usePagedTable } from "@/shared/table/usePagedTable";
 import { FilterSelect } from "@/shared/table/FilterSelect";
 import { RowLink } from "@/shared/table/RowLink";
-import { useOpenPagedTable } from "@/shared/table/useOpenPagedTable";
 import { CustomerPicker } from "@/modules/customer/customers/CustomerPicker";
 import { KIND_ICON, KIND_TONE } from "@/modules/ledger/kindLook";
 import { useDebtHistoryTable, type DebtHistoryRow } from "@/state/debtHistoryTable";
@@ -58,23 +57,13 @@ interface DebtHistoryTabProps {
 export function DebtHistoryTab({ branch, doors }: DebtHistoryTabProps) {
   const { t } = useTranslation();
   const table = useDebtHistoryTable;
-  const rows = useStore(table, (s) => s.rows);
-  const total = useStore(table, (s) => s.total);
-  const loaded = useStore(table, (s) => s.loaded);
-  const loading = useStore(table, (s) => s.loading);
-  const error = useStore(table, (s) => s.error);
-  const query = useStore(table, (s) => s.query);
-  const load = useStore(table, (s) => s.load);
-  const setPage = useStore(table, (s) => s.setPage);
-  const setFilters = useStore(table, (s) => s.setFilters);
-  const clearFilters = useStore(table, (s) => s.clearFilters);
-  const clearError = useStore(table, (s) => s.clearError);
+  const paged = usePagedTable(table, branch);
+  const query = paged.query;
+  const setFilters = paged.setFilters;
   const currencies = useCurrencySlice((s) => s.items);
   const display = findCurrency(currencies, useDisplayCurrencyId());
   const { openBill } = doors;
   const filters = query.filters;
-
-  useOpenPagedTable(table, branch);
 
   const columns = useMemo<GridColDef<DebtHistoryRow>[]>(() => {
     const own = (amount: number, row: DebtHistoryItem) => {
@@ -173,13 +162,7 @@ export function DebtHistoryTab({ branch, doors }: DebtHistoryTabProps) {
     <DataTable<DebtHistoryRow>
       label={t("debts.history_title")}
       columns={columns}
-      rows={rows}
-      total={total}
-      loaded={loaded}
-      loading={loading}
-      page={query.page}
-      pageSize={query.pageSize}
-      onPageChange={setPage}
+      {...paged.tableProps}
       filters={
         <>
           <FilterSelect<HistoryPeriodPreset>
@@ -226,10 +209,6 @@ export function DebtHistoryTab({ branch, doors }: DebtHistoryTabProps) {
       autoRowHeight
       empty={{ title: t("debts.history_empty"), hint: t("debts.history_empty_hint") }}
       filtered={hasActiveHistoryFilters(filters)}
-      onClearFilters={clearFilters}
-      error={error}
-      onDismissError={clearError}
-      onReload={() => void load()}
     />
   );
 }

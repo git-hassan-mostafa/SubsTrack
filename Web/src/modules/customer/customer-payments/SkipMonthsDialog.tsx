@@ -43,7 +43,7 @@ export function SkipMonthsDialog({ entries, mode, customerId, lineId, onDone, on
 
   const confirm = async () => {
     if (skip.saving) return;
-    if (!(await skip.submit(entries, mode, note.trim()))) return;
+    if (!(await skip.submit(entries, mode, note))) return;
     markCustomersTableStale();
     onDone();
   };

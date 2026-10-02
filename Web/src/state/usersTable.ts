@@ -1,7 +1,10 @@
 import type { ActiveFilter, AppUser, PageWindow } from "@shared/core/types";
 import userService from "@shared/modules/admin/users/services/UserService";
 import type { UserPageQuery, UserRoleFilter } from "@shared/modules/admin/users/utils/types";
+import { matchesActiveFilter } from "@shared/core/utils/activeFilter";
+import { rolesForFilter } from "@shared/modules/admin/users/utils/userRules";
 import { readAllPages } from "@shared/shared/hooks/loadAllPages";
+import { sharedRowMatchesFilter } from "@shared/shared/lib/branchFilter";
 import {
   createPagedStore,
   EXPORT_PAGE_SIZE,
@@ -27,6 +30,12 @@ function toUserQuery(query: PagedQuery<UserFilters>, window: PageWindow): UserPa
 export const useUsersTable = createPagedStore<AppUser, UserFilters>(
   (query) => userService.getUserPage(toUserQuery(query, pageWindow(query))),
   { status: "all", role: "all" },
+  {
+    fits: (user, query) =>
+      sharedRowMatchesFilter(user.branchId, query.branch) &&
+      matchesActiveFilter(user.active, query.filters.status) &&
+      (rolesForFilter(query.filters.role)?.includes(user.role) ?? true),
+  },
 );
 
 export function readAllUsers(query: PagedQuery<UserFilters>): Promise<AppUser[]> {

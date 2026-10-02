@@ -164,6 +164,7 @@ export function BillDialog({
               <BillSummary
                 status={facts.status}
                 total={charge.amount}
+                figure={facts.figure}
                 collected={bill.collected}
                 balance={facts.balance}
                 source={source}

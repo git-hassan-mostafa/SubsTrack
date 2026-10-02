@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import Box from "@mui/material/Box";
@@ -50,7 +50,8 @@ export function DebtorsTab({ debtors, loaded, doors }: DebtorsTabProps) {
     [debtors, search],
   );
 
-  const columns: GridColDef<DebtorRow>[] = [
+  const { collectAll, writeOffAll } = doors;
+  const columns = useMemo<GridColDef<DebtorRow>[]>(() => [
     {
       field: "customerName",
       headerName: t("debts.customer_label"),
@@ -87,9 +88,9 @@ export function DebtorsTab({ debtors, loaded, doors }: DebtorsTabProps) {
       headerAlign: "right",
       renderCell: (params) => <MoneyText primary={formatMoney(params.row.debtUsd, null, display)} />,
     },
-  ];
+  ], [t, display]);
 
-  const rowActions = (row: DebtorRow): TableAction[] => [
+  const rowActions = useCallback((row: DebtorRow): TableAction[] => [
     {
       key: "view",
       group: "open",
@@ -109,7 +110,7 @@ export function DebtorsTab({ debtors, loaded, doors }: DebtorsTabProps) {
       group: "money",
       label: t("payments.collect"),
       icon: PaymentsOutlined,
-      onClick: () => doors.collectAll(row.customerId, row.customerName, debtorOwedItems(row)),
+      onClick: () => collectAll(row.customerId, row.customerName, debtorOwedItems(row)),
     },
     {
       key: "write-off-all",
@@ -118,9 +119,9 @@ export function DebtorsTab({ debtors, loaded, doors }: DebtorsTabProps) {
       caption: t("ledger.write_off_all_caption"),
       icon: RemoveCircleOutlineOutlined,
       destructive: true,
-      onClick: () => doors.writeOffAll(row.customerName, debtorOwedItems(row)),
+      onClick: () => writeOffAll(row.customerName, debtorOwedItems(row)),
     },
-  ];
+  ], [t, navigate, collectAll, writeOffAll]);
 
   return (
     <Stack spacing={2}>

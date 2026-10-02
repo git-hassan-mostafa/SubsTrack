@@ -1,3 +1,4 @@
+import { periodTotalUsd } from "@shared/modules/ledger/utils/monthTotals";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -210,9 +211,9 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
 
   const selected = items.filter((c) => selectedIds.has(c.id));
 
-  const periodTotalUsd = useMemo(
-    () => Object.values(monthlyTotals).reduce((sum, v) => sum + v, 0),
-    [monthlyTotals],
+  const totalUsd = useMemo(
+    () => periodTotalUsd(monthlyTotals, status === "voided"),
+    [monthlyTotals, status],
   );
 
   const sections = useMemo(
@@ -362,14 +363,16 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
               ) : null}
             </ScrollView>
 
-            <View className="mt-3 flex-row items-baseline justify-between border-t border-gray-100 px-4 pt-3">
-              <Text className="text-xs uppercase tracking-wide text-gray-500">
-                {t("ledger.total_in_period")}
-              </Text>
-              <Text fontWeight="SemiBold" className="text-sm text-emerald-700">
-                {formatMoney(periodTotalUsd, null, displayCurrency)}
-              </Text>
-            </View>
+            {totalUsd === null ? null : (
+              <View className="mt-3 flex-row items-baseline justify-between border-t border-gray-100 px-4 pt-3">
+                <Text className="text-xs uppercase tracking-wide text-gray-500">
+                  {t("ledger.total_in_period")}
+                </Text>
+                <Text fontWeight="SemiBold" className="text-sm text-emerald-700">
+                  {formatMoney(totalUsd, null, displayCurrency)}
+                </Text>
+              </View>
+            )}
           </View>
         ) : (
           <SelectionBar

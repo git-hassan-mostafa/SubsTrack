@@ -22,3 +22,12 @@ export function sumByMonth(
   }
   return totals;
 }
+
+// Totals count live money only, so a voided-only view has no total to show.
+export function periodTotalUsd(
+  monthly: Record<string, number>,
+  onlyVoided: boolean,
+): number | null {
+  if (onlyVoided) return null;
+  return Object.values(monthly).reduce((sum, value) => sum + value, 0);
+}

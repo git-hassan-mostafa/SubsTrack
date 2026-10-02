@@ -2,6 +2,7 @@ import type { PageWindow, Plan } from "@shared/core/types";
 import planService from "@shared/modules/admin/plans/services/PlanService";
 import type { PlanPageQuery } from "@shared/modules/admin/plans/utils/types";
 import { readAllPages } from "@shared/shared/hooks/loadAllPages";
+import { sharedRowMatchesFilter } from "@shared/shared/lib/branchFilter";
 import {
   createPagedStore,
   EXPORT_PAGE_SIZE,
@@ -18,6 +19,7 @@ function toPlanQuery(query: PagedQuery<PlanFilters>, window: PageWindow): PlanPa
 export const usePlansTable = createPagedStore<Plan, PlanFilters>(
   (query) => planService.getPlanPage(toPlanQuery(query, pageWindow(query))),
   {},
+  { fits: (plan, query) => sharedRowMatchesFilter(plan.branchId, query.branch) },
 );
 
 export function readAllPlans(query: PagedQuery<PlanFilters>): Promise<Plan[]> {

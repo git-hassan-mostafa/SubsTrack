@@ -10,6 +10,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
+import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { COLORS } from "@/src/shared/constants";
 import type { CustomerDebts, OpenItem } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
@@ -146,6 +147,13 @@ export function DebtorDetailSheet({
                   onChange={setScope}
                   className="mb-4"
                 />
+
+                {showingWrittenOff && writtenOff.error ? (
+                  <ErrorBanner
+                    message={writtenOff.error}
+                    onDismiss={writtenOff.clearError}
+                  />
+                ) : null}
 
                 {showingWrittenOff ? (
                   <DebtList

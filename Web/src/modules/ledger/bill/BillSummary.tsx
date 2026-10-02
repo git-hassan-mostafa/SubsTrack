@@ -11,6 +11,7 @@ import { billStatusLook } from "./billStatusLook";
 interface BillSummaryProps {
   status: ChargeStatus;
   total: number;
+  figure: number;
   collected: number;
   balance: number;
   source: Currency | null;
@@ -34,12 +35,11 @@ const BAR_COLORS: Record<ChargeStatus, "error" | "warning" | "success"> = {
 };
 
 // The ONE number that matters for this bill's state, then how much of it is paid.
-export function BillSummary({ status, total, collected, balance, source, display }: BillSummaryProps) {
+export function BillSummary({ status, total, figure: amount, collected, balance, source, display }: BillSummaryProps) {
   const { t } = useTranslation();
   const look = billStatusLook(status);
   const colors = chipColors(look.tone);
-  const closed = status === "settled" || status === "void";
-  const figure = formatMoneyPair(closed ? total : balance, source, display);
+  const figure = formatMoneyPair(amount, source, display);
   const money = (value: number) => formatMoney(value, source, source);
   const paidShare = total > 0 ? Math.min(100, (collected / total) * 100) : 0;
 

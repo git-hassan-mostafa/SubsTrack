@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
@@ -21,6 +21,7 @@ import { useMoneyPair } from "@/shared/hooks/useMoneyPair";
 import { ActiveFilterSelect } from "@/shared/table/ActiveFilterSelect";
 import { activeStatusColumn } from "@/shared/table/activeStatusColumn";
 import { DataTable } from "@/shared/table/DataTable";
+import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
 import type { TableAction } from "@/shared/table/tableAction";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
@@ -31,38 +32,25 @@ import { ProductStockDialog } from "./ProductStockDialog";
 
 export function ProductsPage() {
   const { t } = useTranslation();
-  const rows = useProductsTable((s) => s.rows);
-  const total = useProductsTable((s) => s.total);
-  const loaded = useProductsTable((s) => s.loaded);
-  const loading = useProductsTable((s) => s.loading);
-  const tableError = useProductsTable((s) => s.error);
-  const query = useProductsTable((s) => s.query);
-  const load = useProductsTable((s) => s.load);
-  const open = useProductsTable((s) => s.open);
-  const patchRow = useProductsTable((s) => s.patchRow);
-  const setPage = useProductsTable((s) => s.setPage);
-  const setSearch = useProductsTable((s) => s.setSearch);
-  const setFilters = useProductsTable((s) => s.setFilters);
-  const clearFilters = useProductsTable((s) => s.clearFilters);
-  const clearTableError = useProductsTable((s) => s.clearError);
+  const branch = useEffectiveBranchFilter();
+  const paged = usePagedTable(useProductsTable, branch);
+  const rows = paged.tableProps.rows;
+  const query = paged.query;
+  const patchRow = paged.patchRow;
+  const setFilters = paged.setFilters;
+  const reload = paged.reload;
   const writeError = useProductSlice((s) => s.error);
   const clearWriteError = useProductSlice((s) => s.clearError);
   const deleteProduct = useProductSlice((s) => s.deleteProduct);
   const reactivateProduct = useProductSlice((s) => s.reactivateProduct);
   const bulkDeleteProducts = useProductSlice((s) => s.bulkDeleteProducts);
   const openQuickAction = useUiStore((s) => s.openQuickAction);
-  const branch = useEffectiveBranchFilter();
   const moneyPair = useMoneyPair();
   const branchColumn = useBranchColumn<Product>(t("branches.shared_all_branches"));
   const history = useRecordHistoryAction("products");
   const [form, setForm] = useState<{ product: Product | null } | null>(null);
   const [stockFor, setStockFor] = useState<Product | null>(null);
 
-  useEffect(() => {
-    void open(branch);
-  }, [open, branch]);
-
-  const reload = () => void load();
   const liveRow = (product: Product) => rows.find((row) => row.id === product.id) ?? product;
   const dialogOpen = form !== null || stockFor !== null;
 
@@ -202,16 +190,9 @@ export function ProductsPage() {
       <DataTable<Product>
         label={t("products.title")}
         columns={columns}
-        rows={rows}
-        total={total}
-        loaded={loaded}
-        loading={loading}
-        page={query.page}
-        pageSize={query.pageSize}
-        onPageChange={setPage}
+        {...paged.tableProps}
         search={{
-          value: query.search,
-          onSearch: setSearch,
+          ...paged.search,
           placeholder: t("web.products.search"),
         }}
         filters={
@@ -236,10 +217,6 @@ export function ProductsPage() {
         bulkActions={bulkActions}
         empty={{ title: t("products.no_products"), hint: t("products.no_products_hint") }}
         filtered={query.search !== "" || query.filters.status !== "all"}
-        onClearFilters={clearFilters}
-        error={tableError}
-        onDismissError={clearTableError}
-        onReload={reload}
       />
       {form ? (
         <ProductFormDialog

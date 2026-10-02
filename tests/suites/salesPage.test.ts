@@ -10,6 +10,7 @@ import {
   saleFindOptions,
 } from "@shared/modules/transaction/sales/utils/saleFilters";
 import {
+  saleCollectItem,
   saleInfoRows,
   saleMenuItems,
   saleVoidTarget,
@@ -113,6 +114,24 @@ describe("saleMenuItems", () => {
 
   it("TC-SG-11 a walk-in sale is never collected later", () => {
     expect(keysOf(saleMenuItems({ ...owing, customerId: null, customer: null }, ADMIN))).not.toContain("collect");
+  });
+});
+
+describe("saleCollectItem", () => {
+  const bill = charge({ id: "chg-9", kind: "sale", amount: 30 });
+
+  it("TC-SG-17 the item is the sale's bill, paid what the sale says", () => {
+    const item = saleCollectItem(sale({ customer: ali, charge: bill, amountPaid: 10 }));
+    expect(item).toMatchObject({ chargeId: "chg-9", amount: 30, paid: 10, balance: 20, customerName: "Ali" });
+  });
+
+  it("TC-SG-18 a receipt's freshly read cash wins over the sale's figure", () => {
+    const item = saleCollectItem(sale({ customer: ali, charge: bill, amountPaid: 10 }), 25);
+    expect(item).toMatchObject({ paid: 25, balance: 5 });
+  });
+
+  it("TC-SG-19 a sale whose bill is not loaded has nothing to collect", () => {
+    expect(saleCollectItem(sale({ charge: null }))).toBeNull();
   });
 });
 

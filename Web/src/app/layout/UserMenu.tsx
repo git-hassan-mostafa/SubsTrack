@@ -13,16 +13,10 @@ import AccountBalanceWalletOutlined from "@mui/icons-material/AccountBalanceWall
 import AccountCircleOutlined from "@mui/icons-material/AccountCircleOutlined";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import LogoutOutlined from "@mui/icons-material/LogoutOutlined";
-import type { UserRole } from "@shared/core/types";
+import { roleLabelKey } from "@shared/modules/admin/users/utils/userRules";
 import { confirm } from "@shared/shared/lib/confirm";
 import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
 import { endWebSession } from "@/state/webSession";
-
-const ROLE_LABEL_KEYS: Record<UserRole, string> = {
-  superadmin: "users.super",
-  admin: "users.admin",
-  user: "users.user",
-};
 
 export function UserMenu() {
   const { t } = useTranslation();
@@ -94,7 +88,7 @@ export function UserMenu() {
         <Box sx={{ px: 2, pt: 1, pb: 1.5, maxWidth: 300 }}>
           <Typography sx={{ fontWeight: 700 }}>{user.fullName}</Typography>
           <Typography variant="body2" color="text.secondary">
-            @{user.username} · {t(ROLE_LABEL_KEYS[user.role])}
+            @{user.username} · {t(roleLabelKey(user.role))}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {user.tenant.name} · {branchName}

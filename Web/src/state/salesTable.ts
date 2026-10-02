@@ -1,4 +1,3 @@
-import type { BranchFilter } from "@shared/core/constants";
 import type { Sale } from "@shared/core/types";
 import saleService from "@shared/modules/transaction/sales/services/SaleService";
 import {
@@ -8,6 +7,7 @@ import {
   type SaleFilterChoice,
 } from "@shared/modules/transaction/sales/utils/saleFilters";
 import { saleUsd } from "@shared/modules/transaction/sales/utils/saleListPatch";
+import { periodTotalUsd } from "@shared/modules/ledger/utils/monthTotals";
 import { ownedRowMatchesFilter } from "@shared/shared/lib/branchFilter";
 import { getStore } from "@shared/state/globalStore";
 import {
@@ -17,6 +17,7 @@ import {
   type PagedResult,
   type PagedStore,
   type PeriodTotal,
+  type RowFit,
 } from "./createPagedStore";
 
 export type SalesTable = PagedStore<Sale, SaleFilterChoice, PeriodTotal>;
@@ -25,12 +26,22 @@ function salePageReader(customerId: string | null) {
   return async (query: PagedQuery<SaleFilterChoice>): Promise<PagedResult<Sale, PeriodTotal>> => {
     const scoped = customerId ? { ...query.filters, customerId } : query.filters;
     const options = saleFindOptions(scoped, query.branch, query.search);
+    const onlyVoided = query.filters.status === "voided";
     const [page, monthly] = await Promise.all([
       saleService.getSalePage({ ...options, ...pageWindow(query) }),
-      query.filters.status === "voided" ? null : saleService.getMonthlyTotals(options),
+      onlyVoided ? {} : saleService.getMonthlyTotals(options),
     ]);
-    const totalUsd = monthly ? Object.values(monthly).reduce((sum, value) => sum + value, 0) : null;
-    return { ...page, meta: totalUsd };
+    return { ...page, meta: periodTotalUsd(monthly, onlyVoided) };
+  };
+}
+
+// A searched or filtered table re-reads, like the phone: only the server knows.
+function saleFits(customerId: string | null): RowFit<Sale, SaleFilterChoice> {
+  return (sale, query) => {
+    if (hasSaleFilter(query.filters)) return null;
+    return customerId
+      ? sale.customerId === customerId
+      : ownedRowMatchesFilter(sale.branchId, query.branch);
   };
 }
 
@@ -40,6 +51,7 @@ export function createSalesTable(customerId: string | null): SalesTable {
     salePageReader(customerId),
     defaultSaleFilters(),
     null,
+    { fits: saleFits(customerId) },
   );
 }
 
@@ -84,27 +96,15 @@ export async function runSaleSave(save: () => Promise<void>): Promise<void> {
   }
 }
 
-function inScope(sale: Sale, customerId: string | null, branch: BranchFilter): boolean {
-  return customerId ? sale.customerId === customerId : ownedRowMatchesFilter(sale.branchId, branch);
-}
-
-// A searched or filtered table re-reads, like the phone: only the server knows.
-function patchSaleTable(table: SalesTable, customerId: string | null, saved: Sale, before: Sale | null): void {
-  const { loaded, query, meta, markStale, patchRow, addRow, setMeta } = table.getState();
-  if (!loaded) return;
-  const was = before !== null && inScope(before, customerId, query.branch);
-  const is = inScope(saved, customerId, query.branch);
-  if (!was && !is) return;
-  const filtered = query.search !== "" || hasSaleFilter(query.filters);
-  if (filtered || meta === null || (before !== null && was !== is)) {
-    markStale();
-    return;
-  }
-  if (before) patchRow(saved);
-  else addRow(saved);
-  setMeta(meta + saleUsd(saved) - (before ? saleUsd(before) : 0));
+// The period total moves only when the row itself was patched or added in place.
+function patchSaleTable(table: SalesTable, saved: Sale, before: Sale | null): void {
+  const { meta, markStale, patchRow, addRow, setMeta } = table.getState();
+  const outcome = before ? patchRow(saved) : addRow(saved);
+  if (outcome !== "patched" && outcome !== "added") return;
+  if (meta === null) markStale();
+  else setMeta(meta + saleUsd(saved) - (before ? saleUsd(before) : 0));
 }
 
 export function patchSaleTables(saved: Sale, before: Sale | null): void {
-  for (const [table, customerId] of salesTables()) patchSaleTable(table, customerId, saved, before);
+  for (const [table] of salesTables()) patchSaleTable(table, saved, before);
 }

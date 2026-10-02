@@ -1,6 +1,7 @@
 import type { OpenItem } from "@shared/core/types";
 import { daysLate } from "@shared/core/utils/date";
 import type { ActionGroup } from "@shared/shared/lib/actionOrder";
+import { isEditableCustomDebt } from "./customDebtForm";
 
 export type DebtItemActionKey =
   | "collect"
@@ -51,11 +52,10 @@ const MENU: Record<DebtItemActionKey, Omit<DebtMenuItem, "key">> = {
   remove: { group: "danger", labelKey: "debts.remove", destructive: true },
 };
 
-// Edit and remove are for a LIVE hand-typed debt: a written-off bill refuses both.
 export function debtItemActions(item: OpenItem): DebtMenuItem[] {
   const writtenOff = item.charge?.writtenOffAt != null;
   const billed = item.chargeId !== null;
-  const custom = billed && item.kind === "manual" && !writtenOff;
+  const custom = isEditableCustomDebt(item);
   const keys: DebtItemActionKey[] = [];
   if (!writtenOff) keys.push("collect");
   if (writtenOff && billed) keys.push("revert_write_off");

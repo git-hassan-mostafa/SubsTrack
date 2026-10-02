@@ -1,5 +1,6 @@
 import type { CollectionListItem } from "@shared/core/types";
 import { collectionService } from "@shared/modules/ledger/services/CollectionService";
+import { periodTotalUsd } from "@shared/modules/ledger/utils/monthTotals";
 import {
   collectionFindOptions,
   defaultCollectionFilters,
@@ -20,12 +21,9 @@ async function readCollectionPage(
   const onlyVoided = query.filters.status === "voided";
   const [page, monthly] = await Promise.all([
     collectionService.getHistoryPage({ ...options, ...pageWindow(query) }),
-    onlyVoided ? null : collectionService.getMonthlyTotals(options),
+    onlyVoided ? {} : collectionService.getMonthlyTotals(options),
   ]);
-  const totalUsd = monthly
-    ? Object.values(monthly).reduce((sum, value) => sum + value, 0)
-    : null;
-  return { ...page, meta: totalUsd };
+  return { ...page, meta: periodTotalUsd(monthly, onlyVoided) };
 }
 
 export const useCollectionsTable = createPagedStoreWithMeta<
@@ -34,8 +32,7 @@ export const useCollectionsTable = createPagedStoreWithMeta<
   PeriodTotal
 >(readCollectionPage, defaultCollectionFilters(), null, { rereadOnOpen: true });
 
-// A payment saved from outside the page (a quick action) re-reads an open table.
-export function reloadCollectionsTableIfLoaded(): void {
-  const table = useCollectionsTable.getState();
-  if (table.loaded) void table.load();
+// A payment saved from outside the page dates it; it re-reads once shown.
+export function markCollectionsTableStale(): void {
+  useCollectionsTable.getState().markStale();
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -16,6 +16,7 @@ import { MoneyText } from "@/shared/components/MoneyText";
 import { ActiveFilterSelect } from "@/shared/table/ActiveFilterSelect";
 import { activeStatusColumn } from "@/shared/table/activeStatusColumn";
 import { DataTable } from "@/shared/table/DataTable";
+import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
 import type { TableAction } from "@/shared/table/tableAction";
 import { readAllCurrencies, useCurrenciesTable } from "@/state/currenciesTable";
@@ -24,20 +25,11 @@ import { CurrencyFormDialog } from "./CurrencyFormDialog";
 
 export function CurrenciesPage() {
   const { t } = useTranslation();
-  const rows = useCurrenciesTable((s) => s.rows);
-  const total = useCurrenciesTable((s) => s.total);
-  const loaded = useCurrenciesTable((s) => s.loaded);
-  const loading = useCurrenciesTable((s) => s.loading);
-  const tableError = useCurrenciesTable((s) => s.error);
-  const query = useCurrenciesTable((s) => s.query);
-  const load = useCurrenciesTable((s) => s.load);
-  const open = useCurrenciesTable((s) => s.open);
-  const patchRow = useCurrenciesTable((s) => s.patchRow);
-  const setPage = useCurrenciesTable((s) => s.setPage);
-  const setSearch = useCurrenciesTable((s) => s.setSearch);
-  const setFilters = useCurrenciesTable((s) => s.setFilters);
-  const clearFilters = useCurrenciesTable((s) => s.clearFilters);
-  const clearTableError = useCurrenciesTable((s) => s.clearError);
+  const paged = usePagedTable(useCurrenciesTable);
+  const query = paged.query;
+  const patchRow = paged.patchRow;
+  const setFilters = paged.setFilters;
+  const reload = paged.reload;
   const writeError = useCurrencySlice((s) => s.error);
   const clearWriteError = useCurrencySlice((s) => s.clearError);
   const deleteCurrency = useCurrencySlice((s) => s.deleteCurrency);
@@ -46,12 +38,6 @@ export function CurrenciesPage() {
   const bulkDeleteCurrencies = useCurrencySlice((s) => s.bulkDeleteCurrencies);
   const history = useRecordHistoryAction("currencies");
   const [form, setForm] = useState<{ currency: Currency | null } | null>(null);
-
-  useEffect(() => {
-    void open();
-  }, [open]);
-
-  const reload = () => void load();
 
   const confirmDeactivate = (currency: Currency) =>
     confirm({
@@ -190,16 +176,9 @@ export function CurrenciesPage() {
       <DataTable<Currency>
         label={t("tenant_settings.currencies_section_title")}
         columns={columns}
-        rows={rows}
-        total={total}
-        loaded={loaded}
-        loading={loading}
-        page={query.page}
-        pageSize={query.pageSize}
-        onPageChange={setPage}
+        {...paged.tableProps}
         search={{
-          value: query.search,
-          onSearch: setSearch,
+          ...paged.search,
           placeholder: t("web.currencies.search"),
         }}
         filters={
@@ -223,10 +202,6 @@ export function CurrenciesPage() {
         bulkActions={bulkActions}
         empty={{ title: t("tenant_settings.no_currencies"), hint: t("web.currencies.empty_hint") }}
         filtered={query.search !== "" || query.filters.status !== "all"}
-        onClearFilters={clearFilters}
-        error={tableError}
-        onDismissError={clearTableError}
-        onReload={reload}
       />
       {form ? (
         <CurrencyFormDialog

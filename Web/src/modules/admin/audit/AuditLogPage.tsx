@@ -24,6 +24,7 @@ import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranc
 import { useUserSlice } from "@shared/state/hooks/useUserSlice";
 import { DateField } from "@/shared/components/DateField";
 import { DataTable } from "@/shared/table/DataTable";
+import { usePagedTable } from "@/shared/table/usePagedTable";
 import { FilterSelect } from "@/shared/table/FilterSelect";
 import { RowLink } from "@/shared/table/RowLink";
 import type { TableAction } from "@/shared/table/tableAction";
@@ -36,21 +37,12 @@ import { RecordHistoryDialog } from "./RecordHistoryDialog";
 // Newest first, read-only; admin-only is enforced by RLS as well as the route.
 export function AuditLogPage() {
   const { t } = useTranslation();
-  const rows = useAuditTable((s) => s.rows);
-  const total = useAuditTable((s) => s.total);
-  const loaded = useAuditTable((s) => s.loaded);
-  const loading = useAuditTable((s) => s.loading);
-  const error = useAuditTable((s) => s.error);
-  const query = useAuditTable((s) => s.query);
-  const load = useAuditTable((s) => s.load);
-  const open = useAuditTable((s) => s.open);
-  const setPage = useAuditTable((s) => s.setPage);
-  const setFilters = useAuditTable((s) => s.setFilters);
-  const clearFilters = useAuditTable((s) => s.clearFilters);
-  const clearError = useAuditTable((s) => s.clearError);
+  const branch = useEffectiveBranchFilter();
+  const paged = usePagedTable(useAuditTable, branch);
+  const query = paged.query;
+  const setFilters = paged.setFilters;
   const users = useUserSlice((s) => s.items);
   const getUsers = useUserSlice((s) => s.getUsers);
-  const branch = useEffectiveBranchFilter();
   const branchColumn = useBranchColumn<AuditEntry>(t("web.audit.no_branch"));
   const lookups = useAuditLookups();
   const base = useMemo<AuditContextBase>(() => ({ t, lookups }), [t, lookups]);
@@ -61,10 +53,6 @@ export function AuditLogPage() {
   useEffect(() => {
     void getUsers();
   }, [getUsers]);
-
-  useEffect(() => {
-    void open(branch);
-  }, [open, branch]);
 
   const pick = (next: Partial<AuditFilterChoice>) => setFilters(next);
 
@@ -125,13 +113,7 @@ export function AuditLogPage() {
       <DataTable<AuditEntry>
         label={t("audit.title")}
         columns={columns}
-        rows={rows}
-        total={total}
-        loaded={loaded}
-        loading={loading}
-        page={query.page}
-        pageSize={query.pageSize}
-        onPageChange={setPage}
+        {...paged.tableProps}
         filters={
           <>
             <FilterSelect<AuditTable | null>
@@ -183,11 +165,7 @@ export function AuditLogPage() {
         rowActions={rowActions}
         empty={{ title: t("audit.empty_title"), hint: t("audit.empty_desc") }}
         filtered={hasAuditFilter(filters)}
-        onClearFilters={clearFilters}
         autoRowHeight
-        error={error}
-        onDismissError={clearError}
-        onReload={() => void load()}
       />
       {opened ? (
         <AuditEntryDialog entry={opened} base={base} onClose={() => setOpened(null)} />

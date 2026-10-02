@@ -40,7 +40,7 @@ interface SaleReceiptDialogProps {
   onClose: () => void;
   onSend: (sale: Sale) => void;
   onEdit?: (sale: Sale) => void;
-  onCollect?: (sale: Sale, owed: number) => void;
+  onCollect?: (sale: Sale, paid: number) => void;
   onVoid?: (sale: Sale) => void;
   onChanged?: (voided: Collection, replacement?: Collection) => void;
 }
@@ -136,6 +136,7 @@ export function SaleReceiptDialog({ sale, onClose, onSend, onEdit, onCollect, on
               <BillSummary
                 status={facts.status}
                 total={sale.totalAmount}
+                figure={facts.figure}
                 collected={collected}
                 balance={facts.balance}
                 source={source}
@@ -169,7 +170,7 @@ export function SaleReceiptDialog({ sale, onClose, onSend, onEdit, onCollect, on
           </Tooltip>
         )}
         {canCollect && !loading ? (
-          <Button variant="contained" onClick={() => onCollect?.(sale, facts.balance)}>
+          <Button variant="contained" onClick={() => onCollect?.(sale, collected)}>
             {t("ledger.collect_remaining", { amount: formatMoney(facts.balance, source, source) })}
           </Button>
         ) : null}

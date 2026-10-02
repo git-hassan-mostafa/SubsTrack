@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
+import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
@@ -101,6 +102,13 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
       </View>
 
       <DebtScopeFilter value={scope} onChange={setScope} className="mb-3" />
+
+      {showingWrittenOff && writtenOff.error ? (
+        <ErrorBanner
+          message={writtenOff.error}
+          onDismiss={writtenOff.clearError}
+        />
+      ) : null}
 
       {showingWrittenOff ? (
         <DebtList

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Stack from "@mui/material/Stack";
 import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
@@ -15,6 +15,7 @@ import { useMoneyPair } from "@/shared/hooks/useMoneyPair";
 import { ActiveFilterSelect } from "@/shared/table/ActiveFilterSelect";
 import { activeStatusColumn } from "@/shared/table/activeStatusColumn";
 import { DataTable } from "@/shared/table/DataTable";
+import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
 import type { TableAction } from "@/shared/table/tableAction";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
@@ -24,36 +25,21 @@ import { ServiceFormDialog } from "./ServiceFormDialog";
 
 export function ServicesPage() {
   const { t } = useTranslation();
-  const rows = useServicesTable((s) => s.rows);
-  const total = useServicesTable((s) => s.total);
-  const loaded = useServicesTable((s) => s.loaded);
-  const loading = useServicesTable((s) => s.loading);
-  const tableError = useServicesTable((s) => s.error);
-  const query = useServicesTable((s) => s.query);
-  const load = useServicesTable((s) => s.load);
-  const open = useServicesTable((s) => s.open);
-  const patchRow = useServicesTable((s) => s.patchRow);
-  const setPage = useServicesTable((s) => s.setPage);
-  const setSearch = useServicesTable((s) => s.setSearch);
-  const setFilters = useServicesTable((s) => s.setFilters);
-  const clearFilters = useServicesTable((s) => s.clearFilters);
-  const clearTableError = useServicesTable((s) => s.clearError);
+  const branch = useEffectiveBranchFilter();
+  const paged = usePagedTable(useServicesTable, branch);
+  const query = paged.query;
+  const patchRow = paged.patchRow;
+  const setFilters = paged.setFilters;
+  const reload = paged.reload;
   const writeError = useServiceSlice((s) => s.error);
   const clearWriteError = useServiceSlice((s) => s.clearError);
   const deleteService = useServiceSlice((s) => s.deleteService);
   const reactivateService = useServiceSlice((s) => s.reactivateService);
   const bulkDeleteServices = useServiceSlice((s) => s.bulkDeleteServices);
-  const branch = useEffectiveBranchFilter();
   const moneyPair = useMoneyPair();
   const branchColumn = useBranchColumn<Service>(t("branches.shared_all_branches"));
   const history = useRecordHistoryAction("services");
   const [form, setForm] = useState<{ service: Service | null } | null>(null);
-
-  useEffect(() => {
-    void open(branch);
-  }, [open, branch]);
-
-  const reload = () => void load();
 
   const confirmDelete = (services: Service[]) => {
     const single = services.length === 1 ? services[0] : null;
@@ -161,16 +147,9 @@ export function ServicesPage() {
       <DataTable<Service>
         label={t("services.title")}
         columns={columns}
-        rows={rows}
-        total={total}
-        loaded={loaded}
-        loading={loading}
-        page={query.page}
-        pageSize={query.pageSize}
-        onPageChange={setPage}
+        {...paged.tableProps}
         search={{
-          value: query.search,
-          onSearch: setSearch,
+          ...paged.search,
           placeholder: t("web.services.search"),
         }}
         filters={
@@ -186,10 +165,6 @@ export function ServicesPage() {
         bulkActions={bulkActions}
         empty={{ title: t("services.no_services"), hint: t("services.no_services_hint") }}
         filtered={query.search !== "" || query.filters.status !== "all"}
-        onClearFilters={clearFilters}
-        error={tableError}
-        onDismissError={clearTableError}
-        onReload={reload}
       />
       {form ? (
         <ServiceFormDialog

@@ -20,6 +20,8 @@ import { canManageUser } from "@shared/modules/admin/users/utils/userPermissions
 import {
   isLongEnoughPassword,
   isValidUsername,
+  mayBeTenantWide,
+  roleLabelKey,
 } from "@shared/modules/admin/users/utils/userRules";
 
 interface Props {
@@ -302,7 +304,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
         }}
         nullLabel={t("branches.tenant_wide_admin")}
         nullSublabel={t("branches.tenant_wide_hint")}
-        nullable={form.role === "admin"}
+        nullable={mayBeTenantWide(form.role)}
       />
 
       <Text fontWeight="Medium" className="text-sm text-gray-700 mb-2">
@@ -325,7 +327,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
               fontWeight="Medium"
               className={`capitalize ${form.role === r ? "text-primary" : "text-gray-600"}`}
             >
-              {t(`users.${r}`)}
+              {t(roleLabelKey(r))}
             </Text>
           </PressableOpacity>
         ))}

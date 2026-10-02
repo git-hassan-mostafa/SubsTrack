@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -22,6 +22,7 @@ import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { MoneyText } from "@/shared/components/MoneyText";
 import { StatusChip } from "@/shared/components/StatusChip";
 import { DataTable } from "@/shared/table/DataTable";
+import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
 import type { TableAction } from "@/shared/table/tableAction";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
@@ -46,27 +47,17 @@ const rowTone = (row: CollectionListItem) => (isVoided(row) ? "muted" : null);
 // Every hand-over of cash, server paged; a voided one stays listed and greyed.
 export function MoneyReceivedPage() {
   const { t } = useTranslation();
-  const rows = useCollectionsTable((s) => s.rows);
-  const total = useCollectionsTable((s) => s.total);
-  const periodTotalUsd = useCollectionsTable((s) => s.meta);
-  const loaded = useCollectionsTable((s) => s.loaded);
-  const loading = useCollectionsTable((s) => s.loading);
-  const error = useCollectionsTable((s) => s.error);
-  const query = useCollectionsTable((s) => s.query);
-  const load = useCollectionsTable((s) => s.load);
-  const open = useCollectionsTable((s) => s.open);
-  const setPage = useCollectionsTable((s) => s.setPage);
-  const setSearch = useCollectionsTable((s) => s.setSearch);
-  const setFilters = useCollectionsTable((s) => s.setFilters);
-  const clearFilters = useCollectionsTable((s) => s.clearFilters);
-  const clearError = useCollectionsTable((s) => s.clearError);
+  const branch = useEffectiveBranchFilter();
+  const paged = usePagedTable(useCollectionsTable, branch);
+  const periodTotalUsd = paged.meta;
+  const query = paged.query;
+  const setFilters = paged.setFilters;
+  const reload = paged.reload;
   const currencies = useCurrencySlice((s) => s.items);
   const display = findCurrency(currencies, useDisplayCurrencyId());
   const userName = useUserNames();
-  const branch = useEffectiveBranchFilter();
   const branchColumn = useBranchColumn<CollectionListItem>(t("web.money_received.no_branch"));
   const sendReceipt = useSendCollectionReceipt();
-  const reload = () => void load();
   const sale = useSaleDoors({ onChanged: reload });
   const bill = useBillDialog({ onChanged: reload, onOpenSale: sale.openSale });
   const [detail, setDetail] = useState<CollectionListItem | null>(null);
@@ -74,10 +65,6 @@ export function MoneyReceivedPage() {
   const [voidRows, setVoidRows] = useState<CollectionListItem[] | null>(null);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-
-  useEffect(() => {
-    void open(branch);
-  }, [open, branch]);
 
   const sendOne = useCallback(async (row: CollectionListItem) => {
     setActionError(null);
@@ -240,16 +227,9 @@ export function MoneyReceivedPage() {
       <DataTable<CollectionListItem>
         label={t("ledger.history_title")}
         columns={columns}
-        rows={rows}
-        total={total}
-        loaded={loaded}
-        loading={loading}
-        page={query.page}
-        pageSize={query.pageSize}
-        onPageChange={setPage}
+        {...paged.tableProps}
         search={{
-          value: query.search,
-          onSearch: setSearch,
+          ...paged.search,
           placeholder: t("web.money_received.search"),
         }}
         filters={<MoneyReceivedFilters value={query.filters} onChange={setFilters} />}
@@ -272,10 +252,6 @@ export function MoneyReceivedPage() {
         bulkActions={bulkActions}
         empty={{ title: t("payments.no_payments"), hint: t("web.money_received.empty_hint") }}
         filtered={!!query.search || hasCollectionFilter(query.filters)}
-        onClearFilters={clearFilters}
-        error={error}
-        onDismissError={clearError}
-        onReload={reload}
       />
       {detail ? (
         <PaymentDetailDialog

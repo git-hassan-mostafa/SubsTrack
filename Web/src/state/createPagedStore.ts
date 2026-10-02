@@ -28,8 +28,8 @@ export interface PagedState<T, F, M = undefined> {
   open: (branch?: BranchFilter) => Promise<void>;
   markStale: () => void;
   refreshIfStale: () => Promise<void>;
-  patchRow: (row: T) => void;
-  addRow: (row: T) => void;
+  patchRow: (row: T) => RowPatch;
+  addRow: (row: T) => RowPatch;
   setMeta: (meta: M) => void;
   setPage: (page: number, pageSize: number) => void;
   setSearch: (search: string) => void;
@@ -48,9 +48,15 @@ export type PeriodTotal = number | null;
 
 export type PageFetcher<T, F, M> = (query: PagedQuery<F>) => Promise<PagedResult<T, M>>;
 
+export type RowPatch = "patched" | "added" | "stale" | "skipped";
+
+// true = belongs, false = left the query, null = only the server can tell.
+export type RowFit<T, F> = (row: T, query: PagedQuery<F>) => boolean | null;
+
 // Audit and money received have no stale signal yet: they re-read on open.
-export interface PagedStoreOptions {
+export interface PagedStoreOptions<T, F> {
   rereadOnOpen?: boolean;
+  fits?: RowFit<T, F>;
 }
 
 export function pageWindow(query: PagedQuery<unknown>): PageWindow {
@@ -61,7 +67,7 @@ export function pageWindow(query: PagedQuery<unknown>): PageWindow {
 export function createPagedStore<T extends { id: string }, F>(
   fetchPage: (query: PagedQuery<F>) => Promise<Page<T>>,
   filters: F,
-  options: PagedStoreOptions = {},
+  options: PagedStoreOptions<T, F> = {},
 ) {
   return createPagedStoreWithMeta<T, F, undefined>(
     async (query) => ({ ...(await fetchPage(query)), meta: undefined }),
@@ -76,7 +82,7 @@ export function createPagedStoreWithMeta<T extends { id: string }, F, M>(
   fetchPage: PageFetcher<T, F, M>,
   filters: F,
   initialMeta: M,
-  { rereadOnOpen = false }: PagedStoreOptions = {},
+  { rereadOnOpen = false, fits }: PagedStoreOptions<T, F> = {},
 ) {
   const initialQuery: PagedQuery<F> = {
     page: 0,
@@ -86,6 +92,12 @@ export function createPagedStoreWithMeta<T extends { id: string }, F, M>(
     branch: null,
   };
   let latestRequest = 0;
+
+  const fitOf = (row: T, query: PagedQuery<F>): boolean | null => {
+    if (query.search !== "") return null;
+    if (fits) return fits(row, query);
+    return query.branch === null && sameFilters(query.filters, filters) ? true : null;
+  };
 
   return create<PagedState<T, F, M>>()((set, get) => ({
     query: initialQuery,
@@ -144,17 +156,32 @@ export function createPagedStoreWithMeta<T extends { id: string }, F, M>(
       return stale && !loading ? get().load() : Promise.resolve();
     },
 
-    patchRow: (row) =>
-      set({ rows: get().rows.map((current) => (current.id === row.id ? row : current)) }),
+    patchRow: (row) => {
+      const { rows, loaded, query, markStale } = get();
+      if (!loaded) return "skipped";
+      const shown = rows.some((current) => current.id === row.id);
+      const fit = fitOf(row, query);
+      if (fit === false && !shown) return "skipped";
+      if (fit !== true || !shown) {
+        markStale();
+        return "stale";
+      }
+      set({ rows: rows.map((current) => (current.id === row.id ? row : current)) });
+      return "patched";
+    },
 
     addRow: (row) => {
-      const { rows, total, loaded, query } = get();
-      if (!loaded) return;
-      if (rows.some((current) => current.id === row.id)) {
-        get().patchRow(row);
-        return;
+      const { rows, total, loaded, query, markStale } = get();
+      if (!loaded) return "skipped";
+      if (rows.some((current) => current.id === row.id)) return get().patchRow(row);
+      const fit = fitOf(row, query);
+      if (fit === false) return "skipped";
+      if (fit === null || query.page > 0) {
+        markStale();
+        return "stale";
       }
       set({ rows: [row, ...rows].slice(0, query.pageSize), total: total + 1 });
+      return "added";
     },
 
     setMeta: (meta) => set({ meta }),
@@ -201,4 +228,11 @@ export function createPagedStoreWithMeta<T extends { id: string }, F, M>(
       });
     },
   }));
+}
+
+function sameFilters<F>(a: F, b: F): boolean {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].every((key) => (a as Record<string, unknown>)[key] === (b as Record<string, unknown>)[key]);
 }

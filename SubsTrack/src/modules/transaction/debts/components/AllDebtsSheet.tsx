@@ -9,6 +9,7 @@ import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { EmptyState } from "@/src/shared/components/EmptyState";
+import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
   Dropdown,
@@ -240,6 +241,15 @@ export function AllDebtsSheet({
                 ) : null}
               </ScrollView>
             </View>
+
+            {showingWrittenOff && writtenOff.error ? (
+              <View className="px-6 pt-3">
+                <ErrorBanner
+                  message={writtenOff.error}
+                  onDismiss={writtenOff.clearError}
+                />
+              </View>
+            ) : null}
 
             <BottomSheetFlatList
               data={rows}

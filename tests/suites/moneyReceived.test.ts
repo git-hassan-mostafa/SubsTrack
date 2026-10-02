@@ -8,6 +8,7 @@ import {
   hasCollectionFilter,
   type CollectionFilterChoice,
 } from "@shared/modules/ledger/utils/collectionFilters";
+import { periodTotalUsd } from "@shared/modules/ledger/utils/monthTotals";
 import { store } from "../helpers/fakeLedger";
 
 // TC-MR-* — the Money received list: one filter shape for both apps, a paged
@@ -170,5 +171,16 @@ describe("getHistoryPage", () => {
     const page = await collectionService.getHistoryPage({ ...options, offset: 0, limit: 25 });
     expect(page.rows.map((r) => r.id)).toEqual([first.id]);
     expect(await collectionService.getMonthlyTotals(options)).toEqual({});
+  });
+});
+
+describe("periodTotalUsd", () => {
+  it("TC-MR-12 the total adds every month of the filter", () => {
+    expect(periodTotalUsd({ "2026-01": 20, "2026-02": 12.5 }, false)).toBe(32.5);
+    expect(periodTotalUsd({}, false)).toBe(0);
+  });
+
+  it("TC-MR-13 a voided-only view has no total at all, never $0", () => {
+    expect(periodTotalUsd({ "2026-01": 20 }, true)).toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 import type { ActiveFilter, Currency, PageWindow } from "@shared/core/types";
 import currencyService from "@shared/modules/admin/currencies/services/CurrencyService";
 import type { CurrencyPageQuery } from "@shared/modules/admin/currencies/utils/types";
+import { matchesActiveFilter } from "@shared/core/utils/activeFilter";
 import { readAllPages } from "@shared/shared/hooks/loadAllPages";
 import {
   createPagedStore,
@@ -23,6 +24,7 @@ function toCurrencyQuery(
 export const useCurrenciesTable = createPagedStore<Currency, CurrencyFilters>(
   (query) => currencyService.getCurrencyPage(toCurrencyQuery(query, pageWindow(query))),
   { status: "all" },
+  { fits: (currency, query) => matchesActiveFilter(currency.active, query.filters.status) },
 );
 
 export function readAllCurrencies(query: PagedQuery<CurrencyFilters>): Promise<Currency[]> {

@@ -34,8 +34,13 @@ export function editedDebtCustomer(item: OpenItem): CustomDebtCustomer {
   return { id: item.customerId, name: item.customerName, branchId: item.branchId };
 }
 
+// A written-off bill refuses edit and remove (gotcha #182).
 export function isEditableCustomDebt(item: OpenItem): boolean {
-  return item.kind === "manual" && item.chargeId !== null;
+  return (
+    item.kind === "manual" &&
+    item.chargeId !== null &&
+    item.charge?.writtenOffAt == null
+  );
 }
 
 // Money on the bill freezes its currency and rate with the amount (gotcha #126).

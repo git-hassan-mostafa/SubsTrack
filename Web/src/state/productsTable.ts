@@ -1,7 +1,9 @@
 import type { ActiveFilter, PageWindow, Product } from "@shared/core/types";
 import productService from "@shared/modules/admin/products/services/ProductService";
 import type { ProductPageQuery } from "@shared/modules/admin/products/utils/types";
+import { matchesActiveFilter } from "@shared/core/utils/activeFilter";
 import { readAllPages } from "@shared/shared/hooks/loadAllPages";
+import { sharedRowMatchesFilter } from "@shared/shared/lib/branchFilter";
 import {
   createPagedStore,
   EXPORT_PAGE_SIZE,
@@ -28,6 +30,11 @@ function toProductQuery(
 export const useProductsTable = createPagedStore<Product, ProductFilters>(
   (query) => productService.getProductPage(toProductQuery(query, pageWindow(query))),
   { status: "all" },
+  {
+    fits: (product, query) =>
+      sharedRowMatchesFilter(product.branchId, query.branch) &&
+      matchesActiveFilter(product.active, query.filters.status),
+  },
 );
 
 export function readAllProducts(query: PagedQuery<ProductFilters>): Promise<Product[]> {
@@ -37,8 +44,7 @@ export function readAllProducts(query: PagedQuery<ProductFilters>): Promise<Prod
   );
 }
 
-// A stock write from outside the page (a quick action) re-reads an open table.
-export function reloadProductsTableIfLoaded(): void {
-  const table = useProductsTable.getState();
-  if (table.loaded) void table.load();
+// A stock write from outside the page dates it; it re-reads once shown.
+export function markProductsTableStale(): void {
+  useProductsTable.getState().markStale();
 }

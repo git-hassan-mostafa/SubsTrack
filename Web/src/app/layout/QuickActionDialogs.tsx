@@ -1,6 +1,6 @@
 import { useUiStore } from "@shared/shared/lib/uiStore";
-import { reloadCollectionsTableIfLoaded } from "@/state/collectionsTable";
-import { reloadProductsTableIfLoaded } from "@/state/productsTable";
+import { markCollectionsTableStale } from "@/state/collectionsTable";
+import { markProductsTableStale } from "@/state/productsTable";
 import { BatchRestockDialog } from "@/modules/admin/products/BatchRestockDialog";
 import { CustomerFormDialog } from "@/modules/customer/customers/CustomerFormDialog";
 import { CollectQuickActionDialog } from "@/modules/ledger/collect/CollectQuickActionDialog";
@@ -19,7 +19,7 @@ export function QuickActionDialogs() {
           onClose={close}
           onCollected={() => {
             close();
-            reloadCollectionsTableIfLoaded();
+            markCollectionsTableStale();
           }}
         />
       );
@@ -32,14 +32,14 @@ export function QuickActionDialogs() {
           onClose={close}
           onSaved={() => {
             close();
-            reloadCollectionsTableIfLoaded();
+            markCollectionsTableStale();
           }}
         />
       );
     case "customDebt":
       return <CustomDebtFormDialog onClose={close} />;
     case "batchRestock":
-      return <BatchRestockDialog onClose={close} onSaved={reloadProductsTableIfLoaded} />;
+      return <BatchRestockDialog onClose={close} onSaved={markProductsTableStale} />;
     default:
       return null;
   }

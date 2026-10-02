@@ -1,6 +1,7 @@
 import type { ActiveFilter, Branch, PageWindow } from "@shared/core/types";
 import branchService from "@shared/modules/admin/branches/services/BranchService";
 import type { BranchPageQuery } from "@shared/modules/admin/branches/utils/types";
+import { matchesActiveFilter } from "@shared/core/utils/activeFilter";
 import { readAllPages } from "@shared/shared/hooks/loadAllPages";
 import {
   createPagedStore,
@@ -20,6 +21,7 @@ function toBranchQuery(query: PagedQuery<BranchFilters>, window: PageWindow): Br
 export const useBranchesTable = createPagedStore<Branch, BranchFilters>(
   (query) => branchService.getBranchPage(toBranchQuery(query, pageWindow(query))),
   { status: "all" },
+  { fits: (branch, query) => matchesActiveFilter(branch.active, query.filters.status) },
 );
 
 export function readAllBranches(query: PagedQuery<BranchFilters>): Promise<Branch[]> {

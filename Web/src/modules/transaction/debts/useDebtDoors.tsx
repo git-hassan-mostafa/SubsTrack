@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Charge, OpenItem } from "@shared/core/types";
 import { useWriteOffActions, writeOffTargetOf } from "@shared/modules/ledger/hooks/useWriteOffActions";
@@ -39,8 +39,10 @@ export interface DebtDoors {
 export function useDebtDoors({ recipientOf }: DebtDoorsOptions = {}): DebtDoors {
   const { t } = useTranslation();
   const writeOffActions = useWriteOffActions();
+  const { writeOff, revert, writeOffAll } = writeOffActions;
   const removeCustomDebt = useRemoveCustomDebt();
   const collect = useCollectDialog();
+  const { open: collectAll, openOne } = collect;
   const sale = useSaleDoors();
   const [opened, setOpened] = useState<OpenItem | null>(null);
   const [form, setForm] = useState<FormTarget | null>(null);
@@ -61,36 +63,46 @@ export function useDebtDoors({ recipientOf }: DebtDoorsOptions = {}): DebtDoors 
     },
   });
 
-  const run: Record<DebtItemActionKey, (item: OpenItem) => void> = {
-    collect: (item) => collect.openOne(item.customerName, item),
-    revert_write_off: (item) => void writeOffActions.revert(item),
-    edit: (item) => setForm({ item, customer: null }),
-    write_off: (item) => void writeOffActions.writeOff(item),
-    remove: (item) => void removeCustomDebt(item),
-  };
+  const run = useMemo<Record<DebtItemActionKey, (item: OpenItem) => void>>(
+    () => ({
+      collect: (item) => openOne(item.customerName, item),
+      revert_write_off: (item) => void revert(item),
+      edit: (item) => setForm({ item, customer: null }),
+      write_off: (item) => void writeOff(item),
+      remove: (item) => void removeCustomDebt(item),
+    }),
+    [openOne, revert, writeOff, removeCustomDebt],
+  );
 
-  const rowActions = (item: OpenItem): TableAction[] =>
-    debtItemActions(item).map((entry) => ({
-      key: entry.key,
-      group: entry.group,
-      label: t(entry.labelKey),
-      caption: entry.captionKey ? t(entry.captionKey) : undefined,
-      icon: DEBT_ACTION_ICONS[entry.key],
-      destructive: entry.destructive,
-      onClick: () => run[entry.key](item),
-    }));
+  const rowActions = useCallback(
+    (item: OpenItem): TableAction[] =>
+      debtItemActions(item).map((entry) => ({
+        key: entry.key,
+        group: entry.group,
+        label: t(entry.labelKey),
+        caption: entry.captionKey ? t(entry.captionKey) : undefined,
+        icon: DEBT_ACTION_ICONS[entry.key],
+        destructive: entry.destructive,
+        onClick: () => run[entry.key](item),
+      })),
+    [t, run],
+  );
 
-  const openBill = (item: OpenItem) => {
-    setOpened(item);
-    void bill.openOwed(item, recipientOf?.(item) ?? null);
-  };
+  const { openOwed } = bill;
+  const openBill = useCallback(
+    (item: OpenItem) => {
+      setOpened(item);
+      void openOwed(item, recipientOf?.(item) ?? null);
+    },
+    [openOwed, recipientOf],
+  );
 
   return {
     rowActions,
     openBill,
     loadingItemId: bill.loadingItemId,
-    collectAll: collect.open,
-    writeOffAll: (customerName, items) => void writeOffActions.writeOffAll(customerName, items),
+    collectAll,
+    writeOffAll: (customerName, items) => void writeOffAll(customerName, items),
     addCustomDebt: (customer = null) => setForm({ item: null, customer }),
     banners: (
       <>

@@ -28,3 +28,8 @@ const ROLE_LABEL_KEYS: Record<UserRole, string> = {
 export function roleLabelKey(role: UserRole): string {
   return ROLE_LABEL_KEYS[role];
 }
+
+// Only staff must belong to a branch; any admin may be organization-wide.
+export function mayBeTenantWide(role: UserRole): boolean {
+  return role !== "user";
+}

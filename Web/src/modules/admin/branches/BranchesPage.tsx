@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Stack from "@mui/material/Stack";
 import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
@@ -13,6 +13,7 @@ import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { ActiveFilterSelect } from "@/shared/table/ActiveFilterSelect";
 import { activeStatusColumn } from "@/shared/table/activeStatusColumn";
 import { DataTable } from "@/shared/table/DataTable";
+import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
 import type { TableAction } from "@/shared/table/tableAction";
 import { readAllBranches, useBranchesTable } from "@/state/branchesTable";
@@ -22,20 +23,11 @@ import { BranchFormDialog } from "./BranchFormDialog";
 // The reference list page: every later web table copies this shape.
 export function BranchesPage() {
   const { t } = useTranslation();
-  const rows = useBranchesTable((s) => s.rows);
-  const total = useBranchesTable((s) => s.total);
-  const loaded = useBranchesTable((s) => s.loaded);
-  const loading = useBranchesTable((s) => s.loading);
-  const tableError = useBranchesTable((s) => s.error);
-  const query = useBranchesTable((s) => s.query);
-  const load = useBranchesTable((s) => s.load);
-  const open = useBranchesTable((s) => s.open);
-  const patchRow = useBranchesTable((s) => s.patchRow);
-  const setPage = useBranchesTable((s) => s.setPage);
-  const setSearch = useBranchesTable((s) => s.setSearch);
-  const setFilters = useBranchesTable((s) => s.setFilters);
-  const clearFilters = useBranchesTable((s) => s.clearFilters);
-  const clearTableError = useBranchesTable((s) => s.clearError);
+  const paged = usePagedTable(useBranchesTable);
+  const query = paged.query;
+  const patchRow = paged.patchRow;
+  const setFilters = paged.setFilters;
+  const reload = paged.reload;
   const writeError = useBranchSlice((s) => s.error);
   const clearWriteError = useBranchSlice((s) => s.clearError);
   const deleteBranch = useBranchSlice((s) => s.deleteBranch);
@@ -44,12 +36,6 @@ export function BranchesPage() {
   const reactivateBranch = useBranchSlice((s) => s.reactivateBranch);
   const history = useRecordHistoryAction("branches");
   const [form, setForm] = useState<{ branch: Branch | null } | null>(null);
-
-  useEffect(() => {
-    void open();
-  }, [open]);
-
-  const reload = () => void load();
 
   const confirmDeactivate = (branch: Branch) =>
     confirm({
@@ -157,16 +143,9 @@ export function BranchesPage() {
       <DataTable<Branch>
         label={t("branches.section_title")}
         columns={columns}
-        rows={rows}
-        total={total}
-        loaded={loaded}
-        loading={loading}
-        page={query.page}
-        pageSize={query.pageSize}
-        onPageChange={setPage}
+        {...paged.tableProps}
         search={{
-          value: query.search,
-          onSearch: setSearch,
+          ...paged.search,
           placeholder: t("web.branches.search"),
         }}
         filters={
@@ -182,10 +161,6 @@ export function BranchesPage() {
         bulkActions={bulkActions}
         empty={{ title: t("branches.no_branches"), hint: t("web.branches.empty_hint") }}
         filtered={query.search !== "" || query.filters.status !== "all"}
-        onClearFilters={clearFilters}
-        error={tableError}
-        onDismissError={clearTableError}
-        onReload={reload}
       />
       {form ? (
         <BranchFormDialog

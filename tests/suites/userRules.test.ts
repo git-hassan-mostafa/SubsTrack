@@ -1,6 +1,7 @@
 import {
   isLongEnoughPassword,
   isValidUsername,
+  mayBeTenantWide,
   roleLabelKey,
   rolesForFilter,
 } from "@shared/modules/admin/users/utils/userRules";
@@ -32,5 +33,11 @@ describe("user rules", () => {
     expect(roleLabelKey("user")).toBe("users.staff");
     expect(roleLabelKey("admin")).toBe("users.admin");
     expect(roleLabelKey("superadmin")).toBe("users.super");
+  });
+
+  it("TC-UR-05 only staff must belong to a branch; any admin may be organization-wide", () => {
+    expect(mayBeTenantWide("user")).toBe(false);
+    expect(mayBeTenantWide("admin")).toBe(true);
+    expect(mayBeTenantWide("superadmin")).toBe(true);
   });
 });

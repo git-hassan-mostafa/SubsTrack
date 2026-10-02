@@ -86,7 +86,7 @@ export function ProductFormSheet({
     const payload = {
       name: form.name,
       description: form.description.trim() || null,
-      price: form.price ?? 0,
+      price: form.price ?? Number.NaN,
       currencyId: form.currencyId,
       costPrice: form.costPrice,
       costCurrencyId: form.costCurrencyId,

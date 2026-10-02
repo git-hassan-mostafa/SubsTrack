@@ -6,9 +6,9 @@ import {
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
 import { BillHistorySheet, useCollectSheet } from "@/src/modules/ledger";
-import { openItemFromCharge } from "@shared/modules/ledger/utils/openItems";
 import { saleTitle } from "@shared/core/utils/receiptId";
 import {
+  saleCollectItem,
   saleMenuItems,
   saleVoidTarget,
   type SaleActionKey,
@@ -60,16 +60,8 @@ export function useSaleActions({
 
   // Synchronous: the bill rode in on the sale, so the sheet opens on the tap.
   function handleCollect(sale: Sale) {
-    if (!sale.charge) return;
-    collectSheet.openOne(
-      sale.customer?.name ?? "",
-      openItemFromCharge(
-        sale.charge,
-        sale.amountPaid,
-        sale.itemsSummary,
-        sale.customer?.name ?? "",
-      ),
-    );
+    const item = saleCollectItem(sale);
+    if (item) collectSheet.openOne(item.customerName, item);
   }
 
   function buildActions(sale: Sale | null): ActionMenuItem[] {

@@ -16,7 +16,7 @@ import { CustomerPicker } from "@/modules/customer/customers/CustomerPicker";
 import { useSendSalesInvoice } from "@/modules/invoicing/useSendSalesInvoice";
 import { AmountCollectedField } from "@/modules/ledger/collect/AmountCollectedField";
 import { CurrencyInput } from "@/shared/components/CurrencyInput";
-import { reloadProductsTableIfLoaded } from "@/state/productsTable";
+import { markProductsTableStale } from "@/state/productsTable";
 import { patchSaleTables, runSaleSave } from "@/state/salesTable";
 import { SaleItemsEditor } from "./SaleItemsEditor";
 
@@ -37,7 +37,7 @@ export function SaleFormDialog({ sale, initialCustomer = null, onClose, onSaved 
     initialCustomer,
     onSaved: async (saved, send) => {
       patchSaleTables(saved, sale);
-      reloadProductsTableIfLoaded();
+      markProductsTableStale();
       if (send) await sendInvoice([saved]);
       onSaved(saved, sale === null);
     },

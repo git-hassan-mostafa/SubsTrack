@@ -8,6 +8,7 @@ import {
 import type { PageHeaderIconAction } from "@/src/shared/components/PageHeader";
 import { exportCsv } from "@/src/shared/lib/exportCsv";
 import { toExportTable } from "@shared/shared/hooks/exportRowFormat";
+import { getTodayDateString } from "@shared/core/utils/date";
 
 // What a paginated screen tells the hook so it can offer the second choice.
 // `loadAll` keeps fetching pages until `hasMore` goes false; the hook only ever
@@ -46,7 +47,7 @@ export function useExportRows(
     }
     const table = toExportTable(toWrite);
     const ok = await exportCsv(
-      `${t(nameKey)}-${new Date().toISOString().slice(0, 10)}`,
+      `${t(nameKey)}-${getTodayDateString()}`,
       table.headers,
       table.rows,
     );

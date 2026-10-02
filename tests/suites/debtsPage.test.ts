@@ -159,8 +159,13 @@ describe("custom debt form", () => {
     });
   });
 
-  it("TC-CDF-03 only a stored hand-typed debt can be edited", () => {
+  it("TC-CDF-03 only a stored, live hand-typed debt can be edited", () => {
     expect(isEditableCustomDebt(openItem({ kind: "manual" }))).toBe(true);
+    expect(
+      isEditableCustomDebt(
+        openItem({ kind: "manual", charge: charge({ writtenOffAt: "2026-03-01T10:00:00Z" }) }),
+      ),
+    ).toBe(false);
     expect(isEditableCustomDebt(openItem({ kind: "manual", chargeId: null }))).toBe(false);
     expect(isEditableCustomDebt(openItem({ kind: "sale" }))).toBe(false);
     expect(isEditableCustomDebt(openItem({ kind: "month" }))).toBe(false);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Stack from "@mui/material/Stack";
 import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
@@ -13,6 +13,7 @@ import { MoneyText } from "@/shared/components/MoneyText";
 import { StatusChip } from "@/shared/components/StatusChip";
 import { useMoneyPair } from "@/shared/hooks/useMoneyPair";
 import { DataTable } from "@/shared/table/DataTable";
+import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
 import type { TableAction } from "@/shared/table/tableAction";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
@@ -23,35 +24,20 @@ import { usePlanDurationLabel } from "./usePlanDurationLabel";
 
 export function PlansPage() {
   const { t } = useTranslation();
-  const rows = usePlansTable((s) => s.rows);
-  const total = usePlansTable((s) => s.total);
-  const loaded = usePlansTable((s) => s.loaded);
-  const loading = usePlansTable((s) => s.loading);
-  const tableError = usePlansTable((s) => s.error);
-  const query = usePlansTable((s) => s.query);
-  const load = usePlansTable((s) => s.load);
-  const open = usePlansTable((s) => s.open);
-  const patchRow = usePlansTable((s) => s.patchRow);
-  const setPage = usePlansTable((s) => s.setPage);
-  const setSearch = usePlansTable((s) => s.setSearch);
-  const clearFilters = usePlansTable((s) => s.clearFilters);
-  const clearTableError = usePlansTable((s) => s.clearError);
+  const branch = useEffectiveBranchFilter();
+  const paged = usePagedTable(usePlansTable, branch);
+  const query = paged.query;
+  const patchRow = paged.patchRow;
+  const reload = paged.reload;
   const writeError = usePlanSlice((s) => s.error);
   const clearWriteError = usePlanSlice((s) => s.clearError);
   const deletePlan = usePlanSlice((s) => s.deletePlan);
   const bulkDeletePlans = usePlanSlice((s) => s.bulkDeletePlans);
-  const branch = useEffectiveBranchFilter();
   const moneyPair = useMoneyPair();
   const durationLabel = usePlanDurationLabel();
   const branchColumn = useBranchColumn<Plan>(t("branches.shared_all_branches"));
   const history = useRecordHistoryAction("plans");
   const [form, setForm] = useState<{ plan: Plan | null } | null>(null);
-
-  useEffect(() => {
-    void open(branch);
-  }, [open, branch]);
-
-  const reload = () => void load();
 
   const confirmDelete = (plans: Plan[]) => {
     const single = plans.length === 1 ? plans[0] : null;
@@ -142,16 +128,9 @@ export function PlansPage() {
       <DataTable<Plan>
         label={t("plans.title")}
         columns={columns}
-        rows={rows}
-        total={total}
-        loaded={loaded}
-        loading={loading}
-        page={query.page}
-        pageSize={query.pageSize}
-        onPageChange={setPage}
+        {...paged.tableProps}
         search={{
-          value: query.search,
-          onSearch: setSearch,
+          ...paged.search,
           placeholder: t("web.plans.search"),
         }}
         add={{ label: t("web.plans.add"), onClick: () => setForm({ plan: null }) }}
@@ -161,10 +140,6 @@ export function PlansPage() {
         bulkActions={bulkActions}
         empty={{ title: t("plans.no_plans"), hint: t("web.plans.empty_hint") }}
         filtered={query.search !== ""}
-        onClearFilters={clearFilters}
-        error={tableError}
-        onDismissError={clearTableError}
-        onReload={reload}
       />
       {form ? (
         <PlanFormDialog

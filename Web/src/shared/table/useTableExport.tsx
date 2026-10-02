@@ -12,6 +12,7 @@ import VisibilityOutlined from "@mui/icons-material/VisibilityOutlined";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { toExportTable } from "@shared/shared/hooks/exportRowFormat";
 import { downloadCsv } from "@/shared/lib/downloadCsv";
+import { getTodayDateString } from "@shared/core/utils/date";
 
 export interface TableExport<T extends object = object> {
   nameKey: string;
@@ -47,7 +48,7 @@ export function useTableExport<T extends object>(
         setError(t("export.nothing_to_export"));
         return;
       }
-      const day = new Date().toISOString().slice(0, 10);
+      const day = getTodayDateString();
       downloadCsv(`${t(config.nameKey)}-${day}`, toExportTable(records));
     } catch (e) {
       setError((e as Error).message);

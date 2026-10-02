@@ -75,7 +75,9 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 | 5.6 | Last active branch      | Try to deactivate or delete the only active branch            | Red banner above the table: at least one active branch is needed                                              |
 | 5.7 | Reactivate              | Reactivate an inactive branch                                 | Green "Active" chip in place; it moves up with the active ones on the next read                               |
 | 5.8 | Keyboard                | Tab into the table, arrow to the ⋮ cell, press Enter          | The menu opens; arrows move; Enter runs; Esc closes. Screen reader names the button "Actions for <branch>"   |
-| 5.9 | Deactivate under a filter | Status → Active, deactivate a branch                          | The row stays on screen, now "Inactive", until the next read; after Refresh it is gone from the Active view     |
+| 5.9 | Deactivate under a filter | Status → Active, deactivate a branch                          | ONE new list request right after OK; the branch is gone from the Active view and the count drops by 1. Same with Status → Inactive + Reactivate |
+| 5.10 | Edit under a search     | Search "main", rename "Main" to "North"                        | ONE new list request (only the server knows if "North" still matches); the table shows the server's answer      |
+| 5.11 | Same rule elsewhere     | Repeat 5.9 on Currencies, Services, Products and Users (Status → Active, deactivate one) | Each re-reads once and the row leaves; with Status = All the row only changes its chip, no new request |
 
 ## 6. Selection and bulk bar
 

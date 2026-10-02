@@ -5,6 +5,7 @@ import customerService from "@shared/modules/customer/customers/services/Custome
 import {
   DEFAULT_CUSTOMER_FILTERS,
   DEFAULT_CUSTOMER_SORT,
+  matchesCustomerFilters,
   toCustomerFilterQuery,
   type CustomerFilters,
   type CustomerSort,
@@ -23,6 +24,7 @@ import {
   createPagedStore,
   pageWindow,
   type PagedQuery,
+  type RowFit,
 } from "./createPagedStore";
 
 export type CustomerTableFilters = CustomerFilters & { sort: CustomerSort };
@@ -57,10 +59,22 @@ async function readCustomerPage(
   return toCustomerRows(list);
 }
 
+// The row carries no last-paid date, so a last-paid filter leaves it to the server.
+const customerFits: RowFit<CustomerRow, CustomerTableFilters> = (row, query) => {
+  const { sort: _sort, ...filters } = query.filters;
+  if (filters.paidFrom || filters.paidTo) return null;
+  const facts = { status: row.status, debtUsd: row.debtUsd, lastPaidAt: null };
+  return (
+    ownedRowMatchesFilter(row.branchId, query.branch) &&
+    matchesCustomerFilters(row.customer, facts, toCustomerFilterQuery(filters))
+  );
+};
+
 // Filters, sort and debt are worked out on the server over EVERY customer (D1).
 export const useCustomersTable = createPagedStore<CustomerRow, CustomerTableFilters>(
   (query) => readCustomerPage(query, pageWindow(query)),
   DEFAULT_CUSTOMER_TABLE_FILTERS,
+  { fits: customerFits },
 );
 
 export function readAllCustomers(query: PagedQuery<CustomerTableFilters>): Promise<CustomerRow[]> {
@@ -94,7 +108,7 @@ export async function patchCustomerRow(customerId: string, added = false): Promi
     const row = await readCustomerRow(customerId, shown?.debtUsd ?? 0);
     const table = useCustomersTable.getState();
     if (shown) table.patchRow(row);
-    else if (ownedRowMatchesFilter(row.branchId, table.query.branch)) table.addRow(row);
+    else table.addRow(row);
   } catch {
     useCustomersTable.getState().markStale();
   }

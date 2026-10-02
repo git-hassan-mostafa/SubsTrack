@@ -1,7 +1,8 @@
-import type { Sale } from "@shared/core/types";
+import type { OpenItem, Sale } from "@shared/core/types";
 import { formatDate } from "@shared/core/utils/date";
 import { receiptId } from "@shared/core/utils/receiptId";
 import type { LabeledValue } from "@shared/modules/ledger/utils/billView";
+import { openItemFromCharge } from "@shared/modules/ledger/utils/openItems";
 import type { ActionGroup } from "@shared/shared/lib/actionOrder";
 
 type Translate = (key: string, opts?: Record<string, unknown>) => string;
@@ -28,6 +29,16 @@ export function saleFacts(sale: Sale): SaleFacts {
     canCollect:
       !voided && owed > MONEY_EPSILON && !!sale.customerId && !!sale.charge,
   };
+}
+
+// The sale's bill as one collect item; a receipt passes the cash it just read.
+export function saleCollectItem(
+  sale: Sale,
+  paid: number = sale.amountPaid,
+): OpenItem | null {
+  if (!sale.charge) return null;
+  const name = sale.customer?.name ?? "";
+  return openItemFromCharge(sale.charge, paid, sale.itemsSummary, name);
 }
 
 export interface SaleVoidTarget {

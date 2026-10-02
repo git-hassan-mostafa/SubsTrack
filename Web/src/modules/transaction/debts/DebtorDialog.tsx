@@ -96,6 +96,9 @@ export function DebtorDialog({ debtor, doors, onClose }: DebtorDialogProps) {
           {doors.banners}
           <DebtScopeTabs value={scope} onChange={setScope} />
           {showingWrittenOff ? (
+            <ErrorBanner message={writtenOff.error} onDismiss={writtenOff.clearError} />
+          ) : null}
+          {showingWrittenOff ? (
             <DebtItemsTable
               label={t("debts.scope_written_off")}
               items={sortDebts(writtenOff.items)}

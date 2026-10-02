@@ -1,3 +1,4 @@
+import { matchesActiveFilter } from "@shared/core/utils/activeFilter";
 import type {
   ActiveFilter,
   Customer,
@@ -140,11 +141,6 @@ function matchesYesNo(choice: YesNoFilter | null, fact: boolean): boolean {
   return choice === null || (choice === "yes") === fact;
 }
 
-function matchesStatus(customer: FilterableCustomer, status: ActiveFilter): boolean {
-  if (status === "all") return true;
-  return customer.active === (status === "active");
-}
-
 // A payment pick shows only cards that carry that pill — gotcha #56.
 function matchesPayment(
   customer: FilterableCustomer,
@@ -186,7 +182,7 @@ export function matchesCustomerFilters(
   filters: CustomerFilterQuery,
 ): boolean {
   return (
-    matchesStatus(customer, filters.status) &&
+    matchesActiveFilter(customer.active, filters.status) &&
     matchesPayment(customer, facts.status, filters.payment) &&
     matchesYesNo(filters.debt, hasDebtFlag(facts.debtUsd)) &&
     matchesPlan(customer, filters.planId) &&

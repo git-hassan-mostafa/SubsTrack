@@ -99,7 +99,7 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 
 ## 8. Fresh data — no re-read on open
 
-Open DevTools → Network and filter on `sales`: each check below says whether the table reads again. Store: [salesTable.ts](Web/src/state/salesTable.ts), [useOpenPagedTable.ts](Web/src/shared/table/useOpenPagedTable.ts), [useMoneyTablesFreshness.ts](Web/src/state/useMoneyTablesFreshness.ts).
+Open DevTools → Network and filter on `sales`: each check below says whether the table reads again. Store: [salesTable.ts](Web/src/state/salesTable.ts), [usePagedTable.ts](Web/src/shared/table/usePagedTable.ts), [useMoneyTablesFreshness.ts](Web/src/state/useMoneyTablesFreshness.ts).
 
 | #   | Scenario               | Steps                                                                                                   | Expected result                                                                                 |
 | --- | ---------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |

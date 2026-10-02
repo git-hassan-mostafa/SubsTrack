@@ -41,7 +41,9 @@ export interface BillFacts {
   voided: boolean;
   writtenOff: boolean;
   settled: boolean;
+  closed: boolean;
   balance: number;
+  figure: number;
   canCollect: boolean;
   canWriteOff: boolean;
   canRevertWriteOff: boolean;
@@ -61,6 +63,7 @@ export function billFacts(charge: BillFlags, collected: number): BillFacts {
   const writtenOff = !voided && charge.writtenOffAt !== null;
   const balance = roundMoney(charge.amount - collected) || 0;
   const settled = !voided && balance <= 0;
+  const closed = voided || settled;
   const live = !voided && !writtenOff;
   return {
     status: chargeStatusOf({
@@ -72,7 +75,9 @@ export function billFacts(charge: BillFlags, collected: number): BillFacts {
     voided,
     writtenOff,
     settled,
+    closed,
     balance,
+    figure: closed ? charge.amount : balance,
     canCollect: live && !settled,
     canWriteOff: live && !settled,
     canRevertWriteOff: writtenOff,
@@ -89,9 +94,8 @@ export function billHeadline(
   t: Translate,
 ): BillHeadline {
   const money = (value: number) => formatMoney(value, source, source);
-  const closed = facts.voided || facts.settled;
-  const amount = closed
-    ? money(charge.amount)
+  const amount = facts.closed
+    ? money(facts.figure)
     : formatPaidFraction(collected, charge.amount, source, source);
   if (facts.writtenOff) {
     return {
@@ -99,7 +103,7 @@ export function billHeadline(
       note: collected > 0 ? t("ledger.written_off_kept", { amount: money(collected) }) : null,
     };
   }
-  return { amount, note: closed ? null : `${t("ledger.remaining")} ${money(facts.balance)}` };
+  return { amount, note: facts.closed ? null : `${t("ledger.remaining")} ${money(facts.figure)}` };
 }
 
 // Every field a bill MIGHT print; an empty value is dropped by the view.

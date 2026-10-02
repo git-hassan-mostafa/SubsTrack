@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -21,6 +21,7 @@ import { StatusChip } from "@/shared/components/StatusChip";
 import { ActiveFilterSelect } from "@/shared/table/ActiveFilterSelect";
 import { activeStatusColumn } from "@/shared/table/activeStatusColumn";
 import { DataTable } from "@/shared/table/DataTable";
+import { usePagedTable } from "@/shared/table/usePagedTable";
 import { FilterSelect } from "@/shared/table/FilterSelect";
 import { RowLink } from "@/shared/table/RowLink";
 import type { TableAction } from "@/shared/table/tableAction";
@@ -45,36 +46,22 @@ const ROLE_FILTERS: { value: UserRoleFilter; labelKey: string }[] = [
 export function UsersPage() {
   const { t } = useTranslation();
   const { user: viewer } = useAuth();
-  const rows = useUsersTable((s) => s.rows);
-  const total = useUsersTable((s) => s.total);
-  const loaded = useUsersTable((s) => s.loaded);
-  const loading = useUsersTable((s) => s.loading);
-  const tableError = useUsersTable((s) => s.error);
-  const query = useUsersTable((s) => s.query);
-  const load = useUsersTable((s) => s.load);
-  const open = useUsersTable((s) => s.open);
-  const patchRow = useUsersTable((s) => s.patchRow);
-  const setPage = useUsersTable((s) => s.setPage);
-  const setSearch = useUsersTable((s) => s.setSearch);
-  const setFilters = useUsersTable((s) => s.setFilters);
-  const clearFilters = useUsersTable((s) => s.clearFilters);
-  const clearTableError = useUsersTable((s) => s.clearError);
+  const branch = useEffectiveBranchFilter();
+  const paged = usePagedTable(useUsersTable, branch);
+  const query = paged.query;
+  const patchRow = paged.patchRow;
+  const setFilters = paged.setFilters;
+  const reload = paged.reload;
   const writeError = useUserSlice((s) => s.error);
   const clearWriteError = useUserSlice((s) => s.clearError);
   const deactivateUser = useUserSlice((s) => s.deactivateUser);
   const activateUser = useUserSlice((s) => s.activateUser);
   const deleteUser = useUserSlice((s) => s.deleteUser);
   const bulkDeleteUsers = useUserSlice((s) => s.bulkDeleteUsers);
-  const branch = useEffectiveBranchFilter();
   const branchColumn = useBranchColumn<AppUser>(t("branches.tenant_wide_admin"));
   const history = useRecordHistoryAction("users");
   const [form, setForm] = useState<{ user: AppUser | null } | null>(null);
 
-  useEffect(() => {
-    void open(branch);
-  }, [open, branch]);
-
-  const reload = () => void load();
   const canEdit = (target: AppUser) => !!viewer && canEditUser(viewer, target);
   const canManage = (target: AppUser) => !!viewer && canManageUser(viewer, target);
 
@@ -214,16 +201,9 @@ export function UsersPage() {
       <DataTable<AppUser>
         label={t("users.title")}
         columns={columns}
-        rows={rows}
-        total={total}
-        loaded={loaded}
-        loading={loading}
-        page={query.page}
-        pageSize={query.pageSize}
-        onPageChange={setPage}
+        {...paged.tableProps}
         search={{
-          value: query.search,
-          onSearch: setSearch,
+          ...paged.search,
           placeholder: t("web.users.search"),
         }}
         filters={
@@ -249,10 +229,6 @@ export function UsersPage() {
         filtered={
           query.search !== "" || query.filters.status !== "all" || query.filters.role !== "all"
         }
-        onClearFilters={clearFilters}
-        error={tableError}
-        onDismissError={clearTableError}
-        onReload={reload}
       />
       {form ? (
         <UserFormDialog

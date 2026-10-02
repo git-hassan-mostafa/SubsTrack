@@ -47,6 +47,18 @@ describe("billFacts", () => {
   });
 });
 
+describe("billFacts figure", () => {
+  it("TC-BV-13 a live bill's big number is what is still owed", () => {
+    expect(billFacts(charge({ amount: 20 }), 5)).toMatchObject({ closed: false, figure: 15 });
+    expect(billFacts(charge({ amount: 20, writtenOffAt: AT }), 5)).toMatchObject({ closed: false, figure: 15 });
+  });
+
+  it("TC-BV-14 a settled or voided bill shows its whole amount", () => {
+    expect(billFacts(charge({ amount: 20 }), 20)).toMatchObject({ closed: true, figure: 20 });
+    expect(billFacts(charge({ amount: 20, voidedAt: AT }), 0)).toMatchObject({ closed: true, figure: 20 });
+  });
+});
+
 describe("billHeadline", () => {
   it("TC-BV-07 an open bill shows paid of total and what remains", () => {
     const bill = charge({ amount: 20 });

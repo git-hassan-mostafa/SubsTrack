@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { useStore } from "zustand";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
@@ -18,9 +17,9 @@ import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice"
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { MoneyText } from "@/shared/components/MoneyText";
 import { DataTable } from "@/shared/table/DataTable";
+import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
-import { useOpenPagedTable } from "@/shared/table/useOpenPagedTable";
 import type { SalesTable as SalesTableStore } from "@/state/salesTable";
 import { SalesFilters } from "./SalesFilters";
 import { SaleStatusChips } from "./SaleStatusChips";
@@ -38,27 +37,16 @@ const rowTone = (sale: Sale) => (sale.voidedAt ? "muted" : null);
 // Its writes all move money, so the stale signal re-reads it, never the doors.
 export function SalesTable({ table, branch, customerScoped = false, customer = null }: SalesTableProps) {
   const { t } = useTranslation();
-  const rows = useStore(table, (s) => s.rows);
-  const total = useStore(table, (s) => s.total);
-  const totalUsd = useStore(table, (s) => s.meta);
-  const loaded = useStore(table, (s) => s.loaded);
-  const loading = useStore(table, (s) => s.loading);
-  const error = useStore(table, (s) => s.error);
-  const query = useStore(table, (s) => s.query);
-  const load = useStore(table, (s) => s.load);
-  const setPage = useStore(table, (s) => s.setPage);
-  const setSearch = useStore(table, (s) => s.setSearch);
-  const setFilters = useStore(table, (s) => s.setFilters);
-  const clearFilters = useStore(table, (s) => s.clearFilters);
-  const clearError = useStore(table, (s) => s.clearError);
+  const paged = usePagedTable(table, branch);
+  const totalUsd = paged.meta;
+  const query = paged.query;
+  const setFilters = paged.setFilters;
   const currencies = useCurrencySlice((s) => s.items);
   const display = findCurrency(currencies, useDisplayCurrencyId());
   const userName = useUserNames();
   const branchColumn = useBranchColumn<Sale>(t("web.money_received.no_branch"));
   const doors = useSaleDoors();
   const { openReceipt } = doors;
-
-  useOpenPagedTable(table, branch);
 
   const rowLabel = useCallback((sale: Sale) => saleTitle(sale.id, sale.itemsSummary), []);
 
@@ -164,14 +152,8 @@ export function SalesTable({ table, branch, customerScoped = false, customer = n
             : { label: t("web.sales.record"), onClick: () => doors.recordSale(customer) }
         }
         columns={columns}
-        rows={rows}
-        total={total}
-        loaded={loaded}
-        loading={loading}
-        page={query.page}
-        pageSize={query.pageSize}
-        onPageChange={setPage}
-        search={{ value: query.search, onSearch: setSearch, placeholder: t("sales.search_placeholder") }}
+        {...paged.tableProps}
+        search={{ ...paged.search, placeholder: t("sales.search_placeholder") }}
         filters={<SalesFilters value={query.filters} onChange={setFilters} />}
         summary={
           totalUsd === null ? null : (
@@ -195,10 +177,6 @@ export function SalesTable({ table, branch, customerScoped = false, customer = n
           hint: t("web.sales.empty_hint"),
         }}
         filtered={!!query.search || hasSaleFilter(query.filters)}
-        onClearFilters={clearFilters}
-        error={error}
-        onDismissError={clearError}
-        onReload={() => void load()}
       />
       {doors.dialogs}
     </Stack>

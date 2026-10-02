@@ -19,7 +19,6 @@ import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
 import ReplayOutlined from "@mui/icons-material/ReplayOutlined";
 import type { LineDrafts } from "@shared/modules/customer/customer-plans/hooks/useLineDrafts";
 import type { LineRow } from "@shared/modules/customer/customer-plans/utils/lineDrafts";
-import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { DateField } from "@/shared/components/DateField";
@@ -35,7 +34,6 @@ interface ServiceLinesEditorProps {
 // The rows and their rules live in Shared useLineDrafts; this only draws them.
 export function ServiceLinesEditor({ drafts, branchId }: ServiceLinesEditorProps) {
   const { t } = useTranslation();
-  const { isAdmin } = useAuth();
   const [addPlanOpen, setAddPlanOpen] = useState(false);
 
   return (
@@ -72,7 +70,7 @@ export function ServiceLinesEditor({ drafts, branchId }: ServiceLinesEditorProps
                 row={row}
                 drafts={drafts}
                 branchId={branchId}
-                onAddPlan={isAdmin ? () => setAddPlanOpen(true) : undefined}
+                onAddPlan={() => setAddPlanOpen(true)}
               />
             ))}
           </TableBody>

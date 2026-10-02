@@ -24,7 +24,7 @@ export function useSkipMonths(customerId: string, lineId: string) {
         customerId,
         customerPlanId: lineId,
         billingMonth: entry.billingMonth,
-        note: skipping ? note : (entry.skip?.note ?? null),
+        note: skipping ? note.trim() : (entry.skip?.note ?? null),
       })),
       skipping,
       user.tenantId,

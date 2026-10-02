@@ -25,6 +25,7 @@ import {
 } from "@shared/modules/transaction/debts/utils/allDebtsFilter";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { SearchField } from "@/shared/components/SearchField";
 import { FilterBar } from "@/shared/table/FilterBar";
 import { FilterSelect } from "@/shared/table/FilterSelect";
@@ -109,6 +110,7 @@ export function AllDebtsTab({ view, branch, doors }: AllDebtsTabProps) {
           {dirty ? <Button onClick={clearAll}>{t("common.clear_filters")}</Button> : null}
         </FilterBar>
       </Stack>
+      {showingWrittenOff ? <ErrorBanner message={writtenOff.error} onDismiss={writtenOff.clearError} /> : null}
       <Paper variant="outlined" sx={{ px: 2, py: 1.5 }}>
         <Stack direction="row" spacing={2} sx={{ alignItems: "baseline", justifyContent: "space-between" }}>
           <Typography variant="body2" color="text.secondary">

@@ -12,7 +12,7 @@ import type { AppUser, UserRole } from "@shared/core/types";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
 import type { StaffRole } from "@shared/modules/admin/users/utils/types";
-import { isValidUsername } from "@shared/modules/admin/users/utils/userRules";
+import { isValidUsername, mayBeTenantWide, roleLabelKey } from "@shared/modules/admin/users/utils/userRules";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { useUserSlice } from "@shared/state/hooks/useUserSlice";
@@ -37,11 +37,6 @@ type UserForm = {
 };
 
 const STAFF_ROLES: readonly StaffRole[] = ["user", "admin"];
-const ROLE_LABEL_KEYS: Record<UserRole, string> = {
-  user: "users.user",
-  admin: "users.admin",
-  superadmin: "users.super",
-};
 
 // Accounts are created and re-passworded by edge functions, so this is online-only.
 export function UserFormDialog({ user: editUser, onClose, onSaved }: UserFormDialogProps) {
@@ -200,7 +195,7 @@ export function UserFormDialog({ user: editUser, onClose, onSaved }: UserFormDia
         >
           {roles.map((role) => (
             <ToggleButton key={role} value={role} sx={{ px: 3 }}>
-              {t(ROLE_LABEL_KEYS[role])}
+              {t(roleLabelKey(role))}
             </ToggleButton>
           ))}
         </ToggleButtonGroup>
@@ -209,7 +204,7 @@ export function UserFormDialog({ user: editUser, onClose, onSaved }: UserFormDia
       <BranchPicker
         value={form.branchId}
         onChange={(branchId) => change({ branchId })}
-        nullable={form.role !== "user"}
+        nullable={mayBeTenantWide(form.role)}
         nullLabel={t("branches.tenant_wide_admin")}
       />
     </FormDialog>

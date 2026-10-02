@@ -423,7 +423,7 @@ export function CustomerListScreen() {
       key: "quick-pay",
       group: "money",
       icon: "flash-outline",
-      label: t("payments.quick_pay.pay_now"),
+      label: t("payments.quick_pay.menu_label"),
       disabled: busy,
       onPress: () => {
         if (selected.length === 1) {
