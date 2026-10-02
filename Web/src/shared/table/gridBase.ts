@@ -4,7 +4,7 @@ export type RowTone = "muted" | "highlighted" | null;
 
 // Every second row is shaded so the eye can follow a row across the table.
 export function rowClassName(indexOnPage: number, tone: RowTone | undefined): string {
-  const classes = indexOnPage % 2 === 1 ? ["row-striped"] : [];
+  const classes = indexOnPage % 2 === 0 ? ["row-striped"] : [];
   if (tone) classes.push(`row-${tone}`);
   return classes.join(" ");
 }
