@@ -57,27 +57,40 @@ export function DebtsPage() {
     <Stack spacing={2}>
       <ErrorBanner message={error} onDismiss={clearError} />
       {doors.banners}
-      <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ alignItems: { md: "stretch" } }}>
-        <DebtsSummary summary={view?.summary ?? null} />
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "flex-end" }}>
-          <Tooltip title={t("web.table.refresh")}>
-            <span>
-              <IconButton aria-label={t("web.table.refresh")} disabled={loading} onClick={refresh}>
-                <RefreshIcon />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Button variant="contained" startIcon={<NoteAddOutlined />} onClick={() => doors.addCustomDebt()}>
+      <DebtsSummary summary={view?.summary ?? null} />
+      <Paper variant="outlined">
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", paddingInlineEnd: 2, minWidth: 0 }}>
+          <Tabs
+            value={tab}
+            onChange={(_event, next: DebtTab) => selectTab(next)}
+            variant="scrollable"
+            scrollButtons="auto"
+            aria-label={t("web.debts.tabs")}
+            sx={{ flexGrow: 1, minWidth: 0 }}
+          >
+            <Tab value="debtors" label={t("web.debts.debtors_tab")} />
+            <Tab value="all" label={t("debts.all_debts_title")} />
+            <Tab value="history" label={t("debts.history_title")} />
+          </Tabs>
+          {tab !== "history" ? (
+            <Tooltip title={t("web.table.refresh")}>
+              <span>
+                <IconButton aria-label={t("web.table.refresh")} disabled={loading} onClick={refresh}>
+                  <RefreshIcon />
+                </IconButton>
+              </span>
+            </Tooltip>
+          ) : null}
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<NoteAddOutlined />}
+            onClick={() => doors.addCustomDebt()}
+            sx={{ flexShrink: 0 }}
+          >
             {t("debts.add_custom_debt")}
           </Button>
         </Stack>
-      </Stack>
-      <Paper variant="outlined">
-        <Tabs value={tab} onChange={(_event, next: DebtTab) => selectTab(next)} aria-label={t("web.debts.tabs")}>
-          <Tab value="debtors" label={t("web.debts.debtors_tab")} />
-          <Tab value="all" label={t("debts.all_debts_title")} />
-          <Tab value="history" label={t("debts.history_title")} />
-        </Tabs>
         {loading && tab !== "history" ? <LinearProgress aria-label={t("web.loading")} /> : null}
       </Paper>
       {tab === "debtors" ? (
@@ -102,7 +115,7 @@ function DebtsSummary({ summary }: { summary: DebtSummary | null }) {
     { key: "manual", label: t("ledger.kind_manual"), usd: summary?.manualUsd ?? 0 },
   ];
   return (
-    <Paper variant="outlined" sx={{ px: 2.5, py: 2, flexGrow: 1 }}>
+    <Paper variant="outlined" sx={{ px: 2.5, py: 2 }}>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={{ xs: 1.5, sm: 4 }} sx={{ alignItems: { sm: "center" } }}>
         <Box sx={{ flexGrow: 1 }}>
           <Typography variant="body2" color="text.secondary">
