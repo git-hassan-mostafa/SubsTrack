@@ -111,6 +111,13 @@ Open DevTools → Network and filter on `sales`: each check below says whether t
 | 8.6 | Customer renamed       | Open Sales → rename a customer who has sales → open Sales                                               | One read; the Customer column shows the new name                                                |
 | 8.7 | Customer's sales page | `/customers/:id/sales` → open a receipt → void a payment                                                | The page reads again by itself                                                                  |
 | 8.8 | Another device         | Record a sale on the phone → open Sales on the web (already opened once)                                 | The sale is not there until you click Refresh                                                   |
+| 8.9 | Record here            | Sales, no search or filter → Record sale → save                                                          | The sale is at the top; the count goes up by 1; "Total sold" goes up by the sale; NO new sales read |
+| 8.10 | Edit here             | Row ⋮ → Edit sale → change the total → Save                                                              | The row changes in place; "Total sold" moves by the difference; no new sales read              |
+| 8.11 | Record with a filter  | Search an item (or pick a product or a date) → Record sale                                               | The table reads once (like the phone, only the server knows if the new sale matches)            |
+| 8.12 | Record from elsewhere | Open Sales → header Record sale (or a customer page) → save → open Sales                                  | The sale is already at the top; no new sales read                                               |
+| 8.13 | Customer's sales page | `/customers/:id/sales` → Record sale → save                                                              | The sale is at the top of that page; no new sales read                                          |
+| 8.14 | Customers still re-read | Open Customers once → record a pay-later sale for a customer → open Customers                         | One `customer-status` call; that customer's Debt went up                                       |
+| 8.15 | Save + money elsewhere | Record a sale, then collect a payment on another sale → open Sales                                      | One read (the collect is a different money write)                                              |
 
 ## 9. Sale form — record and edit (F2)
 

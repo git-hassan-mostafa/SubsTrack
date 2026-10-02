@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router";
-import { useStore } from "zustand";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import ArrowBack from "@mui/icons-material/ArrowBack";
-import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
-import { createSalesTable } from "@/state/salesTable";
+import { createSalesTable, trackCustomerSalesTable } from "@/state/salesTable";
 import { SalesTable } from "./SalesTable";
 
 export function CustomerSalesPage() {
@@ -23,10 +21,9 @@ function CustomerSales({ customerId }: { customerId: string }) {
   const customer = useCustomerSlice((s) => s.items.find((c) => c.id === customerId) ?? null);
   const fetchCustomer = useCustomerSlice((s) => s.fetchCustomer);
   const [table] = useState(() => createSalesTable(customerId));
-  const markStale = useStore(table, (s) => s.markStale);
   const backLabel = t("web.sales.back_to_customer");
 
-  useOwedChanged(markStale);
+  useEffect(() => trackCustomerSalesTable(table, customerId), [table, customerId]);
 
   useEffect(() => {
     if (!customer) void fetchCustomer(customerId);

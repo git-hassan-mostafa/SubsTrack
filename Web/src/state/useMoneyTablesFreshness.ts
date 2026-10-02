@@ -1,10 +1,10 @@
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import { markCustomersTableStale } from "./customersTable";
-import { markSalesTableStale } from "./salesTable";
+import { markSalesTablesStaleOnOwed } from "./salesTable";
 
 function markMoneyTablesStale(): void {
   markCustomersTableStale();
-  markSalesTableStale();
+  markSalesTablesStaleOnOwed();
 }
 
 // Mounted once in the frame: a money write anywhere dates both tables, shown or not.

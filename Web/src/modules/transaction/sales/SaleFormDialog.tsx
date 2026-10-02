@@ -17,6 +17,7 @@ import { useSendSalesInvoice } from "@/modules/invoicing/useSendSalesInvoice";
 import { AmountCollectedField } from "@/modules/ledger/collect/AmountCollectedField";
 import { CurrencyInput } from "@/shared/components/CurrencyInput";
 import { reloadProductsTableIfLoaded } from "@/state/productsTable";
+import { patchSaleTables, runSaleSave } from "@/state/salesTable";
 import { SaleItemsEditor } from "./SaleItemsEditor";
 
 interface SaleFormDialogProps {
@@ -35,11 +36,13 @@ export function SaleFormDialog({ sale, initialCustomer = null, onClose, onSaved 
     sale,
     initialCustomer,
     onSaved: async (saved, send) => {
+      patchSaleTables(saved, sale);
       reloadProductsTableIfLoaded();
       if (send) await sendInvoice([saved]);
       onSaved(saved, sale === null);
     },
   });
+  const save = (send: boolean) => runSaleSave(() => form.save(send));
   const { cart, customer, editing } = form;
   const saleTotal = form.total ?? 0;
   const sendable = whatsAppChatUrl(customer?.phoneNumber ?? null) !== null;
@@ -50,14 +53,14 @@ export function SaleFormDialog({ sale, initialCustomer = null, onClose, onSaved 
       open
       title={editing ? t("sales.edit_title") : t("web.sales.record")}
       onClose={onClose}
-      onSubmit={() => form.save(false)}
+      onSubmit={() => save(false)}
       dirty={form.dirty}
       error={form.error}
       onDismissError={form.clearError}
       submitLabel={editing ? t("common.save_changes") : t("web.sales.record")}
       submitDisabled={!form.canSave}
       secondarySubmit={
-        sendable ? { label: t("invoice.save_and_send_whatsapp"), onSubmit: () => form.save(true) } : undefined
+        sendable ? { label: t("invoice.save_and_send_whatsapp"), onSubmit: () => save(true) } : undefined
       }
       maxWidth="md"
     >

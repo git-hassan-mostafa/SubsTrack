@@ -30,6 +30,7 @@ export interface PagedState<T, F, M = undefined> {
   refreshIfStale: () => Promise<void>;
   patchRow: (row: T) => void;
   addRow: (row: T) => void;
+  setMeta: (meta: M) => void;
   setPage: (page: number, pageSize: number) => void;
   setSearch: (search: string) => void;
   setFilters: (filters: Partial<F>) => void;
@@ -155,6 +156,8 @@ export function createPagedStoreWithMeta<T extends { id: string }, F, M>(
       }
       set({ rows: [row, ...rows].slice(0, query.pageSize), total: total + 1 });
     },
+
+    setMeta: (meta) => set({ meta }),
 
     setPage: (page, pageSize) => {
       const { query } = get();
