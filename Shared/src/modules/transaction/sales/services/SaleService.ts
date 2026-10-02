@@ -27,6 +27,7 @@ import {
   toItemPayload,
   type ProductLineInput,
 } from "@shared/modules/transaction/sales/utils/saleLines";
+import { rebuildsSaleCash } from "@shared/modules/transaction/sales/utils/saleForm";
 
 // Frozen human summary of everything in a sale, e.g. "Water ×2, Installation".
 // Contains every line's name — products and services alike — so the Sales-tab
@@ -251,10 +252,12 @@ class SaleService {
     if (!input.customerId && collected + EPSILON < total) {
       throw new Error(i18n.t("errors.sale_walkin_must_be_paid"));
     }
-    const rebuild =
-      sale.amountPaid > 0 &&
-      (collected + EPSILON < sale.amountPaid ||
-        nextCurrencyId !== sale.currencyId);
+    const rebuild = rebuildsSaleCash(
+      sale.amountPaid,
+      collected,
+      sale.currencyId,
+      nextCurrencyId,
+    );
     if (rebuild && !input.actorUserId) {
       throw new Error(i18n.t("errors.sale_edit_actor_required"));
     }

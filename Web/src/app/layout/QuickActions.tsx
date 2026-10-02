@@ -7,6 +7,7 @@ import HistoryOutlined from "@mui/icons-material/HistoryOutlined";
 import MoveToInboxOutlined from "@mui/icons-material/MoveToInboxOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import PersonAddOutlined from "@mui/icons-material/PersonAddOutlined";
+import PointOfSaleOutlined from "@mui/icons-material/PointOfSaleOutlined";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { sortActions, type ActionGroup } from "@shared/shared/lib/actionOrder";
 import { useUiStore } from "@shared/shared/lib/uiStore";
@@ -31,6 +32,13 @@ function useQuickActions(): QuickAction[] {
       labelKey: "ledger.collect_money",
       icon: PaymentsOutlined,
       onClick: () => openQuickAction("collect"),
+    },
+    {
+      key: "sale",
+      group: "create",
+      labelKey: "web.sales.record",
+      icon: PointOfSaleOutlined,
+      onClick: () => openQuickAction("sale"),
     },
     {
       key: "customer",

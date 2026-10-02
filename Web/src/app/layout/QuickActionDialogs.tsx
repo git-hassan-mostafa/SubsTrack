@@ -4,6 +4,7 @@ import { reloadProductsTableIfLoaded } from "@/state/productsTable";
 import { BatchRestockDialog } from "@/modules/admin/products/BatchRestockDialog";
 import { CustomerFormDialog } from "@/modules/customer/customers/CustomerFormDialog";
 import { CollectQuickActionDialog } from "@/modules/ledger/collect/CollectQuickActionDialog";
+import { SaleFormDialog } from "@/modules/transaction/sales/SaleFormDialog";
 
 // The one host for dialogs a header quick action opens, on any page.
 export function QuickActionDialogs() {
@@ -23,6 +24,17 @@ export function QuickActionDialogs() {
       );
     case "customer":
       return <CustomerFormDialog customer={null} onClose={close} onSaved={close} />;
+    case "sale":
+      return (
+        <SaleFormDialog
+          sale={null}
+          onClose={close}
+          onSaved={() => {
+            close();
+            reloadCollectionsTableIfLoaded();
+          }}
+        />
+      );
     case "batchRestock":
       return <BatchRestockDialog onClose={close} onSaved={reloadProductsTableIfLoaded} />;
     default:

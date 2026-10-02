@@ -16,4 +16,3 @@ export { VoidCollectionDialog } from "./components/VoidCollectionDialog";
 export { SharedBillsWarning } from "./components/SharedBillsWarning";
 export { VoidConfirmDialog } from "./components/VoidConfirmDialog";
 export { AmountCollectedSection } from "./components/AmountCollectedSection";
-export type { PaymentMode } from "./components/AmountCollectedSection";

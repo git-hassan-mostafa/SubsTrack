@@ -22,6 +22,7 @@ interface CurrencyInputProps {
   onChange: (next: CurrencyAmount) => void;
   currencies: Currency[];
   error?: string | null;
+  helperText?: string;
   placeholder?: string;
   lockCurrency?: boolean;
   disabled?: boolean;
@@ -37,6 +38,7 @@ export function CurrencyInput({
   onChange,
   currencies,
   error,
+  helperText,
   placeholder,
   lockCurrency = false,
   disabled = false,
@@ -77,7 +79,7 @@ export function CurrencyInput({
       size={size}
       disabled={disabled}
       error={Boolean(error)}
-      helperText={error ?? undefined}
+      helperText={error ?? helperText}
       placeholder={placeholder ?? "0.00"}
       onChange={(event) => {
         const next = decimalDigitsOnly(event.target.value);

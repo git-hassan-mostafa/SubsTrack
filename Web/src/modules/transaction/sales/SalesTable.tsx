@@ -6,7 +6,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { BranchFilter } from "@shared/core/constants";
-import type { Sale } from "@shared/core/types";
+import type { Customer, Sale } from "@shared/core/types";
 import { findCurrency, formatMoney, formatMoneyPair, snapshotCurrency } from "@shared/core/utils/currency";
 import { formatDateTime } from "@shared/core/utils/date";
 import { receiptId, saleTitle } from "@shared/core/utils/receiptId";
@@ -30,12 +30,13 @@ interface SalesTableProps {
   table: SalesTableStore;
   branch: BranchFilter;
   customerScoped?: boolean;
+  customer?: Customer | null;
 }
 
 const rowTone = (sale: Sale) => (sale.voidedAt ? "muted" : null);
 
 // Its writes all move money, so the stale signal re-reads it, never the doors.
-export function SalesTable({ table, branch, customerScoped = false }: SalesTableProps) {
+export function SalesTable({ table, branch, customerScoped = false, customer = null }: SalesTableProps) {
   const { t } = useTranslation();
   const rows = useStore(table, (s) => s.rows);
   const total = useStore(table, (s) => s.total);
@@ -157,6 +158,11 @@ export function SalesTable({ table, branch, customerScoped = false }: SalesTable
       <ErrorBanner message={doors.notice} onDismiss={doors.clearNotice} severity="info" />
       <DataTable<Sale>
         label={t("sales.title")}
+        add={
+          customerScoped && !customer
+            ? undefined
+            : { label: t("web.sales.record"), onClick: () => doors.recordSale(customer) }
+        }
         columns={columns}
         rows={rows}
         total={total}

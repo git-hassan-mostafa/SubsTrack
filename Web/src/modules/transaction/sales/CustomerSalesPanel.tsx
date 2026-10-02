@@ -5,6 +5,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import AddIcon from "@mui/icons-material/Add";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Customer, Sale } from "@shared/core/types";
 import { formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
@@ -98,16 +99,21 @@ export function CustomerSalesPanel({ customer }: { customer: Customer }) {
     <PanelSection
       title={t("sales.customer_panel_title")}
       actions={
-        sales.hasMore ? (
-          <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
-            <Typography variant="body2" color="text.secondary">
-              {t("web.customer_detail.latest_sales", { limit: PREVIEW_LIMIT })}
-            </Typography>
-            <Button variant="outlined" size="small" href={`/customers/${customer.id}/sales`}>
-              {t("sales.show_all")}
-            </Button>
-          </Stack>
-        ) : null
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+          {sales.hasMore ? (
+            <>
+              <Typography variant="body2" color="text.secondary">
+                {t("web.customer_detail.latest_sales", { limit: PREVIEW_LIMIT })}
+              </Typography>
+              <Button variant="outlined" size="small" href={`/customers/${customer.id}/sales`}>
+                {t("sales.show_all")}
+              </Button>
+            </>
+          ) : null}
+          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={() => doors.recordSale(customer)}>
+            {t("web.sales.record")}
+          </Button>
+        </Stack>
       }
     >
       <ErrorBanner message={sales.error} onDismiss={sales.clearError} />

@@ -44,7 +44,7 @@ function CustomerSales({ customerId }: { customerId: string }) {
           {customer?.name ?? ""}
         </Typography>
       </Stack>
-      <SalesTable table={table} branch={null} customerScoped />
+      <SalesTable table={table} branch={null} customerScoped customer={customer} />
     </Stack>
   );
 }

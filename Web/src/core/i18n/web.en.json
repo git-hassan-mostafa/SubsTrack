@@ -211,6 +211,12 @@
     "no_items": "No products or services on this sale. It was recorded as a total of {{amount}}.",
     "total_sold": "Total sold (voided sales not counted)",
     "empty_hint": "Sales show here as soon as one is recorded.",
-    "back_to_customer": "Back to the customer"
+    "back_to_customer": "Back to the customer",
+    "record": "Record sale",
+    "new_customer": "Add a new customer",
+    "new_product": "Add a new product",
+    "new_service": "Add a new service",
+    "line_total": "Line total",
+    "amount_collected": "Money collected now"
   }
 }

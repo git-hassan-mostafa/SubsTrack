@@ -46,7 +46,7 @@ Web/src/
                                #   audit,billing,tenant-settings}, customer/{customers,customer-plans,customer-detail (page + details panel),customer-payments (months panel + table)},
                                #   transaction/debts (the customer page's debts panel),
                                #   transaction/sales (Sales page + customer sales page on one SalesTable,
-                               #   useSaleDoors: receipt, void, invoice; the customer page's sales panel),
+                               #   useSaleDoors: receipt, record + edit (SaleFormDialog), void, invoice; the customer page's sales panel),
                                #   ledger/{collect,bill,payment,void,received} (collect, bill + useBillDialog,
                                #   payment detail, correct + void dialogs, the Money received page),
                                #   invoicing (receipts) so far)

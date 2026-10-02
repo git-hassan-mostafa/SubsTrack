@@ -636,3 +636,16 @@ The phone list, menu, receipt and void now run the same Shared rules as the web 
 | 10.5 | Filters                   | Set a product + dates + status, then Clear filters                | Same rows as before F1; the filter dot clears                                                                   |
 | 10.6 | One invoice for many      | Select 2 sales of one customer → Send invoice; then two customers | One message; mixed customers → "Not available" with the same text as before                                     |
 | 10.7 | Paging order              | Two sales recorded in the same second                             | They keep the same order on every scroll (ties now break on created time, then id)                              |
+
+## 11. Shared sale form (F2)
+
+The phone sale sheet now runs the same Shared hooks as the web sale form ([web/sales.md](web/sales.md) §9): `useSaleForm`, `useSaleCart`, `saleCart.ts`, `saleForm.ts`, `amountCollected.ts`. `SaleService.updateSale` asks `rebuildsSaleCash` too. Unit tests: `tests/suites/saleForm.test.ts` (TC-SF-\*).
+
+| #    | Scenario                 | Steps                                                                        | Expected result                                                                                                  |
+| ---- | ------------------------ | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 11.1 | Record as before         | Record a sale with a product, a service and a one-off job                    | Same sheet, prices, stock caps and "N left" as before F2                                                         |
+| 11.2 | Edit keeps a typed total | Edit a sale saved with a discount → close at once; open again, change notes → Save | Closing asks nothing; the saved total stays the discounted one (before F2 it was silently reset to the line sum) |
+| 11.3 | Total follows the lines  | On that edit, change a quantity                                              | The total becomes the line sum again                                                                             |
+| 11.4 | Partial note             | Partial → type more than the total, the total, then half                     | Red error / "Fully paid" / the debt note, as before                                                              |
+| 11.5 | Lower the cash on edit   | Edit a paid sale → Pay later → Save                                          | The "Change the money collected?" confirm, as before                                                             |
+| 11.6 | Save & send              | Record for a customer with a phone → Save & send on WhatsApp                 | Saves, then WhatsApp opens                                                                                       |

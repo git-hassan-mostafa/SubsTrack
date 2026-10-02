@@ -22,7 +22,7 @@ interface ProductFormDialogProps {
   product: Product | null;
   onClose: () => void;
   onSaved: (saved: Product) => void;
-  onAdjustStock: (product: Product) => void;
+  onAdjustStock?: (product: Product) => void;
 }
 
 type ProductForm = {
@@ -166,7 +166,7 @@ export function ProductFormDialog({
               {product.stockOnHand}
             </Typography>
           </Stack>
-          {product.active ? (
+          {product.active && onAdjustStock ? (
             <Button onClick={() => onAdjustStock(product)}>
               {t("products.adjust_stock_title")}
             </Button>

@@ -39,13 +39,14 @@ interface SaleReceiptDialogProps {
   sale: Sale;
   onClose: () => void;
   onSend: (sale: Sale) => void;
+  onEdit?: (sale: Sale) => void;
   onCollect?: (sale: Sale, owed: number) => void;
   onVoid?: (sale: Sale) => void;
   onChanged?: (voided: Collection, replacement?: Collection) => void;
 }
 
 // A sale is its bill too: the items, then every payment that reached it.
-export function SaleReceiptDialog({ sale, onClose, onSend, onCollect, onVoid, onChanged }: SaleReceiptDialogProps) {
+export function SaleReceiptDialog({ sale, onClose, onSend, onEdit, onCollect, onVoid, onChanged }: SaleReceiptDialogProps) {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
@@ -70,6 +71,15 @@ export function SaleReceiptDialog({ sale, onClose, onSend, onCollect, onVoid, on
   const loading = !!sale.chargeId && bill.loading;
 
   const actions: TableAction[] = [];
+  if (onEdit && !facts.voided) {
+    actions.push({
+      key: "edit",
+      group: "manage",
+      label: t("sales.edit_sale"),
+      icon: SALE_ACTION_ICONS.edit,
+      onClick: () => onEdit(sale),
+    });
+  }
   if (isAdmin) {
     actions.push({
       key: "history",

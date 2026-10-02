@@ -1,6 +1,6 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { Sale } from "@shared/core/types";
+import type { Customer, Sale } from "@shared/core/types";
 import { formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
 import { saleTitle } from "@shared/core/utils/receiptId";
 import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
@@ -20,17 +20,23 @@ import type { TableAction } from "@/shared/table/tableAction";
 import { BillHistoryDialog } from "@/modules/admin/audit/RecordHistoryDialog";
 import { useSendSalesInvoice } from "@/modules/invoicing/useSendSalesInvoice";
 import { useCollectDialog } from "@/modules/ledger/collect/useCollectDialog";
+import { reloadProductsTableIfLoaded } from "@/state/productsTable";
 import { SALE_ACTION_ICONS } from "./saleActionIcons";
+import { SaleFormDialog } from "./SaleFormDialog";
 import { SaleReceiptDialog } from "./SaleReceiptDialog";
 import { VoidSalesDialog } from "./VoidSalesDialog";
 
 interface SaleDoorOptions {
   onChanged?: () => void;
+  onSaved?: (sale: Sale, created: boolean) => void;
 }
+
+type SaleFormTarget = { sale: Sale | null; customer: Customer | null };
 
 export interface SaleDoors {
   openReceipt: (sale: Sale) => void;
   openSale: (saleId: string) => Promise<void>;
+  recordSale: (customer?: Customer | null) => void;
   rowActions: (sale: Sale) => TableAction[];
   bulkActions: (selected: Sale[]) => TableAction[];
   error: string | null;
@@ -43,7 +49,7 @@ export interface SaleDoors {
 const canSend = (phone: string | null) => whatsAppChatUrl(phone) !== null;
 
 // Every web door onto a sale; `onChanged` re-reads after any write.
-export function useSaleDoors({ onChanged }: SaleDoorOptions = {}): SaleDoors {
+export function useSaleDoors({ onChanged, onSaved }: SaleDoorOptions = {}): SaleDoors {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
@@ -52,6 +58,7 @@ export function useSaleDoors({ onChanged }: SaleDoorOptions = {}): SaleDoors {
   const [receipt, setReceipt] = useState<Sale | null>(null);
   const [voidTarget, setVoidTarget] = useState<SaleVoidTarget | null>(null);
   const [historySale, setHistorySale] = useState<Sale | null>(null);
+  const [formTarget, setFormTarget] = useState<SaleFormTarget | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const { openOne } = collect;
@@ -67,6 +74,11 @@ export function useSaleDoors({ onChanged }: SaleDoorOptions = {}): SaleDoors {
 
   const send = useCallback((sale: Sale) => void sendInvoice([sale]), [sendInvoice]);
 
+  const edit = useCallback((sale: Sale) => {
+    setReceipt(null);
+    setFormTarget({ sale, customer: null });
+  }, []);
+
   const openSale = useCallback(async (saleId: string) => {
     setError(null);
     try {
@@ -80,6 +92,7 @@ export function useSaleDoors({ onChanged }: SaleDoorOptions = {}): SaleDoors {
   const voided = (result: SaleVoidResult) => {
     setVoidTarget(null);
     setReceipt(null);
+    reloadProductsTableIfLoaded();
     if (result.failed > 0) setNotice(t("common.bulk_void_summary", { ok: result.ok, failed: result.failed }));
     onChanged?.();
   };
@@ -90,6 +103,7 @@ export function useSaleDoors({ onChanged }: SaleDoorOptions = {}): SaleDoors {
       const currency = snapshotCurrency(sale, currencies);
       const run: Partial<Record<SaleActionKey, () => void>> = {
         view: () => setReceipt(sale),
+        edit: () => edit(sale),
         collect: () => collectRest(sale, owed),
         invoice: () => send(sale),
         history: () => setHistorySale(sale),
@@ -112,7 +126,7 @@ export function useSaleDoors({ onChanged }: SaleDoorOptions = {}): SaleDoors {
         ];
       });
     },
-    [collectRest, currencies, isAdmin, send, t],
+    [collectRest, currencies, edit, isAdmin, send, t],
   );
 
   const bulkActions = useCallback(
@@ -143,6 +157,7 @@ export function useSaleDoors({ onChanged }: SaleDoorOptions = {}): SaleDoors {
   return {
     openReceipt: setReceipt,
     openSale,
+    recordSale: (customer = null) => setFormTarget({ sale: null, customer }),
     rowActions,
     bulkActions,
     error,
@@ -156,12 +171,24 @@ export function useSaleDoors({ onChanged }: SaleDoorOptions = {}): SaleDoors {
             sale={receipt}
             onClose={() => setReceipt(null)}
             onSend={send}
+            onEdit={edit}
             onCollect={(sale, owed) => {
               setReceipt(null);
               collectRest(sale, owed);
             }}
             onVoid={(sale) => setVoidTarget(saleVoidTarget([sale]))}
             onChanged={() => onChanged?.()}
+          />
+        ) : null}
+        {formTarget ? (
+          <SaleFormDialog
+            sale={formTarget.sale}
+            initialCustomer={formTarget.customer}
+            onClose={() => setFormTarget(null)}
+            onSaved={(saved, created) => {
+              setFormTarget(null);
+              onSaved?.(saved, created);
+            }}
           />
         ) : null}
         {voidTarget ? (

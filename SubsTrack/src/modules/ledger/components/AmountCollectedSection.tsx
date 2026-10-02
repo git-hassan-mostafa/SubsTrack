@@ -6,8 +6,10 @@ import { Text } from "@/src/shared/components/Text";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { COLORS } from "@/src/shared/constants";
-
-export type PaymentMode = "full" | "partial" | "debt";
+import {
+  partialOutcome,
+  type PaymentMode,
+} from "@shared/modules/ledger/utils/amountCollected";
 
 interface Props {
   paymentMode: PaymentMode;
@@ -22,11 +24,7 @@ interface Props {
   allowDebt?: boolean;
 }
 
-/**
- * How much of a bill is being collected right now: all of it, part of it, or
- * none (pay later). Lives in the ledger module because that is what it is —
- * the shape of an incoming hand-over, whatever raised the bill.
- */
+// How much of a bill is handed over now; the rule is Shared `amountCollected`.
 export function AmountCollectedSection({
   paymentMode,
   onPaymentModeChange,
@@ -41,6 +39,7 @@ export function AmountCollectedSection({
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
+  const outcome = partialOutcome(amountDue, amountPaid);
 
   const modes: PaymentMode[] = allowDebt
     ? ["full", "partial", "debt"]
@@ -98,46 +97,29 @@ export function AmountCollectedSection({
             lockCurrency
             onFocus={onFocusClearError}
           />
-          {amountDue != null && amountPaid != null
-            ? (() => {
-                const balance = amountDue - amountPaid;
-                if (balance < 0) {
-                  return (
-                    <Text
-                      fontWeight="SemiBold"
-                      className="text-sm mt-1 text-danger"
-                    >
-                      {t("errors.amount_paid_exceeds_due")}
-                    </Text>
-                  );
-                }
-                if (balance <= 0) {
-                  return (
-                    <Text
-                      fontWeight="SemiBold"
-                      className="text-sm mt-1 text-green-600"
-                    >
-                      {t("payments.balance_cleared")}
-                    </Text>
-                  );
-                }
-                return (
-                  <View className="mt-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 flex-row items-start gap-2">
-                    <Ionicons
-                      name="information-circle-outline"
-                      size={16}
-                      color={COLORS.warning}
-                      style={{ marginTop: 1 }}
-                    />
-                    <Text className="flex-1 text-xs text-amber-700 leading-5">
-                      {t("payments.partial_debt_notice", {
-                        amount: formatAmount(balance),
-                      })}
-                    </Text>
-                  </View>
-                );
-              })()
-            : null}
+          {outcome?.kind === "exceeds" ? (
+            <Text fontWeight="SemiBold" className="text-sm mt-1 text-danger">
+              {t("errors.amount_paid_exceeds_due")}
+            </Text>
+          ) : outcome?.kind === "cleared" ? (
+            <Text fontWeight="SemiBold" className="text-sm mt-1 text-green-600">
+              {t("payments.balance_cleared")}
+            </Text>
+          ) : outcome?.kind === "owes" ? (
+            <View className="mt-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 flex-row items-start gap-2">
+              <Ionicons
+                name="information-circle-outline"
+                size={16}
+                color={COLORS.warning}
+                style={{ marginTop: 1 }}
+              />
+              <Text className="flex-1 text-xs text-amber-700 leading-5">
+                {t("payments.partial_debt_notice", {
+                  amount: formatAmount(outcome.balance),
+                })}
+              </Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
     </View>
