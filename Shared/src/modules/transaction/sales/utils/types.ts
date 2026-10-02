@@ -1,5 +1,5 @@
 import { BranchFilter } from "@shared/core/constants";
-import { Currency, Product, Sale, Service } from "@shared/core/types";
+import { Currency, PageWindow, Product, Sale, Service } from "@shared/core/types";
 
 export interface FindSalesOptions {
   page?: number;
@@ -12,6 +12,8 @@ export interface FindSalesOptions {
   includeVoided?: boolean;
   voidedOnly?: boolean;
 }
+
+export type SalePageQuery = Omit<FindSalesOptions, "page"> & PageWindow;
 
 // One line in the form's cart. `unitAmount` is already expressed in the sale's
 // currency (the form auto-converts the catalog price into it) on both variants.

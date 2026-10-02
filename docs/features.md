@@ -1200,6 +1200,21 @@ write goes on to read anyway (`voidChargeWithPayments` needs their ids
 regardless). A number in that sentence does not justify a round trip on the way
 into a dialog.
 
+### Where the sales-list rules live (both apps)
+
+The phone Sales tab and the web Sales page read the same filter shape,
+`Shared/src/modules/transaction/sales/utils/saleFilters.ts` (`saleFindOptions`
+turns a choice into the repository options; `hasSaleFilter` says whether the
+list is narrowed). A sale's ⋮ rows are `saleMenuItems` in `saleView.ts`
+(History is admin-only, like every audit read), the void confirm names
+`saleVoidTarget` (live sales + their bills), the receipt's detail rows are
+`saleInfoRows`, and the void itself is `useVoidSales` (null keeps the confirm
+open when nothing went). The web pages through `ISaleRepository.findPage`
+(both impls, ordered `sold_at, created_at, id` newest first); the phone keeps
+`findAll` with infinite scroll. A month / period total NEVER counts a voided
+sale, even under "Live and voided" (gotcha #178), and the Supabase total reads
+past the 1000-row cap (#175).
+
 ### The sale writes its own bill
 
 `SaleService.createSale` passes a `charge` alongside the header, the lines and

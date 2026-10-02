@@ -1,11 +1,12 @@
 import type { BranchFilter } from "@shared/core/constants";
+import type { Page } from "@shared/core/types";
 import type { DbSale, DbSaleItem } from "@shared/core/types/db";
 import type { CreateStockMovementPayload } from "@shared/modules/admin/products/repository/IProductRepository";
 import type {
   CreateChargePayload,
   UpdateChargePayload,
 } from "@shared/modules/ledger/repository/IChargeRepository";
-import type { FindSalesOptions } from "../utils/types";
+import type { FindSalesOptions, SalePageQuery } from "../utils/types";
 
 // The bill a sale raises, minus the one column the repository fills in — the
 // sale's id, which does not exist until the header is inserted. Exactly the
@@ -77,6 +78,7 @@ export type UpdateSalePayload = Pick<
 
 export interface ISaleRepository {
   findAll(opts?: FindSalesOptions): Promise<DbSale[]>;
+  findPage(query: SalePageQuery): Promise<Page<DbSale>>;
   findByCustomer(customerId: string, limit?: number): Promise<DbSale[]>;
   findById(id: string): Promise<DbSale | null>;
   create(payload: CreateSalePayload): Promise<DbSale>;

@@ -18,8 +18,12 @@ import {
 } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
-import { formatDate } from "@shared/core/utils/date";
-import { receiptId, saleTitle } from "@shared/core/utils/receiptId";
+import { saleTitle } from "@shared/core/utils/receiptId";
+import {
+  saleInfoRows,
+  saleVoidTarget,
+} from "@shared/modules/transaction/sales/utils/saleView";
+import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { BillHero, BillHistorySheet, BillPaymentsList } from "@/src/modules/ledger";
@@ -47,6 +51,7 @@ export function SaleDetailSheet({
   const displayCurrencyId = useDisplayCurrencyId();
   const { sendSaleInvoice } = useSendInvoice();
   const { isAdmin } = useAuth();
+  const userName = useUserNames();
 
   const [voidMode, setVoidMode] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -114,6 +119,7 @@ export function SaleDetailSheet({
     : sale.itemsSummary;
   const remaining = sale.totalAmount - sale.amountPaid;
   const showTotals = multipleItems || partiallyPaid;
+  const infoRows = saleInfoRows(sale, t, userName).filter((row) => !!row.value);
   const totalsOutsideItems = items.length === 0 && partiallyPaid;
 
   return (
@@ -140,8 +146,7 @@ export function SaleDetailSheet({
 
       {voidMode ? (
         <SaleBulkVoidSheet
-          saleIds={[sale.id]}
-          chargeIds={sale.chargeId ? [sale.chargeId] : []}
+          {...saleVoidTarget([sale])}
           onVoided={(result) => {
             setVoidMode(false);
             onVoided?.(result);
@@ -151,7 +156,6 @@ export function SaleDetailSheet({
         />
       ) : null}
 
-      {/* Partial payment notice */}
       {partiallyPaid ? (
         <View className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-4">
           <Text className="text-sm text-amber-700">
@@ -160,7 +164,6 @@ export function SaleDetailSheet({
         </View>
       ) : null}
 
-      {/* Products card — one row per line, with a totals footer */}
       {items.length > 0 ? (
         <View className={`${CARD_SURFACE} overflow-hidden mb-4`}>
           <View className="flex-row items-center bg-gray-50 px-4 py-3 border-b border-gray-100">
@@ -211,9 +214,6 @@ export function SaleDetailSheet({
         </View>
       ) : null}
 
-      {/* Every hand-over that reached this sale — the same list a month bill
-          shows, because a sale and a month are one charges row to the ledger.
-          A lean read carries no chargeId, so there is nothing to load. */}
       {sale.chargeId ? (
         <View className="mb-4">
           <BillPaymentsList
@@ -231,33 +231,20 @@ export function SaleDetailSheet({
         </View>
       ) : null}
 
-      {/* Detail rows card */}
       <View className={`${CARD_SURFACE} overflow-hidden mb-4`}>
-        <Row label={t("sales.sold_at_label")} value={formatDate(sale.soldAt)} />
-        <Row
-          label={t("sales.receipt_id_label")}
-          value={receiptId(sale.id)}
-          last={!sale.notes && !(voided && sale.voidReason)}
-        />
-        {sale.notes ? (
+        {infoRows.map((row, i) => (
           <Row
-            label={t("sales.notes_label")}
-            value={sale.notes}
-            last={!(voided && sale.voidReason)}
+            key={row.key}
+            label={row.label}
+            value={row.value ?? ""}
+            valueColor={
+              row.key === "void_reason" ? "text-red-600" : undefined
+            }
+            last={i === infoRows.length - 1}
           />
-        ) : null}
-        {voided && sale.voidReason ? (
-          <Row
-            label={t("sales.void_reason_label")}
-            value={sale.voidReason}
-            valueColor="text-red-600"
-            last
-          />
-        ) : null}
+        ))}
       </View>
 
-      {/* Send the receipt to the customer. A voided sale is not a receipt, so it
-          is never sendable. */}
       {!voided && !voidMode ? (
         <SendOnWhatsAppButton
           phone={sale.customer?.phoneNumber}
@@ -331,9 +318,7 @@ function TotalsFooter({
   );
 }
 
-// One line: name + "qty × unit price" on the left, line total on the right. A
-// service line is marked with a small icon, so a receipt shows at a glance which
-// part of the bill was labour rather than goods.
+// A service line has a tool icon and no count: labour is one job at one price.
 function ItemRow({
   item,
   index,
@@ -377,7 +362,6 @@ function ItemRow({
             {item.itemNameSnapshot}
           </Text>
         </View>
-        {/* A service has no count — "1 × $25" next to a $25 total reads as noise */}
         {isService ? null : (
           <Text className="text-xs text-gray-400 mt-0.5">
             {item.quantity} × {format(item.unitAmount)}

@@ -26,7 +26,9 @@ export type InfoKey =
   | "void_reason"
   | "written_off_at"
   | "written_off_by"
-  | "write_off_reason";
+  | "write_off_reason"
+  | "sold_at"
+  | "receipt_id";
 
 export interface LabeledValue {
   key: InfoKey;

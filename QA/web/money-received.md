@@ -49,7 +49,7 @@ Run: `cd Web && npm run dev`, with `Web/.env.local` pointing at the **test** pro
 | 3.1 | Payment details     | Click a Received on date, or ⋮ → Payment details        | The payment details dialog opens AT ONCE with the row's facts (100 rows per page too), then refreshes ([bill.md](bill.md) §2) |
 | 3.2 | One bill            | Click "Paid for" on the $20 month payment               | A spinner in the cell if the bill must be read, then the bill dialog for that month (read-only: no Collect, no Void) |
 | 3.3 | Many bills          | The month + sale payment                                | "Paid for" is plain text; open details → click a bill in "This pays" → its bill dialog                               |
-| 3.4 | A sale bill         | Open the sale bill from details                         | It opens as a plain bill (the web sale receipt comes with the Sales page)                                           |
+| 3.4 | A sale bill         | Open the sale bill from details (or its Paid for link)  | The **sale receipt** opens (web/sales.md §3, §7)                                                                    |
 | 3.5 | Change inside       | In a bill dialog, void one of its payments, close        | The Money received table re-reads: that payment is greyed and the total dropped                                     |
 
 ## 4. Row actions

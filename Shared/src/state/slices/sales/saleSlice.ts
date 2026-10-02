@@ -5,15 +5,10 @@ import { addSale, applyCollectionToSales, applyWriteOffToSales, applyVoidedSales
 import { cartUnits, savedUnits, stockDelta } from "@shared/modules/transaction/sales/utils/saleLines";
 import saleService from "@shared/modules/transaction/sales/services/SaleService";
 import type { CreateSaleInput, SaleVoidResult, UpdateSaleInput } from "@shared/modules/transaction/sales/utils/types";
+import { hasSaleFilter, saleFindOptions, type SaleFilterChoice, type SaleStatus } from "@shared/modules/transaction/sales/utils/saleFilters";
 import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
 import { addMonthTotal } from "@shared/shared/lib/monthSections";
 import type { GlobalState } from "@shared/state/globalStore";
-
-/**
- * Which sales the list may hold. `live` is the DEFAULT and the unfiltered
- * state — a voided sale is only ever shown because someone asked for it.
- */
-export type SaleStatus = "live" | "voided" | "all";
 
 export interface SaleSlice {
   items: Sale[];
@@ -62,38 +57,20 @@ export interface SaleSlice {
   reset: () => void;
 }
 
-/**
- * Is the list narrowed right now? A patched row is always correct in itself, but
- * whether it still BELONGS to a filtered list is a server question — the search
- * matches the frozen summary or the customer's name — and answering it here
- * would duplicate the query. So a filtered list re-reads after a write; the
- * normal, unfiltered one never does.
- */
-const isFiltered = (s: SaleSlice): boolean =>
-  !!(
-    s.searchQuery ||
-    s.customerFilter ||
-    s.productFilter ||
-    s.fromDate ||
-    s.toDate ||
-    s.status !== "live"
-  );
-
-/**
- * The filters both reads share. A voided sale is a record of what happened, so
- * the list can show it — the section totals drop it instead (a voided sale sold
- * nothing), which the repository's monthlyTotals enforces.
- */
-const filterOptions = (s: SaleSlice, branchFilter: BranchFilter) => ({
-  searchQuery: s.searchQuery || undefined,
-  branchFilter,
+const filterChoice = (s: SaleSlice): SaleFilterChoice => ({
   customerId: s.customerFilter?.id ?? null,
   productId: s.productFilter?.id ?? null,
   fromDate: s.fromDate,
   toDate: s.toDate,
-  includeVoided: s.status !== "live",
-  voidedOnly: s.status === "voided",
+  status: s.status,
 });
+
+// A filtered list re-reads after a write; whether a row still belongs is a server question.
+const isFiltered = (s: SaleSlice): boolean =>
+  !!s.searchQuery || hasSaleFilter(filterChoice(s));
+
+const filterOptions = (s: SaleSlice, branchFilter: BranchFilter) =>
+  saleFindOptions(filterChoice(s), branchFilter, s.searchQuery);
 
 export const createSaleSlice: StateCreator<
   GlobalState,
@@ -253,16 +230,7 @@ export const createSaleSlice: StateCreator<
   },
 
   clearFilters: async () => {
-    const { customerFilter, productFilter, fromDate, toDate, status } =
-      get().sales;
-    if (
-      !customerFilter &&
-      !productFilter &&
-      !fromDate &&
-      !toDate &&
-      status === "live"
-    )
-      return;
+    if (!hasSaleFilter(filterChoice(get().sales))) return;
     set((state) => {
       state.sales.customerFilter = null;
       state.sales.productFilter = null;

@@ -9,16 +9,11 @@ import {
   buildSalesInvoiceText,
 } from "@shared/modules/invoicing/utils/invoiceText";
 import {
+  INVOICE_UNREACHABLE_KEYS,
   resolveInvoiceRecipient,
   type InvoiceRecipientRow,
 } from "@shared/modules/invoicing/utils/invoiceRecipient";
 import { useWhatsApp } from "./useWhatsApp";
-
-const UNREACHABLE_MESSAGE = {
-  mixed: "invoice.mixed_customers",
-  no_customer: "invoice.no_customer",
-  no_phone: "invoice.no_phone",
-} as const;
 
 // The one place that turns a saved record into a WhatsApp message.
 export function useSendInvoice() {
@@ -33,7 +28,7 @@ export function useSendInvoice() {
       if (result.reason !== "empty") {
         await confirm({
           title: t("common.not_available"),
-          message: t(UNREACHABLE_MESSAGE[result.reason]),
+          message: t(INVOICE_UNREACHABLE_KEYS[result.reason]),
           confirmLabel: t("common.close"),
           hideCancel: true,
         });

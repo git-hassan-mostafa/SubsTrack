@@ -29,6 +29,8 @@ import { UsersPage } from "@/modules/admin/users/UsersPage";
 import { CustomerDetailPage } from "@/modules/customer/customer-detail/CustomerDetailPage";
 import { CustomersPage } from "@/modules/customer/customers/CustomersPage";
 import { MoneyReceivedPage } from "@/modules/ledger/received/MoneyReceivedPage";
+import { CustomerSalesPage } from "@/modules/transaction/sales/CustomerSalesPage";
+import { SalesPage } from "@/modules/transaction/sales/SalesPage";
 import type { RouteAccess } from "./access";
 
 export type NavSection = "main" | "admin";
@@ -70,11 +72,19 @@ export const APP_PAGES: readonly AppPage[] = [
     component: CustomerDetailPage,
   },
   {
+    path: "customers/:id/sales",
+    titleKey: "sales.title",
+    access: ANY_ROLE,
+    icon: ReceiptLongOutlined,
+    component: CustomerSalesPage,
+  },
+  {
     path: "sales",
     titleKey: "sales.title",
     access: ANY_ROLE,
     icon: ReceiptLongOutlined,
     nav: "main",
+    component: SalesPage,
   },
   {
     path: "debts",

@@ -21,6 +21,7 @@ export interface BillDoors {
 
 interface BillDialogOptions {
   onChanged?: (voided: Collection, replacement?: Collection) => void;
+  onOpenSale?: (saleId: string) => Promise<void>;
   doors?: BillDoors;
 }
 
@@ -39,32 +40,36 @@ export interface BillDialogDoor {
   dialog: ReactNode;
 }
 
-// A sale shows as a plain bill for now; collect and write-off close it first.
-export function useBillDialog({ onChanged, doors = {} }: BillDialogOptions = {}): BillDialogDoor {
+// A sale bill opens its receipt through onOpenSale; collect and write-off close first.
+export function useBillDialog({ onChanged, onOpenSale, doors = {} }: BillDialogOptions = {}): BillDialogDoor {
   const [bill, setBill] = useState<OpenedBill | null>(null);
   const [loadingItemId, setLoadingItemId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const clearError = useCallback(() => setError(null), []);
   const close = () => setBill(null);
 
+  const present = useCallback(
+    async (charge: Charge, shown: Shown) => {
+      if (charge.kind === "sale" && charge.saleId && onOpenSale) await onOpenSale(charge.saleId);
+      else setBill({ charge, ...shown });
+    },
+    [onOpenSale],
+  );
+
   const show = useCallback(
     async (key: string, chargeId: string, charge: Charge | null | undefined, shown: Shown) => {
       setError(null);
-      if (charge) {
-        setBill({ charge, ...shown });
-        return;
-      }
       setLoadingItemId(key);
       try {
-        const read = await chargeService.getById(chargeId);
-        if (read) setBill({ charge: read, ...shown });
+        const read = charge ?? (await chargeService.getById(chargeId));
+        if (read) await present(read, shown);
       } catch (e) {
         setError((e as Error).message);
       } finally {
         setLoadingItemId(null);
       }
     },
-    [],
+    [present],
   );
 
   const openItem = useCallback<BillDialogDoor["openItem"]>(
@@ -85,10 +90,11 @@ export function useBillDialog({ onChanged, doors = {} }: BillDialogOptions = {})
     [show],
   );
 
-  const openCharge = useCallback<BillDialogDoor["openCharge"]>((charge, label, customerName, recipient = null) => {
-    setError(null);
-    setBill({ charge, label, customerName, recipient });
-  }, []);
+  const openCharge = useCallback<BillDialogDoor["openCharge"]>(
+    (charge, label, customerName, recipient = null) =>
+      void show(charge.id, charge.id, charge, { label, customerName, recipient }),
+    [show],
+  );
 
   const { onCollect, onWriteOff, onRevertWriteOff } = doors;
 

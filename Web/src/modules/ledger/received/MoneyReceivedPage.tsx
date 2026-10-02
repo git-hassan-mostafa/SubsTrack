@@ -33,6 +33,7 @@ import { KIND_ICON, KIND_TONE } from "../kindLook";
 import { PaymentDetailDialog } from "../payment/PaymentDetailDialog";
 import { paymentActions } from "../payment/paymentActions";
 import { VoidPaymentsDialog } from "../void/VoidPaymentsDialog";
+import { useSaleDoors } from "@/modules/transaction/sales/useSaleDoors";
 import { MoneyReceivedFilters } from "./MoneyReceivedFilters";
 
 const isVoided = (row: CollectionListItem) => row.voidedAt !== null;
@@ -66,7 +67,8 @@ export function MoneyReceivedPage() {
   const branchColumn = useBranchColumn<CollectionListItem>(t("web.money_received.no_branch"));
   const sendReceipt = useSendCollectionReceipt();
   const reload = () => void load();
-  const bill = useBillDialog({ onChanged: reload });
+  const sale = useSaleDoors({ onChanged: reload });
+  const bill = useBillDialog({ onChanged: reload, onOpenSale: sale.openSale });
   const [detail, setDetail] = useState<CollectionListItem | null>(null);
   const [correctId, setCorrectId] = useState<string | null>(null);
   const [voidRows, setVoidRows] = useState<CollectionListItem[] | null>(null);
@@ -233,6 +235,8 @@ export function MoneyReceivedPage() {
     <Stack spacing={2}>
       <ErrorBanner message={actionError} onDismiss={() => setActionError(null)} />
       <ErrorBanner message={bill.error} onDismiss={bill.clearError} />
+      <ErrorBanner message={sale.error} onDismiss={sale.clearError} />
+      <ErrorBanner message={sale.notice} onDismiss={sale.clearNotice} severity="info" />
       <DataTable<CollectionListItem>
         label={t("ledger.history_title")}
         columns={columns}
@@ -305,6 +309,7 @@ export function MoneyReceivedPage() {
         />
       ) : null}
       {bill.dialog}
+      {sale.dialogs}
     </Stack>
   );
 }

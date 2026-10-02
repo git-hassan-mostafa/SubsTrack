@@ -1,8 +1,12 @@
 import { BaseRepository } from "@shared/core/utils/BaseRepository";
 import { PAGE_SIZE, type BranchFilter } from "@shared/core/constants";
+import type { Page } from "@shared/core/types";
 import type { DbSale, DbSaleItem } from "@shared/core/types/db";
 import type { CreateStockMovementPayload } from "@shared/modules/admin/products/repository/IProductRepository";
-import { FindSalesOptions } from "@shared/modules/transaction/sales/utils/types";
+import type {
+  FindSalesOptions,
+  SalePageQuery,
+} from "@shared/modules/transaction/sales/utils/types";
 import type {
   CreateSaleItemPayload,
   CreateSalePayload,
@@ -17,18 +21,28 @@ const SALE_SELECT = "*, sale_items(*, products(*), services(*)), customers(*)";
 const SALE_ITEM_SELECT = "*, products(*), services(*)";
 const SALE_SELECT_LEAN = "*, customers(*)";
 
-const SALE_TOTALS_SELECT =
-  "sold_at, total_amount, rate_per_usd_snapshot, customers(name)";
+const SALE_TOTALS_SELECT = "sold_at, total_amount, rate_per_usd_snapshot";
 
-// The frozen summary, the matching customers' ids, and — when the term reads
-// like a receipt number — `receipt_id`, the computed field over the id's tail.
-//
-// The customer half arrives as `customer_id.in.(…)` rather than an ilike on the
-// embed: a dotted embed path inside `or()` is a PostgREST parse error ("failed
-// to parse logic tree"), and `customers!inner` — the other way to filter a join
-// — would drop every WALK-IN sale, which has no customer at all. The ids come
-// from `customerIdsMatching`, the same pre-query shape the product filter uses.
-// Shared by findAll and monthlyTotals so a page and its total agree.
+interface SaleTotalRow {
+  sold_at: string;
+  total_amount: number;
+  rate_per_usd_snapshot: number;
+}
+
+interface SaleFilterIds {
+  productSaleIds: string[] | null;
+  customerIds: string[];
+}
+
+interface SaleFilterQuery<T> {
+  eq(column: string, value: string): T;
+  in(column: string, values: string[]): T;
+  gte(column: string, value: string): T;
+  lt(column: string, value: string): T;
+  or(filters: string): T;
+}
+
+// Customers come in as an id pre-query: or() cannot name an embed column.
 function applySaleSearch<T extends { or(filters: string): T }>(
   query: T,
   searchQuery: string | undefined,
@@ -68,43 +82,69 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     return (data ?? []).map((r: { id: string }) => r.id);
   }
 
-  async findAll(opts: FindSalesOptions = {}): Promise<DbSale[]> {
-    const page = opts.page ?? 0;
-    const from = page * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
+  private async filterIds(opts: FindSalesOptions): Promise<SaleFilterIds> {
+    const [productSaleIds, customerIds] = await Promise.all([
+      opts.productId ? this.saleIdsForProduct(opts.productId) : null,
+      this.customerIdsMatching(opts.searchQuery),
+    ]);
+    return { productSaleIds, customerIds };
+  }
 
+  async findAll(opts: FindSalesOptions = {}): Promise<DbSale[]> {
+    const from = (opts.page ?? 0) * PAGE_SIZE;
+    const ids = await this.filterIds(opts);
+    const { data, error } = await this.listQuery(opts, ids, false).range(
+      from,
+      from + PAGE_SIZE - 1,
+    );
+    if (error) this.handleError(error);
+    return (data ?? []) as DbSale[];
+  }
+
+  async findPage(query: SalePageQuery): Promise<Page<DbSale>> {
+    const ids = await this.filterIds(query);
+    const { data, error, count } = await this.listQuery(query, ids, true).range(
+      query.offset,
+      query.offset + query.limit - 1,
+    );
+    if (error) this.handleError(error);
+    return { rows: (data ?? []) as DbSale[], total: count ?? 0 };
+  }
+
+  // One shape for a list read and its page count, so the two never disagree.
+  private listQuery(
+    opts: FindSalesOptions,
+    ids: SaleFilterIds,
+    counted: boolean,
+  ) {
     let query = this.db
       .from("sales")
-      .select(SALE_SELECT)
+      .select(SALE_SELECT, counted ? { count: "exact" } : undefined)
       .order("sold_at", { ascending: false })
-      .range(from, to);
-
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false });
     if (!opts.includeVoided) query = query.is("voided_at", null);
     if (opts.voidedOnly) query = query.not("voided_at", "is", null);
-    if (opts.customerId !== undefined && opts.customerId !== null) {
-      query = query.eq("customer_id", opts.customerId);
-    }
-    if (opts.productId)
-      query = query.in("id", await this.saleIdsForProduct(opts.productId));
+    return this.applyListFilters(query, opts, ids);
+  }
 
-    if (opts.fromDate) query = query.gte("sold_at", dayStartIso(opts.fromDate));
-    if (opts.toDate) query = query.lt("sold_at", nextDayStartIso(opts.toDate));
-
-    query = applySaleSearch(
-      query,
-      opts.searchQuery,
-      await this.customerIdsMatching(opts.searchQuery),
-    );
-
-    query = this.applyBranchFilter(
-      query,
+  // Every filter but the void ones, which a list and a total read differently.
+  private applyListFilters<T extends SaleFilterQuery<T>>(
+    query: T,
+    opts: FindSalesOptions,
+    ids: SaleFilterIds,
+  ): T {
+    let q = query;
+    if (opts.customerId) q = q.eq("customer_id", opts.customerId);
+    if (ids.productSaleIds) q = q.in("id", ids.productSaleIds);
+    if (opts.fromDate) q = q.gte("sold_at", dayStartIso(opts.fromDate));
+    if (opts.toDate) q = q.lt("sold_at", nextDayStartIso(opts.toDate));
+    q = applySaleSearch(q, opts.searchQuery, ids.customerIds);
+    return this.applyBranchFilter(
+      q,
       opts.branchFilter ?? null,
       this.BRANCH_SCOPES.sales,
     );
-
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    return (data ?? []) as DbSale[];
   }
 
   async findByCustomer(customerId: string, limit = 20): Promise<DbSale[]> {
@@ -354,39 +394,23 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     opts: FindSalesOptions = {},
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
     if (opts.voidedOnly) return [];
-    let query = this.db.from("sales").select(SALE_TOTALS_SELECT);
-
-    if (!opts.includeVoided) query = query.is("voided_at", null);
-    if (opts.customerId !== undefined && opts.customerId !== null) {
-      query = query.eq("customer_id", opts.customerId);
-    }
-    if (opts.productId)
-      query = query.in("id", await this.saleIdsForProduct(opts.productId));
-    if (opts.fromDate) query = query.gte("sold_at", dayStartIso(opts.fromDate));
-    if (opts.toDate) query = query.lt("sold_at", nextDayStartIso(opts.toDate));
-    query = applySaleSearch(
-      query,
-      opts.searchQuery,
-      await this.customerIdsMatching(opts.searchQuery),
+    const ids = await this.filterIds(opts);
+    const rows = await this.readEveryRow<SaleTotalRow>((from, to) =>
+      this.applyListFilters(
+        this.db
+          .from("sales")
+          .select(SALE_TOTALS_SELECT, { count: "exact" })
+          .is("voided_at", null)
+          .order("id")
+          .range(from, to),
+        opts,
+        ids,
+      ),
     );
-    query = this.applyBranchFilter(
-      query,
-      opts.branchFilter ?? null,
-      this.BRANCH_SCOPES.sales,
-    );
-
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    return (data ?? []).map(
-      (r: {
-        sold_at: string;
-        total_amount: number;
-        rate_per_usd_snapshot: number;
-      }) => ({
-        soldAt: r.sold_at,
-        amount: Number(r.total_amount),
-        ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
-      }),
-    );
+    return rows.map((r) => ({
+      soldAt: r.sold_at,
+      amount: Number(r.total_amount),
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+    }));
   }
 }

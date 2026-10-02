@@ -1,3 +1,5 @@
+import type { Sale } from "@shared/core/types";
+
 export interface InvoiceRecipientRow {
   customerId: string | null;
   customerName: string | null;
@@ -7,6 +9,12 @@ export interface InvoiceRecipientRow {
 export type InvoiceRecipient =
   | { ok: true; name: string; phone: string }
   | { ok: false; reason: "empty" | "mixed" | "no_customer" | "no_phone" };
+
+export const INVOICE_UNREACHABLE_KEYS = {
+  mixed: "invoice.mixed_customers",
+  no_customer: "invoice.no_customer",
+  no_phone: "invoice.no_phone",
+} as const;
 
 // Same reduction openWhatsApp does, so a field holding "-" or "n/a" reads as
 // "cannot send" instead of producing a broken wa.me link.
@@ -25,4 +33,12 @@ export function resolveInvoiceRecipient(
   }
   if (!hasDialableDigits(first.phone)) return { ok: false, reason: "no_phone" };
   return { ok: true, name: first.customerName ?? "", phone: first.phone! };
+}
+
+export function saleRecipientRows(sales: Sale[]): InvoiceRecipientRow[] {
+  return sales.map((sale) => ({
+    customerId: sale.customerId,
+    customerName: sale.customer?.name ?? null,
+    phone: sale.customer?.phoneNumber ?? null,
+  }));
 }

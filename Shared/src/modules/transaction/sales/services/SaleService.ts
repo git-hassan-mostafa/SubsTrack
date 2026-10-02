@@ -1,5 +1,5 @@
 import { repositories } from "@shared/core/runtime/repositories";
-import type { Charge, Sale, SaleItem } from "@shared/core/types";
+import type { Charge, Page, Sale, SaleItem } from "@shared/core/types";
 import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
 import { newId, nowIso } from "@shared/core/utils/ids";
@@ -14,6 +14,7 @@ import {
   CreateSaleItemInput,
   UpdateSaleInput,
   type FindSalesOptions,
+  type SalePageQuery,
 } from "@shared/modules/transaction/sales/utils/types";
 import type { SaleChargePayload } from "@shared/modules/transaction/sales/repository/ISaleRepository";
 import { mapDbSaleToSale } from "@shared/modules/transaction/sales/utils/mapper";
@@ -81,6 +82,11 @@ class SaleService {
   async getSales(opts: FindSalesOptions = {}): Promise<Sale[]> {
     const rows = await repositories().sale.findAll(opts);
     return this.withMoney(rows.map(mapDbSaleToSale));
+  }
+
+  async getSalePage(query: SalePageQuery): Promise<Page<Sale>> {
+    const page = await repositories().sale.findPage(query);
+    return { rows: await this.withMoney(page.rows.map(mapDbSaleToSale)), total: page.total };
   }
 
   async getSalesForCustomer(customerId: string, limit = 20): Promise<Sale[]> {

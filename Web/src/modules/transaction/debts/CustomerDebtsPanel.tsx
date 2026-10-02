@@ -45,6 +45,7 @@ import type { TableAction } from "@/shared/table/tableAction";
 import { useBillDialog } from "@/modules/ledger/bill/useBillDialog";
 import { useCollectDialog } from "@/modules/ledger/collect/useCollectDialog";
 import { KIND_ICON, KIND_TONE } from "@/modules/ledger/kindLook";
+import { useSaleDoors } from "@/modules/transaction/sales/useSaleDoors";
 import { DEBT_ACTION_ICONS } from "./debtActionIcons";
 
 type DebtRow = OpenItem & { id: string };
@@ -74,7 +75,9 @@ export function CustomerDebtsPanel({ customer }: { customer: Customer }) {
   const writeOff = (charge: Charge, balance: number) =>
     void writeOffActions.writeOff(writeOffTargetOf(charge, balance, customer.name));
 
+  const sale = useSaleDoors();
   const bill = useBillDialog({
+    onOpenSale: sale.openSale,
     doors: {
       onCollect: (charge, balance) => {
         const label = debts.items.find((item) => item.chargeId === charge.id)?.label ?? "";
@@ -204,6 +207,8 @@ export function CustomerDebtsPanel({ customer }: { customer: Customer }) {
     <PanelSection title={t("debts.customer_panel_title")} actions={headerActions}>
       <ErrorBanner message={debts.error} onDismiss={debts.clearError} />
       <ErrorBanner message={bill.error} onDismiss={bill.clearError} />
+      <ErrorBanner message={sale.error} onDismiss={sale.clearError} />
+      <ErrorBanner message={sale.notice} onDismiss={sale.clearNotice} severity="info" />
       <Paper variant="outlined">
         <Tabs
           value={scope}
@@ -238,6 +243,7 @@ export function CustomerDebtsPanel({ customer }: { customer: Customer }) {
       )}
       {collect.dialog}
       {bill.dialog}
+      {sale.dialogs}
     </PanelSection>
   );
 }

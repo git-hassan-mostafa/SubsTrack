@@ -618,5 +618,21 @@ Reached via the panel's "Show all" link. Route: `customers/[id]/sales`. Mirrors 
 | Edit a **voided** sale              | ✗                   | ✗                     | ✗                                                                |
 | Void sale                           | ✓                   | ✓                     | ⚠ Verify gate                                                    |
 | Open the row 3-dot menu             | ✓                   | ✓                     | ✓                                                                |
-| Read a sale's History from the menu | ✓                   | ✓                     | ✗ ("Admins only" — the row is offered, the read returns nothing) |
+| Read a sale's History from the menu | ✓                   | ✓                     | ✗ (the row is not offered: the audit trail is admin-only)        |
 | View customer sales panel           | ✓                   | ✓                     | ✓                                                                |
+
+---
+
+## 10. Shared with the web (F1)
+
+The phone list, menu, receipt and void now run the same Shared rules as the web Sales page ([web/sales.md](web/sales.md)): `saleFilters.ts`, `saleView.ts` (`saleMenuItems`, `saleVoidTarget`, `saleInfoRows`), `useVoidSales`. Unit tests: `tests/suites/salesPage.test.ts` (TC-SG-\*).
+
+| #    | Scenario                  | Steps                                                             | Expected result                                                                                                 |
+| ---- | ------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 10.1 | History is admin-only     | As a user (not admin), open a sale's 3-dot menu                   | No History row (before F1 it was offered and read nothing); an admin still sees it                              |
+| 10.2 | Receipt detail rows       | Open a receipt                                                    | Sold at, Receipt ID, **Recorded by** (new), Notes, and the void reason in red on a voided sale                  |
+| 10.3 | Total with voided rows    | Filters → Status → Live and voided                                | The month section totals stay the same as with Not voided — a voided sale sold nothing (it used to be added in) |
+| 10.4 | Void one / many           | Void from the receipt; then select 3 (one voided) → Void          | Same confirm as before; the bulk confirm counts only the live ones                                              |
+| 10.5 | Filters                   | Set a product + dates + status, then Clear filters                | Same rows as before F1; the filter dot clears                                                                   |
+| 10.6 | One invoice for many      | Select 2 sales of one customer → Send invoice; then two customers | One message; mixed customers → "Not available" with the same text as before                                     |
+| 10.7 | Paging order              | Two sales recorded in the same second                             | They keep the same order on every scroll (ties now break on created time, then id)                              |

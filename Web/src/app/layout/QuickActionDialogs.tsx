@@ -2,6 +2,7 @@ import { useUiStore } from "@shared/shared/lib/uiStore";
 import { reloadCollectionsTableIfLoaded } from "@/state/collectionsTable";
 import { reloadCustomersTableIfLoaded } from "@/state/customersTable";
 import { reloadProductsTableIfLoaded } from "@/state/productsTable";
+import { reloadSalesTableIfLoaded } from "@/state/salesTable";
 import { BatchRestockDialog } from "@/modules/admin/products/BatchRestockDialog";
 import { CustomerFormDialog } from "@/modules/customer/customers/CustomerFormDialog";
 import { CollectQuickActionDialog } from "@/modules/ledger/collect/CollectQuickActionDialog";
@@ -20,6 +21,7 @@ export function QuickActionDialogs() {
             close();
             reloadCustomersTableIfLoaded();
             reloadCollectionsTableIfLoaded();
+            reloadSalesTableIfLoaded();
           }}
         />
       );

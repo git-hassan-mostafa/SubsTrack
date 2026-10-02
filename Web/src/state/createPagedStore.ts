@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { create, type StoreApi, type UseBoundStore } from "zustand";
 import type { BranchFilter } from "@shared/core/constants";
 import type { Page, PageWindow } from "@shared/core/types";
 import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
@@ -35,6 +35,11 @@ export interface PagedState<T, F, M = undefined> {
 }
 
 export type PagedResult<T, M> = Page<T> & { meta: M };
+
+export type PagedStore<T, F, M = undefined> = UseBoundStore<StoreApi<PagedState<T, F, M>>>;
+
+// Live money in the whole filter, not the page; null while only voids are shown.
+export type PeriodTotal = number | null;
 
 export type PageFetcher<T, F, M> = (query: PagedQuery<F>) => Promise<PagedResult<T, M>>;
 

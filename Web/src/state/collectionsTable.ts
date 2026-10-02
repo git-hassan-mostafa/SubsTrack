@@ -10,10 +10,8 @@ import {
   pageWindow,
   type PagedQuery,
   type PagedResult,
+  type PeriodTotal,
 } from "./createPagedStore";
-
-// Live money in the whole filter, not the page; null while only voids are shown.
-export type PeriodTotal = number | null;
 
 async function readCollectionPage(
   query: PagedQuery<CollectionFilterChoice>,

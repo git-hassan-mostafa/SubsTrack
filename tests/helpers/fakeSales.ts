@@ -3,6 +3,7 @@ import type {
   CreateSalePayload,
   UpdateSalePayload,
 } from "@shared/modules/transaction/sales/repository/ISaleRepository";
+import type { SalePageQuery } from "@shared/modules/transaction/sales/utils/types";
 import { store } from "./fakeLedger";
 
 /**
@@ -51,6 +52,17 @@ function hydrate(row: DbSale): DbSale {
 export const fakeSaleRepository = {
   async findAll() {
     return sales.map(hydrate);
+  },
+  async findPage(query: SalePageQuery) {
+    const matching = sales
+      .filter((s) => query.includeVoided || s.voided_at === null)
+      .filter((s) => !query.voidedOnly || s.voided_at !== null)
+      .filter((s) => !query.customerId || s.customer_id === query.customerId)
+      .sort((a, b) => b.sold_at.localeCompare(a.sold_at));
+    return {
+      rows: matching.slice(query.offset, query.offset + query.limit).map(hydrate),
+      total: matching.length,
+    };
   },
   async findByCustomer(customerId: string) {
     return sales.filter((s) => s.customer_id === customerId).map(hydrate);

@@ -40,10 +40,13 @@ Web/src/
 │   │                      #   RowLink, ActiveFilterSelect, activeStatusColumn, useBranchColumn
 │   ├── hooks/             # useMoneyPair, useCopyText
 │   └── lib/               # downloadCsv, openWhatsApp (+ openWhatsAppAfterSave), copyText
-├── state/                 # web-only stores: createPagedStore + one table store per list, webSession.ts
+├── state/                 # web-only stores: createPagedStore + one table store per list (salesTable also
+│                          #   exports createSalesTable(customerId) for a page-owned store), webSession.ts
 └── modules/<group>/<module>/  # pages + dialogs (admin/{branches,currencies,services,plans,products,users,
                                #   audit,billing,tenant-settings}, customer/{customers,customer-plans,customer-detail (page + details panel),customer-payments (months panel + table)},
-                               #   transaction/{debts,sales} (the customer page's debts + sales panels),
+                               #   transaction/debts (the customer page's debts panel),
+                               #   transaction/sales (Sales page + customer sales page on one SalesTable,
+                               #   useSaleDoors: receipt, void, invoice; the customer page's sales panel),
                                #   ledger/{collect,bill,payment,void,received} (collect, bill + useBillDialog,
                                #   payment detail, correct + void dialogs, the Money received page),
                                #   invoicing (receipts) so far)

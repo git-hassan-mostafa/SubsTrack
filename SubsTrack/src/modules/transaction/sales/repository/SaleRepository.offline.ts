@@ -11,7 +11,11 @@ import type {
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, updateDirty } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@shared/core/utils/ids";
-import type { FindSalesOptions } from "@shared/modules/transaction/sales/utils/types";
+import type { Page } from "@shared/core/types";
+import type {
+  FindSalesOptions,
+  SalePageQuery,
+} from "@shared/modules/transaction/sales/utils/types";
 import type {
   CreateSalePayload,
   ISaleRepository,
@@ -25,12 +29,15 @@ import {
 } from "@shared/core/utils/receiptId";
 import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
 
-// SQL can do here in one statement what PostgREST cannot express: the customer
-// name is reached over the caller's LEFT JOIN (so a WALK-IN sale, which has no
-// customer, still matches on its summary), and the receipt number is the id's
-// own tail because the mirror stores `id` as TEXT. The web sibling needs a
-// customer-id pre-query and the `receipt_id` computed field for the same result.
-// Shared by findAll and monthlyTotals so a page and its total agree.
+interface WherePart {
+  clause: string;
+  params: unknown[];
+}
+
+const SALE_CUSTOMER_JOIN = "LEFT JOIN customers c ON s.customer_id = c.id";
+const SALE_LIST_ORDER = "s.sold_at DESC, s.created_at DESC, s.id DESC";
+
+// Customer name over the LEFT JOIN, receipt number from the TEXT id's tail.
 function saleSearchWhere(searchQuery?: string): {
   clause: string;
   params: unknown[];
@@ -50,8 +57,7 @@ function saleSearchWhere(searchQuery?: string): {
   return { clause: `(${clauses.join(" OR ")})`, params };
 }
 
-/** SQLite-backed sales repository. Reproduces
- *  `'*, sale_items(*, products(*), services(*)), customers(*)'`. */
+// Rebuilds the sale embeds (items, products, services, customer) from SQLite.
 export class OfflineSaleRepository
   extends OfflineBaseRepository
   implements ISaleRepository
@@ -91,14 +97,10 @@ export class OfflineSaleRepository
     }));
   }
 
-  async findAll(opts: FindSalesOptions = {}): Promise<DbSale[]> {
-    const page = opts.page ?? 0;
-    const parts: { clause: string; params: unknown[] }[] = [];
-    if (!opts.includeVoided)
-      parts.push({ clause: "s.voided_at IS NULL", params: [] });
-    if (opts.voidedOnly)
-      parts.push({ clause: "s.voided_at IS NOT NULL", params: [] });
-    if (opts.customerId !== undefined && opts.customerId !== null)
+  // Every filter but the void ones, which a list and a total read differently.
+  private filterWhere(opts: FindSalesOptions): WherePart[] {
+    const parts: WherePart[] = [];
+    if (opts.customerId)
       parts.push({ clause: "s.customer_id = ?", params: [opts.customerId] });
     if (opts.productId)
       parts.push({
@@ -124,14 +126,47 @@ export class OfflineSaleRepository
         "s",
       ),
     );
+    return parts;
+  }
 
-    const { sql, params } = this.combineWhere(parts);
+  private listWhere(opts: FindSalesOptions): { sql: string; params: unknown[] } {
+    const parts = this.filterWhere(opts);
+    if (!opts.includeVoided)
+      parts.push({ clause: "s.voided_at IS NULL", params: [] });
+    if (opts.voidedOnly)
+      parts.push({ clause: "s.voided_at IS NOT NULL", params: [] });
+    return this.combineWhere(parts);
+  }
+
+  private async listRows(
+    opts: FindSalesOptions,
+    limit: number,
+    offset: number,
+  ): Promise<DbSale[]> {
+    const { sql, params } = this.listWhere(opts);
     const rows = await this.all(
-      `SELECT s.* FROM sales s LEFT JOIN customers c ON s.customer_id = c.id
-       ${sql} ORDER BY s.sold_at DESC LIMIT ${OFFLINE_PAGE_SIZE} OFFSET ${page * OFFLINE_PAGE_SIZE}`,
+      `SELECT s.* FROM sales s ${SALE_CUSTOMER_JOIN} ${sql}
+       ORDER BY ${SALE_LIST_ORDER} LIMIT ${limit} OFFSET ${offset}`,
       params,
     );
     return this.hydrate(this.decodeAll<DbSale>("sales", rows));
+  }
+
+  findAll(opts: FindSalesOptions = {}): Promise<DbSale[]> {
+    const page = opts.page ?? 0;
+    return this.listRows(opts, OFFLINE_PAGE_SIZE, page * OFFLINE_PAGE_SIZE);
+  }
+
+  async findPage(query: SalePageQuery): Promise<Page<DbSale>> {
+    const { sql, params } = this.listWhere(query);
+    const [rows, total] = await Promise.all([
+      this.listRows(query, query.limit, query.offset),
+      this.count(
+        `SELECT COUNT(*) AS n FROM sales s ${SALE_CUSTOMER_JOIN} ${sql}`,
+        params,
+      ),
+    ]);
+    return { rows, total };
   }
 
   async findByCustomer(customerId: string, limit = 20): Promise<DbSale[]> {
@@ -386,45 +421,17 @@ export class OfflineSaleRepository
     opts: FindSalesOptions = {},
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
     if (opts.voidedOnly) return [];
-    const parts: { clause: string; params: unknown[] }[] = [];
-    if (!opts.includeVoided)
-      parts.push({ clause: "s.voided_at IS NULL", params: [] });
-    if (opts.customerId !== undefined && opts.customerId !== null)
-      parts.push({ clause: "s.customer_id = ?", params: [opts.customerId] });
-    if (opts.productId)
-      parts.push({
-        clause:
-          "EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.product_id = ? AND si.voided_at IS NULL)",
-        params: [opts.productId],
-      });
-    if (opts.fromDate)
-      parts.push({
-        clause: "s.sold_at >= ?",
-        params: [dayStartIso(opts.fromDate)],
-      });
-    if (opts.toDate)
-      parts.push({
-        clause: "s.sold_at < ?",
-        params: [nextDayStartIso(opts.toDate)],
-      });
-    parts.push(saleSearchWhere(opts.searchQuery));
-    parts.push(
-      this.branchWhere(
-        opts.branchFilter ?? null,
-        this.BRANCH_SCOPES.sales,
-        "s",
-      ),
-    );
-
-    const { sql, params } = this.combineWhere(parts);
+    const { sql, params } = this.combineWhere([
+      ...this.filterWhere(opts),
+      { clause: "s.voided_at IS NULL", params: [] },
+    ]);
     const rows = await this.all<{
       sold_at: string;
       total_amount: string;
       rate_per_usd_snapshot: string;
     }>(
       `SELECT s.sold_at, s.total_amount, s.rate_per_usd_snapshot FROM sales s
-       LEFT JOIN customers c ON s.customer_id = c.id
-       ${sql}`,
+       ${SALE_CUSTOMER_JOIN} ${sql}`,
       params,
     );
     return rows.map((r) => ({

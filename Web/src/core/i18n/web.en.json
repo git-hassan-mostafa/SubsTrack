@@ -174,7 +174,6 @@
     "owed_total": "Owed: {{amount}}",
     "debt_scope": "Which bills to show",
     "no_debts": "No open bills. Unpaid months are shown above.",
-    "sale_bill": "Bill and payments",
     "latest_sales": "Showing the latest {{limit}} sales",
     "part_paid": "Part paid"
   },
@@ -206,5 +205,12 @@
     "view_grid": "Show as a grid",
     "cell_label": "{{month}}: {{status}}",
     "pick_month": "Pick {{month}}"
+  },
+  "sales": {
+    "item": "Item",
+    "no_items": "No products or services on this sale. It was recorded as a total of {{amount}}.",
+    "total_sold": "Total sold (voided sales not counted)",
+    "empty_hint": "Sales show here as soon as one is recorded.",
+    "back_to_customer": "Back to the customer"
   }
 }

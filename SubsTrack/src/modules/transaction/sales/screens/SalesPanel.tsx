@@ -47,7 +47,11 @@ import { SaleDetailSheet } from "../components/SaleDetailSheet";
 import { useSaleActions } from "../hooks/useSaleActions";
 import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { useSaleSlice } from "@shared/state/hooks/useSaleSlice";
-import type { SaleStatus } from "@shared/state/slices/sales/saleSlice";
+import {
+  hasSaleFilter,
+  SALE_STATUS_LABEL_KEYS,
+  type SaleStatus,
+} from "@shared/modules/transaction/sales/utils/saleFilters";
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
 
 interface Props {
@@ -130,18 +134,19 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
 
   const statusOptions: DropdownOption<SaleStatus>[] = useMemo(
     () => [
-      { label: t("sales.status_voided"), value: "voided" },
-      { label: t("sales.status_all"), value: "all" },
+      { label: t(SALE_STATUS_LABEL_KEYS.voided), value: "voided" },
+      { label: t(SALE_STATUS_LABEL_KEYS.all), value: "all" },
     ],
     [t],
   );
 
-  const hasActiveFilters =
-    !!customerFilter ||
-    !!productFilter ||
-    !!fromDate ||
-    !!toDate ||
-    status !== "live";
+  const hasActiveFilters = hasSaleFilter({
+    customerId: customerFilter?.id ?? null,
+    productId: productFilter?.id ?? null,
+    fromDate,
+    toDate,
+    status,
+  });
 
   const sections = useMemo(
     () => groupByMonth(sales, (s) => s.soldAt, t, saleUsd, monthlyTotals),
@@ -197,8 +202,6 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
   return (
     <View className="flex-1">
       <ResponsiveContainer className="flex-1">
-        {/* Search + filters hide while selecting; the single selection toolbar
-            takes over. */}
         {!selectionActive ? (
           <View className="px-4 gap-y-2">
             <View className="flex-row items-center gap-x-2">
@@ -258,7 +261,7 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
                   value={status === "live" ? null : status}
                   onChange={(v) => setStatus(v ?? "live")}
                   nullable
-                  nullLabel={t("sales.status_live")}
+                  nullLabel={t(SALE_STATUS_LABEL_KEYS.live)}
                   triggerStyle="chip"
                 />
                 {hasActiveFilters ? (

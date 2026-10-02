@@ -11,6 +11,7 @@ import NotesOutlined from "@mui/icons-material/NotesOutlined";
 import PersonOutlined from "@mui/icons-material/PersonOutlined";
 import RemoveCircleOutlineOutlined from "@mui/icons-material/RemoveCircleOutlineOutlined";
 import RequestQuoteOutlined from "@mui/icons-material/RequestQuoteOutlined";
+import TagOutlined from "@mui/icons-material/TagOutlined";
 import type { InfoKey, LabeledValue } from "@shared/modules/ledger/utils/billView";
 import type { InfoRow } from "@/shared/components/InfoRows";
 
@@ -33,6 +34,8 @@ const INFO_ICONS: Record<InfoKey, SvgIconComponent> = {
   written_off_at: RemoveCircleOutlineOutlined,
   written_off_by: PersonOutlined,
   write_off_reason: ChatBubbleOutlineOutlined,
+  sold_at: EventOutlined,
+  receipt_id: TagOutlined,
 };
 
 export function withInfoIcons(rows: LabeledValue[]): InfoRow[] {
