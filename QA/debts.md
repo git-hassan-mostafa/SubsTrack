@@ -176,3 +176,16 @@ Covers the **Debts** screen (Transactions → Debts — a single debtors list, n
 | 7.5 | History paging keeps the order         | Debt history with more than one page, each new sort                  | Scrolling loads more rows with no repeats and no gaps; web and offline show the same order                       |
 | 7.6 | Sort never moves the money             | Any sort on screen, then **Collect**                                 | The split preview still fills **oldest due date first** — the sort is display only                               |
 | 7.7 | Customer debts match All debts         | Open a customer's debts from the Debts screen, then from the customer detail page, then find them in **All debts** | All three list the bills **newest created first**, in the same order; unpaid months and written-off bills too |
+
+---
+
+## 8. Shared form and lists (phone regression after the web Debts page)
+
+| #   | Scenario                        | Steps                                                                                 | Expected result                                                                                                      |
+| --- | ------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 8.1 | Add a custom debt               | Debts FAB → pick a customer, amount, note, due date → Add                             | Saves; the debtor list and the customer's panel update                                                              |
+| 8.2 | Open and close untouched        | Open the form (a last-used currency is remembered), close it                          | No "discard changes?" question                                                                                        |
+| 8.3 | Part-paid fee keeps its rate    | An LBP fee that took money; change today's LBP rate; edit only its note → Save        | Saves; its "≈ $" value does not move — the bill's rate stays frozen (gotcha #181)                                     |
+| 8.4 | Currency lock                   | The same fee                                                                          | Currency locked with the "already collected" hint; an amount below the collected sum shows the red floor message       |
+| 8.5 | Written-off custom fee          | Debtor sheet → Written off → ⋮ on a custom fee                                        | Only Undo write-off (gotcha #182)                                                                                    |
+| 8.6 | Sheet filters                   | All debts and Debt history sheets: Type, Status, Outcome, Sort lists                  | Same options in the same order as before                                                                              |

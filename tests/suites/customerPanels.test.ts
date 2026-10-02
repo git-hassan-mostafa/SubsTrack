@@ -54,14 +54,10 @@ describe("debtItemActions", () => {
     expect(keysOf(openItem({ kind: "manual" }))).toEqual(["collect", "edit", "write_off", "remove"]);
   });
 
-  it("TC-CP-08 a written-off bill offers only the undo (plus edit/remove for custom)", () => {
+  it("TC-CP-08 REGRESSION: a written-off bill offers only the undo, even a custom debt", () => {
     const writtenOff = charge({ writtenOffAt: AT });
     expect(keysOf(openItem({ kind: "sale", charge: writtenOff }))).toEqual(["revert_write_off"]);
-    expect(keysOf(openItem({ kind: "manual", charge: writtenOff }))).toEqual([
-      "revert_write_off",
-      "edit",
-      "remove",
-    ]);
+    expect(keysOf(openItem({ kind: "manual", charge: writtenOff }))).toEqual(["revert_write_off"]);
   });
 
   it("TC-CP-09 a row with no bill yet can only be collected", () => {

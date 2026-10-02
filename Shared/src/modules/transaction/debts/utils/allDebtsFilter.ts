@@ -12,6 +12,23 @@ export type AllDebtsSort =
   | "largest"
   | "smallest";
 
+export const DEBT_KINDS: readonly ChargeKind[] = ["month", "sale", "manual"];
+
+export const ALL_DEBTS_STATUSES: readonly AllDebtsStatus[] = [
+  "late",
+  "not_late",
+  "partial",
+];
+
+export const ALL_DEBTS_SORTS: readonly AllDebtsSort[] = [
+  "created",
+  "updated",
+  "oldest",
+  "newest",
+  "largest",
+  "smallest",
+];
+
 export interface AllDebtsFilters {
   search: string;
   kind: ChargeKind | null;

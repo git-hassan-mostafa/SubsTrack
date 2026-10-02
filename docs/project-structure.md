@@ -44,7 +44,8 @@ Web/src/
 │                          #   exports createSalesTable(customerId) for a page-owned store), webSession.ts
 └── modules/<group>/<module>/  # pages + dialogs (admin/{branches,currencies,services,plans,products,users,
                                #   audit,billing,tenant-settings}, customer/{customers,customer-plans,customer-detail (page + details panel),customer-payments (months panel + table)},
-                               #   transaction/debts (the customer page's debts panel),
+                               #   transaction/debts (Debts page: Debtors / All debts / History tabs, DebtorDialog,
+                               #   CustomDebtFormDialog, useDebtDoors + DebtItemsTable; the customer page's debts panel),
                                #   transaction/sales (Sales page + customer sales page on one SalesTable,
                                #   useSaleDoors: receipt, record + edit (SaleFormDialog), void, invoice; the customer page's sales panel),
                                #   ledger/{collect,bill,payment,void,received} (collect, bill + useBillDialog,

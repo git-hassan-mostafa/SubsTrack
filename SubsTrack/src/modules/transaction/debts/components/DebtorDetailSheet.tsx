@@ -20,6 +20,10 @@ import {
   useWrittenOffDebts,
   type DebtScope,
 } from "@shared/modules/transaction/debts/hooks/useWrittenOffDebts";
+import {
+  debtorOwedItems,
+  debtorOwedUsd,
+} from "@shared/modules/transaction/debts/utils/debtorView";
 import { DebtScopeFilter } from "./DebtScopeFilter";
 import { DebtList } from "./DebtList";
 import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
@@ -38,14 +42,7 @@ interface Props {
   openingItemKey?: string | null;
 }
 
-/**
- * Everything one customer owes.
- *
- * Two sections, and the split is the point: DEBTS are bills money is being
- * chased for; UNPAID MONTHS are owed but belong to the month grid. The collect
- * button pours money over BOTH, oldest first — which is exactly what happens
- * when a customer hands over cash without saying what it is for.
- */
+// Collect pours money over the debts AND the part-paid months, oldest first.
 export function DebtorDetailSheet({
   debtor,
   onDismiss,
@@ -75,8 +72,8 @@ export function DebtorDetailSheet({
     debtor.customerName,
   );
 
-  const owed = [...debtor.items, ...debtor.unpaidMonths];
-  const totalUsd = debtor.debtUsd + debtor.unpaidMonthsUsd;
+  const owed = debtorOwedItems(debtor);
+  const totalUsd = debtorOwedUsd(debtor);
 
   return (
     <>

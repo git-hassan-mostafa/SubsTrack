@@ -1028,13 +1028,29 @@ when it stops being routine.
 **The Debts screen never lists a plain unpaid month at all**, and that is
 structural, not a filter: `getDebtsView` reads **stored bills only** (no virtual
 pass — do not add one), and a month has no bill until money reaches it. So the
-`unpaidMonths` section fills only from **partly-paid** months. The one leak was
+`unpaidMonths` list stays **empty** today: a partly-paid month IS a debt (`isDebtItem`), so it lands in `items`, and an unpaid one has no bill. Both apps still pour Collect over `debtorOwedItems` (debts + `unpaidMonths`). The one leak was
 an **empty** bill — a month paid and then voided keeps its `charges` row with
 `paid = 0` — which made voiding a payment the single way an unpaid month could
 appear there, showing that lone month while the customer's genuinely unpaid
 months stayed hidden. `buildDebtsView` now drops `kind === 'month' && paid <= 0`,
 so an emptied bill reads exactly like a month never touched (gotchas #106,
 #106c).
+
+**Custom debt form — one set of rules, both apps.** `useCustomDebtForm`
+(+ pure `customDebtForm.ts`) owns the draft, the locked customer (an edit, or a
+caller that passes one), the currency lock once money landed, the
+below-collected floor, the Save rule and the branch (the customer's, else the
+user's). An edit sends the currency and its rate **only when the currency
+moved**, so a part-paid bill keeps its frozen rate (gotcha #181). Edit and
+Remove exist only on a LIVE custom debt (gotcha #182). The phone
+`CustomDebtFormSheet` and the web `CustomDebtFormDialog` are views over it.
+
+**Debt history paging.** `debtHistoryReadOptions(filters, branch)` is every
+history filter minus the window; the phone store adds limit/offset and calls
+`getChargeHistory`, the web table adds a `PageWindow` and calls
+`getChargeHistoryPage` → `IChargeRepository.findHistoryPage` (both impls; one
+query builder per impl shared with `findHistory`, so a page and its count
+cannot disagree).
 
 ### Void vs write-off
 

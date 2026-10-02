@@ -2,6 +2,8 @@ import { useCallback, useState } from "react";
 import type { CustomerDebts, OpenItem } from "@shared/core/types";
 import { useRemoveCustomDebt } from "@shared/modules/transaction/debts/hooks/useRemoveCustomDebt";
 import { useWriteOffActions } from "@shared/modules/ledger/hooks/useWriteOffActions";
+import { isEditableCustomDebt } from "@shared/modules/transaction/debts/utils/customDebtForm";
+import { debtorOwedItems } from "@shared/modules/transaction/debts/utils/debtorView";
 import { CustomDebtFormSheet } from "../components/CustomDebtFormSheet";
 
 // No "changed" callback: the ledger slice bumps `owedVersion` (useOwedChanged).
@@ -15,17 +17,14 @@ export function useDebtRowActions() {
 
   const writeOffDebtor = useCallback(
     (debtor: CustomerDebts) =>
-      writeOffAll(debtor.customerName, [
-        ...debtor.items,
-        ...debtor.unpaidMonths,
-      ]),
+      writeOffAll(debtor.customerName, debtorOwedItems(debtor)),
     [writeOffAll],
   );
 
   const [editing, setEditing] = useState<OpenItem | null>(null);
 
   const editItem = useCallback((item: OpenItem) => {
-    if (item.kind !== "manual" || !item.chargeId) return;
+    if (!isEditableCustomDebt(item)) return;
     setEditing(item);
   }, []);
 

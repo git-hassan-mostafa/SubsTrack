@@ -51,11 +51,11 @@ const MENU: Record<DebtItemActionKey, Omit<DebtMenuItem, "key">> = {
   remove: { group: "danger", labelKey: "debts.remove", destructive: true },
 };
 
-// Edit and remove are for a hand-typed debt only; a bill-less row has no door.
+// Edit and remove are for a LIVE hand-typed debt: a written-off bill refuses both.
 export function debtItemActions(item: OpenItem): DebtMenuItem[] {
   const writtenOff = item.charge?.writtenOffAt != null;
   const billed = item.chargeId !== null;
-  const custom = billed && item.kind === "manual";
+  const custom = billed && item.kind === "manual" && !writtenOff;
   const keys: DebtItemActionKey[] = [];
   if (!writtenOff) keys.push("collect");
   if (writtenOff && billed) keys.push("revert_write_off");

@@ -21,9 +21,12 @@ import type { ChargeKind, DebtHistoryItem } from "@shared/core/types";
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import { useDebtHistoryStore } from "@shared/modules/transaction/debts/state/debtHistoryStore";
+import { DEBT_KINDS } from "@shared/modules/transaction/debts/utils/allDebtsFilter";
 import {
   DEFAULT_DEBT_HISTORY_FILTERS,
+  HISTORY_OUTCOMES,
   HISTORY_PERIOD_PRESETS,
+  HISTORY_SORTS,
   hasActiveHistoryFilters,
   type HistoryOutcome,
   type HistoryPeriodPreset,
@@ -37,13 +40,7 @@ interface Props {
   openingItemKey?: string | null;
 }
 
-/**
- * Every bill this branch ever raised, and what became of each one.
- *
- * The backward-looking twin of the debts list: that one answers "what is open
- * NOW", this one answers "what happened". It pages from the server rather than
- * reading a view already in memory, because it is not bounded by what is owed.
- */
+// Pages from the server: past bills are not bounded by what is owed now.
 export function DebtHistorySheet({
   onDismiss,
   onOpenItem,
@@ -75,9 +72,6 @@ export function DebtHistorySheet({
   const clearError = useDebtHistoryStore((s) => s.clearError);
   const reset = useDebtHistoryStore((s) => s.reset);
 
-  // Cleared on the way OUT, not on the way in: leaving the rows behind would
-  // show the previous read for a frame before the spinner, and would keep a
-  // closed sheet's page alive for `refreshActiveData` to re-fetch.
   useEffect(() => {
     void fetchHistory();
     return reset;
@@ -98,30 +92,22 @@ export function DebtHistorySheet({
 
   const outcomeOptions: DropdownOption<HistoryOutcome>[] = useMemo(
     () =>
-      (["settled", "partial", "open", "written_off"] as HistoryOutcome[]).map(
-        (value) => ({ label: t(`debts.outcome_${value}`), value }),
-      ),
+      HISTORY_OUTCOMES.map((value) => ({
+        label: t(`debts.outcome_${value}`),
+        value,
+      })),
     [t],
   );
 
   const kindOptions: DropdownOption<ChargeKind>[] = useMemo(
     () =>
-      (["month", "sale", "manual"] as ChargeKind[]).map((k) => ({
-        label: t(`ledger.kind_${k}`),
-        value: k,
-      })),
+      DEBT_KINDS.map((k) => ({ label: t(`ledger.kind_${k}`), value: k })),
     [t],
   );
 
   const sortOptions: DropdownOption<HistorySort>[] = useMemo(
-    () => [
-      { label: t("debts.sort_created"), value: "created" },
-      { label: t("debts.sort_updated"), value: "updated" },
-      { label: t("debts.sort_newest"), value: "newest" },
-      { label: t("debts.sort_oldest"), value: "oldest" },
-      { label: t("debts.sort_largest"), value: "largest" },
-      { label: t("debts.sort_smallest"), value: "smallest" },
-    ],
+    () =>
+      HISTORY_SORTS.map((s) => ({ label: t(`debts.sort_${s}`), value: s })),
     [t],
   );
 
@@ -167,8 +153,6 @@ export function DebtHistorySheet({
 
         {bodyReady ? (
           <>
-            {/* A horizontal row sizes to its content only inside a plain View —
-                as a flex child it is squashed by the list below it. */}
             <View className="mt-3">
               <ScrollView
                 horizontal

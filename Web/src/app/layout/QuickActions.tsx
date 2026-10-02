@@ -5,6 +5,7 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import HistoryOutlined from "@mui/icons-material/HistoryOutlined";
 import MoveToInboxOutlined from "@mui/icons-material/MoveToInboxOutlined";
+import NoteAddOutlined from "@mui/icons-material/NoteAddOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import PersonAddOutlined from "@mui/icons-material/PersonAddOutlined";
 import PointOfSaleOutlined from "@mui/icons-material/PointOfSaleOutlined";
@@ -39,6 +40,13 @@ function useQuickActions(): QuickAction[] {
       labelKey: "web.sales.record",
       icon: PointOfSaleOutlined,
       onClick: () => openQuickAction("sale"),
+    },
+    {
+      key: "customDebt",
+      group: "create",
+      labelKey: "debts.add_custom_debt",
+      icon: NoteAddOutlined,
+      onClick: () => openQuickAction("customDebt"),
     },
     {
       key: "customer",

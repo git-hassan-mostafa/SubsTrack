@@ -1,7 +1,9 @@
+import type { BranchFilter } from "@shared/core/constants";
 import type { ChargeKind, ChargeStatus, DebtHistoryItem } from "@shared/core/types";
 import type {
   BalanceScope,
   ChargeSortField,
+  FindChargeHistoryOptions,
   WriteOffScope,
 } from "@shared/modules/ledger/repository/IChargeRepository";
 import type { SortDirection } from "@shared/modules/ledger/repository/ICollectionRepository";
@@ -145,6 +147,36 @@ export function toDueDateRange(preset: HistoryPeriodPreset): {
   if (preset === "all") return {};
   const period: ReportPeriod = periodFromPreset(preset);
   return { fromDate: period.fromDate, toDate: period.toDate };
+}
+
+export const HISTORY_OUTCOMES: readonly HistoryOutcome[] = [
+  "settled",
+  "partial",
+  "open",
+  "written_off",
+];
+
+export const HISTORY_SORTS: readonly HistorySort[] = [
+  "created",
+  "updated",
+  "newest",
+  "oldest",
+  "largest",
+  "smallest",
+];
+
+// Every filter, minus the page window, so each app pages it its own way.
+export function debtHistoryReadOptions(
+  filters: DebtHistoryFilters,
+  branchFilter: BranchFilter,
+): Omit<FindChargeHistoryOptions, "limit" | "offset"> {
+  return {
+    ...toReadScopes(filters),
+    ...toDueDateRange(filters.period),
+    branchFilter,
+    customerId: filters.customerId ?? undefined,
+    kinds: filters.kind ? [filters.kind] : undefined,
+  };
 }
 
 // `open` and `partial` share one server scope (both still owe), so the page

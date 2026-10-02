@@ -7,10 +7,12 @@ import type {
   DbPlan,
   DbSale,
 } from "@shared/core/types/db";
+import type { Page } from "@shared/core/types";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, updateDirty } from "@/src/core/offline/db/dml";
 import { nowIso } from "@shared/core/utils/ids";
 import type {
+  ChargeHistoryPageQuery,
   CreateChargePayload,
   DbChargeHistoryRow,
   DbChargeWithPaid,
@@ -222,6 +224,35 @@ export class OfflineChargeRepository
   async findHistory(
     opts: FindChargeHistoryOptions,
   ): Promise<DbChargeHistoryRow[]> {
+    const history = this.historySql(opts);
+    return this.historyRows(history.ordered, [
+      ...history.params,
+      opts.limit ?? OFFLINE_PAGE_SIZE,
+      opts.offset ?? 0,
+    ]);
+  }
+
+  async findHistoryPage(
+    query: ChargeHistoryPageQuery,
+  ): Promise<Page<DbChargeHistoryRow>> {
+    const history = this.historySql(query);
+    const [rows, total] = await Promise.all([
+      this.historyRows(history.ordered, [
+        ...history.params,
+        query.limit,
+        query.offset,
+      ]),
+      this.count(`SELECT COUNT(*) AS n FROM (${history.sql})`, history.params),
+    ]);
+    return { rows, total };
+  }
+
+  // `__down_paid < amount` IS the list: a bill settled when raised never became a debt.
+  private historySql(opts: FindChargeHistoryOptions): {
+    sql: string;
+    ordered: string;
+    params: unknown[];
+  } {
     const where = this.owedWhere(opts);
     const params = [...where.params];
     const dateParts: string[] = [];
@@ -247,23 +278,26 @@ export class OfflineChargeRepository
       opts.sortField === "amount"
         ? "CAST(amount AS REAL)"
         : (opts.sortField ?? "due_date");
-    params.push(opts.limit ?? OFFLINE_PAGE_SIZE, opts.offset ?? 0);
-    // `__down_paid < amount` IS the list — a bill settled the moment it was
-    // raised never became a debt, so it is excluded here rather than filtered
-    // out afterwards, which would shorten a page and strand the paging.
     const became = `${balance ? "AND" : "WHERE"} __down_paid < CAST(amount AS REAL)`;
-    const rows = await this.all<Record<string, unknown>>(
-      `SELECT * FROM (
+    const sql = `SELECT * FROM (
          SELECT c.*, ${PAID_SUM} AS __paid, ${DOWN_PAID} AS __down_paid
            FROM charges c ${PAID_JOIN}
           ${where.sql} ${dateParts.join(" ")}
           GROUP BY c.id
        )
-        ${balance} ${became}
-        ORDER BY ${sortCol} ${dir}, id ${dir}
-        LIMIT ? OFFSET ?`,
+        ${balance} ${became}`;
+    return {
+      sql,
+      ordered: `${sql} ORDER BY ${sortCol} ${dir}, id ${dir} LIMIT ? OFFSET ?`,
       params,
-    );
+    };
+  }
+
+  private async historyRows(
+    sql: string,
+    params: unknown[],
+  ): Promise<DbChargeHistoryRow[]> {
+    const rows = await this.all<Record<string, unknown>>(sql, params);
     const page = this.withPaid(rows);
     const hydrated = await this.hydrate(page.map((o) => o.charge));
     return hydrated.map((charge, i) => ({

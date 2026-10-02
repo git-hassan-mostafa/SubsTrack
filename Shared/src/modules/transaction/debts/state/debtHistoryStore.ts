@@ -7,8 +7,7 @@ import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
 import { getStore } from "@shared/state/globalStore";
 import {
   DEFAULT_DEBT_HISTORY_FILTERS,
-  toDueDateRange,
-  toReadScopes,
+  debtHistoryReadOptions,
   type DebtHistoryFilters,
   type HistoryOutcome,
   type HistoryPeriodPreset,
@@ -39,13 +38,12 @@ export interface DebtHistoryState extends DebtHistoryFilters {
 
 function buildOptions(state: DebtHistoryState, page: number) {
   return {
-    ...toReadScopes(state),
-    ...toDueDateRange(state.period),
+    ...debtHistoryReadOptions(
+      state,
+      resolveBranchFilter(getStore().getState().auth.user),
+    ),
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
-    branchFilter: resolveBranchFilter(getStore().getState().auth.user),
-    customerId: state.customerId ?? undefined,
-    kinds: state.kind ? [state.kind] : undefined,
   };
 }
 

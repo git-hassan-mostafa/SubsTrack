@@ -25,6 +25,10 @@ import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice"
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useCollectSheet, useOpenBill } from "@/src/modules/ledger";
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
+import {
+  debtorOwedItems,
+  filterDebtors,
+} from "@shared/modules/transaction/debts/utils/debtorView";
 import { useDebtRowActions } from "../hooks/useDebtRowActions";
 import { DebtorCard } from "../components/DebtorCard";
 import { DebtorDetailSheet } from "../components/DebtorDetailSheet";
@@ -36,14 +40,7 @@ interface Props {
   onOpenSale?: (saleId: string) => Promise<void> | void;
 }
 
-/**
- * The Debts segment of the Transactions hub: one row per customer who still
- * owes money, sorted by how far behind they are.
- *
- * Every figure comes from ONE query over `charges` joined to what has been
- * collected — no category merging and no net-vs-gross subtraction, so the
- * breakdown adds up to the total exactly.
- */
+// One row per customer who still owes, all from ONE read of the open bills.
 export function DebtsPanel({ onOpenSale }: Props = {}) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
@@ -88,11 +85,10 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
   const target = findCurrency(currencies, displayCurrencyId);
   const debtors = useMemo(() => view?.customers ?? [], [view]);
 
-  const visibleDebtors = useMemo(() => {
-    const q = debouncedDebtorSearch.trim().toLowerCase();
-    if (!q) return debtors;
-    return debtors.filter((d) => d.customerName.toLowerCase().includes(q));
-  }, [debtors, debouncedDebtorSearch]);
+  const visibleDebtors = useMemo(
+    () => filterDebtors(debtors, debouncedDebtorSearch),
+    [debtors, debouncedDebtorSearch],
+  );
 
   const openDebtor = useMemo(
     () => debtors.find((d) => d.customerId === openDebtorId) ?? null,
@@ -139,7 +135,6 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
           </View>
         </View>
 
-        {/* Search — by customer name. */}
         <View className="px-4 pt-2">
           <SearchTextBox
             searchText={debtorSearch}
@@ -214,10 +209,11 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
               if (!menuDebtor) return;
               const debtor = menuDebtor;
               setMenuDebtor(null);
-              collectSheet.open(debtor.customerId, debtor.customerName, [
-                ...debtor.items,
-                ...debtor.unpaidMonths,
-              ]);
+              collectSheet.open(
+                debtor.customerId,
+                debtor.customerName,
+                debtorOwedItems(debtor),
+              );
             },
           },
           {

@@ -1,4 +1,5 @@
 import type { BranchFilter } from "@shared/core/constants";
+import type { Page, PageWindow } from "@shared/core/types";
 import type { DbCharge, DbChargeBalance } from "@shared/core/types/db";
 import type { SortDirection } from "./ICollectionRepository";
 
@@ -89,6 +90,9 @@ export interface FindChargeHistoryOptions extends FindChargesOptions {
   sortDirection?: SortDirection;
 }
 
+export type ChargeHistoryPageQuery = Omit<FindChargeHistoryOptions, "limit" | "offset"> &
+  PageWindow;
+
 export interface IChargeRepository {
   findById(id: string): Promise<DbCharge | null>;
   findByIds(ids: string[]): Promise<DbCharge[]>;
@@ -100,6 +104,9 @@ export interface IChargeRepository {
   findBySaleIds(saleIds: string[]): Promise<DbCharge[]>;
   findOpenWithPaid(opts: FindChargesOptions): Promise<DbChargeWithPaid[]>;
   findHistory(opts: FindChargeHistoryOptions): Promise<DbChargeHistoryRow[]>;
+  findHistoryPage(
+    query: ChargeHistoryPageQuery,
+  ): Promise<Page<DbChargeHistoryRow>>;
 
   balances(chargeIds: string[]): Promise<DbChargeBalance[]>;
 

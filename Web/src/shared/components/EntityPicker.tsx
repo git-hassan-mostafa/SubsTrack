@@ -30,6 +30,8 @@ interface EntityPickerProps<T> {
   disabled?: boolean;
   required?: boolean;
   error?: string | null;
+  size?: "small" | "medium";
+  minWidth?: number;
 }
 
 // For lists too big to hold: the server does the matching, the box never filters.
@@ -44,6 +46,8 @@ export function EntityPicker<T>({
   disabled = false,
   required = false,
   error,
+  size = "medium",
+  minWidth,
 }: EntityPickerProps<T>) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -92,6 +96,8 @@ export function EntityPicker<T>({
       loadingText={t("web.loading")}
       noOptionsText={loadError ?? t("common.no_results")}
       disabled={disabled}
+      size={size}
+      sx={minWidth ? { minWidth } : undefined}
       renderOption={({ key, ...props }, item) => {
         const option = describe(item);
         return (

@@ -6,7 +6,9 @@ import type {
   DbCollectionItem,
 } from "@shared/core/types/db";
 import type {
+  ChargeHistoryPageQuery,
   CreateChargePayload,
+  DbChargeHistoryRow,
   DbChargeWithPaid,
   FindChargesOptions,
   UpdateChargePayload,
@@ -245,6 +247,16 @@ export const fakeChargeRepository = {
       }))
       .filter((r) => r.charge.amount - r.paid > 0)
       .sort((a, b) => a.charge.due_date.localeCompare(b.charge.due_date));
+  },
+  async findHistoryPage(
+    query: ChargeHistoryPageQuery,
+  ): Promise<Page<DbChargeHistoryRow>> {
+    const rows = charges
+      .filter((c) => c.voided_at === null)
+      .filter((c) => (query.customerId ? c.customer_id === query.customerId : true))
+      .sort((a, b) => b.due_date.localeCompare(a.due_date) || b.id.localeCompare(a.id))
+      .map((charge) => ({ charge: hydrateCharge(charge), paid: paidOn(charge.id), downPaid: 0 }));
+    return { rows: rows.slice(query.offset, query.offset + query.limit), total: rows.length };
   },
   async balances(ids: string[]): Promise<DbChargeBalance[]> {
     // The view: voided bills are gone, written-off ones are not (#115).

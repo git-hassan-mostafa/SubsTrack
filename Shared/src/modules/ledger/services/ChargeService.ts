@@ -8,11 +8,14 @@ import type {
   DebtsView,
   MonthBill,
   OpenItem,
+  Page,
 } from "@shared/core/types";
 import type { DbCharge } from "@shared/core/types/db";
 import { deterministicId, newId, nowIso } from "@shared/core/utils/ids";
 import { daysLate } from "@shared/core/utils/date";
 import type {
+  ChargeHistoryPageQuery,
+  DbChargeHistoryRow,
   FindChargeHistoryOptions,
   WriteOffScope,
 } from "@shared/modules/ledger/repository/IChargeRepository";
@@ -105,13 +108,23 @@ class ChargeService {
     return rows.map((charge) => toOpenItem(charge, paid.get(charge.id) ?? 0));
   }
 
-  // One page of PAST bills, each carrying what became of it. Settle dates are
-  // resolved for the page only, so the extra read stays bounded however far back
-  // the list is scrolled.
   async getChargeHistory(
     opts: FindChargeHistoryOptions,
   ): Promise<DebtHistoryItem[]> {
-    const page = await repositories().charge.findHistory(opts);
+    return this.toHistoryItems(await repositories().charge.findHistory(opts));
+  }
+
+  async getChargeHistoryPage(
+    query: ChargeHistoryPageQuery,
+  ): Promise<Page<DebtHistoryItem>> {
+    const page = await repositories().charge.findHistoryPage(query);
+    return { rows: await this.toHistoryItems(page.rows), total: page.total };
+  }
+
+  // Settle dates are read for one page only, so the extra read stays bounded.
+  private async toHistoryItems(
+    page: DbChargeHistoryRow[],
+  ): Promise<DebtHistoryItem[]> {
     if (page.length === 0) return [];
     const settled = await this.settleDates(
       page.map(({ charge }) => charge.id),
@@ -259,12 +272,16 @@ class ChargeService {
     const movesCurrency =
       values.currencyId !== undefined &&
       values.currencyId !== existing.currency_id;
-    const needsBalance = values.amount !== undefined || movesCurrency;
+    const movesRate =
+      values.ratePerUsdSnapshot !== undefined &&
+      values.ratePerUsdSnapshot !== Number(existing.rate_per_usd_snapshot);
+    const movesUnit = movesCurrency || movesRate;
+    const needsBalance = values.amount !== undefined || movesUnit;
     const paid = needsBalance
       ? ((await repositories().charge.balances([id]))[0]?.paid ?? 0)
       : 0;
 
-    if (movesCurrency && paid > 0)
+    if (movesUnit && paid > 0)
       throw new Error(i18n.t("errors.charge_currency_locked"));
     if (values.amount !== undefined && values.amount + EPSILON < paid) {
       throw new Error(i18n.t("errors.charge_amount_below_collected"));

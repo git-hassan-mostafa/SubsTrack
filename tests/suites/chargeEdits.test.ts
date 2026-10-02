@@ -526,6 +526,51 @@ describe("updateManualCharge", () => {
     ).rejects.toThrow(/errors.charge_amount_below_collected/);
   });
 
+  it("TC-CH-48 REGRESSION: a rate move is refused once money has landed (#126)", async () => {
+    const chg = store.seedCharge({
+      kind: "manual",
+      amount: 900000,
+      currency_id: "cur-lbp",
+      rate_per_usd_snapshot: 89500,
+    });
+    store.seedCollection(chg.id, 100000);
+    await expect(
+      chargeService.updateManualCharge(chg.id, {
+        currencyId: "cur-lbp",
+        ratePerUsdSnapshot: 90000,
+      }),
+    ).rejects.toThrow(/errors.charge_currency_locked/);
+    expect(store.charge(chg.id)!.rate_per_usd_snapshot).toBe(89500);
+  });
+
+  it("TC-CH-48b re-sending the SAME rate on a paid bill is not a move", async () => {
+    const chg = store.seedCharge({
+      kind: "manual",
+      amount: 900000,
+      currency_id: "cur-lbp",
+      rate_per_usd_snapshot: 89500,
+    });
+    store.seedCollection(chg.id, 100000);
+    const updated = await chargeService.updateManualCharge(chg.id, {
+      ratePerUsdSnapshot: 89500,
+      description: "Router",
+    });
+    expect(updated.description).toBe("Router");
+  });
+
+  it("TC-CH-48c an unpaid bill may still take a new rate", async () => {
+    const chg = store.seedCharge({
+      kind: "manual",
+      amount: 900000,
+      currency_id: "cur-lbp",
+      rate_per_usd_snapshot: 89500,
+    });
+    const updated = await chargeService.updateManualCharge(chg.id, {
+      ratePerUsdSnapshot: 90000,
+    });
+    expect(updated.ratePerUsdSnapshot).toBe(90000);
+  });
+
   it("TC-CH-47 a voided hand-over frees the currency again", async () => {
     const chg = store.seedCharge({
       kind: "manual",

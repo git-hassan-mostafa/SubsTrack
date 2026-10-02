@@ -218,5 +218,23 @@
     "new_service": "Add a new service",
     "line_total": "Line total",
     "amount_collected": "Money collected now"
+  },
+  "debts": {
+    "tabs": "Debts views",
+    "debtors_tab": "Debtors",
+    "debtor": "Debtor",
+    "how_late": "How late",
+    "bills_column": "Bills",
+    "debt_column": "Debt",
+    "view_debts": "View debts",
+    "open_customer": "Open customer page",
+    "shown_total_one": "Total of {{count}} bill shown",
+    "shown_total_other": "Total of {{count}} bills shown",
+    "written_off_total_one": "Written off, {{count}} bill shown",
+    "written_off_total_other": "Written off, {{count}} bills shown",
+    "billed_column": "Billed",
+    "paid_on_the_day": "Paid on the day",
+    "what_happened": "What happened",
+    "settled_on": "Settled on"
   }
 }

@@ -1,7 +1,9 @@
 import { BaseRepository } from "@shared/core/utils/BaseRepository";
 import { PAGE_SIZE, type BranchFilter } from "@shared/core/constants";
+import type { Page } from "@shared/core/types";
 import type { DbCharge, DbChargeBalance } from "@shared/core/types/db";
 import type {
+  ChargeHistoryPageQuery,
   CreateChargePayload,
   DbChargeHistoryRow,
   DbChargeWithPaid,
@@ -151,11 +153,32 @@ export class ChargeRepository
   ): Promise<DbChargeHistoryRow[]> {
     const limit = opts.limit ?? PAGE_SIZE;
     const offset = opts.offset ?? 0;
+    const { data, error } = await this.historyQuery(opts, false).range(
+      offset,
+      offset + limit - 1,
+    );
+    if (error) this.handleError(error);
+    return this.withHistoryCharges(data);
+  }
+
+  async findHistoryPage(
+    query: ChargeHistoryPageQuery,
+  ): Promise<Page<DbChargeHistoryRow>> {
+    const { data, error, count } = await this.historyQuery(query, true).range(
+      query.offset,
+      query.offset + query.limit - 1,
+    );
+    if (error) this.handleError(error);
+    return { rows: await this.withHistoryCharges(data), total: count ?? 0 };
+  }
+
+  // `became_debt` IS the list, so it is never a filter a caller may drop.
+  private historyQuery(opts: FindChargeHistoryOptions, counted: boolean) {
     const ascending = opts.sortDirection === "asc";
-    let query = this.db.from("charge_balances").select("id, paid, down_paid");
-    // The list IS "bills that left the customer owing", so this is the
-    // definition of the read, never a filter the caller may turn off.
-    query = query.is("became_debt", true);
+    let query = this.db
+      .from("charge_balances")
+      .select("id, paid, down_paid", counted ? { count: "exact" } : undefined)
+      .is("became_debt", true);
     if (opts.writeOffScope === "written_off")
       query = query.not("written_off_at", "is", null);
     else if (opts.writeOffScope !== "any")
@@ -176,18 +199,20 @@ export class ChargeRepository
       opts.branchFilter ?? null,
       this.BRANCH_SCOPES.charges,
     );
-    const { data, error } = await query
+    return query
       .order(opts.sortField ?? "due_date", { ascending })
-      .order("id", { ascending })
-      .range(offset, offset + limit - 1);
-    if (error) this.handleError(error);
+      .order("id", { ascending });
+  }
+
+  private async withHistoryCharges(
+    data: unknown,
+  ): Promise<DbChargeHistoryRow[]> {
     const page = (data ?? []) as {
       id: string;
       paid: number;
       down_paid: number;
     }[];
     if (page.length === 0) return [];
-
     const byId = new Map(
       (await this.findByIds(page.map((o) => o.id))).map((r) => [r.id, r]),
     );

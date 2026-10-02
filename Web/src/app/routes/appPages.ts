@@ -29,6 +29,7 @@ import { UsersPage } from "@/modules/admin/users/UsersPage";
 import { CustomerDetailPage } from "@/modules/customer/customer-detail/CustomerDetailPage";
 import { CustomersPage } from "@/modules/customer/customers/CustomersPage";
 import { MoneyReceivedPage } from "@/modules/ledger/received/MoneyReceivedPage";
+import { DebtsPage } from "@/modules/transaction/debts/DebtsPage";
 import { CustomerSalesPage } from "@/modules/transaction/sales/CustomerSalesPage";
 import { SalesPage } from "@/modules/transaction/sales/SalesPage";
 import type { RouteAccess } from "./access";
@@ -92,6 +93,7 @@ export const APP_PAGES: readonly AppPage[] = [
     access: ANY_ROLE,
     icon: RequestQuoteOutlined,
     nav: "main",
+    component: DebtsPage,
   },
   {
     path: "money-received",

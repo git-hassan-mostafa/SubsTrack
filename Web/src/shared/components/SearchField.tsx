@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
@@ -13,7 +13,7 @@ interface SearchFieldProps {
   placeholder?: string;
 }
 
-// Owns the typed text; the list hears it once typing pauses.
+// Owns the typed text; the list hears it once typing pauses, and only if it differs.
 export function SearchField({ value, onSearch, placeholder }: SearchFieldProps) {
   const { t } = useTranslation();
   const [text, setText] = useState(value);
@@ -25,9 +25,14 @@ export function SearchField({ value, onSearch, placeholder }: SearchFieldProps) 
   }
   const label = placeholder ?? t("common.input_search");
 
+  const latest = useRef({ value, onSearch });
   useEffect(() => {
-    onSearch(term);
-  }, [term, onSearch]);
+    latest.current = { value, onSearch };
+  });
+
+  useEffect(() => {
+    if (term !== latest.current.value) latest.current.onSearch(term);
+  }, [term]);
 
   return (
     <TextField

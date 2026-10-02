@@ -24,6 +24,9 @@ import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice"
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import {
+  ALL_DEBTS_SORTS,
+  ALL_DEBTS_STATUSES,
+  DEBT_KINDS,
   DEFAULT_ALL_DEBTS_FILTERS,
   filterAndSortDebts,
   hasActiveAllDebtsFilters,
@@ -49,15 +52,7 @@ interface Props {
   openingItemKey?: string | null;
 }
 
-/**
- * Every open bill of every customer in ONE list — the debtor list turned inside
- * out, so a collector can chase the oldest BILL in the branch rather than the
- * oldest customer.
- *
- * It reads the `DebtsView` the screen already holds and never queries, so the
- * figures here and the total behind it are the same numbers and cannot
- * disagree.
- */
+// Reads the DebtsView the screen holds, never queries, so its totals agree.
 export function AllDebtsSheet({
   view,
   onDismiss,
@@ -95,36 +90,22 @@ export function AllDebtsSheet({
 
   const kindOptions: DropdownOption<ChargeKind>[] = useMemo(
     () =>
-      (["month", "sale", "manual"] as ChargeKind[]).map((k) => ({
-        label: t(`ledger.kind_${k}`),
-        value: k,
-      })),
+      DEBT_KINDS.map((k) => ({ label: t(`ledger.kind_${k}`), value: k })),
     [t],
   );
 
   const statusOptions: DropdownOption<AllDebtsStatus>[] = useMemo(
-    () => [
-      { label: t("debts.status_late"), value: "late" },
-      { label: t("debts.status_not_late"), value: "not_late" },
-      { label: t("debts.status_partial"), value: "partial" },
-    ],
+    () =>
+      ALL_DEBTS_STATUSES.map((s) => ({ label: t(`debts.status_${s}`), value: s })),
     [t],
   );
 
   const sortOptions: DropdownOption<AllDebtsSort>[] = useMemo(
-    () => [
-      { label: t("debts.sort_created"), value: "created" },
-      { label: t("debts.sort_updated"), value: "updated" },
-      { label: t("debts.sort_oldest"), value: "oldest" },
-      { label: t("debts.sort_newest"), value: "newest" },
-      { label: t("debts.sort_largest"), value: "largest" },
-      { label: t("debts.sort_smallest"), value: "smallest" },
-    ],
+    () =>
+      ALL_DEBTS_SORTS.map((s) => ({ label: t(`debts.sort_${s}`), value: s })),
     [t],
   );
 
-  // A written-off bill is not being chased, so "late" and "partly paid" are
-  // not questions anyone asks of it — that filter is dropped with the scope.
   const active = useMemo(
     () => ({
       ...filters,

@@ -12,10 +12,21 @@ interface CustomerPickerProps {
   placeholder?: string;
   required?: boolean;
   error?: string | null;
+  size?: "small" | "medium";
+  minWidth?: number;
 }
 
 // Searches the user's own scope, like the phone picker — not the header branch.
-export function CustomerPicker({ label, value, onChange, placeholder, required, error }: CustomerPickerProps) {
+export function CustomerPicker({
+  label,
+  value,
+  onChange,
+  placeholder,
+  required,
+  error,
+  size,
+  minWidth,
+}: CustomerPickerProps) {
   const { user } = useAuth();
   const search = useCallback(
     (term: string) => customerService.searchCustomers(0, term, resolveBranchFilter(user)),
@@ -32,6 +43,8 @@ export function CustomerPicker({ label, value, onChange, placeholder, required, 
       placeholder={placeholder}
       required={required}
       error={error}
+      size={size}
+      minWidth={minWidth}
     />
   );
 }
