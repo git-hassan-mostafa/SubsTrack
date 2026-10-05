@@ -1,6 +1,7 @@
 import type { Charge, ChargeStatus, Currency } from "@shared/core/types";
 import { formatMoney, formatPaidFraction } from "@shared/core/utils/currency";
 import { formatDate, formatDateTime } from "@shared/core/utils/date";
+import { pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
 import { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/utils/blockRangeLabel";
 import { chargeStatusOf } from "./billState";
 import { roundMoney } from "./waterfall";
@@ -135,4 +136,43 @@ export function billInfoRows(
     { key: "written_off_by", label: t("ledger.written_off_by"), value: userName(charge.writtenOffBy) },
     { key: "write_off_reason", label: t("ledger.write_off_reason_label"), value: charge.writeOffReason },
   ];
+}
+
+export type BillActionKey = "history" | "revert_write_off" | "write_off" | "void";
+
+export type BillMenuItem = MenuItem<BillActionKey>;
+
+export interface BillMenuDoors {
+  revertWriteOff: boolean;
+  writeOff: boolean;
+  void: boolean;
+}
+
+const BILL_MENU: MenuTable<BillActionKey> = {
+  history: { group: "history", labelKey: "audit.history" },
+  revert_write_off: {
+    group: "manage",
+    labelKey: "ledger.revert_write_off",
+    captionKey: "ledger.revert_write_off_caption",
+  },
+  write_off: {
+    group: "danger",
+    labelKey: "ledger.write_off",
+    captionKey: "ledger.write_off_caption",
+  },
+  void: { group: "danger", labelKey: "ledger.void_month", destructive: true },
+};
+
+// Each money door is opt-in per surface; the audit trail is admin-only.
+export function billMenuItems(
+  facts: BillFacts,
+  viewer: { isAdmin: boolean },
+  doors: BillMenuDoors,
+): BillMenuItem[] {
+  const keys: BillActionKey[] = [];
+  if (viewer.isAdmin) keys.push("history");
+  if (doors.revertWriteOff && facts.canRevertWriteOff) keys.push("revert_write_off");
+  if (doors.writeOff && facts.canWriteOff) keys.push("write_off");
+  if (doors.void && facts.canVoid) keys.push("void");
+  return pickMenu(BILL_MENU, keys);
 }

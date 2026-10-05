@@ -1,22 +1,14 @@
-export interface RouteAccess {
-  role?: "admin" | "tenantWideAdmin";
-  whatsapp?: boolean;
-}
+import {
+  landingPage,
+  type LandingPage,
+  type Viewer,
+} from "@shared/modules/authentication/auth/utils/pageAccess";
 
-export interface Viewer {
-  isAdmin: boolean;
-  isTenantWideAdmin: boolean;
-  whatsappEnabled: boolean;
-}
-
-// Same role rules as the phone routes; `useAuth()` returns a Viewer as-is.
-export function canOpen(viewer: Viewer, access: RouteAccess): boolean {
-  if (access.whatsapp && !viewer.whatsappEnabled) return false;
-  if (access.role === "admin") return viewer.isAdmin;
-  if (access.role === "tenantWideAdmin") return viewer.isTenantWideAdmin;
-  return true;
-}
+const LANDING_PATH: Record<LandingPage, string> = {
+  dashboard: "/dashboard",
+  customers: "/customers",
+};
 
 export function landingPath(viewer: Viewer): string {
-  return viewer.isAdmin ? "/dashboard" : "/customers";
+  return LANDING_PATH[landingPage(viewer)];
 }

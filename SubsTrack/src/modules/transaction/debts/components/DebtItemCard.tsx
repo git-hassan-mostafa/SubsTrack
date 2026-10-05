@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Ionicons } from "@expo/vector-icons";
 import {
   CardAmount,
   CardChips,
@@ -16,6 +15,7 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
+import { toActionMenuItems, type Glyph } from "@/src/shared/lib/menuActions";
 import type { OpenItem } from "@shared/core/types";
 import { KIND_ICON } from "../utils/kindIcon";
 import {
@@ -33,10 +33,7 @@ import {
   type DebtItemActionKey,
 } from "@shared/modules/transaction/debts/utils/debtItemView";
 
-const DEBT_ACTION_ICONS: Record<
-  DebtItemActionKey,
-  keyof typeof Ionicons.glyphMap
-> = {
+const DEBT_ACTION_ICONS: Record<DebtItemActionKey, Glyph> = {
   collect: "cash-outline",
   revert_write_off: "arrow-undo-outline",
   edit: "create-outline",
@@ -91,33 +88,17 @@ export function DebtItemCard({
 
   const handleOpen = onOpen && item.chargeId ? () => onOpen(item) : undefined;
 
-  const handlers: Record<
-    DebtItemActionKey,
-    ((item: OpenItem) => void) | undefined
-  > = {
-    collect: onCollect,
-    revert_write_off: onRevertWriteOff,
-    edit: onEdit,
-    write_off: onWriteOff,
-    remove: onVoid,
-  };
-  const actions: ActionMenuItem[] = debtItemActions(item).flatMap((entry) => {
-    const handler = handlers[entry.key];
-    if (!handler) return [];
-    return [
-      {
-        key: entry.key,
-        group: entry.group,
-        label: t(entry.labelKey),
-        caption: entry.captionKey ? t(entry.captionKey) : undefined,
-        icon: DEBT_ACTION_ICONS[entry.key],
-        destructive: entry.destructive,
-        onPress: () => {
-          setMenuOpen(false);
-          handler(item);
-        },
-      },
-    ];
+  const bind = (handler?: (item: OpenItem) => void) =>
+    handler ? () => handler(item) : undefined;
+  const actions: ActionMenuItem[] = toActionMenuItems(debtItemActions(item), t, {
+    icons: DEBT_ACTION_ICONS,
+    run: {
+      collect: bind(onCollect),
+      revert_write_off: bind(onRevertWriteOff),
+      edit: bind(onEdit),
+      write_off: bind(onWriteOff),
+      remove: bind(onVoid),
+    },
   });
 
   return (

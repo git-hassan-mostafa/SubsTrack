@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import { Navigate } from "react-router";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
-import { canOpen, landingPath, type RouteAccess } from "./access";
+import { canOpen, type PageAccess } from "@shared/modules/authentication/auth/utils/pageAccess";
+import { landingPath } from "./access";
 
 interface RequireAccessProps {
-  access: RouteAccess;
+  access: PageAccess;
   children: ReactNode;
 }
 

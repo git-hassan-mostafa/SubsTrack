@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { FormSheet } from "@/src/shared/components/FormSheet";
-import type { ActionMenuItem } from "@/src/shared/components/ActionMenu";
+import { toActionMenuItems, type Glyph } from "@/src/shared/lib/menuActions";
 import { Button } from "@/src/shared/components/Button";
 import { InfoRows } from "@/src/shared/components/InfoRows";
 import type { Charge, Collection } from "@shared/core/types";
@@ -23,10 +23,19 @@ import {
   billFacts,
   billHeadline,
   billInfoRows,
+  billMenuItems,
+  type BillActionKey,
 } from "@shared/modules/ledger/utils/billView";
 import { BillHero } from "./BillHero";
 import { BillPaymentsList } from "./BillPaymentsList";
 import { BillHistorySheet } from "./BillHistorySheet";
+
+const BILL_ACTION_ICONS: Record<BillActionKey, Glyph> = {
+  history: "time-outline",
+  revert_write_off: "arrow-undo-outline",
+  write_off: "remove-circle-outline",
+  void: "close-circle-outline",
+};
 
 interface Props {
   visible: boolean;
@@ -101,46 +110,24 @@ export function BillSheet({
     onDismiss();
   }
 
-  const menuActions: ActionMenuItem[] = [];
-  if (isAdmin) {
-    menuActions.push({
-      key: "history",
-      group: "history",
-      label: t("audit.history"),
-      icon: "time-outline",
-      onPress: () => setHistoryOpen(true),
-    });
-  }
-  if (onRevertWriteOff && facts.canRevertWriteOff) {
-    menuActions.push({
-      key: "revert_write_off",
-      group: "manage",
-      label: t("ledger.revert_write_off"),
-      icon: "arrow-undo-outline",
-      caption: t("ledger.revert_write_off_caption"),
-      onPress: () => void handleRevertWriteOff(),
-    });
-  }
-  if (onWriteOff && facts.canWriteOff) {
-    menuActions.push({
-      key: "write_off",
-      group: "danger",
-      label: t("ledger.write_off"),
-      icon: "remove-circle-outline",
-      caption: t("ledger.write_off_caption"),
-      onPress: () => onWriteOff(charge, balance),
-    });
-  }
-  if (onVoidBill && facts.canVoid) {
-    menuActions.push({
-      key: "void",
-      group: "danger",
-      label: t("ledger.void_month"),
-      icon: "close-circle-outline",
-      destructive: true,
-      onPress: () => void handleVoidBill(),
-    });
-  }
+  const doors = {
+    revertWriteOff: !!onRevertWriteOff,
+    writeOff: !!onWriteOff,
+    void: !!onVoidBill,
+  };
+  const menuActions = toActionMenuItems(
+    billMenuItems(facts, { isAdmin }, doors),
+    t,
+    {
+      icons: BILL_ACTION_ICONS,
+      run: {
+        history: () => setHistoryOpen(true),
+        revert_write_off: () => void handleRevertWriteOff(),
+        write_off: () => onWriteOff?.(charge, balance),
+        void: () => void handleVoidBill(),
+      },
+    },
+  );
 
   return (
     <FormSheet

@@ -13,6 +13,8 @@ import { formatDateTime } from "@shared/core/utils/date";
 import type { BillPayments } from "@shared/modules/ledger/hooks/useBillPayments";
 import type { CollectionCorrection } from "@shared/modules/ledger/services/CollectionService";
 import { paidToCharge } from "@shared/modules/ledger/utils/paidToCharge";
+import { paymentMenuItems } from "@shared/modules/ledger/utils/collectionView";
+import { toTableActions } from "@/shared/table/tableAction";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
@@ -23,7 +25,7 @@ import { useSendCollectionReceipt } from "@/modules/invoicing/useSendCollectionR
 import type { BillRecipient } from "@/modules/invoicing/useSendBillReceipt";
 import { CorrectPaymentDialog } from "../payment/CorrectPaymentDialog";
 import { PaymentDetailDialog } from "../payment/PaymentDetailDialog";
-import { paymentActions } from "../payment/paymentActions";
+import { PAYMENT_ACTION_ICONS } from "../payment/paymentActionIcons";
 import { VoidPaymentDialog } from "../void/VoidPaymentDialog";
 
 interface BillPaymentsListProps {
@@ -55,11 +57,16 @@ export function BillPaymentsList({ bill, chargeId, source, billVoided, recipient
   };
 
   const actionsFor = (payment: Collection) =>
-    paymentActions(t, {
-      onDetails: () => setDetailId(payment.id),
-      onSend: sendable && recipient ? () => void sendReceipt({ name: recipient.name, phoneNumber: recipient.phone }, payment) : undefined,
-      onCorrect: () => setCorrectId(payment.id),
-      onVoid: () => setVoidTarget(payment),
+    toTableActions(paymentMenuItems(payment, { sendable, billVoided }), t, {
+      icons: PAYMENT_ACTION_ICONS,
+      run: {
+        details: () => setDetailId(payment.id),
+        invoice: recipient
+          ? () => void sendReceipt({ name: recipient.name, phoneNumber: recipient.phone }, payment)
+          : undefined,
+        correct: () => setCorrectId(payment.id),
+        void: () => setVoidTarget(payment),
+      },
     });
 
   const isVoided = (payment: Collection) => billVoided || payment.voidedAt !== null;
@@ -160,7 +167,7 @@ export function BillPaymentsList({ bill, chargeId, source, billVoided, recipient
           columns={columns}
           rows={rows}
           rowLabel={(payment) => formatDateTime(payment.receivedAt)}
-          rowActions={(payment) => (isVoided(payment) ? [] : actionsFor(payment))}
+          rowActions={actionsFor}
           rowTone={(payment) => (isVoided(payment) ? "muted" : null)}
           autoRowHeight
         />

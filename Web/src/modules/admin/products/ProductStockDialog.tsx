@@ -6,17 +6,22 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import EditOutlined from "@mui/icons-material/EditOutlined";
+import HistoryOutlined from "@mui/icons-material/HistoryOutlined";
 import UndoOutlined from "@mui/icons-material/UndoOutlined";
+import type { SvgIconComponent } from "@mui/icons-material";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Product, StockMovement } from "@shared/core/types";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { formatMoney } from "@shared/core/utils/currency";
 import { formatDateTime } from "@shared/core/utils/date";
 import { digitsOnly } from "@shared/core/utils/inputText";
 import { useStockEntryForm } from "@shared/modules/admin/products/hooks/useStockEntryForm";
 import productService from "@shared/modules/admin/products/services/ProductService";
 import {
   signedQuantity,
+  stockEntryActions,
+  stockEntryCost,
   stockEntryLabel,
+  type StockEntryActionKey,
 } from "@shared/modules/admin/products/utils/stockText";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
@@ -27,14 +32,20 @@ import { CurrencyInput } from "@/shared/components/CurrencyInput";
 import { FormDialog } from "@/shared/components/FormDialog";
 import { StatusChip } from "@/shared/components/StatusChip";
 import { LocalTable } from "@/shared/table/LocalTable";
-import type { TableAction } from "@/shared/table/tableAction";
-import { useRecordHistoryAction } from "@/modules/admin/audit/useRecordHistoryAction";
+import { toTableActions, type TableAction } from "@/shared/table/tableAction";
+import { useHistoryDoor } from "@/modules/admin/audit/useHistoryDoor";
 
 interface ProductStockDialogProps {
   product: Product;
   onClose: () => void;
   onChanged: (onHand: number) => void;
 }
+
+const STOCK_ENTRY_ICONS: Record<StockEntryActionKey, SvgIconComponent> = {
+  edit: EditOutlined,
+  history: HistoryOutlined,
+  revert: UndoOutlined,
+};
 
 // A manual change only ADDS; a wrong entry is fixed on itself — see gotcha #94.
 export function ProductStockDialog({ product, onClose, onChanged }: ProductStockDialogProps) {
@@ -51,7 +62,7 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
   const { editing, adding, costEffect, costCurrency } = form;
   const [onHand, setOnHand] = useState(product.stockOnHand);
   const [history, setHistory] = useState<StockMovement[]>([]);
-  const recordHistory = useRecordHistoryAction("stock_movements");
+  const recordHistory = useHistoryDoor("stock_movements");
 
   const loadHistory = useCallback(
     () =>
@@ -92,28 +103,16 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
       },
     });
 
-  const entryActions = (movement: StockMovement): TableAction[] => {
-    const historyAction = recordHistory.action(movement.id, product.name);
-    if (movement.voidedAt) return [historyAction];
-    return [
-      {
-        key: "edit",
-        group: "manage",
-        label: t("products.edit_stock_entry"),
-        icon: EditOutlined,
-        onClick: () => startEdit(movement),
+  const entryActions = (movement: StockMovement): TableAction[] =>
+    toTableActions(stockEntryActions(movement), t, {
+      icons: STOCK_ENTRY_ICONS,
+      run: {
+        edit: () => startEdit(movement),
+        history: () => recordHistory.open(movement.id, product.name),
+        revert: () => void confirmRevert(movement),
       },
-      historyAction,
-      {
-        key: "revert",
-        group: "danger",
-        label: t("products.revert_stock_entry"),
-        icon: UndoOutlined,
-        destructive: true,
-        onClick: () => void confirmRevert(movement),
-      },
-    ];
-  };
+    });
+
 
   const submit = async () => {
     if (!user) return;
@@ -295,7 +294,7 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
             rowLabel={(movement) =>
               `${t(`products.stock_reason_${movement.reason}`)} ${signedQuantity(movement.quantityDelta)}`
             }
-            rowActions={(movement) => (movement.reason === "sale" ? [] : entryActions(movement))}
+            rowActions={entryActions}
             rowTone={(movement) =>
               editing?.id === movement.id ? "highlighted" : movement.voidedAt ? "muted" : null
             }
@@ -339,17 +338,15 @@ function QuantityCell({ movement }: { movement: StockMovement }) {
   );
 }
 
-// A removal with a cost gives money back; a reversed entry costs nothing.
 function CostCell({ movement }: { movement: StockMovement }) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  if (movement.unitCost == null || movement.voidedAt !== null) return null;
-  const currency = findCurrency(currencies, movement.currencyId);
-  const amount = formatMoney(Math.abs(movement.quantityDelta * movement.unitCost), currency, currency);
-  if (movement.quantityDelta > 0) return <>{amount}</>;
+  const cost = stockEntryCost(movement, currencies);
+  if (!cost) return null;
+  if (!cost.refund) return <>{cost.amount}</>;
   return (
     <Typography variant="body2" component="span" color="success.dark">
-      {t("products.stock_cost_back_line", { amount })}
+      {t("products.stock_cost_back_line", { amount: cost.amount })}
     </Typography>
   );
 }

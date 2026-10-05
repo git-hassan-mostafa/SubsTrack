@@ -29,7 +29,16 @@ import {
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelectionBackHandler";
 import type { Currency } from "@shared/core/types";
-import { useRecordHistoryAction } from "@/src/modules/admin/audit";
+import { useHistoryDoor } from "@/src/modules/admin/audit";
+import {
+  toActionMenuItems,
+  toSelectionActions,
+} from "@/src/shared/lib/menuActions";
+import { CATALOG_ACTION_ICONS } from "@/src/shared/lib/catalogActionIcons";
+import {
+  catalogRowActions,
+  catalogSelectionActions,
+} from "@shared/shared/lib/catalogMenu";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { CurrencyCard, UsdBaseCard } from "../components/CurrencyCard";
 import { CurrencyFormSheet } from "../components/CurrencyFormSheet";
@@ -51,7 +60,7 @@ export function CurrenciesScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editing, setEditing] = useState<Currency | null>(null);
   const [menuCurrency, setMenuCurrency] = useState<Currency | null>(null);
-  const history = useRecordHistoryAction("currencies");
+  const history = useHistoryDoor("currencies");
   const selection = useSelection();
   const {
     active: selectionActive,
@@ -106,43 +115,16 @@ export function CurrenciesScreen() {
 
   function buildMenuActions(currency: Currency | null): ActionMenuItem[] {
     if (!currency) return [];
-    const items: ActionMenuItem[] = [
-      {
-        key: "edit",
-        group: "manage",
-        label: t("common.edit"),
-        icon: "create-outline",
-        onPress: () => openEdit(currency),
+    return toActionMenuItems(catalogRowActions("currency", currency), t, {
+      icons: CATALOG_ACTION_ICONS,
+      run: {
+      edit: () => openEdit(currency),
+      history: () => history.open(currency.id, currency.code),
+      deactivate: () => void handleDeactivateCurrency(currency),
+      reactivate: () => void reactivateCurrency(currency.id),
+      delete: () => void handleDeleteCurrency(currency),
       },
-      history.action(currency.id, currency.code),
-    ];
-    if (currency.active) {
-      items.push({
-        key: "deactivate",
-        group: "status",
-        label: t("tenant_settings.deactivate"),
-        icon: "pause-circle-outline",
-        destructive: true,
-        onPress: () => void handleDeactivateCurrency(currency),
-      });
-    } else {
-      items.push({
-        key: "reactivate",
-        group: "status",
-        label: t("tenant_settings.reactivate"),
-        icon: "play-circle-outline",
-        onPress: () => reactivateCurrency(currency.id),
-      });
-    }
-    items.push({
-      key: "delete",
-      group: "danger",
-      label: t("common.delete"),
-      icon: "trash-outline",
-      destructive: true,
-      onPress: () => void handleDeleteCurrency(currency),
     });
-    return items;
   }
 
   const activeCount = currencies.filter((c) => c.active).length;
@@ -176,52 +158,23 @@ export function CurrenciesScreen() {
     if (deleted) clearSelection();
   }
 
-  // Edit and activate/deactivate only appear on a single selection.
   function buildSelectionActions(selected: Currency[]): SelectionAction[] {
-    if (selected.length === 0) return [];
-    const actions: SelectionAction[] = [];
-    if (selected.length === 1) {
-      const one = selected[0];
-      actions.push({
-        key: "edit",
-        group: "manage",
-        icon: "create-outline",
-        label: t("common.edit"),
-        onPress: () => {
-          openEdit(one);
+    const one = selected.length === 1 ? selected[0] : null;
+    return toSelectionActions(catalogSelectionActions("currency", selected), t, {
+      icons: CATALOG_ACTION_ICONS,
+      disabled: bulkBusy ? ["delete"] : [],
+      run: {
+        edit: () => {
+          if (one) openEdit(one);
           clearSelection();
         },
-      });
-      if (one.active) {
-        actions.push({
-          key: "deactivate",
-          group: "status",
-          icon: "pause-circle-outline",
-          label: t("tenant_settings.deactivate"),
-          destructive: true,
-          onPress: () =>
-            void handleDeactivateCurrency(one).then(clearSelection),
-        });
-      } else {
-        actions.push({
-          key: "reactivate",
-          group: "status",
-          icon: "play-circle-outline",
-          label: t("tenant_settings.reactivate"),
-          onPress: () => void reactivateCurrency(one.id).then(clearSelection),
-        });
-      }
-    }
-    actions.push({
-      key: "delete",
-      group: "danger",
-      icon: "trash-outline",
-      label: t("common.delete"),
-      destructive: true,
-      disabled: bulkBusy,
-      onPress: () => void runBulkDelete(selected),
+        deactivate: () =>
+          one && void handleDeactivateCurrency(one).then(clearSelection),
+        reactivate: () =>
+          one && void reactivateCurrency(one.id).then(clearSelection),
+        delete: () => void runBulkDelete(selected),
+      },
     });
-    return actions;
   }
 
   const {

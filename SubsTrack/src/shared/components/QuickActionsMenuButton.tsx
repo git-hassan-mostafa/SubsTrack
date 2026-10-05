@@ -3,77 +3,49 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { COLORS } from "@/src/shared/constants";
 import { useUiStore } from "@shared/shared/lib/uiStore";
-import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
+import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
+import { quickActionItems, type QuickActionKey } from "@shared/shared/lib/quickActions";
+import { toActionMenuItems, type Glyph } from "../lib/menuActions";
 import { PressableOpacity } from "./PressableOpacity";
-import { ActionMenu, type ActionMenuItem } from "./ActionMenu";
+import { ActionMenu } from "./ActionMenu";
+
+const QUICK_ACTION_ICONS: Record<QuickActionKey, Glyph> = {
+  collect: "cash-outline",
+  customer: "person-add-outline",
+  sale: "receipt-outline",
+  customDebt: "document-text-outline",
+  expense: "trending-down-outline",
+  batchRestock: "cube-outline",
+  moneyReceived: "time-outline",
+};
+
+const QUICK_ACTION_BADGES: Partial<Record<QuickActionKey, Glyph>> = {
+  collect: "add",
+  sale: "add",
+  customDebt: "add",
+  expense: "add",
+  batchRestock: "add",
+};
 
 // App-wide 3-dot menu — QuickActionSheets hosts the sheets these rows open.
 export function QuickActionsMenuButton() {
   const { t } = useTranslation();
   const openQuickAction = useUiStore((s) => s.openQuickAction);
-  const role = useAuthSlice((s) => s.user?.role);
-  const isAdmin = role === "admin" || role === "superadmin";
+  const { isAdmin } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const actions: ActionMenuItem[] = [
-    {
-      key: "collect",
-      group: "money",
-      label: t("ledger.collect_money"),
-      icon: "cash-outline",
-      iconBadge: "add",
-      onPress: () => openQuickAction("collect"),
+  const actions = toActionMenuItems(quickActionItems({ isAdmin }), t, {
+    icons: QUICK_ACTION_ICONS,
+    iconBadges: QUICK_ACTION_BADGES,
+    run: {
+      collect: () => openQuickAction("collect"),
+      customer: () => openQuickAction("customer"),
+      sale: () => openQuickAction("sale"),
+      customDebt: () => openQuickAction("customDebt"),
+      expense: () => openQuickAction("expense"),
+      batchRestock: () => openQuickAction("batchRestock"),
+      moneyReceived: () => openQuickAction("collectionsHistory"),
     },
-    {
-      key: "customer",
-      group: "create",
-      label: t("customers.add"),
-      icon: "person-add-outline",
-      onPress: () => openQuickAction("customer"),
-    },
-    {
-      key: "sale",
-      group: "create",
-      label: t("sales.record_button"),
-      icon: "receipt-outline",
-      iconBadge: "add",
-      onPress: () => openQuickAction("sale"),
-    },
-    {
-      key: "customDebt",
-      group: "create",
-      label: t("debts.add_custom_debt"),
-      icon: "document-text-outline",
-      iconBadge: "add",
-      onPress: () => openQuickAction("customDebt"),
-    },
-  ];
-
-  if (isAdmin) {
-    actions.push({
-      key: "expense",
-      group: "create",
-      label: t("expenses.add_title"),
-      icon: "trending-down-outline",
-      iconBadge: "add",
-      onPress: () => openQuickAction("expense"),
-    });
-    actions.push({
-      key: "batchRestock",
-      group: "create",
-      label: t("products.batch_restock_title"),
-      icon: "cube-outline",
-      iconBadge: "add",
-      onPress: () => openQuickAction("batchRestock"),
-    });
-  }
-
-  actions.push({
-    key: "collectionsHistory",
-    group: "history",
-    label: t("ledger.history_title"),
-    icon: "time-outline",
-    onPress: () => openQuickAction("collectionsHistory"),
   });
 
   return (

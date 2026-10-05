@@ -1,5 +1,6 @@
-import type { CollectionListItem } from "@shared/core/types";
+import type { Collection, CollectionListItem } from "@shared/core/types";
 import { formatDateTime } from "@shared/core/utils/date";
+import { pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
 import type { LabeledValue } from "./billView";
 
 type Translate = (key: string, opts?: Record<string, unknown>) => string;
@@ -37,4 +38,42 @@ export function collectionInfoRows(
     { key: "voided_by", label: t("ledger.voided_by"), value: userName(collection.voidedBy) },
     { key: "void_reason", label: t("ledger.void_reason_label"), value: collection.voidReason },
   ];
+}
+
+export type PaymentActionKey = "details" | "invoice" | "correct" | "void";
+
+export type PaymentMenuItem = MenuItem<PaymentActionKey>;
+
+const PAYMENT_MENU: MenuTable<PaymentActionKey> = {
+  details: { group: "open", labelKey: "ledger.payment_details" },
+  invoice: { group: "send", labelKey: "invoicing.send_on_whatsapp" },
+  correct: {
+    group: "manage",
+    labelKey: "ledger.correct_payment",
+    captionKey: "ledger.correct_payment_caption",
+  },
+  void: { group: "danger", labelKey: "ledger.void_payment", destructive: true },
+};
+
+type Voidable = Pick<Collection, "voidedAt">;
+
+// A voided hand-over, or any payment on a voided bill, can only be looked at.
+export function paymentMenuItems(
+  payment: Voidable,
+  options: { sendable: boolean; billVoided?: boolean },
+): PaymentMenuItem[] {
+  const keys: PaymentActionKey[] = ["details"];
+  if (!options.billVoided && payment.voidedAt === null) {
+    if (options.sendable) keys.push("invoice");
+    keys.push("correct", "void");
+  }
+  return pickMenu(PAYMENT_MENU, keys);
+}
+
+export function voidablePayments<T extends Voidable>(payments: readonly T[]): T[] {
+  return payments.filter((payment) => payment.voidedAt === null);
+}
+
+export function paymentSelectionItems(selected: readonly Voidable[]): PaymentMenuItem[] {
+  return voidablePayments(selected).length > 0 ? pickMenu(PAYMENT_MENU, ["void"]) : [];
 }

@@ -1,9 +1,13 @@
 import type { OpenItem, Sale } from "@shared/core/types";
 import { formatDate } from "@shared/core/utils/date";
 import { receiptId } from "@shared/core/utils/receiptId";
-import type { LabeledValue } from "@shared/modules/ledger/utils/billView";
+import {
+  billFacts,
+  type BillFacts,
+  type LabeledValue,
+} from "@shared/modules/ledger/utils/billView";
 import { openItemFromCharge } from "@shared/modules/ledger/utils/openItems";
-import type { ActionGroup } from "@shared/shared/lib/actionOrder";
+import { pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
 
 type Translate = (key: string, opts?: Record<string, unknown>) => string;
 
@@ -65,21 +69,14 @@ export type SaleActionKey =
   | "history"
   | "void";
 
-export interface SaleMenuItem {
-  key: SaleActionKey;
-  group: ActionGroup;
-  labelKey: string;
-  captionKey?: string;
-  disabled?: boolean;
-  destructive?: boolean;
-}
+export type SaleMenuItem = MenuItem<SaleActionKey>;
 
 export interface SaleMenuViewer {
   isAdmin: boolean;
   canSend: (phone: string | null) => boolean;
 }
 
-const MENU: Record<SaleActionKey, Omit<SaleMenuItem, "key">> = {
+const MENU: MenuTable<SaleActionKey> = {
   view: { group: "open", labelKey: "sales.view_receipt" },
   edit: { group: "manage", labelKey: "sales.edit_sale" },
   collect: { group: "money", labelKey: "ledger.collect_remaining" },
@@ -102,15 +99,57 @@ export function saleMenuItems(
   if (!voided) keys.push("void");
   const phone = sale.customer?.phoneNumber ?? null;
   const sendable = viewer.canSend(phone);
-  return keys.map((key) => {
-    const item: SaleMenuItem = { key, ...MENU[key] };
-    if (key !== "invoice" || sendable) return item;
+  return pickMenu(MENU, keys).map((item) => {
+    if (item.key !== "invoice" || sendable) return item;
     return {
       ...item,
       disabled: true,
       captionKey: sale.customer ? "invoice.no_phone" : "invoice.no_customer",
     };
   });
+}
+
+// One receipt covers every live sale of a pick; voided ones drop out of both rows.
+export function saleSelectionItems(selected: readonly Sale[]): SaleMenuItem[] {
+  if (!selected.some((sale) => sale.voidedAt === null)) return [];
+  return pickMenu(MENU, ["invoice", "void"]);
+}
+
+// The receipt's own menu: collect and send sit on the receipt as buttons.
+export function saleReceiptActions(
+  sale: Sale,
+  viewer: Pick<SaleMenuViewer, "isAdmin">,
+): SaleMenuItem[] {
+  const voided = sale.voidedAt !== null;
+  const keys: SaleActionKey[] = [];
+  if (!voided) keys.push("edit");
+  if (viewer.isAdmin) keys.push("history");
+  if (!voided) keys.push("void");
+  return pickMenu(MENU, keys);
+}
+
+export interface SaleReceiptFacts extends BillFacts {
+  partlyPaid: boolean;
+}
+
+// A receipt judges the sale by the LIVE cash its payments list just read.
+export function saleReceiptFacts(
+  sale: Sale,
+  collected: number = sale.amountPaid,
+): SaleReceiptFacts {
+  const facts = billFacts(
+    {
+      amount: sale.totalAmount,
+      voidedAt: sale.voidedAt,
+      writtenOffAt: sale.charge?.writtenOffAt ?? null,
+    },
+    collected,
+  );
+  return {
+    ...facts,
+    canCollect: facts.canCollect && !!sale.customerId && !!sale.charge,
+    partlyPaid: !facts.voided && facts.balance > 0,
+  };
 }
 
 // Every field a receipt MIGHT print; an empty value is dropped by the view.

@@ -5,17 +5,25 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
+import type { SelectionAction } from "@/src/shared/components/SelectionBar";
+import {
+  toActionMenuItems,
+  toSelectionActions,
+} from "@/src/shared/lib/menuActions";
+import { SALE_ACTION_ICONS, SALE_RENDER_ICONS } from "./saleActionIcons";
+import { useSaleInvoiceSend } from "./useSaleInvoiceSend";
 import { BillHistorySheet, useCollectSheet } from "@/src/modules/ledger";
 import { saleTitle } from "@shared/core/utils/receiptId";
 import {
   saleCollectItem,
   saleMenuItems,
+  saleSelectionItems,
   saleVoidTarget,
   type SaleActionKey,
   type SaleVoidTarget,
 } from "@shared/modules/transaction/sales/utils/saleView";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
-import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
+import { useSendInvoice } from "@/src/modules/invoicing";
 import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";
 import type { SaleVoidResult } from "@shared/modules/transaction/sales/utils/types";
 
@@ -24,24 +32,15 @@ interface Options {
   onEdit: (sale: Sale) => void;
   onVoided?: (result: SaleVoidResult) => void;
   onCollected?: (collection: Collection) => void;
+  onSelectionDone?: () => void;
 }
 
 export interface SaleActions {
   openMenu: (sale: Sale) => void;
   requestVoid: (sales: Sale[]) => void;
+  selectionActions: (selected: Sale[]) => SelectionAction[];
   sheets: ReactNode;
 }
-
-const SALE_ACTION_ICONS: Record<
-  Exclude<SaleActionKey, "invoice">,
-  NonNullable<ActionMenuItem["icon"]>
-> = {
-  view: "receipt-outline",
-  edit: "create-outline",
-  collect: "cash-outline",
-  history: "time-outline",
-  void: "close-circle-outline",
-};
 
 // One ActionMenu per SCREEN, not per row: these lists are virtualized.
 export function useSaleActions({
@@ -49,10 +48,12 @@ export function useSaleActions({
   onEdit,
   onVoided,
   onCollected,
+  onSelectionDone,
 }: Options): SaleActions {
   const { t } = useTranslation();
   const { canSend, sendSaleInvoice } = useSendInvoice();
   const { isAdmin } = useAuth();
+  const sendInvoices = useSaleInvoiceSend();
   const collectSheet = useCollectSheet({ onCollected });
   const [menuSale, setMenuSale] = useState<Sale | null>(null);
   const [historySale, setHistorySale] = useState<Sale | null>(null);
@@ -79,30 +80,34 @@ export function useSaleActions({
       history: () => setHistorySale(sale),
       void: () => setVoidTarget(saleVoidTarget([sale])),
     };
-    return saleMenuItems(sale, { isAdmin, canSend }).map((item) => ({
-      key: item.key,
-      group: item.group,
-      label: t(item.labelKey, { amount: "" }),
-      caption: item.captionKey ? t(item.captionKey) : undefined,
-      disabled: item.disabled,
-      destructive: item.destructive,
-      ...(item.key === "invoice"
-        ? {
-            renderIcon: (size: number) => (
-              <WhatsAppComboIcon variant="report" size={size} />
-            ),
-          }
-        : { icon: SALE_ACTION_ICONS[item.key] }),
-      onPress: run[item.key],
-    }));
+    return toActionMenuItems(saleMenuItems(sale, { isAdmin, canSend }), t, {
+      icons: SALE_ACTION_ICONS,
+      renderIcons: SALE_RENDER_ICONS,
+      labelValues: { amount: "" },
+      run,
+    });
+  }
+
+  function requestVoid(sales: Sale[]) {
+    const target = saleVoidTarget(sales);
+    if (target.saleIds.length > 0) setVoidTarget(target);
   }
 
   return {
     openMenu: setMenuSale,
-    requestVoid: (sales) => {
-      const target = saleVoidTarget(sales);
-      if (target.saleIds.length > 0) setVoidTarget(target);
-    },
+    requestVoid,
+    selectionActions: (selected) =>
+      toSelectionActions(saleSelectionItems(selected), t, {
+        icons: SALE_ACTION_ICONS,
+        renderIcons: SALE_RENDER_ICONS,
+        run: {
+          invoice: () =>
+            void sendInvoices(selected).then((sent) => {
+              if (sent) onSelectionDone?.();
+            }),
+          void: () => requestVoid(selected),
+        },
+      }),
     sheets: (
       <>
         <ActionMenu

@@ -14,7 +14,7 @@ Layers L1 Presentation → L2 State → L3 Services → L4 Repository → DB, L5
 - Shared also never imports a relative path leaving `Shared/src` (`tests/suites/sharedBoundary.test.ts`).
 - Logic-exporting barrel would drag screens into pure code (+ Portal / tests bundles).
 - `@edge/*` files today: `whatsapp/rules.ts`, `whatsapp/sijilTemplates.ts`; guard test checks zero-import too.
-- **Stays in SubsTrack:** screens, components, RN / expo-router hooks (`useTextField`, `useExportRows`, …), presentation helpers (`kindStyle`, `kindIcon`, `paymentMenu`, `reportColors`, `expenseCategoryIcon`), Supabase client + `storage.ts`, phone i18n (`core/i18n/setup.ts`, `languageStore`), offline layer (`core/offline/**`, `*.offline.ts`, `platform/offlineRepositories.ts`, `errorLog/`, `net/connectivity`).
+- **Stays in SubsTrack:** screens, components, RN / expo-router hooks (`useTextField`, `useExportRows`, …), presentation helpers (`kindStyle`, `kindIcon`, menu icon maps `*ActionIcons`, `menuActions`, `reportColors`, `expenseCategoryIcon`), Supabase client + `storage.ts`, phone i18n (`core/i18n/setup.ts`, `languageStore`), offline layer (`core/offline/**`, `*.offline.ts`, `platform/offlineRepositories.ts`, `errorLog/`, `net/connectivity`).
 
 ### Offline-First (native only) — repository seam
 

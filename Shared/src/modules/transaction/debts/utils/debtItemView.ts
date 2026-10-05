@@ -1,6 +1,6 @@
 import type { OpenItem } from "@shared/core/types";
 import { daysLate } from "@shared/core/utils/date";
-import type { ActionGroup } from "@shared/shared/lib/actionOrder";
+import { pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
 import { isEditableCustomDebt } from "./customDebtForm";
 
 export type DebtItemActionKey =
@@ -28,15 +28,9 @@ export function debtItemFacts(
   };
 }
 
-export interface DebtMenuItem {
-  key: DebtItemActionKey;
-  group: ActionGroup;
-  labelKey: string;
-  captionKey?: string;
-  destructive?: boolean;
-}
+export type DebtMenuItem = MenuItem<DebtItemActionKey>;
 
-const MENU: Record<DebtItemActionKey, Omit<DebtMenuItem, "key">> = {
+const MENU: MenuTable<DebtItemActionKey> = {
   collect: { group: "money", labelKey: "payments.collect" },
   revert_write_off: {
     group: "manage",
@@ -62,5 +56,5 @@ export function debtItemActions(item: OpenItem): DebtMenuItem[] {
   if (custom) keys.push("edit");
   if (billed && !writtenOff) keys.push("write_off");
   if (custom) keys.push("remove");
-  return keys.map((key) => ({ key, ...MENU[key] }));
+  return pickMenu(MENU, keys);
 }

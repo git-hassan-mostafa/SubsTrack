@@ -64,6 +64,12 @@ import { CollectionsVoidDialog } from "../components/CollectionsVoidDialog";
 import { CorrectCollectionSheet } from "../components/CorrectCollectionSheet";
 import { useOpenBill } from "../hooks/useOpenBill";
 import { collectionService } from "@shared/modules/ledger/services/CollectionService";
+import { toSelectionActions } from "@/src/shared/lib/menuActions";
+import { PAYMENT_ACTION_ICONS } from "../utils/paymentActionIcons";
+import {
+  paymentSelectionItems,
+  voidablePayments,
+} from "@shared/modules/ledger/utils/collectionView";
 
 interface Props {
   onOpenSale?: (saleId: string) => Promise<void> | void;
@@ -262,18 +268,10 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
   function buildSelectionActions(
     rows: CollectionListItem[],
   ): SelectionAction[] {
-    const live = rows.filter((c) => c.voidedAt === null);
-    if (live.length === 0) return [];
-    return [
-      {
-        key: "void",
-        group: "danger",
-        icon: "close-circle-outline",
-        label: t("ledger.void_payment"),
-        destructive: true,
-        onPress: () => setVoidIds(live.map((c) => c.id)),
-      },
-    ];
+    return toSelectionActions(paymentSelectionItems(rows), t, {
+      icons: PAYMENT_ACTION_ICONS,
+      run: { void: () => setVoidIds(voidablePayments(rows).map((c) => c.id)) },
+    });
   }
 
   if (!ready) {

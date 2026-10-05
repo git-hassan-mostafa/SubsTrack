@@ -1,10 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Stack from "@mui/material/Stack";
-import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
-import EditOutlined from "@mui/icons-material/EditOutlined";
-import PauseCircleOutlined from "@mui/icons-material/PauseCircleOutlined";
-import PlayCircleOutlined from "@mui/icons-material/PlayCircleOutlined";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Branch } from "@shared/core/types";
 import { confirm } from "@shared/shared/lib/confirm";
@@ -15,9 +11,15 @@ import { activeStatusColumn } from "@/shared/table/activeStatusColumn";
 import { DataTable } from "@/shared/table/DataTable";
 import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
-import type { TableAction } from "@/shared/table/tableAction";
+import { toTableActions, type TableAction } from "@/shared/table/tableAction";
+import { CATALOG_ACTION_ICONS } from "@/shared/table/catalogActionIcons";
+import {
+  catalogRowActions,
+  catalogSelectionActions,
+  type CatalogActionKey,
+} from "@shared/shared/lib/catalogMenu";
 import { readAllBranches, useBranchesTable } from "@/state/branchesTable";
-import { useRecordHistoryAction } from "@/modules/admin/audit/useRecordHistoryAction";
+import { useHistoryDoor } from "@/modules/admin/audit/useHistoryDoor";
 import { BranchFormDialog } from "./BranchFormDialog";
 
 // The reference list page: every later web table copies this shape.
@@ -34,7 +36,7 @@ export function BranchesPage() {
   const deactivateBranch = useBranchSlice((s) => s.deactivateBranch);
   const bulkDeleteBranches = useBranchSlice((s) => s.bulkDeleteBranches);
   const reactivateBranch = useBranchSlice((s) => s.reactivateBranch);
-  const history = useRecordHistoryAction("branches");
+  const history = useHistoryDoor("branches");
   const [form, setForm] = useState<{ branch: Branch | null } | null>(null);
 
   const confirmDeactivate = (branch: Branch) =>
@@ -73,52 +75,27 @@ export function BranchesPage() {
     if (updated) patchRow(updated);
   };
 
-  const statusAction = (branch: Branch): TableAction =>
-    branch.active
-      ? {
-          key: "deactivate",
-          group: "status",
-          label: t("branches.deactivate"),
-          icon: PauseCircleOutlined,
-          destructive: true,
-          onClick: () => void confirmDeactivate(branch),
-        }
-      : {
-          key: "reactivate",
-          group: "status",
-          label: t("branches.reactivate"),
-          icon: PlayCircleOutlined,
-          onClick: () => void reactivate(branch),
-        };
-
-  const editAction = (branch: Branch): TableAction => ({
-    key: "edit",
-    group: "manage",
-    label: t("common.edit"),
-    icon: EditOutlined,
-    onClick: () => setForm({ branch }),
+  const runFor = (branch: Branch): Partial<Record<CatalogActionKey, () => void>> => ({
+    edit: () => setForm({ branch }),
+    history: () => history.open(branch.id, branch.name),
+    deactivate: () => void confirmDeactivate(branch),
+    reactivate: () => void reactivate(branch),
   });
 
-  const deleteAction = (branches: Branch[]): TableAction => ({
-    key: "delete",
-    group: "danger",
-    label: t("common.delete"),
-    icon: DeleteOutlined,
-    destructive: true,
-    onClick: () => void confirmDelete(branches),
-  });
-
-  const rowActions = (branch: Branch): TableAction[] => [
-    editAction(branch),
-    history.action(branch.id, branch.name),
-    statusAction(branch),
-    deleteAction([branch]),
-  ];
+  const rowActions = (branch: Branch): TableAction[] =>
+    toTableActions(catalogRowActions("branch", branch), t, {
+      icons: CATALOG_ACTION_ICONS,
+      run: { ...runFor(branch), delete: () => void confirmDelete([branch]) },
+    });
 
   const bulkActions = (selected: Branch[]): TableAction[] =>
-    selected.length === 1
-      ? [editAction(selected[0]), statusAction(selected[0]), deleteAction(selected)]
-      : [deleteAction(selected)];
+    toTableActions(catalogSelectionActions("branch", selected), t, {
+      icons: CATALOG_ACTION_ICONS,
+      run: {
+        ...(selected.length === 1 ? runFor(selected[0]) : {}),
+        delete: () => void confirmDelete(selected),
+      },
+    });
 
   const columns: GridColDef<Branch>[] = [
     {

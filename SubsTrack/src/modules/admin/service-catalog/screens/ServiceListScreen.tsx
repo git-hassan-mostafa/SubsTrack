@@ -32,7 +32,16 @@ import {
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelectionBackHandler";
 import type { Service } from "@shared/core/types";
-import { useRecordHistoryAction } from "@/src/modules/admin/audit";
+import { useHistoryDoor } from "@/src/modules/admin/audit";
+import {
+  toActionMenuItems,
+  toSelectionActions,
+} from "@/src/shared/lib/menuActions";
+import { CATALOG_ACTION_ICONS } from "@/src/shared/lib/catalogActionIcons";
+import {
+  catalogRowActions,
+  catalogSelectionActions,
+} from "@shared/shared/lib/catalogMenu";
 import { ServiceCard } from "../components/ServiceCard";
 import { ServiceFormSheet } from "../components/ServiceFormSheet";
 import { useServiceSlice } from "@shared/state/hooks/useServiceSlice";
@@ -55,7 +64,7 @@ export function ServiceListScreen() {
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
   const branchFilter = useEffectiveBranchFilter();
-  const history = useRecordHistoryAction("services");
+  const history = useHistoryDoor("services");
   const selection = useSelection();
   const {
     active: selectionActive,
@@ -105,35 +114,15 @@ export function ServiceListScreen() {
 
   function buildActions(service: Service | null): ActionMenuItem[] {
     if (!service) return [];
-    const actions: ActionMenuItem[] = [
-      {
-        key: "edit",
-        group: "manage",
-        label: t("common.edit"),
-        icon: "create-outline",
-        onPress: () => openEdit(service),
+    return toActionMenuItems(catalogRowActions("service", service), t, {
+      icons: CATALOG_ACTION_ICONS,
+      run: {
+      edit: () => openEdit(service),
+      history: () => history.open(service.id, service.name),
+      reactivate: () => void handleReactivate(service),
+      delete: () => void handleDelete(service),
       },
-      history.action(service.id, service.name),
-    ];
-    if (service.active) {
-      actions.push({
-        key: "delete",
-        group: "danger",
-        label: t("common.delete"),
-        icon: "trash-outline",
-        destructive: true,
-        onPress: () => void handleDelete(service),
-      });
-    } else {
-      actions.push({
-        key: "reactivate",
-        group: "status",
-        label: t("common.reactivate"),
-        icon: "refresh-outline",
-        onPress: () => void handleReactivate(service),
-      });
-    }
-    return actions;
+    });
   }
 
   const filtered = debouncedSearch
@@ -177,42 +166,21 @@ export function ServiceListScreen() {
     if (deleted) clearSelection();
   }
 
-  // Edit and reactivate only appear on a single selection.
   function buildSelectionActions(selected: Service[]): SelectionAction[] {
-    if (selected.length === 0) return [];
-    const actions: SelectionAction[] = [];
-    if (selected.length === 1) {
-      const one = selected[0];
-      actions.push({
-        key: "edit",
-        group: "manage",
-        icon: "create-outline",
-        label: t("common.edit"),
-        onPress: () => {
-          openEdit(one);
+    const one = selected.length === 1 ? selected[0] : null;
+    return toSelectionActions(catalogSelectionActions("service", selected), t, {
+      icons: CATALOG_ACTION_ICONS,
+      disabled: bulkBusy ? ["delete"] : [],
+      run: {
+        edit: () => {
+          if (one) openEdit(one);
           clearSelection();
         },
-      });
-      if (!one.active) {
-        actions.push({
-          key: "reactivate",
-          group: "status",
-          icon: "refresh-outline",
-          label: t("common.reactivate"),
-          onPress: () => void handleReactivate(one).then(clearSelection),
-        });
-      }
-    }
-    actions.push({
-      key: "delete",
-      group: "danger",
-      icon: "trash-outline",
-      label: t("common.delete"),
-      destructive: true,
-      disabled: bulkBusy,
-      onPress: () => void runBulkDelete(selected),
+        reactivate: () =>
+          one && void handleReactivate(one).then(clearSelection),
+        delete: () => void runBulkDelete(selected),
+      },
     });
-    return actions;
   }
 
   return (

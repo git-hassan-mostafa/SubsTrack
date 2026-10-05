@@ -26,9 +26,12 @@ import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useCollectSheet, useOpenBill } from "@/src/modules/ledger";
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import {
+  debtorActions,
   debtorOwedItems,
   filterDebtors,
 } from "@shared/modules/transaction/debts/utils/debtorView";
+import { toActionMenuItems } from "@/src/shared/lib/menuActions";
+import { DEBTOR_ACTION_ICONS } from "../utils/debtorActionIcons";
 import { useDebtRowActions } from "../hooks/useDebtRowActions";
 import { DebtorCard } from "../components/DebtorCard";
 import { DebtorDetailSheet } from "../components/DebtorDetailSheet";
@@ -96,6 +99,18 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
   );
 
   const totalLabel = formatMoney(view?.summary.totalUsd ?? 0, null, target);
+
+  function debtorMenu(debtor: CustomerDebts) {
+    const owed = debtorOwedItems(debtor);
+    return toActionMenuItems(debtorActions(owed), t, {
+      icons: DEBTOR_ACTION_ICONS,
+      run: {
+        collect_all: () =>
+          collectSheet.open(debtor.customerId, debtor.customerName, owed),
+        write_off_all: () => void writeOffDebtor(debtor),
+      },
+    });
+  }
 
   return (
     <View className="flex-1">
@@ -199,38 +214,7 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
         visible={!!menuDebtor}
         title={menuDebtor?.customerName}
         onDismiss={() => setMenuDebtor(null)}
-        actions={[
-          {
-            key: "collect",
-            group: "money",
-            label: t("payments.collect"),
-            icon: "cash-outline",
-            onPress: () => {
-              if (!menuDebtor) return;
-              const debtor = menuDebtor;
-              setMenuDebtor(null);
-              collectSheet.open(
-                debtor.customerId,
-                debtor.customerName,
-                debtorOwedItems(debtor),
-              );
-            },
-          },
-          {
-            key: "write-off-all",
-            group: "danger",
-            label: t("ledger.write_off_all"),
-            caption: t("ledger.write_off_all_caption"),
-            icon: "remove-circle-outline",
-            destructive: true,
-            onPress: () => {
-              if (!menuDebtor) return;
-              const debtor = menuDebtor;
-              setMenuDebtor(null);
-              void writeOffDebtor(debtor);
-            },
-          },
-        ]}
+        actions={menuDebtor ? debtorMenu(menuDebtor) : []}
       />
 
       {openDebtor && (

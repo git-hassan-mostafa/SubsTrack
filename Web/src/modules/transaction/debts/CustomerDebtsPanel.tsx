@@ -1,22 +1,24 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import NoteAddOutlined from "@mui/icons-material/NoteAddOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
-import RemoveCircleOutlineOutlined from "@mui/icons-material/RemoveCircleOutlineOutlined";
 import type { Customer } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { owedUsd } from "@shared/modules/ledger/utils/debtRule";
 import { useCustomerDebts } from "@shared/modules/transaction/debts/hooks/useCustomerDebts";
-import { useWrittenOffDebts, type DebtScope } from "@shared/modules/transaction/debts/hooks/useWrittenOffDebts";
+import { useDebtScope } from "@shared/modules/transaction/debts/hooks/useDebtScope";
+import { debtorActions } from "@shared/modules/transaction/debts/utils/debtorView";
 import { sortDebts } from "@shared/modules/transaction/debts/utils/allDebtsFilter";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { PanelSection } from "@/shared/components/PanelSection";
 import { RowActionsMenu } from "@/shared/table/RowActionsMenu";
+import { toTableActions } from "@/shared/table/tableAction";
+import { DEBTOR_ACTION_ICONS } from "./debtActionIcons";
 import { DebtItemsTable } from "./DebtItemsTable";
 import { DebtScopeTabs } from "./DebtScopeTabs";
 import { useDebtDoors } from "./useDebtDoors";
@@ -27,8 +29,7 @@ export function CustomerDebtsPanel({ customer }: { customer: Customer }) {
   const currencies = useCurrencySlice((s) => s.items);
   const display = findCurrency(currencies, useDisplayCurrencyId());
   const debts = useCustomerDebts(customer.id, customer.name);
-  const writtenOff = useWrittenOffDebts(customer.id, customer.name);
-  const [scope, setScope] = useState<DebtScope>("live");
+  const { scope, setScope, showingWrittenOff, writtenOff } = useDebtScope(customer.id, customer.name);
   const { refresh } = debts;
   const recipientOf = useCallback(
     () => ({ name: customer.name, phone: customer.phoneNumber }),
@@ -40,7 +41,6 @@ export function CustomerDebtsPanel({ customer }: { customer: Customer }) {
     void refresh();
   }, [refresh]);
 
-  const showingWrittenOff = scope === "written_off";
   const source = showingWrittenOff ? writtenOff : debts;
   const live = debts.items;
   const owing = !showingWrittenOff && live.length > 0;
@@ -66,17 +66,10 @@ export function CustomerDebtsPanel({ customer }: { customer: Customer }) {
           </Button>
           <RowActionsMenu
             rowLabel={t("debts.customer_panel_title")}
-            actions={[
-              {
-                key: "write-off-all",
-                group: "danger",
-                label: t("ledger.write_off_all"),
-                caption: t("ledger.write_off_all_caption"),
-                icon: RemoveCircleOutlineOutlined,
-                destructive: true,
-                onClick: () => doors.writeOffAll(customer.name, live),
-              },
-            ]}
+            actions={toTableActions(debtorActions(live), t, {
+              icons: DEBTOR_ACTION_ICONS,
+              run: { write_off_all: () => doors.writeOffAll(customer.name, live) },
+            })}
           />
         </>
       ) : null}

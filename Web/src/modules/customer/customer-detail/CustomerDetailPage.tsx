@@ -13,13 +13,17 @@ import ArrowBack from "@mui/icons-material/ArrowBack";
 import EditOutlined from "@mui/icons-material/EditOutlined";
 import HistoryOutlined from "@mui/icons-material/HistoryOutlined";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
+import type { Customer } from "@shared/core/types";
+import { customerStatusItems } from "@shared/modules/customer/customers/utils/customerMenu";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { RowActionsMenu } from "@/shared/table/RowActionsMenu";
+import { toTableActions } from "@/shared/table/tableAction";
 import { CustomerFormDialog } from "@/modules/customer/customers/CustomerFormDialog";
 import { useCustomerAdminActions } from "@/modules/customer/customers/useCustomerAdminActions";
 import { useCustomerHistoryAction } from "@/modules/customer/customers/useCustomerHistoryAction";
+import { CUSTOMER_ACTION_ICONS } from "@/modules/customer/customers/customerActionIcons";
 import { MonthPanel } from "@/modules/customer/customer-payments/MonthPanel";
 import { CustomerDebtsPanel } from "@/modules/transaction/debts/CustomerDebtsPanel";
 import { CustomerSalesPanel } from "@/modules/transaction/sales/CustomerSalesPanel";
@@ -51,6 +55,11 @@ export function CustomerDetailPage() {
 
   const backLabel = t("web.customer_detail.back");
 
+  const removeCustomer = async (target: Customer) => {
+    const { hardDeleted } = await adminActions.remove([target]);
+    if (hardDeleted) void navigate(CUSTOMERS_PATH);
+  };
+
   return (
     <Stack spacing={2}>
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1 }}>
@@ -64,23 +73,23 @@ export function CustomerDetailPage() {
         </Typography>
         {customer ? (
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <Button variant="outlined" startIcon={<HistoryOutlined />} onClick={history.action(customer).onClick}>
+            <Button variant="outlined" startIcon={<HistoryOutlined />} onClick={() => history.open(customer)}>
               {t("audit.history")}
             </Button>
             <Button variant="outlined" startIcon={<EditOutlined />} onClick={() => setEditing(true)}>
               {t("common.edit")}
             </Button>
-            {isAdmin ? (
-              <RowActionsMenu
-                rowLabel={customer.name}
-                actions={[
-                  adminActions.toggleActive(customer),
-                  adminActions.remove([customer], (hardDeleted) => {
-                    if (hardDeleted) void navigate(CUSTOMERS_PATH);
-                  }),
-                ]}
-              />
-            ) : null}
+            <RowActionsMenu
+              rowLabel={customer.name}
+              actions={toTableActions(customerStatusItems(customer, { isAdmin }), t, {
+                icons: CUSTOMER_ACTION_ICONS,
+                run: {
+                  deactivate: () => void adminActions.toggleActive(customer),
+                  reactivate: () => void adminActions.toggleActive(customer),
+                  delete: () => void removeCustomer(customer),
+                },
+              })}
+            />
           </Stack>
         ) : null}
       </Stack>

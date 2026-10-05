@@ -5,7 +5,8 @@ import {
   FormSheet,
   type SheetScrollTo,
 } from "@/src/shared/components/FormSheet";
-import type { ActionMenuItem } from "@/src/shared/components/ActionMenu";
+import { toActionMenuItems } from "@/src/shared/lib/menuActions";
+import { SALE_ACTION_ICONS } from "../hooks/saleActionIcons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
@@ -21,13 +22,15 @@ import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice"
 import { saleTitle } from "@shared/core/utils/receiptId";
 import {
   saleInfoRows,
+  saleReceiptActions,
+  saleReceiptFacts,
   saleVoidTarget,
 } from "@shared/modules/transaction/sales/utils/saleView";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { BillHero, BillHistorySheet, BillPaymentsList } from "@/src/modules/ledger";
-import { billLook, chargeStatusOf } from "@shared/modules/ledger/utils/billState";
+import { billLook } from "@shared/modules/ledger/utils/billState";
 import type { SaleVoidResult } from "@shared/modules/transaction/sales/utils/types";
 import { SaleBulkVoidSheet } from "./SaleBulkVoidSheet";
 
@@ -65,53 +68,29 @@ export function SaleDetailSheet({
   const fmtTarget = (v: number) => formatMoney(v, source, target);
   const showEquivalent = (source?.id ?? null) !== (target?.id ?? null);
 
-  const voided = sale.voidedAt !== null;
-  const writtenOff = !voided && sale.charge?.writtenOffAt != null;
-  const partiallyPaid = !voided && sale.amountPaid < sale.totalAmount;
+  const facts = saleReceiptFacts(sale);
+  const { voided, writtenOff } = facts;
+  const partiallyPaid = facts.partlyPaid;
   const totalSourceLabel = fmtSource(sale.totalAmount);
   const heroSourceLabel = partiallyPaid
     ? formatPaidFraction(sale.amountPaid, sale.totalAmount, source, source)
     : totalSourceLabel;
-  const state = billLook(
-    chargeStatusOf({
-      voided,
-      writtenOff,
-      amount: sale.totalAmount,
-      collected: sale.amountPaid,
-    }),
-  );
-  const menuActions: ActionMenuItem[] = [];
-  if (!voided && !voidMode && onEdit) {
-    menuActions.push({
-      key: "edit",
-      group: "manage",
-      label: t("sales.edit_sale"),
-      icon: "create-outline",
-      onPress: () => onEdit(sale),
-    });
-  }
-  if (isAdmin && !voidMode) {
-    menuActions.push({
-      key: "history",
-      group: "history",
-      label: t("audit.history"),
-      icon: "time-outline",
-      onPress: () => setHistoryOpen(true),
-    });
-  }
-  if (!voided && !voidMode && onVoided) {
-    menuActions.push({
-      key: "void",
-      group: "danger",
-      label: t("sales.void_sale"),
-      icon: "close-circle-outline",
-      destructive: true,
-      onPress: () => {
-        setVoidMode(true);
-        scrollBody.current?.(0);
-      },
-    });
-  }
+  const state = billLook(facts.status);
+  const menuActions = voidMode
+    ? []
+    : toActionMenuItems(saleReceiptActions(sale, { isAdmin }), t, {
+        icons: SALE_ACTION_ICONS,
+        run: {
+          edit: onEdit ? () => onEdit(sale) : undefined,
+          history: () => setHistoryOpen(true),
+          void: onVoided
+            ? () => {
+                setVoidMode(true);
+                scrollBody.current?.(0);
+              }
+            : undefined,
+        },
+      });
   const items = sale.items;
   const multipleItems = items.length > 1;
   const itemsLabel = multipleItems

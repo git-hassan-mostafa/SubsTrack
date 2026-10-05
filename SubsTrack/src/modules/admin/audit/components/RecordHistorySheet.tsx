@@ -11,14 +11,7 @@ interface RecordHistorySheetProps {
   onDismiss: () => void;
 }
 
-/**
- * One record's change timeline — the SAME sheet for a payment, a product, a plan, a
- * branch or a staff member, so any list can offer "History" from its 3-dot menu
- * (see useRecordHistoryAction) without building a view of its own.
- *
- * Opened from a record's detail sheet or card menu, so admins can answer "who
- * touched THIS row" without filtering the whole log.
- */
+// One record's change timeline, the same sheet for any table (see useHistoryDoor).
 export function RecordHistorySheet({
   table,
   recordId,

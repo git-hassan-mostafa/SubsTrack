@@ -5,7 +5,6 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { CollectionListItem } from "@shared/core/types";
 import { findCurrency, formatMoney, formatMoneyPair, snapshotCurrency } from "@shared/core/utils/currency";
@@ -24,7 +23,12 @@ import { StatusChip } from "@/shared/components/StatusChip";
 import { DataTable } from "@/shared/table/DataTable";
 import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
-import type { TableAction } from "@/shared/table/tableAction";
+import { toTableActions, type TableAction } from "@/shared/table/tableAction";
+import {
+  paymentMenuItems,
+  paymentSelectionItems,
+  voidablePayments,
+} from "@shared/modules/ledger/utils/collectionView";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
 import { useCollectionsTable } from "@/state/collectionsTable";
 import { useSendCollectionReceipt } from "@/modules/invoicing/useSendCollectionReceipt";
@@ -32,7 +36,7 @@ import { useBillDialog } from "../bill/useBillDialog";
 import { CorrectPaymentDialog } from "../payment/CorrectPaymentDialog";
 import { KIND_ICON, KIND_TONE } from "../kindLook";
 import { PaymentDetailDialog } from "../payment/PaymentDetailDialog";
-import { paymentActions } from "../payment/paymentActions";
+import { PAYMENT_ACTION_ICONS } from "../payment/paymentActionIcons";
 import { VoidPaymentsDialog } from "../void/VoidPaymentsDialog";
 import { useSaleDoors } from "@/modules/transaction/sales/useSaleDoors";
 import { MoneyReceivedFilters } from "./MoneyReceivedFilters";
@@ -82,30 +86,21 @@ export function MoneyReceivedPage() {
   }, [sendReceipt]);
 
   const rowActions = useCallback((row: CollectionListItem): TableAction[] =>
-    paymentActions(t, {
-      onDetails: () => setDetail(row),
-      onSend:
-        !isVoided(row) && whatsAppChatUrl(row.customerPhone) !== null
-          ? () => void sendOne(row)
-          : undefined,
-      onCorrect: isVoided(row) ? undefined : () => setCorrectId(row.id),
-      onVoid: isVoided(row) ? undefined : () => setVoidRows([row]),
+    toTableActions(paymentMenuItems(row, { sendable: whatsAppChatUrl(row.customerPhone) !== null }), t, {
+      icons: PAYMENT_ACTION_ICONS,
+      run: {
+        details: () => setDetail(row),
+        invoice: () => void sendOne(row),
+        correct: () => setCorrectId(row.id),
+        void: () => setVoidRows([row]),
+      },
     }), [sendOne, t]);
 
-  const bulkActions = useCallback((selected: CollectionListItem[]): TableAction[] => {
-    const live = selected.filter((row) => !isVoided(row));
-    if (live.length === 0) return [];
-    return [
-      {
-        key: "void",
-        group: "danger",
-        label: t("ledger.void_payment"),
-        icon: DeleteOutlined,
-        destructive: true,
-        onClick: () => setVoidRows(live),
-      },
-    ];
-  }, [t]);
+  const bulkActions = useCallback((selected: CollectionListItem[]): TableAction[] =>
+    toTableActions(paymentSelectionItems(selected), t, {
+      icons: PAYMENT_ACTION_ICONS,
+      run: { void: () => setVoidRows(voidablePayments(selected)) },
+    }), [t]);
 
   const rowLabel = useCallback(
     (row: CollectionListItem) => `${row.customerName ?? t("ledger.walk_in")} · ${formatDateTime(row.receivedAt)}`,

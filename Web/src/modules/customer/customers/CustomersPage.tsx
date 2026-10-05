@@ -2,11 +2,6 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import Stack from "@mui/material/Stack";
-import BoltOutlined from "@mui/icons-material/BoltOutlined";
-import EditOutlined from "@mui/icons-material/EditOutlined";
-import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
-import RemoveCircleOutlineOutlined from "@mui/icons-material/RemoveCircleOutlineOutlined";
-import WhatsApp from "@mui/icons-material/WhatsApp";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Collection, Customer } from "@shared/core/types";
 import { findCurrency, formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
@@ -14,14 +9,14 @@ import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { planSummary } from "@shared/modules/customer/customer-plans/utils/lineLabel";
 import { useQuickPay } from "@shared/modules/customer/customers/hooks/useQuickPay";
-import { hasAnythingOwed, hasDebtFlag } from "@shared/modules/customer/customers/utils/customerFlags";
-import { hasCustomerFilters } from "@shared/modules/customer/customers/utils/customerFilters";
+import { hasDebtFlag } from "@shared/modules/customer/customers/utils/customerFlags";
 import {
-  canQuickPay,
-  fixedMonthItems,
-  isMultiPlan,
-  type QuickPayTarget,
-} from "@shared/modules/customer/customers/utils/quickPay";
+  customerMenuItems,
+  customerSelectionItems,
+  type CustomerActionKey,
+} from "@shared/modules/customer/customers/utils/customerMenu";
+import { hasCustomerFilters } from "@shared/modules/customer/customers/utils/customerFilters";
+import type { QuickPayTarget } from "@shared/modules/customer/customers/utils/quickPay";
 import { useLoadOwed } from "@shared/modules/ledger/hooks/useLoadOwed";
 import { useWriteOffActions } from "@shared/modules/ledger/hooks/useWriteOffActions";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
@@ -34,9 +29,11 @@ import { MoneyText } from "@/shared/components/MoneyText";
 import { openWhatsApp } from "@/shared/lib/openWhatsApp";
 import { useSendCollectionReceipt } from "@/modules/invoicing/useSendCollectionReceipt";
 import { useCollectDialog } from "@/modules/ledger/collect/useCollectDialog";
+import { useDebtDoors } from "@/modules/transaction/debts/useDebtDoors";
+import { useSaleDoors } from "@/modules/transaction/sales/useSaleDoors";
 import { DataTable } from "@/shared/table/DataTable";
 import { RowLink } from "@/shared/table/RowLink";
-import type { TableAction } from "@/shared/table/tableAction";
+import { toTableActions, type TableAction } from "@/shared/table/tableAction";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
 import { usePagedTable } from "@/shared/table/usePagedTable";
 import {
@@ -49,6 +46,7 @@ import { CustomerFormDialog } from "./CustomerFormDialog";
 import { CustomerPills } from "./CustomerPills";
 import { useCustomerAdminActions } from "./useCustomerAdminActions";
 import { useCustomerHistoryAction } from "./useCustomerHistoryAction";
+import { CUSTOMER_ACTION_ICONS } from "./customerActionIcons";
 
 // A payment re-reads the page through the stale signal; it can change the filter.
 export function CustomersPage() {
@@ -68,6 +66,8 @@ export function CustomersPage() {
   const branch = useEffectiveBranchFilter();
   const branchColumn = useBranchColumn<CustomerRow>(t("branches.unassigned"));
   const history = useCustomerHistoryAction();
+  const sale = useSaleDoors();
+  const debts = useDebtDoors();
   const [form, setForm] = useState<{ customer: Customer | null } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loadingOwedFor, setLoadingOwedFor] = useState<string | null>(null);
@@ -133,112 +133,50 @@ export function CustomersPage() {
     await writeOffAll(customer.name, billed);
   };
 
-  const editAction = (customer: Customer): TableAction => ({
-    key: "edit",
-    group: "manage",
-    label: t("common.edit"),
-    icon: EditOutlined,
-    onClick: () => setForm({ customer }),
-  });
-
-  const whatsAppAction = (customer: Customer): TableAction => ({
-    key: "whatsapp-chat",
-    group: "send",
-    label: t("invoice.open_whatsapp_chat"),
-    icon: WhatsApp,
-    onClick: () => void openWhatsApp(customer.phoneNumber),
-  });
-
-  const toggleActiveAction = (customer: Customer) => adminActions.toggleActive(customer);
-
-  const deleteAction = (customers: Customer[]) => adminActions.remove(customers);
-
-  const quickPayAction = (row: CustomerRow, label: string): TableAction => ({
-    key: "quick-pay",
-    group: "money",
-    label,
-    icon: BoltOutlined,
-    disabled: quickPay.bulkBusy,
-    onClick: () => void quickPay.quickPay(targetOf(row)),
-  });
-
-  const moneyActions = (row: CustomerRow): TableAction[] => {
-    const { customer, status } = row;
-    const actions: TableAction[] = [];
-    if (canQuickPay(customer, status)) {
-      actions.push(
-        quickPayAction(
-          row,
-          isMultiPlan(customer) ? t("payments.quick_pay.pay_unpaid_plans") : t("payments.quick_pay.menu_label"),
-        ),
-      );
-      if (fixedMonthItems(customer, status, currencies).length > 0) {
-        const sendable = whatsAppChatUrl(customer.phoneNumber) !== null;
-        actions.push({
-          key: "quick-pay-whatsapp",
-          group: "money",
-          label: t("invoice.pay_and_send_whatsapp"),
-          icon: WhatsApp,
-          disabled: !sendable,
-          caption: sendable ? undefined : t("invoice.no_phone"),
-          onClick: () => void quickPay.quickPay(targetOf(row), true),
-        });
-      }
-    }
-    if (hasAnythingOwed(status, row.debtUsd)) {
-      actions.push({
-        key: "collect",
-        group: "money",
-        label: t("ledger.collect_money"),
-        icon: PaymentsOutlined,
-        onClick: () => void collectOwed(customer),
-      });
-      actions.push({
-        key: "write-off-all",
-        group: "danger",
-        label: t("ledger.write_off_all"),
-        caption: t("ledger.write_off_all_caption"),
-        icon: RemoveCircleOutlineOutlined,
-        destructive: true,
-        onClick: () => void writeOffOwed(customer),
-      });
-    }
-    return actions;
+  const runFor = (row: CustomerRow): Record<CustomerActionKey, () => void> => {
+    const { customer } = row;
+    return {
+      quick_pay: () => void quickPay.quickPay(targetOf(row)),
+      quick_pay_whatsapp: () => void quickPay.quickPay(targetOf(row), true),
+      record_sale: () => sale.recordSale(customer),
+      add_custom_debt: () => debts.addCustomDebt(customer),
+      collect: () => void collectOwed(customer),
+      write_off_all: () => void writeOffOwed(customer),
+      whatsapp_chat: () => void openWhatsApp(customer.phoneNumber),
+      edit: () => setForm({ customer }),
+      history: () => history.open(customer),
+      deactivate: () => void adminActions.toggleActive(customer),
+      reactivate: () => void adminActions.toggleActive(customer),
+      delete: () => void adminActions.remove([customer]),
+    };
   };
 
-  const customerActions = (customer: Customer): TableAction[] => [
-    editAction(customer),
-    history.action(customer),
-    ...(whatsAppChatUrl(customer.phoneNumber) ? [whatsAppAction(customer)] : []),
-    ...(isAdmin ? [toggleActiveAction(customer), deleteAction([customer])] : []),
-  ];
-
-  const rowActions = (row: CustomerRow): TableAction[] => [
-    ...moneyActions(row),
-    ...customerActions(row.customer),
-  ];
+  const rowActions = (row: CustomerRow): TableAction[] =>
+    toTableActions(
+      customerMenuItems(
+        row.customer,
+        { status: row.status, debtUsd: row.debtUsd, currencies },
+        { isAdmin, canSend: (phone) => whatsAppChatUrl(phone) !== null },
+      ),
+      t,
+      { icons: CUSTOMER_ACTION_ICONS, run: runFor(row), disabled: quickPay.bulkBusy ? ["quick_pay"] : [] },
+    );
 
   const bulkActions = (selected: CustomerRow[]): TableAction[] => {
+    const one = selected.length === 1 ? selected[0] : null;
     const customers = selected.map((row) => row.customer);
-    const adminOnly = (actions: TableAction[]) => (isAdmin ? actions : []);
-    if (customers.length > 1) {
-      return [
-        {
-          key: "quick-pay",
-          group: "money",
-          label: t("payments.quick_pay.menu_label"),
-          icon: BoltOutlined,
-          disabled: quickPay.bulkBusy,
-          onClick: () => void quickPay.bulkQuickPay(selected.map(targetOf)),
-        },
-        ...adminOnly([deleteAction(customers)]),
-      ];
-    }
-    return [
-      editAction(customers[0]),
-      quickPayAction(selected[0], t("payments.quick_pay.menu_label")),
-      ...adminOnly([toggleActiveAction(customers[0]), deleteAction(customers)]),
-    ];
+    const run: Partial<Record<CustomerActionKey, () => void>> = {
+      ...(one ? runFor(one) : {}),
+      quick_pay: one
+        ? () => void quickPay.quickPay(targetOf(one))
+        : () => void quickPay.bulkQuickPay(selected.map(targetOf)),
+      delete: () => void adminActions.remove(customers),
+    };
+    return toTableActions(customerSelectionItems(customers, { isAdmin }), t, {
+      icons: CUSTOMER_ACTION_ICONS,
+      run,
+      disabled: quickPay.bulkBusy || adminActions.busy ? ["quick_pay", "delete"] : [],
+    });
   };
 
   const columns: GridColDef<CustomerRow>[] = [
@@ -297,6 +235,9 @@ export function CustomersPage() {
       <ErrorBanner message={form ? null : writeError} onDismiss={clearWriteError} />
       <ErrorBanner message={collect.dialog ? null : ledgerError} onDismiss={clearLedgerError} />
       <ErrorBanner message={notice} onDismiss={() => setNotice(null)} severity="info" />
+      <ErrorBanner message={sale.error} onDismiss={sale.clearError} />
+      <ErrorBanner message={sale.notice} onDismiss={sale.clearNotice} severity="info" />
+      {debts.banners}
       <CustomerFiltersBar value={query.filters} onChange={setFilters} onClear={clearFilters} />
       <DataTable<CustomerRow>
         label={t("customers.title")}
@@ -329,6 +270,8 @@ export function CustomersPage() {
       ) : null}
       {history.dialog}
       {collect.dialog}
+      {sale.dialogs}
+      {debts.dialogs}
     </Stack>
   );
 }

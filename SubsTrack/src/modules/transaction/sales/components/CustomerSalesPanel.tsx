@@ -15,7 +15,6 @@ import { COLORS } from "@/src/shared/constants";
 import type { Customer, Sale } from "@shared/core/types";
 import { useSaleActions } from "../hooks/useSaleActions";
 import { useCustomerSalesPreview } from "@shared/modules/transaction/sales/hooks/useCustomerSalesPreview";
-import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { SaleCard } from "./SaleCard";
 import { SaleFormSheet } from "./SaleFormSheet";
 import { SaleDetailSheet } from "./SaleDetailSheet";
@@ -61,25 +60,22 @@ export function CustomerSalesPanel({ customer }: Props) {
   }
 
   const selectedSales = preview.filter((s) => selectedIds.has(s.id));
-  const invoiceAction = useSaleInvoiceAction(selectedSales, clearSelection);
   const saleActions = useSaleActions({
     onView: setActiveSale,
     onEdit: openEdit,
     onVoided: () => void refresh(),
     onCollected: patch.collected,
+    onSelectionDone: clearSelection,
   });
 
   return (
     <View className="px-4 mt-4">
-      {/* Fixed height in both states so entering selection never shifts the
-          cards under the finger that long-pressed one. `-mx-2` cancels the
-          toolbar's own padding, lining it up with the cards below. */}
       <View className="h-9 justify-center mb-3">
         {selectionActive ? (
           <View className="-mx-2">
             <InlineSelectionToolbar
               count={selection.count}
-              actions={invoiceAction ? [invoiceAction] : []}
+              actions={saleActions.selectionActions(selectedSales)}
               onClose={clearSelection}
             />
           </View>

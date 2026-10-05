@@ -23,7 +23,9 @@ import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice"
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { KIND_STYLE } from "../utils/kindStyle";
 import { collectionLabel } from "@shared/modules/ledger/utils/collectionLabel";
-import { paymentMenu } from "../utils/paymentMenu";
+import { PAYMENT_ACTION_ICONS } from "../utils/paymentActionIcons";
+import { paymentMenuItems } from "@shared/modules/ledger/utils/collectionView";
+import { toActionMenuItems } from "@/src/shared/lib/menuActions";
 
 interface Props {
   item: CollectionListItem;
@@ -73,18 +75,20 @@ export function CollectionCard({
         ? userName(item.heldByUserId)
         : undefined;
 
-  const act = (handler?: (item: CollectionListItem) => void) =>
-    handler && !voided
-      ? () => {
-          setMenuOpen(false);
-          handler(item);
-        }
-      : undefined;
-  const actions = paymentMenu(t, {
-    onSend: act(onSendInvoice),
-    onCorrect: act(onCorrect),
-    onVoid: act(onVoid),
-  });
+  const bind = (handler?: (item: CollectionListItem) => void) =>
+    handler ? () => handler(item) : undefined;
+  const actions = toActionMenuItems(
+    paymentMenuItems(item, { sendable: !!onSendInvoice }),
+    t,
+    {
+      icons: PAYMENT_ACTION_ICONS,
+      run: {
+        invoice: bind(onSendInvoice),
+        correct: bind(onCorrect),
+        void: bind(onVoid),
+      },
+    },
+  );
 
   return (
     <EntityCard

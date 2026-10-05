@@ -17,14 +17,14 @@ import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
+import { useDebtScope } from "@shared/modules/transaction/debts/hooks/useDebtScope";
 import {
-  useWrittenOffDebts,
-  type DebtScope,
-} from "@shared/modules/transaction/debts/hooks/useWrittenOffDebts";
-import {
+  debtorActions,
   debtorOwedItems,
   debtorOwedUsd,
 } from "@shared/modules/transaction/debts/utils/debtorView";
+import { toActionMenuItems } from "@/src/shared/lib/menuActions";
+import { DEBTOR_ACTION_ICONS } from "../utils/debtorActionIcons";
 import { DebtScopeFilter } from "./DebtScopeFilter";
 import { DebtList } from "./DebtList";
 import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
@@ -64,11 +64,8 @@ export function DebtorDetailSheet({
 
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [scope, setScope] = useState<DebtScope>("live");
   const bodyReady = useAfterFirstFrame();
-
-  const showingWrittenOff = scope === "written_off";
-  const writtenOff = useWrittenOffDebts(
+  const { scope, setScope, showingWrittenOff, writtenOff } = useDebtScope(
     debtor.customerId,
     debtor.customerName,
   );
@@ -197,17 +194,12 @@ export function DebtorDetailSheet({
         visible={menuOpen}
         title={debtor.customerName}
         onDismiss={() => setMenuOpen(false)}
-        actions={[
-          {
-            key: "write-off-all",
-            group: "danger",
-            label: t("ledger.write_off_all"),
-            caption: t("ledger.write_off_all_caption"),
-            icon: "remove-circle-outline",
-            destructive: true,
-            onPress: () => onWriteOffAll?.(debtor),
+        actions={toActionMenuItems(debtorActions(owed), t, {
+          icons: DEBTOR_ACTION_ICONS,
+          run: {
+            write_off_all: onWriteOffAll ? () => onWriteOffAll(debtor) : undefined,
           },
-        ]}
+        })}
       />
 
       {customDebtOpen && (

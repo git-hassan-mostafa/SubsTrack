@@ -2,11 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
-import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
-import EditOutlined from "@mui/icons-material/EditOutlined";
-import Inventory2Outlined from "@mui/icons-material/Inventory2Outlined";
 import MoveToInboxOutlined from "@mui/icons-material/MoveToInboxOutlined";
-import PlayCircleOutlined from "@mui/icons-material/PlayCircleOutlined";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Product } from "@shared/core/types";
 import { stockLevelLabel } from "@shared/modules/admin/products/utils/stockText";
@@ -23,10 +19,16 @@ import { activeStatusColumn } from "@/shared/table/activeStatusColumn";
 import { DataTable } from "@/shared/table/DataTable";
 import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
-import type { TableAction } from "@/shared/table/tableAction";
+import { toTableActions, type TableAction } from "@/shared/table/tableAction";
+import { CATALOG_ACTION_ICONS } from "@/shared/table/catalogActionIcons";
+import {
+  catalogRowActions,
+  catalogSelectionActions,
+  type CatalogActionKey,
+} from "@shared/shared/lib/catalogMenu";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
 import { readAllProducts, useProductsTable } from "@/state/productsTable";
-import { useRecordHistoryAction } from "@/modules/admin/audit/useRecordHistoryAction";
+import { useHistoryDoor } from "@/modules/admin/audit/useHistoryDoor";
 import { ProductFormDialog } from "./ProductFormDialog";
 import { ProductStockDialog } from "./ProductStockDialog";
 
@@ -47,7 +49,7 @@ export function ProductsPage() {
   const openQuickAction = useUiStore((s) => s.openQuickAction);
   const moneyPair = useMoneyPair();
   const branchColumn = useBranchColumn<Product>(t("branches.shared_all_branches"));
-  const history = useRecordHistoryAction("products");
+  const history = useHistoryDoor("products");
   const [form, setForm] = useState<{ product: Product | null } | null>(null);
   const [stockFor, setStockFor] = useState<Product | null>(null);
 
@@ -79,51 +81,27 @@ export function ProductsPage() {
     if (updated) patchRow(updated);
   };
 
-  const editAction = (product: Product): TableAction => ({
-    key: "edit",
-    group: "manage",
-    label: t("common.edit"),
-    icon: EditOutlined,
-    onClick: () => setForm({ product }),
-  });
-
-  const stockAction = (product: Product): TableAction => ({
-    key: "stock",
-    group: "manage",
-    label: t("products.adjust_stock_title"),
-    icon: Inventory2Outlined,
-    onClick: () => setStockFor(product),
-  });
-
-  const reactivateAction = (product: Product): TableAction => ({
-    key: "reactivate",
-    group: "status",
-    label: t("common.reactivate"),
-    icon: PlayCircleOutlined,
-    onClick: () => void reactivate(product),
-  });
-
-  const deleteAction = (products: Product[]): TableAction => ({
-    key: "delete",
-    group: "danger",
-    label: t("common.delete"),
-    icon: DeleteOutlined,
-    destructive: true,
-    onClick: () => void confirmDelete(products),
+  const runFor = (product: Product): Partial<Record<CatalogActionKey, () => void>> => ({
+    edit: () => setForm({ product }),
+    stock: () => setStockFor(product),
+    history: () => history.open(product.id, product.name),
+    reactivate: () => void reactivate(product),
   });
 
   const rowActions = (product: Product): TableAction[] =>
-    product.active
-      ? [editAction(product), stockAction(product), history.action(product.id, product.name), deleteAction([product])]
-      : [editAction(product), history.action(product.id, product.name), reactivateAction(product)];
+    toTableActions(catalogRowActions("product", product), t, {
+      icons: CATALOG_ACTION_ICONS,
+      run: { ...runFor(product), delete: () => void confirmDelete([product]) },
+    });
 
-  const bulkActions = (selected: Product[]): TableAction[] => {
-    if (selected.length > 1) return [deleteAction(selected)];
-    const one = selected[0];
-    return one.active
-      ? [editAction(one), stockAction(one), deleteAction(selected)]
-      : [editAction(one), reactivateAction(one), deleteAction(selected)];
-  };
+  const bulkActions = (selected: Product[]): TableAction[] =>
+    toTableActions(catalogSelectionActions("product", selected), t, {
+      icons: CATALOG_ACTION_ICONS,
+      run: {
+        ...(selected.length === 1 ? runFor(selected[0]) : {}),
+        delete: () => void confirmDelete(selected),
+      },
+    });
 
   const columns: GridColDef<Product>[] = [
     {

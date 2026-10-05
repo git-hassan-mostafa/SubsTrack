@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { ActivityIndicator, ScrollView, View } from "react-native";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { useTranslation } from "react-i18next";
@@ -16,7 +16,6 @@ import {
   type DropdownOption,
 } from "@/src/shared/components/Dropdown";
 import { COLORS } from "@/src/shared/constants";
-import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 import type { ChargeKind, DebtsView, OpenItem } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
@@ -29,15 +28,10 @@ import {
   ALL_DEBTS_STATUSES,
   DEBT_KINDS,
   DEFAULT_ALL_DEBTS_FILTERS,
-  filterAndSortDebts,
-  hasActiveAllDebtsFilters,
-  selectAllDebts,
-  totalUsdOf,
-  type AllDebtsFilters,
   type AllDebtsSort,
   type AllDebtsStatus,
 } from "@shared/modules/transaction/debts/utils/allDebtsFilter";
-import { useAllWrittenOffDebts } from "@shared/modules/transaction/debts/hooks/useAllWrittenOffDebts";
+import { useAllDebtsList } from "@shared/modules/transaction/debts/hooks/useAllDebtsList";
 import type { DebtScope } from "@shared/modules/transaction/debts/hooks/useWrittenOffDebts";
 import { DebtItemCard } from "./DebtItemCard";
 
@@ -72,14 +66,18 @@ export function AllDebtsSheet({
   const branchFilter = useEffectiveBranchFilter();
   const bodyReady = useAfterFirstFrame();
 
-  const [filters, setFilters] = useState<AllDebtsFilters>(
-    DEFAULT_ALL_DEBTS_FILTERS,
-  );
-  const [scope, setScope] = useState<DebtScope>("live");
-  const debouncedSearch = useDebounce(filters.search);
-
-  const showingWrittenOff = scope === "written_off";
-  const writtenOff = useAllWrittenOffDebts(branchFilter);
+  const {
+    filters,
+    patch,
+    scope,
+    setScope,
+    showingWrittenOff,
+    writtenOff,
+    rows,
+    totalUsd,
+    dirty,
+    clearAll,
+  } = useAllDebtsList(view, branchFilter, { debounceSearch: true });
 
   const scopeOptions: DropdownOption<DebtScope>[] = useMemo(
     () => [
@@ -107,34 +105,7 @@ export function AllDebtsSheet({
     [t],
   );
 
-  const active = useMemo(
-    () => ({
-      ...filters,
-      search: debouncedSearch,
-      status: showingWrittenOff ? null : filters.status,
-    }),
-    [filters, debouncedSearch, showingWrittenOff],
-  );
-
-  const rows = useMemo(
-    () =>
-      showingWrittenOff
-        ? filterAndSortDebts(writtenOff.items, active)
-        : selectAllDebts(view, active),
-    [showingWrittenOff, writtenOff.items, view, active],
-  );
-
-  const shownTotal = formatMoney(totalUsdOf(rows), null, target);
-  const dirty = hasActiveAllDebtsFilters(active) || showingWrittenOff;
-
-  function patch(next: Partial<AllDebtsFilters>) {
-    setFilters((prev) => ({ ...prev, ...next }));
-  }
-
-  function clearAll() {
-    setFilters(DEFAULT_ALL_DEBTS_FILTERS);
-    setScope("live");
-  }
+  const shownTotal = formatMoney(totalUsd, null, target);
 
   return (
     <AppBottomSheet

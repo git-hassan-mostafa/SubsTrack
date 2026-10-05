@@ -32,35 +32,32 @@ import { MoneyReceivedPage } from "@/modules/ledger/received/MoneyReceivedPage";
 import { DebtsPage } from "@/modules/transaction/debts/DebtsPage";
 import { CustomerSalesPage } from "@/modules/transaction/sales/CustomerSalesPage";
 import { SalesPage } from "@/modules/transaction/sales/SalesPage";
-import type { RouteAccess } from "./access";
+import { PAGE_ACCESS, type PageAccess } from "@shared/modules/authentication/auth/utils/pageAccess";
 
 export type NavSection = "main" | "admin";
 
 export interface AppPage {
   path: string;
   titleKey: string;
-  access: RouteAccess;
+  access: PageAccess;
   icon: SvgIconComponent;
   nav?: NavSection;
   component?: ComponentType;
 }
-
-const ADMIN: RouteAccess = { role: "admin" };
-const ANY_ROLE: RouteAccess = {};
 
 // The one page list: the router guards it, the left nav shows it.
 export const APP_PAGES: readonly AppPage[] = [
   {
     path: "dashboard",
     titleKey: "dashboard.title",
-    access: ADMIN,
+    access: PAGE_ACCESS.dashboard,
     icon: HomeOutlined,
     nav: "main",
   },
   {
     path: "customers",
     titleKey: "customers.title",
-    access: ANY_ROLE,
+    access: PAGE_ACCESS.customers,
     icon: PeopleOutlined,
     nav: "main",
     component: CustomersPage,
@@ -68,21 +65,21 @@ export const APP_PAGES: readonly AppPage[] = [
   {
     path: "customers/:id",
     titleKey: "customers.title",
-    access: ANY_ROLE,
+    access: PAGE_ACCESS.customers,
     icon: PeopleOutlined,
     component: CustomerDetailPage,
   },
   {
     path: "customers/:id/sales",
     titleKey: "sales.title",
-    access: ANY_ROLE,
+    access: PAGE_ACCESS.sales,
     icon: ReceiptLongOutlined,
     component: CustomerSalesPage,
   },
   {
     path: "sales",
     titleKey: "sales.title",
-    access: ANY_ROLE,
+    access: PAGE_ACCESS.sales,
     icon: ReceiptLongOutlined,
     nav: "main",
     component: SalesPage,
@@ -90,7 +87,7 @@ export const APP_PAGES: readonly AppPage[] = [
   {
     path: "debts",
     titleKey: "transactions.tab_debts",
-    access: ANY_ROLE,
+    access: PAGE_ACCESS.debts,
     icon: RequestQuoteOutlined,
     nav: "main",
     component: DebtsPage,
@@ -98,7 +95,7 @@ export const APP_PAGES: readonly AppPage[] = [
   {
     path: "money-received",
     titleKey: "ledger.history_title",
-    access: ANY_ROLE,
+    access: PAGE_ACCESS.money_received,
     icon: PaymentsOutlined,
     nav: "main",
     component: MoneyReceivedPage,
@@ -106,21 +103,21 @@ export const APP_PAGES: readonly AppPage[] = [
   {
     path: "expenses",
     titleKey: "expenses.title",
-    access: ADMIN,
+    access: PAGE_ACCESS.expenses,
     icon: TrendingDownOutlined,
     nav: "main",
   },
   {
     path: "reports",
     titleKey: "reports.title",
-    access: ADMIN,
+    access: PAGE_ACCESS.reports,
     icon: BarChartOutlined,
     nav: "main",
   },
   {
     path: "admin/users",
     titleKey: "users.title",
-    access: ADMIN,
+    access: PAGE_ACCESS.users,
     icon: GroupOutlined,
     nav: "admin",
     component: UsersPage,
@@ -128,14 +125,14 @@ export const APP_PAGES: readonly AppPage[] = [
   {
     path: "admin/wallets",
     titleKey: "wallet.title",
-    access: ADMIN,
+    access: PAGE_ACCESS.wallets,
     icon: AccountBalanceWalletOutlined,
     nav: "admin",
   },
   {
     path: "admin/plans",
     titleKey: "plans.title",
-    access: ADMIN,
+    access: PAGE_ACCESS.plans,
     icon: SellOutlined,
     nav: "admin",
     component: PlansPage,
@@ -143,7 +140,7 @@ export const APP_PAGES: readonly AppPage[] = [
   {
     path: "admin/products",
     titleKey: "products.title",
-    access: ADMIN,
+    access: PAGE_ACCESS.products,
     icon: Inventory2Outlined,
     nav: "admin",
     component: ProductsPage,
@@ -151,7 +148,7 @@ export const APP_PAGES: readonly AppPage[] = [
   {
     path: "admin/services",
     titleKey: "services.title",
-    access: ADMIN,
+    access: PAGE_ACCESS.services,
     icon: BuildOutlined,
     nav: "admin",
     component: ServicesPage,
@@ -159,7 +156,7 @@ export const APP_PAGES: readonly AppPage[] = [
   {
     path: "admin/currencies",
     titleKey: "tenant_settings.currencies_section_title",
-    access: ADMIN,
+    access: PAGE_ACCESS.currencies,
     icon: CurrencyExchangeOutlined,
     nav: "admin",
     component: CurrenciesPage,
@@ -167,7 +164,7 @@ export const APP_PAGES: readonly AppPage[] = [
   {
     path: "admin/branches",
     titleKey: "branches.section_title",
-    access: ADMIN,
+    access: PAGE_ACCESS.branches,
     icon: StoreOutlined,
     nav: "admin",
     component: BranchesPage,
@@ -175,7 +172,7 @@ export const APP_PAGES: readonly AppPage[] = [
   {
     path: "admin/organization",
     titleKey: "tenant_settings.title",
-    access: { role: "tenantWideAdmin" },
+    access: PAGE_ACCESS.organization,
     icon: SettingsOutlined,
     nav: "admin",
     component: OrganizationPage,
@@ -183,7 +180,7 @@ export const APP_PAGES: readonly AppPage[] = [
   {
     path: "admin/audit",
     titleKey: "audit.title",
-    access: ADMIN,
+    access: PAGE_ACCESS.audit,
     icon: HistoryOutlined,
     nav: "admin",
     component: AuditLogPage,
@@ -191,21 +188,21 @@ export const APP_PAGES: readonly AppPage[] = [
   {
     path: "admin/whatsapp",
     titleKey: "whatsapp.title",
-    access: { role: "tenantWideAdmin", whatsapp: true },
+    access: PAGE_ACCESS.whatsapp,
     icon: WhatsApp,
     nav: "admin",
   },
   {
     path: "admin/whatsapp-history",
     titleKey: "whatsapp.history_title",
-    access: { role: "admin", whatsapp: true },
+    access: PAGE_ACCESS.whatsapp_history,
     icon: ForumOutlined,
     nav: "admin",
   },
   {
     path: "my-wallet",
     titleKey: "wallet.my_title",
-    access: ANY_ROLE,
+    access: PAGE_ACCESS.my_wallet,
     icon: AccountBalanceWalletOutlined,
   },
 ];

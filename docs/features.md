@@ -326,7 +326,7 @@ supabase functions deploy create-tenant --no-verify-jwt
 
 **Is NOT:** stocked or costed — no `stock_movements`, no oversell check, no expense; staff pay still hand-typed under `salaries` expense category. Stock paths narrow via `productLines()` / `savedProductLines()` (`sales/utils/saleLines.ts`), never a nullable-id test (gotcha #97).
 
-**Price list (`services`).** Admin → Services (admin menu). Products screen minus stock/cost: name, description, price + currency, branch (`branch_id IS NULL` = SHARED), `active`. `UNIQUE(tenant_id, branch_id, name)` + RLS `services_select` / `services_modify` copied verbatim from `products` → **collector** can add one from the sale form; branch user writes own branch only. Uncapped. Soft-delete if any sale line refs it (voided lines count, FK `ON DELETE RESTRICT`), else hard — same two-mode `deleteService` as products + batch counterpart. Audited; **History** on card menu via `useRecordHistoryAction('services')`.
+**Price list (`services`).** Admin → Services (admin menu). Products screen minus stock/cost: name, description, price + currency, branch (`branch_id IS NULL` = SHARED), `active`. `UNIQUE(tenant_id, branch_id, name)` + RLS `services_select` / `services_modify` copied verbatim from `products` → **collector** can add one from the sale form; branch user writes own branch only. Uncapped. Soft-delete if any sale line refs it (voided lines count, FK `ON DELETE RESTRICT`), else hard — same two-mode `deleteService` as products + batch counterpart. Audited; **History** on card menu via `useHistoryDoor('services')`.
 
 Layers: `src/modules/admin/service-catalog/` — repository (+ `.offline`, platform switch), `ServiceCatalogService`, `ServiceListScreen`, `ServiceCard`, `ServiceFormSheet`, `services` slice w/ `loaded` guard. Not `ServiceService` / `admin/services/services/…` b/c "service" names the whole layer.
 
@@ -816,7 +816,7 @@ Shared (both apps): hooks/useCollectForm (the sheet's state) · useCollectSubmit
                 (correctionPlan / correctionProblem / correctionReason)
 Web:           Web/src/modules/ledger/collect/ — CollectDialog · useCollectDialog · CollectQuickActionDialog
                Web/src/modules/ledger/bill/ — BillDialog · BillPaymentsList · BillSummary
-               Web/src/modules/ledger/payment/ — PaymentDetailDialog · CorrectPaymentDialog · paymentActions
+               Web/src/modules/ledger/payment/ — PaymentDetailDialog · CorrectPaymentDialog · paymentActionIcons
                Web/src/modules/ledger/void/ — VoidPaymentDialog · VoidBillDialog · SharedBillsWarning
   screens/      CollectionsPanel
 ```
@@ -1085,7 +1085,7 @@ Own selection mode on customer detail grid (same `useSelection()`, one customer'
 
 Per-record **History** (all `RecordHistorySheet`): Products / Plans / Staff / Branches / Currencies → card 3-dot menu right under **Edit**; bill (`BillSheet`) → record-history action, **admin-only** (mirrors read policy); sale receipt (`SaleDetailSheet`) → same button above Void; customer → own sheet (below).
 
-**Another list = two lines, deliberately**: `useRecordHistoryAction(table)` (`audit/hooks/`) → `{ action, sheet }`; push `history.action(recordId, name)` (an `ActionMenuItem`), render `{history.sheet}` once beside `<ActionMenu>`. Hook owns open-record state (no screen keeps its own). Menu row for **every** role: non-admin gets "Admins only", never an empty list (false "never changed"). The two receipt sheets gate on `isAdmin` (staff-facing; dead-end button worse than none).
+**Another list = two lines, deliberately**: `useHistoryDoor(table)` (`audit/hooks/`) → `{ open, sheet }`; menu key `history` runs `history.open(recordId, name)`, render `{history.sheet}` once beside `<ActionMenu>`. Hook owns open-record state (no screen keeps its own). Menu row for **every** role: non-admin gets "Admins only", never an empty list (false "never changed"). The two receipt sheets gate on `isAdmin` (staff-facing; dead-end button worse than none).
 
 `subtitle` = record's name (product/plan/branch name, staff full name, currency **code**, sale's frozen `items_summary`, payment month label) under sheet title → trail never anonymous.
 

@@ -15,10 +15,7 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
-import {
-  SelectionBar,
-  type SelectionAction,
-} from "@/src/shared/components/SelectionBar";
+import { SelectionBar } from "@/src/shared/components/SelectionBar";
 import { FAB } from "@/src/shared/components/FAB";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
@@ -45,7 +42,6 @@ import { SaleCard } from "../components/SaleCard";
 import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
 import { useSaleActions } from "../hooks/useSaleActions";
-import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { useSaleSlice } from "@shared/state/hooks/useSaleSlice";
 import {
   hasSaleFilter,
@@ -113,6 +109,7 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
     onView: setActiveSale,
     onEdit: openEdit,
     onVoided: handleVoided,
+    onSelectionDone: clearSelection,
   });
 
   useEffect(() => {
@@ -164,28 +161,7 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
   }
 
   const selectedSales = sales.filter((s) => selectedIds.has(s.id));
-  const invoiceAction = useSaleInvoiceAction(selectedSales, clearSelection);
 
-  // One receipt covers ALL the selected sales, not one each.
-  function buildSelectionActions(selected: Sale[]): SelectionAction[] {
-    if (selected.length === 0) return [];
-    const voidable = selected.filter((s) => s.voidedAt === null);
-    return [
-      ...(invoiceAction ? [invoiceAction] : []),
-      ...(voidable.length > 0
-        ? [
-            {
-              key: "void",
-              group: "danger" as const,
-              icon: "close-circle-outline" as const,
-              label: t("sales.void_sale"),
-              destructive: true,
-              onPress: () => saleActions.requestVoid(voidable),
-            },
-          ]
-        : []),
-    ];
-  }
 
   function handleVoided(result: { ok: number; failed: number }) {
     clearSelection();
@@ -281,7 +257,7 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
         ) : (
           <SelectionBar
             count={selection.count}
-            actions={buildSelectionActions(selectedSales)}
+            actions={saleActions.selectionActions(selectedSales)}
             onClose={clearSelection}
             allSelected={
               sales.length > 0 && selectedSales.length === sales.length

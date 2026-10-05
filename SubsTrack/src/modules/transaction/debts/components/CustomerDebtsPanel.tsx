@@ -16,10 +16,10 @@ import { useCollectSheet, useOpenBill } from "@/src/modules/ledger";
 import { owedUsd } from "@shared/modules/ledger/utils/debtRule";
 import { useCustomerDebts } from "@shared/modules/transaction/debts/hooks/useCustomerDebts";
 import { useDebtRowActions } from "../hooks/useDebtRowActions";
-import {
-  useWrittenOffDebts,
-  type DebtScope,
-} from "@shared/modules/transaction/debts/hooks/useWrittenOffDebts";
+import { useDebtScope } from "@shared/modules/transaction/debts/hooks/useDebtScope";
+import { debtorActions } from "@shared/modules/transaction/debts/utils/debtorView";
+import { toActionMenuItems } from "@/src/shared/lib/menuActions";
+import { DEBTOR_ACTION_ICONS } from "../utils/debtorActionIcons";
 import { DebtScopeFilter } from "./DebtScopeFilter";
 import { DebtList } from "./DebtList";
 import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
@@ -41,10 +41,10 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
   );
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [scope, setScope] = useState<DebtScope>("live");
-
-  const showingWrittenOff = scope === "written_off";
-  const writtenOff = useWrittenOffDebts(customer.id, customer.name);
+  const { scope, setScope, showingWrittenOff, writtenOff } = useDebtScope(
+    customer.id,
+    customer.name,
+  );
 
   const collectSheet = useCollectSheet();
   const {
@@ -136,25 +136,13 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
         visible={menuOpen}
         title={customer.name}
         onDismiss={() => setMenuOpen(false)}
-        actions={[
-          {
-            key: "collect-all",
-            group: "money",
-            label: t("ledger.collect_all"),
-            caption: t("ledger.collect_all_caption"),
-            icon: "cash-outline",
-            onPress: () => collectSheet.open(customer.id, customer.name, items),
+        actions={toActionMenuItems(debtorActions(items), t, {
+          icons: DEBTOR_ACTION_ICONS,
+          run: {
+            collect_all: () => collectSheet.open(customer.id, customer.name, items),
+            write_off_all: () => void writeOffAll(customer.name, items),
           },
-          {
-            key: "write-off-all",
-            group: "danger",
-            label: t("ledger.write_off_all"),
-            caption: t("ledger.write_off_all_caption"),
-            icon: "remove-circle-outline",
-            destructive: true,
-            onPress: () => void writeOffAll(customer.name, items),
-          },
-        ]}
+        })}
       />
 
       {customDebtOpen && (

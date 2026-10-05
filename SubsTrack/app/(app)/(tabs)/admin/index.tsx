@@ -7,6 +7,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "@/src/shared/constants";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
+import {
+  canOpenPage,
+  type PageKey,
+} from "@shared/modules/authentication/auth/utils/pageAccess";
 
 type MenuItem = {
   labelKey: string;
@@ -15,8 +19,7 @@ type MenuItem = {
   iconBg: string;
   iconColor: string;
   route: string;
-  tenantWideOnly?: boolean;
-  whatsappOnly?: boolean;
+  page: PageKey;
 };
 
 const MENU_ITEMS: MenuItem[] = [
@@ -27,6 +30,7 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.successLight,
     iconColor: COLORS.success,
     route: "/(app)/(tabs)/admin/users",
+    page: "users",
   },
   {
     labelKey: "wallet.title",
@@ -35,6 +39,7 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.primaryLight,
     iconColor: COLORS.primary,
     route: "/(app)/(tabs)/admin/wallets",
+    page: "wallets",
   },
   {
     labelKey: "plans.title",
@@ -43,6 +48,7 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.warningLight,
     iconColor: COLORS.warning,
     route: "/(app)/(tabs)/admin/plans",
+    page: "plans",
   },
   {
     labelKey: "products.title",
@@ -51,6 +57,7 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.successLight,
     iconColor: COLORS.success,
     route: "/(app)/(tabs)/admin/products",
+    page: "products",
   },
   {
     labelKey: "services.title",
@@ -59,6 +66,7 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.primaryLight,
     iconColor: COLORS.primary,
     route: "/(app)/(tabs)/admin/services",
+    page: "services",
   },
   {
     labelKey: "tenant_settings.currencies_section_title",
@@ -67,6 +75,7 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.warningLight,
     iconColor: COLORS.warning,
     route: "/(app)/(tabs)/admin/currencies",
+    page: "currencies",
   },
   {
     labelKey: "branches.section_title",
@@ -75,6 +84,7 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.successLight,
     iconColor: COLORS.success,
     route: "/(app)/(tabs)/admin/branches",
+    page: "branches",
   },
   {
     labelKey: "tenant_settings.title",
@@ -83,7 +93,7 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.primaryLight,
     iconColor: COLORS.primary,
     route: "/(app)/(tabs)/admin/tenant-settings",
-    tenantWideOnly: true,
+    page: "organization",
   },
   {
     labelKey: "audit.title",
@@ -92,6 +102,7 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.warningLight,
     iconColor: COLORS.warning,
     route: "/(app)/(tabs)/admin/audit",
+    page: "audit",
   },
   {
     labelKey: "whatsapp.title",
@@ -100,8 +111,7 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.successLight,
     iconColor: COLORS.success,
     route: "/(app)/(tabs)/admin/whatsapp",
-    tenantWideOnly: true,
-    whatsappOnly: true,
+    page: "whatsapp",
   },
   {
     labelKey: "whatsapp.history_title",
@@ -110,18 +120,14 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.primaryLight,
     iconColor: COLORS.primary,
     route: "/(app)/(tabs)/admin/whatsapp-history",
-    whatsappOnly: true,
+    page: "whatsapp_history",
   },
 ];
 
 export default function AdminMenuScreen() {
   const { t } = useTranslation();
-  const { isTenantWideAdmin, whatsappEnabled } = useAuth();
-  const menuItems = MENU_ITEMS.filter(
-    (item) =>
-      (isTenantWideAdmin || !item.tenantWideOnly) &&
-      (whatsappEnabled || !item.whatsappOnly),
-  );
+  const viewer = useAuth();
+  const menuItems = MENU_ITEMS.filter((item) => canOpenPage(viewer, item.page));
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <ScrollView>

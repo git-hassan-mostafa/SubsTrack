@@ -18,7 +18,9 @@ import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useSendInvoice } from "@/src/modules/invoicing";
 import { paidToCharge } from "@shared/modules/ledger/utils/paidToCharge";
-import { paymentMenu } from "../utils/paymentMenu";
+import { PAYMENT_ACTION_ICONS } from "../utils/paymentActionIcons";
+import { paymentMenuItems } from "@shared/modules/ledger/utils/collectionView";
+import { toActionMenuItems } from "@/src/shared/lib/menuActions";
 import type { CollectionCorrection } from "@shared/modules/ledger/services/CollectionService";
 import { useBillPayments } from "@shared/modules/ledger/hooks/useBillPayments";
 import { CollectionDetailSheet } from "./CollectionDetailSheet";
@@ -89,15 +91,18 @@ export function BillPaymentsList({
   }
 
   function paymentActions(target: Collection): ActionMenuItem[] {
-    const act = (then: () => void) => () => {
-      setMenuFor(null);
-      then();
-    };
-    return paymentMenu(t, {
-      onSend: sendable ? act(() => void handleSend(target)) : undefined,
-      onCorrect: act(() => setCorrectTarget(target)),
-      onVoid: act(() => setVoidTarget(target)),
-    });
+    return toActionMenuItems(
+      paymentMenuItems(target, { sendable, billVoided }),
+      t,
+      {
+        icons: PAYMENT_ACTION_ICONS,
+        run: {
+          invoice: () => void handleSend(target),
+          correct: () => setCorrectTarget(target),
+          void: () => setVoidTarget(target),
+        },
+      },
+    );
   }
 
   function handleCorrected(correction: CollectionCorrection) {

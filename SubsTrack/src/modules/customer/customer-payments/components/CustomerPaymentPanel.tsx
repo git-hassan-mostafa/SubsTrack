@@ -20,6 +20,11 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import { InlineSelectionToolbar } from "@/src/shared/components/InlineSelectionToolbar";
 import type { SelectionAction } from "@/src/shared/components/PageHeader";
+import {
+  toActionMenuItems,
+  toSelectionActions,
+  type Glyph,
+} from "@/src/shared/lib/menuActions";
 import type { Collection, Customer, MonthEntry } from "@shared/core/types";
 import { billingMonthLabel } from "@shared/core/utils/billingMonth";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
@@ -48,14 +53,12 @@ interface CustomerPaymentPanelProps {
   refreshToken?: number;
 }
 
-type IconName = keyof typeof Ionicons.glyphMap;
-
 const INDICATOR_DOT: Record<LineIndicator, string> = {
   paid: "bg-green-500",
   unpaid: "bg-red-500",
 };
 
-const MENU_ICONS: Record<MonthMenuKey, IconName> = {
+const MENU_ICONS: Record<MonthMenuKey, Glyph> = {
   open: "open-outline",
   "quick-pay": "flash-outline",
   "quick-pay-whatsapp": "logo-whatsapp",
@@ -68,7 +71,7 @@ const MENU_ICONS: Record<MonthMenuKey, IconName> = {
   "void-month": "close-circle-outline",
 };
 
-const SELECTION_ICONS: Record<MonthSelectionKey, IconName> = {
+const SELECTION_ICONS: Record<MonthSelectionKey, Glyph> = {
   pay: "cash-outline",
   "pay-whatsapp": "logo-whatsapp",
   skip: "play-skip-forward-outline",
@@ -132,29 +135,23 @@ export function CustomerPaymentPanel({
   });
 
   const menuActions: ActionMenuItem[] = menuEntry
-    ? grid.menuItems(menuEntry).map((item) => ({
-        key: item.key,
-        group: item.group,
-        label: t(item.labelKey),
-        icon: MENU_ICONS[item.key],
-        renderIcon:
-          item.key === "quick-pay-whatsapp" ? payAndSendIcon : undefined,
-        caption: item.captionKey ? t(item.captionKey) : undefined,
-        disabled: item.disabled,
-        destructive: item.destructive,
-        onPress: () => grid.runMenu(item.key, menuEntry),
-      }))
+    ? toActionMenuItems(grid.menuItems(menuEntry), t, {
+        icons: MENU_ICONS,
+        renderIcons: { "quick-pay-whatsapp": payAndSendIcon },
+        run: (key) => grid.runMenu(key, menuEntry),
+      })
     : [];
 
-  const selectionActions: SelectionAction[] = selection.items.map((item) => ({
-    key: item.key,
-    group: item.group,
-    icon: SELECTION_ICONS[item.key],
-    renderIcon: item.key === "pay-whatsapp" ? payAndSendIcon : undefined,
-    label: t(item.labelKey),
-    disabled: selection.busy,
-    onPress: () => selection.run(item.key),
-  }));
+  const selectionActions: SelectionAction[] = toSelectionActions(
+    selection.items,
+    t,
+    {
+      icons: SELECTION_ICONS,
+      renderIcons: { "pay-whatsapp": payAndSendIcon },
+      disabled: selection.busy,
+      run: (key) => selection.run(key),
+    },
+  );
 
   const error =
     grid.paymentsError ??

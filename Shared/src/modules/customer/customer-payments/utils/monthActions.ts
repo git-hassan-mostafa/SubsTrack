@@ -1,5 +1,5 @@
 import type { Charge, MonthEntry } from "@shared/core/types";
-import type { ActionGroup } from "@shared/shared/lib/actionOrder";
+import type { MenuItem } from "@shared/shared/lib/menuItem";
 import {
   blockingPaidMonths,
   blockingUnpaidMonths,
@@ -108,14 +108,7 @@ export type MonthMenuKey =
   | "history"
   | "void-month";
 
-export interface MonthMenuItem {
-  key: MonthMenuKey;
-  group: ActionGroup;
-  labelKey: string;
-  captionKey?: string;
-  disabled?: boolean;
-  destructive?: boolean;
-}
+export type MonthMenuItem = MenuItem<MonthMenuKey>;
 
 export interface MonthMenuViewer {
   isAdmin: boolean;
@@ -219,11 +212,7 @@ export function monthSelectionGroups(
 
 export type MonthSelectionKey = "pay" | "pay-whatsapp" | "skip" | "unskip";
 
-export interface MonthSelectionItem {
-  key: MonthSelectionKey;
-  group: ActionGroup;
-  labelKey: string;
-}
+export type MonthSelectionItem = MenuItem<MonthSelectionKey>;
 
 export function monthSelectionItems(
   groups: MonthSelectionGroups,

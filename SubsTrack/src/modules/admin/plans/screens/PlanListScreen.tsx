@@ -18,7 +18,16 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import type { Plan } from "@shared/core/types";
-import { useRecordHistoryAction } from "@/src/modules/admin/audit";
+import { useHistoryDoor } from "@/src/modules/admin/audit";
+import {
+  toActionMenuItems,
+  toSelectionActions,
+} from "@/src/shared/lib/menuActions";
+import { CATALOG_ACTION_ICONS } from "@/src/shared/lib/catalogActionIcons";
+import {
+  catalogRowActions,
+  catalogSelectionActions,
+} from "@shared/shared/lib/catalogMenu";
 import { PlanCard } from "../components/PlanCard";
 import { PlanFormSheet } from "../components/PlanFormSheet";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
@@ -53,7 +62,7 @@ export function PlanListScreen() {
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
   const branchFilter = useEffectiveBranchFilter();
-  const history = useRecordHistoryAction("plans");
+  const history = useHistoryDoor("plans");
   const selection = useSelection();
   const {
     active: selectionActive,
@@ -99,24 +108,14 @@ export function PlanListScreen() {
 
   function buildMenuActions(plan: Plan | null): ActionMenuItem[] {
     if (!plan) return [];
-    return [
-      {
-        key: "edit",
-        group: "manage",
-        label: t("common.edit"),
-        icon: "create-outline",
-        onPress: () => openEdit(plan),
+    return toActionMenuItems(catalogRowActions("plan", plan), t, {
+      icons: CATALOG_ACTION_ICONS,
+      run: {
+      edit: () => openEdit(plan),
+      history: () => history.open(plan.id, plan.name),
+      delete: () => void handleDeletePlan(plan),
       },
-      history.action(plan.id, plan.name),
-      {
-        key: "delete",
-        group: "danger",
-        label: t("common.delete"),
-        icon: "trash-outline",
-        destructive: true,
-        onPress: () => void handleDeletePlan(plan),
-      },
-    ];
+    });
   }
 
   const filtered = debouncedSearch
@@ -158,33 +157,19 @@ export function PlanListScreen() {
     if (deleted) clearSelection();
   }
 
-  // Edit only appears on a single selection.
   function buildSelectionActions(selected: Plan[]): SelectionAction[] {
-    if (selected.length === 0) return [];
-    const actions: SelectionAction[] = [];
-    if (selected.length === 1) {
-      const one = selected[0];
-      actions.push({
-        key: "edit",
-        group: "manage",
-        icon: "create-outline",
-        label: t("common.edit"),
-        onPress: () => {
-          openEdit(one);
+    const one = selected.length === 1 ? selected[0] : null;
+    return toSelectionActions(catalogSelectionActions("plan", selected), t, {
+      icons: CATALOG_ACTION_ICONS,
+      disabled: bulkBusy ? ["delete"] : [],
+      run: {
+        edit: () => {
+          if (one) openEdit(one);
           clearSelection();
         },
-      });
-    }
-    actions.push({
-      key: "delete",
-      group: "danger",
-      icon: "trash-outline",
-      label: t("common.delete"),
-      destructive: true,
-      disabled: bulkBusy,
-      onPress: () => void runBulkDelete(selected),
+        delete: () => void runBulkDelete(selected),
+      },
     });
-    return actions;
   }
 
   return (

@@ -18,15 +18,18 @@ import { receiptId, saleTitle } from "@shared/core/utils/receiptId";
 import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useBillPayments } from "@shared/modules/ledger/hooks/useBillPayments";
-import { billFacts } from "@shared/modules/ledger/utils/billView";
-import { saleInfoRows } from "@shared/modules/transaction/sales/utils/saleView";
+import {
+  saleInfoRows,
+  saleReceiptActions,
+  saleReceiptFacts,
+} from "@shared/modules/transaction/sales/utils/saleView";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { DialogHeading } from "@/shared/components/DialogHeading";
 import { InfoRows } from "@/shared/components/InfoRows";
 import { RowActionsMenu } from "@/shared/table/RowActionsMenu";
-import type { TableAction } from "@/shared/table/tableAction";
+import { toTableActions } from "@/shared/table/tableAction";
 import { BillHistoryDialog } from "@/modules/admin/audit/RecordHistoryDialog";
 import { BillPaymentsList } from "@/modules/ledger/bill/BillPaymentsList";
 import { BillSummary } from "@/modules/ledger/bill/BillSummary";
@@ -58,11 +61,8 @@ export function SaleReceiptDialog({ sale, onClose, onSend, onEdit, onCollect, on
 
   const source = snapshotCurrency(sale, currencies);
   const collected = sale.chargeId ? bill.collected : sale.amountPaid;
-  const facts = billFacts(
-    { amount: sale.totalAmount, voidedAt: sale.voidedAt, writtenOffAt: sale.charge?.writtenOffAt ?? null },
-    collected,
-  );
-  const canCollect = facts.canCollect && !!sale.customerId && !!sale.charge && !!onCollect;
+  const facts = saleReceiptFacts(sale, collected);
+  const canCollect = facts.canCollect && !!onCollect;
   const phone = sale.customer?.phoneNumber ?? null;
   const sendable = whatsAppChatUrl(phone) !== null;
   const name = sale.customer?.name ?? null;
@@ -70,35 +70,14 @@ export function SaleReceiptDialog({ sale, onClose, onSend, onEdit, onCollect, on
   const title = `#${receiptId(sale.id)}`;
   const loading = !!sale.chargeId && bill.loading;
 
-  const actions: TableAction[] = [];
-  if (onEdit && !facts.voided) {
-    actions.push({
-      key: "edit",
-      group: "manage",
-      label: t("sales.edit_sale"),
-      icon: SALE_ACTION_ICONS.edit,
-      onClick: () => onEdit(sale),
-    });
-  }
-  if (isAdmin) {
-    actions.push({
-      key: "history",
-      group: "history",
-      label: t("audit.history"),
-      icon: SALE_ACTION_ICONS.history,
-      onClick: () => setHistoryOpen(true),
-    });
-  }
-  if (onVoid && !facts.voided) {
-    actions.push({
-      key: "void",
-      group: "danger",
-      label: t("sales.void_sale"),
-      icon: SALE_ACTION_ICONS.void,
-      destructive: true,
-      onClick: () => onVoid(sale),
-    });
-  }
+  const actions = toTableActions(saleReceiptActions(sale, { isAdmin }), t, {
+    icons: SALE_ACTION_ICONS,
+    run: {
+      edit: onEdit ? () => onEdit(sale) : undefined,
+      history: () => setHistoryOpen(true),
+      void: onVoid ? () => onVoid(sale) : undefined,
+    },
+  });
 
   return (
     <Dialog open onClose={onClose} maxWidth="md" fullWidth aria-labelledby={titleId}>

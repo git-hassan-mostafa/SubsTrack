@@ -27,7 +27,16 @@ import {
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelectionBackHandler";
 import type { Branch } from "@shared/core/types";
-import { useRecordHistoryAction } from "@/src/modules/admin/audit";
+import { useHistoryDoor } from "@/src/modules/admin/audit";
+import {
+  toActionMenuItems,
+  toSelectionActions,
+} from "@/src/shared/lib/menuActions";
+import { CATALOG_ACTION_ICONS } from "@/src/shared/lib/catalogActionIcons";
+import {
+  catalogRowActions,
+  catalogSelectionActions,
+} from "@shared/shared/lib/catalogMenu";
 import { useBranchSlice } from "@shared/state/hooks/useBranchSlice";
 import { BranchCard } from "../components/BranchCard";
 import { BranchFormSheet } from "../components/BranchFormSheet";
@@ -49,7 +58,7 @@ export function BranchesScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editing, setEditing] = useState<Branch | null>(null);
   const [menuBranch, setMenuBranch] = useState<Branch | null>(null);
-  const history = useRecordHistoryAction("branches");
+  const history = useHistoryDoor("branches");
   const selection = useSelection();
   const {
     active: selectionActive,
@@ -104,43 +113,16 @@ export function BranchesScreen() {
 
   function buildMenuActions(branch: Branch | null): ActionMenuItem[] {
     if (!branch) return [];
-    const items: ActionMenuItem[] = [
-      {
-        key: "edit",
-        group: "manage",
-        label: t("common.edit"),
-        icon: "create-outline",
-        onPress: () => openEdit(branch),
+    return toActionMenuItems(catalogRowActions("branch", branch), t, {
+      icons: CATALOG_ACTION_ICONS,
+      run: {
+      edit: () => openEdit(branch),
+      history: () => history.open(branch.id, branch.name),
+      deactivate: () => void handleDeactivateBranch(branch),
+      reactivate: () => void reactivateBranch(branch.id),
+      delete: () => void handleDeleteBranch(branch),
       },
-      history.action(branch.id, branch.name),
-    ];
-    if (branch.active) {
-      items.push({
-        key: "deactivate",
-        group: "status",
-        label: t("branches.deactivate"),
-        icon: "pause-circle-outline",
-        destructive: true,
-        onPress: () => void handleDeactivateBranch(branch),
-      });
-    } else {
-      items.push({
-        key: "reactivate",
-        group: "status",
-        label: t("branches.reactivate"),
-        icon: "play-circle-outline",
-        onPress: () => reactivateBranch(branch.id),
-      });
-    }
-    items.push({
-      key: "delete",
-      group: "danger",
-      label: t("common.delete"),
-      icon: "trash-outline",
-      destructive: true,
-      onPress: () => void handleDeleteBranch(branch),
     });
-    return items;
   }
 
   const activeCount = branches.filter((b) => b.active).length;
@@ -172,51 +154,23 @@ export function BranchesScreen() {
     if (deleted) clearSelection();
   }
 
-  // Edit and activate/deactivate only appear on a single selection.
   function buildSelectionActions(selected: Branch[]): SelectionAction[] {
-    if (selected.length === 0) return [];
-    const actions: SelectionAction[] = [];
-    if (selected.length === 1) {
-      const one = selected[0];
-      actions.push({
-        key: "edit",
-        group: "manage",
-        icon: "create-outline",
-        label: t("common.edit"),
-        onPress: () => {
-          openEdit(one);
+    const one = selected.length === 1 ? selected[0] : null;
+    return toSelectionActions(catalogSelectionActions("branch", selected), t, {
+      icons: CATALOG_ACTION_ICONS,
+      disabled: bulkBusy ? ["delete"] : [],
+      run: {
+        edit: () => {
+          if (one) openEdit(one);
           clearSelection();
         },
-      });
-      if (one.active) {
-        actions.push({
-          key: "deactivate",
-          group: "status",
-          icon: "pause-circle-outline",
-          label: t("branches.deactivate"),
-          destructive: true,
-          onPress: () => void handleDeactivateBranch(one).then(clearSelection),
-        });
-      } else {
-        actions.push({
-          key: "reactivate",
-          group: "status",
-          icon: "play-circle-outline",
-          label: t("branches.reactivate"),
-          onPress: () => void reactivateBranch(one.id).then(clearSelection),
-        });
-      }
-    }
-    actions.push({
-      key: "delete",
-      group: "danger",
-      icon: "trash-outline",
-      label: t("common.delete"),
-      destructive: true,
-      disabled: bulkBusy,
-      onPress: () => void runBulkDelete(selected),
+        deactivate: () =>
+          one && void handleDeactivateBranch(one).then(clearSelection),
+        reactivate: () =>
+          one && void reactivateBranch(one.id).then(clearSelection),
+        delete: () => void runBulkDelete(selected),
+      },
     });
-    return actions;
   }
 
   const {

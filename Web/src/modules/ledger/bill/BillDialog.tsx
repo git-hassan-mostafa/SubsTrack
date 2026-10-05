@@ -10,23 +10,19 @@ import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
-import CancelOutlined from "@mui/icons-material/CancelOutlined";
 import CloseIcon from "@mui/icons-material/Close";
-import HistoryOutlined from "@mui/icons-material/HistoryOutlined";
-import RemoveCircleOutlineOutlined from "@mui/icons-material/RemoveCircleOutlineOutlined";
-import UndoOutlined from "@mui/icons-material/UndoOutlined";
 import WhatsApp from "@mui/icons-material/WhatsApp";
 import type { Charge, Collection } from "@shared/core/types";
 import { findCurrency, formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
 import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useBillPayments } from "@shared/modules/ledger/hooks/useBillPayments";
-import { billFacts, billInfoRows } from "@shared/modules/ledger/utils/billView";
+import { billFacts, billInfoRows, billMenuItems } from "@shared/modules/ledger/utils/billView";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { InfoRows } from "@/shared/components/InfoRows";
-import type { TableAction } from "@/shared/table/tableAction";
+import { toTableActions } from "@/shared/table/tableAction";
 import { RowActionsMenu } from "@/shared/table/RowActionsMenu";
 import { BillHistoryDialog } from "@/modules/admin/audit/RecordHistoryDialog";
 import { useSendBillReceipt, type BillRecipient } from "@/modules/invoicing/useSendBillReceipt";
@@ -35,6 +31,7 @@ import { DialogHeading } from "@/shared/components/DialogHeading";
 import { KIND_ICON, KIND_TONE } from "../kindLook";
 import { withInfoIcons } from "../infoIcons";
 import { BillSummary } from "./BillSummary";
+import { BILL_ACTION_ICONS } from "./billActionIcons";
 
 interface BillDialogProps {
   charge: Charge;
@@ -87,46 +84,16 @@ export function BillDialog({
     onClose();
   };
 
-  const actions: TableAction[] = [];
-  if (isAdmin) {
-    actions.push({
-      key: "history",
-      group: "history",
-      label: t("audit.history"),
-      icon: HistoryOutlined,
-      onClick: () => setHistoryOpen(true),
-    });
-  }
-  if (onRevertWriteOff && facts.canRevertWriteOff) {
-    actions.push({
-      key: "revert_write_off",
-      group: "manage",
-      label: t("ledger.revert_write_off"),
-      caption: t("ledger.revert_write_off_caption"),
-      icon: UndoOutlined,
-      onClick: () => void revertWriteOff(),
-    });
-  }
-  if (onWriteOff && facts.canWriteOff) {
-    actions.push({
-      key: "write_off",
-      group: "danger",
-      label: t("ledger.write_off"),
-      caption: t("ledger.write_off_caption"),
-      icon: RemoveCircleOutlineOutlined,
-      onClick: () => onWriteOff(charge, facts.balance),
-    });
-  }
-  if (onVoidBill && facts.canVoid) {
-    actions.push({
-      key: "void",
-      group: "danger",
-      label: t("ledger.void_month"),
-      icon: CancelOutlined,
-      destructive: true,
-      onClick: () => void voidBill(),
-    });
-  }
+  const doors = { revertWriteOff: !!onRevertWriteOff, writeOff: !!onWriteOff, void: !!onVoidBill };
+  const actions = toTableActions(billMenuItems(facts, { isAdmin }, doors), t, {
+    icons: BILL_ACTION_ICONS,
+    run: {
+      history: () => setHistoryOpen(true),
+      revert_write_off: () => void revertWriteOff(),
+      write_off: () => onWriteOff?.(charge, facts.balance),
+      void: () => void voidBill(),
+    },
+  });
 
   return (
     <Dialog open onClose={onClose} maxWidth="md" fullWidth aria-labelledby={titleId}>

@@ -35,7 +35,16 @@ import {
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelectionBackHandler";
 import type { Product } from "@shared/core/types";
-import { useRecordHistoryAction } from "@/src/modules/admin/audit";
+import { useHistoryDoor } from "@/src/modules/admin/audit";
+import {
+  toActionMenuItems,
+  toSelectionActions,
+} from "@/src/shared/lib/menuActions";
+import { CATALOG_ACTION_ICONS } from "@/src/shared/lib/catalogActionIcons";
+import {
+  catalogRowActions,
+  catalogSelectionActions,
+} from "@shared/shared/lib/catalogMenu";
 import { ProductCard } from "../components/ProductCard";
 import { ProductFormSheet } from "../components/ProductFormSheet";
 import { ProductStockSheet } from "../components/ProductStockSheet";
@@ -62,7 +71,7 @@ export function ProductListScreen() {
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
   const branchFilter = useEffectiveBranchFilter();
-  const history = useRecordHistoryAction("products");
+  const history = useHistoryDoor("products");
   const selection = useSelection();
   const {
     active: selectionActive,
@@ -118,42 +127,16 @@ export function ProductListScreen() {
 
   function buildActions(product: Product | null): ActionMenuItem[] {
     if (!product) return [];
-    const actions: ActionMenuItem[] = [
-      {
-        key: "edit",
-        group: "manage",
-        label: t("common.edit"),
-        icon: "create-outline",
-        onPress: () => openEdit(product),
+    return toActionMenuItems(catalogRowActions("product", product), t, {
+      icons: CATALOG_ACTION_ICONS,
+      run: {
+      edit: () => openEdit(product),
+      stock: () => openStock(product),
+      history: () => history.open(product.id, product.name),
+      reactivate: () => void handleReactivate(product),
+      delete: () => void handleDelete(product),
       },
-      history.action(product.id, product.name),
-    ];
-    if (product.active) {
-      actions.push({
-        key: "stock",
-        group: "manage",
-        label: t("products.adjust_stock_title"),
-        icon: "cube-outline",
-        onPress: () => openStock(product),
-      });
-      actions.push({
-        key: "delete",
-        group: "danger",
-        label: t("common.delete"),
-        icon: "trash-outline",
-        destructive: true,
-        onPress: () => void handleDelete(product),
-      });
-    } else {
-      actions.push({
-        key: "reactivate",
-        group: "status",
-        label: t("common.reactivate"),
-        icon: "refresh-outline",
-        onPress: () => void handleReactivate(product),
-      });
-    }
-    return actions;
+    });
   }
 
   const filtered = debouncedSearch
@@ -197,42 +180,25 @@ export function ProductListScreen() {
     if (deleted) clearSelection();
   }
 
-  // Edit and reactivate only appear on a single selection.
   function buildSelectionActions(selected: Product[]): SelectionAction[] {
-    if (selected.length === 0) return [];
-    const actions: SelectionAction[] = [];
-    if (selected.length === 1) {
-      const one = selected[0];
-      actions.push({
-        key: "edit",
-        group: "manage",
-        icon: "create-outline",
-        label: t("common.edit"),
-        onPress: () => {
-          openEdit(one);
+    const one = selected.length === 1 ? selected[0] : null;
+    return toSelectionActions(catalogSelectionActions("product", selected), t, {
+      icons: CATALOG_ACTION_ICONS,
+      disabled: bulkBusy ? ["delete"] : [],
+      run: {
+        edit: () => {
+          if (one) openEdit(one);
           clearSelection();
         },
-      });
-      if (!one.active) {
-        actions.push({
-          key: "reactivate",
-          group: "status",
-          icon: "refresh-outline",
-          label: t("common.reactivate"),
-          onPress: () => void handleReactivate(one).then(clearSelection),
-        });
-      }
-    }
-    actions.push({
-      key: "delete",
-      group: "danger",
-      icon: "trash-outline",
-      label: t("common.delete"),
-      destructive: true,
-      disabled: bulkBusy,
-      onPress: () => void runBulkDelete(selected),
+        stock: () => {
+          if (one) openStock(one);
+          clearSelection();
+        },
+        reactivate: () =>
+          one && void handleReactivate(one).then(clearSelection),
+        delete: () => void runBulkDelete(selected),
+      },
     });
-    return actions;
   }
 
   return (

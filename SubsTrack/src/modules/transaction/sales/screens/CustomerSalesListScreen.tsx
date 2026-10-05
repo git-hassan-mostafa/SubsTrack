@@ -13,10 +13,7 @@ import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
-import {
-  PageHeader,
-  type SelectionAction,
-} from "@/src/shared/components/PageHeader";
+import { PageHeader } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
@@ -32,7 +29,6 @@ import { useCustomerSalesList } from "@shared/modules/transaction/sales/hooks/us
 import type { SaleVoidResult } from "@shared/modules/transaction/sales/utils/types";
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import { useSaleActions } from "../hooks/useSaleActions";
-import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 
 // Full-page list of every sale for a single customer. Reachable from the
@@ -84,6 +80,7 @@ export function CustomerSalesListScreen() {
     onEdit: openEdit,
     onVoided: handleVoided,
     onCollected: patch.collected,
+    onSelectionDone: clearSelection,
   });
 
   useEffect(() => {
@@ -97,22 +94,7 @@ export function CustomerSalesListScreen() {
   }
 
   const selectedSales = items.filter((s) => selectedIds.has(s.id));
-  const invoiceAction = useSaleInvoiceAction(selectedSales, clearSelection);
 
-  function buildSelectionActions(selected: Sale[]): SelectionAction[] {
-    if (selected.length === 0) return [];
-    return [
-      ...(invoiceAction ? [invoiceAction] : []),
-      {
-        key: "void",
-        group: "danger",
-        icon: "close-circle-outline",
-        label: t("sales.void_sale"),
-        destructive: true,
-        onPress: () => saleActions.requestVoid(selected),
-      },
-    ];
-  }
 
   async function handleVoided(result: SaleVoidResult) {
     clearSelection();
@@ -138,7 +120,7 @@ export function CustomerSalesListScreen() {
         selection={{
           active: selectionActive,
           count: selection.count,
-          actions: buildSelectionActions(selectedSales),
+          actions: saleActions.selectionActions(selectedSales),
           onClose: clearSelection,
           allSelected:
             items.length > 0 && selectedSales.length === items.length,

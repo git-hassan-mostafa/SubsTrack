@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
-import { confirm } from "@shared/shared/lib/confirm";
 import { copyText } from "@/src/shared/lib/clipboard";
 import { openLocation } from "@/src/shared/lib/maps";
 import type { Customer } from "@shared/core/types";
@@ -14,7 +13,7 @@ import { buildPortalLink } from "@shared/core/utils/portalLink";
 import { isolate } from "@shared/core/utils/bidi";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useBranchSlice } from "@shared/state/hooks/useBranchSlice";
-import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
+import { useCustomerStatusActions } from "@shared/modules/customer/customers/hooks/useCustomerStatusActions";
 import { useCustomerPortalUrl } from "@shared/state/hooks/useOptionSlice";
 
 interface CustomerDetailsCardProps {
@@ -27,7 +26,7 @@ export function CustomerDetailsCard({
   onDeleted,
 }: CustomerDetailsCardProps) {
   const { t } = useTranslation();
-  const customerStore = useCustomerSlice();
+  const customerStatus = useCustomerStatusActions();
   const { isAdmin } = useAuth();
   const branch = useBranchSlice(
     (state) => state.items.find((b) => b.id === customer.branchId) ?? null,
@@ -35,8 +34,6 @@ export function CustomerDetailsCard({
   const portalBaseUrl = useCustomerPortalUrl();
   const [copied, setCopied] = useState(false);
 
-  // Only when the portal is actually switched on: a link to a portal that
-  // refuses every password is worse than no link at all.
   const portalLink = customer.portalEnabled
     ? buildPortalLink(portalBaseUrl, customer.id)
     : null;
@@ -50,35 +47,11 @@ export function CustomerDetailsCard({
   }
 
   async function handleToggleActive() {
-    await confirm({
-      title: customer.active
-        ? t("customers.deactivate_title")
-        : t("customers.reactivate_title"),
-      message: customer.active
-        ? t("customers.deactivate_message", { name: customer.name })
-        : t("customers.reactivate_message", { name: customer.name }),
-      destructive: customer.active,
-      onConfirm: async () => {
-        if (customer.active) {
-          await customerStore.deactivateCustomer(customer);
-        } else {
-          await customerStore.reactivateCustomer(customer);
-        }
-      },
-    });
+    await customerStatus.toggleActive(customer);
   }
 
   async function handleDelete() {
-    let hardDeleted = false;
-    await confirm({
-      title: t("customers.delete_title"),
-      message: t("customers.delete_message", { name: customer.name }),
-      destructive: true,
-      onConfirm: async () => {
-        hardDeleted =
-          (await customerStore.deleteCustomer(customer)) === "hard";
-      },
-    });
+    const { hardDeleted } = await customerStatus.remove([customer]);
     if (hardDeleted) onDeleted?.();
   }
 
@@ -186,8 +159,6 @@ export function CustomerDetailsCard({
           </PressableOpacity>
         ) : null}
 
-        {/* No "Started" row — a start date belongs to a service line, and the
-            payment panel shows each line's own grid from its own start. */}
 
         {portalLink ? (
           <PressableOpacity

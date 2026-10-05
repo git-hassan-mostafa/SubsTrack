@@ -19,9 +19,20 @@ import {
 import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import type { AppUser } from "@shared/core/types";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
-import { useRecordHistoryAction } from "@/src/modules/admin/audit";
+import { useHistoryDoor } from "@/src/modules/admin/audit";
+import {
+  toActionMenuItems,
+  toSelectionActions,
+  type Glyph,
+} from "@/src/shared/lib/menuActions";
+import {
+  splitManageable,
+  userRowActions,
+  userSelectionActions,
+  type UserActionKey,
+} from "@shared/modules/admin/users/utils/userMenu";
 import { UserCard } from "../components/UserCard";
-import { canEditUser, canManageUser } from "@shared/modules/admin/users/utils/userPermissions";
+import { canEditUser } from "@shared/modules/admin/users/utils/userPermissions";
 import { UserFormSheet } from "../components/UserFormSheet";
 import { useUserSlice } from "@shared/state/hooks/useUserSlice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
@@ -38,6 +49,14 @@ import { useSelection } from "@shared/shared/hooks/useSelection";
 import {
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelectionBackHandler";
+
+const USER_ACTION_ICONS: Record<UserActionKey, Glyph> = {
+  edit: "create-outline",
+  history: "time-outline",
+  deactivate: "pause-circle-outline",
+  reactivate: "play-circle-outline",
+  delete: "trash-outline",
+};
 
 export function UserListScreen() {
   const { t } = useTranslation();
@@ -58,7 +77,7 @@ export function UserListScreen() {
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
   const branchFilter = useEffectiveBranchFilter();
-  const history = useRecordHistoryAction("users");
+  const history = useHistoryDoor("users");
   const selection = useSelection();
   const {
     active: selectionActive,
@@ -75,10 +94,6 @@ export function UserListScreen() {
     clearSelection();
     fetchUsers();
   }, [branchFilter, clearSelection, fetchUsers]);
-
-  function canManage(target: AppUser): boolean {
-    return !!currentUser && canManageUser(currentUser, target);
-  }
 
   function openCreate() {
     setEditingUser(null);
@@ -136,38 +151,22 @@ export function UserListScreen() {
     });
   }
 
+  function runFor(user: AppUser): Record<UserActionKey, () => void> {
+    return {
+      edit: () => openEdit(user),
+      history: () => history.open(user.id, user.fullName),
+      deactivate: () => void handleToggleActiveUser(user),
+      reactivate: () => void handleToggleActiveUser(user),
+      delete: () => void handleDeleteUser(user),
+    };
+  }
+
   function buildMenuActions(user: AppUser | null): ActionMenuItem[] {
     if (!user || !currentUser) return [];
-    const items: ActionMenuItem[] = [];
-    if (canEditUser(currentUser, user)) {
-      items.push({
-        key: "edit",
-        group: "manage",
-        label: t("common.edit"),
-        icon: "create-outline",
-        onPress: () => openEdit(user),
-      });
-    }
-    items.push(history.action(user.id, user.fullName));
-    if (canManage(user)) {
-      items.push({
-        key: "toggle-active",
-        group: "status",
-        label: user.active ? t("users.deactivate") : t("users.activate"),
-        icon: user.active ? "pause-circle-outline" : "play-circle-outline",
-        destructive: user.active,
-        onPress: () => void handleToggleActiveUser(user),
-      });
-      items.push({
-        key: "delete",
-        group: "danger",
-        label: t("common.delete"),
-        icon: "trash-outline",
-        destructive: true,
-        onPress: () => void handleDeleteUser(user),
-      });
-    }
-    return items;
+    return toActionMenuItems(userRowActions(currentUser, user), t, {
+      icons: USER_ACTION_ICONS,
+      run: runFor(user),
+    });
   }
 
   const adminCount = users.filter(
@@ -195,8 +194,7 @@ export function UserListScreen() {
   // account / outranked) are skipped and reported.
   async function runBulkDelete(selected: AppUser[]) {
     if (bulkBusy || selected.length === 0 || !currentUser) return;
-    const manageable = selected.filter(canManage);
-    const skipped = selected.length - manageable.length;
+    const { manageable, skipped } = splitManageable(currentUser, selected);
 
     if (manageable.length === 0) {
       await confirm({
@@ -241,45 +239,24 @@ export function UserListScreen() {
     if (deleted) clearSelection();
   }
 
-  // Edit and the active toggle only appear on a single manageable row.
   function buildSelectionActions(selected: AppUser[]): SelectionAction[] {
-    if (selected.length === 0) return [];
-    const actions: SelectionAction[] = [];
-    if (selected.length === 1) {
-      const one = selected[0];
-      actions.push({
-        key: "edit",
-        group: "manage",
-        icon: "create-outline",
-        label: t("common.edit"),
-        onPress: () => {
-          openEdit(one);
+    if (!currentUser) return [];
+    const one = selected.length === 1 ? selected[0] : null;
+    return toSelectionActions(userSelectionActions(currentUser, selected), t, {
+      icons: USER_ACTION_ICONS,
+      disabled: bulkBusy ? ["delete"] : [],
+      run: {
+        edit: () => {
+          if (one) openEdit(one);
           clearSelection();
         },
-      });
-      if (canManage(one)) {
-        actions.push({
-          key: "toggle-active",
-          group: "status",
-          icon: one.active ? "pause-circle-outline" : "play-circle-outline",
-          label: one.active ? t("users.deactivate") : t("users.activate"),
-          destructive: one.active,
-          onPress: () => void handleToggleActiveUser(one).then(clearSelection),
-        });
-      }
-    }
-    if (selected.some(canManage)) {
-      actions.push({
-        key: "delete",
-        group: "danger",
-        icon: "trash-outline",
-        label: t("common.delete"),
-        destructive: true,
-        disabled: bulkBusy,
-        onPress: () => void runBulkDelete(selected),
-      });
-    }
-    return actions;
+        deactivate: () =>
+          one && void handleToggleActiveUser(one).then(clearSelection),
+        reactivate: () =>
+          one && void handleToggleActiveUser(one).then(clearSelection),
+        delete: () => void runBulkDelete(selected),
+      },
+    });
   }
 
   return (

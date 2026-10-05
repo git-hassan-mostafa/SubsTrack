@@ -9,81 +9,45 @@ import NoteAddOutlined from "@mui/icons-material/NoteAddOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import PersonAddOutlined from "@mui/icons-material/PersonAddOutlined";
 import PointOfSaleOutlined from "@mui/icons-material/PointOfSaleOutlined";
+import TrendingDownOutlined from "@mui/icons-material/TrendingDownOutlined";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
-import { sortActions, type ActionGroup } from "@shared/shared/lib/actionOrder";
+import { sortActions } from "@shared/shared/lib/actionOrder";
+import { quickActionItems, type QuickActionKey } from "@shared/shared/lib/quickActions";
 import { useUiStore } from "@shared/shared/lib/uiStore";
+import { toTableActions } from "@/shared/table/tableAction";
 
-export interface QuickAction {
-  key: string;
-  group: ActionGroup;
-  labelKey: string;
-  icon: SvgIconComponent;
-  onClick: () => void;
-}
+const QUICK_ACTION_ICONS: Record<QuickActionKey, SvgIconComponent> = {
+  collect: PaymentsOutlined,
+  customer: PersonAddOutlined,
+  sale: PointOfSaleOutlined,
+  customDebt: NoteAddOutlined,
+  expense: TrendingDownOutlined,
+  batchRestock: MoveToInboxOutlined,
+  moneyReceived: HistoryOutlined,
+};
 
-// Only actions whose dialog or page already works on the web belong here.
-function useQuickActions(): QuickAction[] {
+// Only actions whose dialog or page already works on the web get a handler.
+export function QuickActions() {
+  const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const openQuickAction = useUiStore((s) => s.openQuickAction);
   const navigate = useNavigate();
-  const actions: QuickAction[] = [
-    {
-      key: "collect",
-      group: "money",
-      labelKey: "ledger.collect_money",
-      icon: PaymentsOutlined,
-      onClick: () => openQuickAction("collect"),
+  const actions = toTableActions(quickActionItems({ isAdmin }), t, {
+    icons: QUICK_ACTION_ICONS,
+    run: {
+      collect: () => openQuickAction("collect"),
+      customer: () => openQuickAction("customer"),
+      sale: () => openQuickAction("sale"),
+      customDebt: () => openQuickAction("customDebt"),
+      batchRestock: () => openQuickAction("batchRestock"),
+      moneyReceived: () => void navigate("/money-received"),
     },
-    {
-      key: "sale",
-      group: "create",
-      labelKey: "web.sales.record",
-      icon: PointOfSaleOutlined,
-      onClick: () => openQuickAction("sale"),
-    },
-    {
-      key: "customDebt",
-      group: "create",
-      labelKey: "debts.add_custom_debt",
-      icon: NoteAddOutlined,
-      onClick: () => openQuickAction("customDebt"),
-    },
-    {
-      key: "customer",
-      group: "create",
-      labelKey: "customers.add",
-      icon: PersonAddOutlined,
-      onClick: () => openQuickAction("customer"),
-    },
-    {
-      key: "moneyReceived",
-      group: "history",
-      labelKey: "ledger.history_title",
-      icon: HistoryOutlined,
-      onClick: () => void navigate("/money-received"),
-    },
-  ];
-  if (isAdmin) {
-    actions.push({
-      key: "batchRestock",
-      group: "create",
-      labelKey: "products.batch_restock_title",
-      icon: MoveToInboxOutlined,
-      onClick: () => openQuickAction("batchRestock"),
-    });
-  }
-  return actions;
-}
-
-export function QuickActions() {
-  const { t } = useTranslation();
-  const actions = sortActions(useQuickActions());
-  return actions.map((action) => {
+  });
+  return sortActions(actions).map((action) => {
     const Icon = action.icon;
-    const label = t(action.labelKey);
     return (
-      <Tooltip key={action.key} title={label}>
-        <IconButton aria-label={label} onClick={action.onClick}>
+      <Tooltip key={action.key} title={action.label}>
+        <IconButton aria-label={action.label} onClick={action.onClick}>
           <Icon />
         </IconButton>
       </Tooltip>

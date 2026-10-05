@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import { Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
+import { canOpenPage } from "@shared/modules/authentication/auth/utils/pageAccess";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { Text } from "@/src/shared/components/Text";
@@ -22,7 +23,7 @@ const TAB_ITEM_PADDING = 5;
 const TAB_LABEL_MARGIN = TAB_ICON_GAP - TAB_ITEM_PADDING;
 
 export default function TabsLayout() {
-  const { isAdmin } = useAuth();
+  const viewer = useAuth();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   // Mobile browsers (e.g. Android Chrome) report a phantom safe-area-inset-bottom
@@ -85,7 +86,7 @@ export default function TabsLayout() {
         name="home"
         options={{
           title: t("home.title"),
-          href: isAdmin ? undefined : null,
+          href: canOpenPage(viewer, "dashboard") ? undefined : null,
           tabBarIcon: ({ color }) => (
             <Feather name="home" size={TAB_ICON_SIZE} color={color} />
           ),
@@ -117,12 +118,11 @@ export default function TabsLayout() {
           ),
         }}
       />
-      {/* Admin-only, like home — reports expose tenant-wide money and debt. */}
       <Tabs.Screen
         name="reports"
         options={{
           title: t("reports.title"),
-          href: isAdmin ? undefined : null,
+          href: canOpenPage(viewer, "reports") ? undefined : null,
           tabBarIcon: ({ color }) => (
             <Ionicons
               name="stats-chart-outline"
@@ -136,7 +136,7 @@ export default function TabsLayout() {
         name="admin"
         options={{
           title: t("admin.title"),
-          href: isAdmin ? undefined : null,
+          href: viewer.isAdmin ? undefined : null,
           tabBarIcon: ({ color }) => (
             <Ionicons
               name="shield-outline"

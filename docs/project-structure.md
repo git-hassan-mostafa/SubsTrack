@@ -59,7 +59,7 @@ Shared/
       utils/       pure rules + mappers (Db* → domain)
       state/       MODULE STORES (dashboard, reports, ledger/collectionsList, expenses, wallet, audit, signup, debts, whatsapp) — out of GlobalState
       hooks/       React-only (no RN): useAuth, useActiveBranches, useOwedChanged, …
-    shared/lib/    uiPrefStore, confirmStore + confirm, uiStore, storeReset, session, dataEpoch, branchFilter, csv (toCsv), actionOrder, monthSections
+    shared/lib/    uiPrefStore, confirmStore + confirm, uiStore, storeReset, session, dataEpoch, branchFilter, csv (toCsv), actionOrder, menuItem, catalogMenu, quickActions, monthSections
     shared/hooks/  useDebounce, useDirtyForm, useHoldRepeat, useUserNames, useEffectiveBranchFilter, loadAllPages, exportRowFormat, useUnsavedChangesGuard (discard-changes prompt, both apps)
 ```
 
@@ -93,7 +93,7 @@ SubsTrack/
     screens/, components/   e.g. customers/screens/CustomerListScreen.tsx
     hooks/            need RN / expo-router / components (useCollectSheet, …)
     repository/*.offline.ts  SQLite twin of Shared Supabase class
-    utils/            presentation only: ledger/kindStyle, ledger/paymentMenu, debts/kindIcon, reports/reportColors, expenses/expenseCategoryIcon
+    utils/            presentation only: ledger/kindStyle, ledger/paymentActionIcons, debts/kindIcon, reports/reportColors, expenses/expenseCategoryIcon
   src/shared/components/  Button, Input, AppTextInput, CurrencyInput, AppBottomSheet, FormSheet, PageHeader, ErrorBanner, ConfirmDialog, SelectionBar, … (ui-patterns.md)
   src/shared/hooks/   RN: useTextField, useSelectionBackHandler, useExportRows, useSyncStatus, useSwipeableTabs, useAppUpdate, …
   src/shared/constants/colors.ts  design tokens

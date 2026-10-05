@@ -2,14 +2,16 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
-import EditOutlined from "@mui/icons-material/EditOutlined";
-import PauseCircleOutlined from "@mui/icons-material/PauseCircleOutlined";
-import PlayCircleOutlined from "@mui/icons-material/PlayCircleOutlined";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { AppUser, UserRole } from "@shared/core/types";
 import type { UserRoleFilter } from "@shared/modules/admin/users/utils/types";
-import { canEditUser, canManageUser } from "@shared/modules/admin/users/utils/userPermissions";
+import { canEditUser } from "@shared/modules/admin/users/utils/userPermissions";
+import {
+  splitManageable,
+  userRowActions,
+  userSelectionActions,
+  type UserActionKey,
+} from "@shared/modules/admin/users/utils/userMenu";
 import { roleLabelKey } from "@shared/modules/admin/users/utils/userRules";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
@@ -24,11 +26,12 @@ import { DataTable } from "@/shared/table/DataTable";
 import { usePagedTable } from "@/shared/table/usePagedTable";
 import { FilterSelect } from "@/shared/table/FilterSelect";
 import { RowLink } from "@/shared/table/RowLink";
-import type { TableAction } from "@/shared/table/tableAction";
+import { toTableActions, type TableAction } from "@/shared/table/tableAction";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
 import { readAllUsers, useUsersTable } from "@/state/usersTable";
-import { useRecordHistoryAction } from "@/modules/admin/audit/useRecordHistoryAction";
+import { useHistoryDoor } from "@/modules/admin/audit/useHistoryDoor";
 import { UserFormDialog } from "./UserFormDialog";
+import { USER_ACTION_ICONS } from "./userActionIcons";
 
 const ROLE_TONES: Record<UserRole, ChipTone> = {
   admin: "indigo",
@@ -59,11 +62,8 @@ export function UsersPage() {
   const deleteUser = useUserSlice((s) => s.deleteUser);
   const bulkDeleteUsers = useUserSlice((s) => s.bulkDeleteUsers);
   const branchColumn = useBranchColumn<AppUser>(t("branches.tenant_wide_admin"));
-  const history = useRecordHistoryAction("users");
+  const history = useHistoryDoor("users");
   const [form, setForm] = useState<{ user: AppUser | null } | null>(null);
-
-  const canEdit = (target: AppUser) => !!viewer && canEditUser(viewer, target);
-  const canManage = (target: AppUser) => !!viewer && canManageUser(viewer, target);
 
   const confirmToggle = (target: AppUser) =>
     confirm({
@@ -81,8 +81,7 @@ export function UsersPage() {
     });
 
   const confirmDelete = (selected: AppUser[]) => {
-    const manageable = selected.filter(canManage);
-    const skipped = selected.length - manageable.length;
+    const { manageable, skipped } = viewer ? splitManageable(viewer, selected) : { manageable: [], skipped: 0 };
     const single = manageable.length === 1 && skipped === 0 ? manageable[0] : null;
     return confirm({
       title: single
@@ -108,48 +107,29 @@ export function UsersPage() {
     });
   };
 
-  const editAction = (target: AppUser): TableAction => ({
-    key: "edit",
-    group: "manage",
-    label: t("common.edit"),
-    icon: EditOutlined,
-    onClick: () => setForm({ user: target }),
+  const runFor = (target: AppUser): Record<UserActionKey, () => void> => ({
+    edit: () => setForm({ user: target }),
+    history: () => history.open(target.id, target.fullName),
+    deactivate: () => void confirmToggle(target),
+    reactivate: () => void confirmToggle(target),
+    delete: () => void confirmDelete([target]),
   });
 
-  const toggleAction = (target: AppUser): TableAction => ({
-    key: "toggle-active",
-    group: "status",
-    label: target.active ? t("users.deactivate") : t("users.activate"),
-    icon: target.active ? PauseCircleOutlined : PlayCircleOutlined,
-    destructive: target.active,
-    onClick: () => void confirmToggle(target),
-  });
+  const rowActions = (target: AppUser): TableAction[] =>
+    viewer
+      ? toTableActions(userRowActions(viewer, target), t, { icons: USER_ACTION_ICONS, run: runFor(target) })
+      : [];
 
-  const deleteAction = (selected: AppUser[]): TableAction => ({
-    key: "delete",
-    group: "danger",
-    label: t("common.delete"),
-    icon: DeleteOutlined,
-    destructive: true,
-    onClick: () => void confirmDelete(selected),
-  });
-
-  const rowActions = (target: AppUser): TableAction[] => [
-    ...(canEdit(target) ? [editAction(target)] : []),
-    history.action(target.id, target.fullName),
-    ...(canManage(target) ? [toggleAction(target), deleteAction([target])] : []),
-  ];
-
-  const bulkActions = (selected: AppUser[]): TableAction[] => {
-    const actions: TableAction[] = [];
-    if (selected.length === 1) {
-      const one = selected[0];
-      if (canEdit(one)) actions.push(editAction(one));
-      if (canManage(one)) actions.push(toggleAction(one));
-    }
-    if (selected.some(canManage)) actions.push(deleteAction(selected));
-    return actions;
-  };
+  const bulkActions = (selected: AppUser[]): TableAction[] =>
+    viewer
+      ? toTableActions(userSelectionActions(viewer, selected), t, {
+          icons: USER_ACTION_ICONS,
+          run: {
+            ...(selected.length === 1 ? runFor(selected[0]) : {}),
+            delete: () => void confirmDelete(selected),
+          },
+        })
+      : [];
 
   const columns: GridColDef<AppUser>[] = [
     {
@@ -158,7 +138,7 @@ export function UsersPage() {
       flex: 1,
       minWidth: 180,
       renderCell: (params) =>
-        canEdit(params.row) ? (
+        viewer && canEditUser(viewer, params.row) ? (
           <RowLink
             label={params.row.fullName}
             tabIndex={params.tabIndex}

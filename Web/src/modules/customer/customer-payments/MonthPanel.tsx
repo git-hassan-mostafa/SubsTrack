@@ -12,7 +12,7 @@ import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
 import { useCustomerMonthGrid } from "@shared/modules/customer/customer-payments/hooks/useCustomerMonthGrid";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
-import type { TableAction } from "@/shared/table/tableAction";
+import { toTableActions, type TableAction } from "@/shared/table/tableAction";
 import { BillHistoryDialog } from "@/modules/admin/audit/RecordHistoryDialog";
 import { useSendCollectionReceipt } from "@/modules/invoicing/useSendCollectionReceipt";
 import { BillDialog } from "@/modules/ledger/bill/BillDialog";
@@ -59,16 +59,10 @@ export function MonthPanel({ customer }: { customer: Customer }) {
   const { selectedLine } = grid;
 
   const menuActions = (entry: MonthEntry): TableAction[] =>
-    grid.menuItems(entry).map((item) => ({
-      key: item.key,
-      group: item.group,
-      label: t(item.labelKey),
-      caption: item.captionKey ? t(item.captionKey) : undefined,
-      icon: MONTH_MENU_ICONS[item.key],
-      disabled: item.disabled,
-      destructive: item.destructive,
-      onClick: () => grid.runMenu(item.key, entry),
-    }));
+    toTableActions(grid.menuItems(entry), t, {
+      icons: MONTH_MENU_ICONS,
+      run: (key) => grid.runMenu(key, entry),
+    });
 
   const dialogOpen = !!collect.dialog || !!grid.voidRequest || !!grid.skipRequest;
   const error = dialogOpen ? null : (grid.paymentsError ?? grid.ledgerError);

@@ -1,4 +1,3 @@
-import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -8,18 +7,12 @@ import Typography from "@mui/material/Typography";
 import type { BranchFilter } from "@shared/core/constants";
 import type { ChargeKind, DebtsView } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useAllWrittenOffDebts } from "@shared/modules/transaction/debts/hooks/useAllWrittenOffDebts";
+import { useAllDebtsList } from "@shared/modules/transaction/debts/hooks/useAllDebtsList";
 import type { DebtScope } from "@shared/modules/transaction/debts/hooks/useWrittenOffDebts";
 import {
   ALL_DEBTS_SORTS,
   ALL_DEBTS_STATUSES,
   DEBT_KINDS,
-  DEFAULT_ALL_DEBTS_FILTERS,
-  filterAndSortDebts,
-  hasActiveAllDebtsFilters,
-  selectAllDebts,
-  totalUsdOf,
-  type AllDebtsFilters,
   type AllDebtsSort,
   type AllDebtsStatus,
 } from "@shared/modules/transaction/debts/utils/allDebtsFilter";
@@ -43,29 +36,8 @@ export function AllDebtsTab({ view, branch, doors }: AllDebtsTabProps) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const display = findCurrency(currencies, useDisplayCurrencyId());
-  const [filters, setFilters] = useState<AllDebtsFilters>(DEFAULT_ALL_DEBTS_FILTERS);
-  const [scope, setScope] = useState<DebtScope>("live");
-  const showingWrittenOff = scope === "written_off";
-  const writtenOff = useAllWrittenOffDebts(branch);
-
-  const active = useMemo(
-    () => ({ ...filters, status: showingWrittenOff ? null : filters.status }),
-    [filters, showingWrittenOff],
-  );
-  const rows = useMemo(
-    () => (showingWrittenOff ? filterAndSortDebts(writtenOff.items, active) : selectAllDebts(view, active)),
-    [showingWrittenOff, writtenOff.items, view, active],
-  );
-  const dirty = hasActiveAllDebtsFilters(active) || showingWrittenOff;
-  const patch = (next: Partial<AllDebtsFilters>) => setFilters((prev) => ({ ...prev, ...next }));
-  const setSearch = useCallback(
-    (search: string) => setFilters((prev) => (prev.search === search ? prev : { ...prev, search })),
-    [],
-  );
-  const clearAll = () => {
-    setFilters(DEFAULT_ALL_DEBTS_FILTERS);
-    setScope("live");
-  };
+  const { filters, patch, setSearch, scope, setScope, showingWrittenOff, writtenOff, rows, totalUsd, dirty, clearAll } =
+    useAllDebtsList(view, branch);
 
   return (
     <Stack spacing={2}>
@@ -119,7 +91,7 @@ export function AllDebtsTab({ view, branch, doors }: AllDebtsTabProps) {
             })}
           </Typography>
           <Typography sx={{ fontWeight: 700, color: showingWrittenOff ? "text.secondary" : "error.main" }}>
-            {formatMoney(totalUsdOf(rows), null, display)}
+            {formatMoney(totalUsd, null, display)}
           </Typography>
         </Stack>
       </Paper>

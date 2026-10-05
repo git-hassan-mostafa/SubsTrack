@@ -10,13 +10,14 @@ import {
   saleCollectItem,
   saleFacts,
   saleMenuItems,
+  saleSelectionItems,
   saleVoidTarget,
   type SaleActionKey,
   type SaleVoidTarget,
 } from "@shared/modules/transaction/sales/utils/saleView";
 import type { SaleVoidResult } from "@shared/modules/transaction/sales/utils/types";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import type { TableAction } from "@/shared/table/tableAction";
+import { toTableActions, type TableAction } from "@/shared/table/tableAction";
 import { BillHistoryDialog } from "@/modules/admin/audit/RecordHistoryDialog";
 import { useSendSalesInvoice } from "@/modules/invoicing/useSendSalesInvoice";
 import { useCollectDialog } from "@/modules/ledger/collect/useCollectDialog";
@@ -108,48 +109,24 @@ export function useSaleDoors({ onChanged, onSaved }: SaleDoorOptions = {}): Sale
         history: () => setHistorySale(sale),
         void: () => setVoidTarget(saleVoidTarget([sale])),
       };
-      return saleMenuItems(sale, { isAdmin, canSend }).flatMap((item) => {
-        const handler = run[item.key];
-        if (!handler) return [];
-        return [
-          {
-            key: item.key,
-            group: item.group,
-            label: t(item.labelKey, { amount: formatMoney(owed, currency, currency) }),
-            caption: item.captionKey ? t(item.captionKey) : undefined,
-            icon: SALE_ACTION_ICONS[item.key],
-            disabled: item.disabled,
-            destructive: item.destructive,
-            onClick: handler,
-          },
-        ];
+      return toTableActions(saleMenuItems(sale, { isAdmin, canSend }), t, {
+        icons: SALE_ACTION_ICONS,
+        run,
+        labelValues: { amount: formatMoney(owed, currency, currency) },
       });
     },
     [collectRest, currencies, edit, isAdmin, send, t],
   );
 
   const bulkActions = useCallback(
-    (selected: Sale[]): TableAction[] => {
-      const target = saleVoidTarget(selected);
-      if (target.saleIds.length === 0) return [];
-      return [
-        {
-          key: "invoice",
-          group: "send",
-          label: t("invoice.send_invoice_whatsapp"),
-          icon: SALE_ACTION_ICONS.invoice,
-          onClick: () => void sendInvoice(selected),
+    (selected: Sale[]): TableAction[] =>
+      toTableActions(saleSelectionItems(selected), t, {
+        icons: SALE_ACTION_ICONS,
+        run: {
+          invoice: () => void sendInvoice(selected),
+          void: () => setVoidTarget(saleVoidTarget(selected)),
         },
-        {
-          key: "void",
-          group: "danger",
-          label: t("sales.void_sale"),
-          icon: SALE_ACTION_ICONS.void,
-          destructive: true,
-          onClick: () => setVoidTarget(target),
-        },
-      ];
-    },
+      }),
     [sendInvoice, t],
   );
 

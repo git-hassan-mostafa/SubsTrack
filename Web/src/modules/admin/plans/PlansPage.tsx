@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Stack from "@mui/material/Stack";
-import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
-import EditOutlined from "@mui/icons-material/EditOutlined";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Plan } from "@shared/core/types";
 import { confirm } from "@shared/shared/lib/confirm";
@@ -15,10 +13,16 @@ import { useMoneyPair } from "@/shared/hooks/useMoneyPair";
 import { DataTable } from "@/shared/table/DataTable";
 import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
-import type { TableAction } from "@/shared/table/tableAction";
+import { toTableActions, type TableAction } from "@/shared/table/tableAction";
+import { CATALOG_ACTION_ICONS } from "@/shared/table/catalogActionIcons";
+import {
+  catalogRowActions,
+  catalogSelectionActions,
+  type CatalogActionKey,
+} from "@shared/shared/lib/catalogMenu";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
 import { readAllPlans, usePlansTable } from "@/state/plansTable";
-import { useRecordHistoryAction } from "@/modules/admin/audit/useRecordHistoryAction";
+import { useHistoryDoor } from "@/modules/admin/audit/useHistoryDoor";
 import { PlanFormDialog } from "./PlanFormDialog";
 import { usePlanDurationLabel } from "./usePlanDurationLabel";
 
@@ -36,7 +40,7 @@ export function PlansPage() {
   const moneyPair = useMoneyPair();
   const durationLabel = usePlanDurationLabel();
   const branchColumn = useBranchColumn<Plan>(t("branches.shared_all_branches"));
-  const history = useRecordHistoryAction("plans");
+  const history = useHistoryDoor("plans");
   const [form, setForm] = useState<{ plan: Plan | null } | null>(null);
 
   const confirmDelete = (plans: Plan[]) => {
@@ -57,33 +61,25 @@ export function PlansPage() {
     });
   };
 
-  const editAction = (plan: Plan): TableAction => ({
-    key: "edit",
-    group: "manage",
-    label: t("common.edit"),
-    icon: EditOutlined,
-    onClick: () => setForm({ plan }),
+  const runFor = (plan: Plan): Partial<Record<CatalogActionKey, () => void>> => ({
+    edit: () => setForm({ plan }),
+    history: () => history.open(plan.id, plan.name),
   });
 
-  const deleteAction = (plans: Plan[]): TableAction => ({
-    key: "delete",
-    group: "danger",
-    label: t("common.delete"),
-    icon: DeleteOutlined,
-    destructive: true,
-    onClick: () => void confirmDelete(plans),
-  });
-
-  const rowActions = (plan: Plan): TableAction[] => [
-    editAction(plan),
-    history.action(plan.id, plan.name),
-    deleteAction([plan]),
-  ];
+  const rowActions = (plan: Plan): TableAction[] =>
+    toTableActions(catalogRowActions("plan", plan), t, {
+      icons: CATALOG_ACTION_ICONS,
+      run: { ...runFor(plan), delete: () => void confirmDelete([plan]) },
+    });
 
   const bulkActions = (selected: Plan[]): TableAction[] =>
-    selected.length === 1
-      ? [editAction(selected[0]), deleteAction(selected)]
-      : [deleteAction(selected)];
+    toTableActions(catalogSelectionActions("plan", selected), t, {
+      icons: CATALOG_ACTION_ICONS,
+      run: {
+        ...(selected.length === 1 ? runFor(selected[0]) : {}),
+        delete: () => void confirmDelete(selected),
+      },
+    });
 
   const columns: GridColDef<Plan>[] = [
     {

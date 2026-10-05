@@ -18,11 +18,11 @@ import {
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
 import { confirm } from "@shared/shared/lib/confirm";
-import { useRecordHistoryAction } from "@/src/modules/admin/audit";
+import { useHistoryDoor } from "@/src/modules/admin/audit";
 import { COLORS } from "@/src/shared/constants";
 import { formatDateTime } from "@shared/core/utils/date";
 import type { Product, StockMovement, StockReason } from "@shared/core/types";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { formatMoney } from "@shared/core/utils/currency";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
@@ -30,8 +30,12 @@ import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useStockEntryForm } from "@shared/modules/admin/products/hooks/useStockEntryForm";
 import {
   signedQuantity,
+  stockEntryActions,
+  stockEntryCost,
   stockEntryLabel,
+  type StockEntryActionKey,
 } from "@shared/modules/admin/products/utils/stockText";
+import { toActionMenuItems, type Glyph } from "@/src/shared/lib/menuActions";
 import productService from "@shared/modules/admin/products/services/ProductService";
 
 interface Props {
@@ -44,6 +48,12 @@ const REASON_ICON: Record<StockReason, keyof typeof Ionicons.glyphMap> = {
   restock: "add-circle-outline",
   adjustment: "create-outline",
   sale: "cart-outline",
+};
+
+const STOCK_ENTRY_ICONS: Record<StockEntryActionKey, Glyph> = {
+  edit: "create-outline",
+  history: "time-outline",
+  revert: "arrow-undo-outline",
 };
 
 // A manual change only ADDS; a wrong entry is fixed on itself — see gotcha #94.
@@ -69,7 +79,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
 
   const [history, setHistory] = useState<StockMovement[]>([]);
   const [menuFor, setMenuFor] = useState<StockMovement | null>(null);
-  const recordHistory = useRecordHistoryAction("stock_movements");
+  const recordHistory = useHistoryDoor("stock_movements");
   const scrollBody = useRef<SheetScrollTo | null>(null);
 
   const loadHistory = useCallback(async () => {
@@ -111,26 +121,14 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
 
   function buildMenuActions(m: StockMovement | null): ActionMenuItem[] {
     if (!m) return [];
-    const history = recordHistory.action(m.id, product.name);
-    if (m.voidedAt) return [history];
-    return [
-      {
-        key: "edit",
-        group: "manage",
-        label: t("products.edit_stock_entry"),
-        icon: "create-outline",
-        onPress: () => startEdit(m),
+    return toActionMenuItems(stockEntryActions(m), t, {
+      icons: STOCK_ENTRY_ICONS,
+      run: {
+        edit: () => startEdit(m),
+        history: () => recordHistory.open(m.id, product.name),
+        revert: () => void handleRevert(m),
       },
-      history,
-      {
-        key: "revert",
-        group: "danger",
-        label: t("products.revert_stock_entry"),
-        icon: "arrow-undo-outline",
-        destructive: true,
-        onPress: () => void handleRevert(m),
-      },
-    ];
+    });
   }
 
   async function handleSubmit() {
@@ -304,7 +302,8 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
           {history.map((m, i) => {
             const added = m.quantityDelta > 0;
             const voided = m.voidedAt !== null;
-            const hasMenu = m.reason !== "sale";
+            const cost = stockEntryCost(m, currencies);
+            const hasMenu = stockEntryActions(m).length > 0;
             const byName = userName(m.recordedByUserId);
             return (
               <View
@@ -377,21 +376,15 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
                     {formatDateTime(m.occurredAt)}
                   </Text>
 
-                  {m.unitCost != null && !voided ? (
+                  {cost ? (
                     <Text
-                      className={`text-xs mt-0.5 ${added ? "text-gray-500" : "text-green-700"}`}
+                      className={`text-xs mt-0.5 ${cost.refund ? "text-green-700" : "text-gray-500"}`}
                     >
                       {t(
-                        added
-                          ? "products.stock_cost_line"
-                          : "products.stock_cost_back_line",
-                        {
-                          amount: formatMoney(
-                            Math.abs(m.quantityDelta * m.unitCost),
-                            findCurrency(currencies, m.currencyId),
-                            findCurrency(currencies, m.currencyId),
-                          ),
-                        },
+                        cost.refund
+                          ? "products.stock_cost_back_line"
+                          : "products.stock_cost_line",
+                        { amount: cost.amount },
                       )}
                     </Text>
                   ) : null}

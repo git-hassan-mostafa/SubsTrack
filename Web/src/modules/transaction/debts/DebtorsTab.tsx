@@ -7,13 +7,11 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import OpenInNewOutlined from "@mui/icons-material/OpenInNewOutlined";
-import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import ReceiptLongOutlined from "@mui/icons-material/ReceiptLongOutlined";
-import RemoveCircleOutlineOutlined from "@mui/icons-material/RemoveCircleOutlineOutlined";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { CustomerDebts } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { debtorOwedItems, filterDebtors } from "@shared/modules/transaction/debts/utils/debtorView";
+import { debtorActions, debtorOwedItems, filterDebtors } from "@shared/modules/transaction/debts/utils/debtorView";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { EmptyState } from "@/shared/components/EmptyState";
@@ -21,7 +19,8 @@ import { MoneyText } from "@/shared/components/MoneyText";
 import { SearchField } from "@/shared/components/SearchField";
 import { LocalTable } from "@/shared/table/LocalTable";
 import { RowLink } from "@/shared/table/RowLink";
-import type { TableAction } from "@/shared/table/tableAction";
+import { toTableActions, type TableAction } from "@/shared/table/tableAction";
+import { DEBTOR_ACTION_ICONS } from "./debtActionIcons";
 import { DebtorDialog } from "./DebtorDialog";
 import type { DebtDoors } from "./useDebtDoors";
 
@@ -105,22 +104,13 @@ export function DebtorsTab({ debtors, loaded, doors }: DebtorsTabProps) {
       icon: OpenInNewOutlined,
       onClick: () => void navigate(`/customers/${row.customerId}`),
     },
-    {
-      key: "collect",
-      group: "money",
-      label: t("payments.collect"),
-      icon: PaymentsOutlined,
-      onClick: () => collectAll(row.customerId, row.customerName, debtorOwedItems(row)),
-    },
-    {
-      key: "write-off-all",
-      group: "danger",
-      label: t("ledger.write_off_all"),
-      caption: t("ledger.write_off_all_caption"),
-      icon: RemoveCircleOutlineOutlined,
-      destructive: true,
-      onClick: () => writeOffAll(row.customerName, debtorOwedItems(row)),
-    },
+    ...toTableActions(debtorActions(debtorOwedItems(row)), t, {
+      icons: DEBTOR_ACTION_ICONS,
+      run: {
+        collect_all: () => collectAll(row.customerId, row.customerName, debtorOwedItems(row)),
+        write_off_all: () => writeOffAll(row.customerName, debtorOwedItems(row)),
+      },
+    }),
   ], [t, navigate, collectAll, writeOffAll]);
 
   return (

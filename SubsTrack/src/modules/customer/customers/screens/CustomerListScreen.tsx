@@ -12,7 +12,6 @@ import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useExportRows } from "@/src/shared/hooks/useExportRows";
 import { loadAllPages } from "@shared/shared/hooks/loadAllPages";
-import { confirm } from "@shared/shared/lib/confirm";
 import {
   ActionMenu,
   type ActionMenuItem,
@@ -23,14 +22,22 @@ import type { Collection, Customer, CustomerStatus } from "@shared/core/types";
 import {
   useSendInvoice,
   useWhatsApp,
-  WhatsAppComboIcon,
 } from "@/src/modules/invoicing";
 import { useWhatsAppActions } from "@/src/modules/whatsapp/hooks/useWhatsAppActions";
 import { CustomerCard } from "../components/CustomerCard";
+import { hasDebtFlag } from "@shared/modules/customer/customers/utils/customerFlags";
 import {
-  hasAnythingOwed,
-  hasDebtFlag,
-} from "@shared/modules/customer/customers/utils/customerFlags";
+  customerMenuItems,
+  customerSelectionItems,
+  type CustomerActionKey,
+} from "@shared/modules/customer/customers/utils/customerMenu";
+import { useCustomerStatusActions } from "@shared/modules/customer/customers/hooks/useCustomerStatusActions";
+import { toActionMenuItems, toSelectionActions } from "@/src/shared/lib/menuActions";
+import {
+  CUSTOMER_ACTION_ICONS,
+  CUSTOMER_ICON_BADGES,
+  payAndSendIcon,
+} from "../utils/customerActionIcons";
 import {
   DEFAULT_CUSTOMER_FILTERS,
   hasCustomerFilters,
@@ -47,11 +54,6 @@ import { useDebtRowActions } from "@/src/modules/transaction/debts/hooks/useDebt
 import { useCollectSheet } from "@/src/modules/ledger";
 import { useLoadOwed } from "@shared/modules/ledger/hooks/useLoadOwed";
 import { useQuickPay } from "@shared/modules/customer/customers/hooks/useQuickPay";
-import {
-  canQuickPay,
-  fixedMonthItems,
-  isMultiPlan,
-} from "@shared/modules/customer/customers/utils/quickPay";
 import { getStore } from "@shared/state/globalStore";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 import { usePaymentSlice } from "@shared/state/hooks/usePaymentSlice";
@@ -90,10 +92,6 @@ export function CustomerListScreen() {
   const fetchMoreCustomers = useCustomerSlice((s) => s.fetchMoreCustomers);
   const setSearchQuery = useCustomerSlice((s) => s.setSearchQuery);
   const clearError = useCustomerSlice((s) => s.clearError);
-  const deactivateCustomer = useCustomerSlice((s) => s.deactivateCustomer);
-  const reactivateCustomer = useCustomerSlice((s) => s.reactivateCustomer);
-  const deleteCustomer = useCustomerSlice((s) => s.deleteCustomer);
-  const bulkDeleteCustomers = useCustomerSlice((s) => s.bulkDeleteCustomers);
   const customerStatuses = usePaymentSlice((s) => s.customerStatuses);
   const fetchCustomerStatuses = usePaymentSlice((s) => s.fetchCustomerStatuses);
   const syncCustomerStatus = usePaymentSlice((s) => s.syncCustomerStatus);
@@ -109,6 +107,7 @@ export function CustomerListScreen() {
   const { canSend, openChat } = useWhatsApp();
   const whatsappActions = useWhatsAppActions();
   const { writeOffAll } = useDebtRowActions();
+  const customerStatus = useCustomerStatusActions();
   const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const [formVisible, setFormVisible] = useState(false);
@@ -135,7 +134,6 @@ export function CustomerListScreen() {
     clear: clearSelection,
   } = selection;
   useSelectionBackHandler(selectionActive, clearSelection);
-  const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkNotice, setBulkNotice] = useState<string | null>(null);
   const debouncedSearch = useDebounce(searchText);
   const narrowed = !!debouncedSearch || hasCustomerFilters(filters);
@@ -269,7 +267,7 @@ export function CustomerListScreen() {
     onNotice: setBulkNotice,
   });
 
-  const busy = bulkBusy || quickPay.bulkBusy;
+  const busy = customerStatus.busy || quickPay.bulkBusy;
 
   const quickPayTarget = (customer: Customer) => ({
     customer,
@@ -319,121 +317,46 @@ export function CustomerListScreen() {
     ],
   );
 
-  async function handleToggleActiveCustomer(customer: Customer) {
-    await confirm({
-      title: customer.active
-        ? t("customers.deactivate_title")
-        : t("customers.reactivate_title"),
-      message: customer.active
-        ? t("customers.deactivate_message", { name: customer.name })
-        : t("customers.reactivate_message", { name: customer.name }),
-      destructive: customer.active,
-      onConfirm: async () => {
-        if (customer.active) {
-          await deactivateCustomer(customer);
-        } else {
-          await reactivateCustomer(customer);
-        }
-      },
-    });
-  }
-
-  async function handleDeleteCustomer(customer: Customer): Promise<boolean> {
-    let deleted = false;
-    await confirm({
-      title: t("customers.delete_title"),
-      message: t("customers.delete_message", { name: customer.name }),
-      confirmLabel: t("common.delete"),
-      destructive: true,
-      onConfirm: async () => {
-        await deleteCustomer(customer);
-        deleted = true;
-      },
-    });
-    return deleted;
-  }
-
   async function runBulkDelete(selected: Customer[]) {
     if (busy || selected.length === 0) return;
-    if (selected.length === 1) {
-      if (await handleDeleteCustomer(selected[0])) clearSelection();
-      return;
-    }
-    let deleted = false;
-    await confirm({
-      title: t("customers.bulk_delete_title", { count: selected.length }),
-      message: t("customers.bulk_delete_message", { count: selected.length }),
-      confirmLabel: t("common.delete"),
-      destructive: true,
-      onConfirm: async () => {
-        setBulkBusy(true);
-        try {
-          await bulkDeleteCustomers(selected);
-          deleted = true;
-        } finally {
-          setBulkBusy(false);
-        }
-      },
-    });
-    if (deleted) clearSelection();
+    if ((await customerStatus.remove(selected)).removed) clearSelection();
   }
 
-  // Edit and the active toggle only appear on a single selection.
-  function buildSelectionActions(selected: Customer[]): SelectionAction[] {
-    if (selected.length === 0) return [];
-    const actions: SelectionAction[] = [];
-    if (selected.length === 1) {
-      const one = selected[0];
-      actions.push({
-        key: "edit",
-        group: "manage",
-        icon: "create-outline",
-        label: t("common.edit"),
-        onPress: () => {
-          setEditingCustomer(one);
-          clearSelection();
-        },
-      });
-      if (isAdmin) {
-        actions.push({
-          key: "toggle-active",
-          group: "status",
-          icon: one.active ? "pause-circle-outline" : "play-circle-outline",
-          label: one.active
-            ? t("customers.deactivate")
-            : t("customers.activate"),
-          destructive: one.active,
-          onPress: () =>
-            void handleToggleActiveCustomer(one).then(clearSelection),
-        });
-      }
-    }
-    if (isAdmin) {
-      actions.push({
-        key: "delete",
-        group: "danger",
-        icon: "trash-outline",
-        label: t("common.delete"),
-        destructive: true,
-        disabled: busy,
-        onPress: () => void runBulkDelete(selected),
-      });
-    }
-    actions.push({
-      key: "quick-pay",
-      group: "money",
-      icon: "flash-outline",
-      label: t("payments.quick_pay.menu_label"),
-      disabled: busy,
-      onPress: () => {
-        if (selected.length === 1) {
-          void quickPay.quickPay(quickPayTarget(selected[0]));
+  function selectionRun(
+    selected: Customer[],
+  ): Partial<Record<CustomerActionKey, () => void>> {
+    const one = selected.length === 1 ? selected[0] : null;
+    return {
+      edit: () => {
+        if (one) setEditingCustomer(one);
+        clearSelection();
+      },
+      deactivate: () =>
+        one && void customerStatus.toggleActive(one).then(clearSelection),
+      reactivate: () =>
+        one && void customerStatus.toggleActive(one).then(clearSelection),
+      delete: () => void runBulkDelete(selected),
+      quick_pay: () => {
+        if (one) {
+          void quickPay.quickPay(quickPayTarget(one));
           clearSelection();
         } else {
           void quickPay.bulkQuickPay(selected.map(quickPayTarget));
         }
       },
-    });
+    };
+  }
+
+  function buildSelectionActions(selected: Customer[]): SelectionAction[] {
+    const actions = toSelectionActions(
+      customerSelectionItems(selected, { isAdmin }),
+      t,
+      {
+        icons: CUSTOMER_ACTION_ICONS,
+        run: selectionRun(selected),
+        disabled: busy ? ["delete", "quick_pay"] : [],
+      },
+    );
     const whatsappAction = whatsappActions.selectionAction(selected);
     if (whatsappAction) actions.push(whatsappAction);
     return actions;
@@ -475,119 +398,39 @@ export function CustomerListScreen() {
 
   function buildMenuActions(customer: Customer | null): ActionMenuItem[] {
     if (!customer) return [];
-    const items: ActionMenuItem[] = [];
     const target = quickPayTarget(customer);
-    if (canQuickPay(customer, target.status)) {
-      items.push({
-        key: "quick-pay",
-        group: "money",
-        label: isMultiPlan(customer)
-          ? t("payments.quick_pay.pay_unpaid_plans")
-          : t("payments.quick_pay.menu_label"),
-        icon: "flash-outline",
-        onPress: () => void quickPay.quickPay(target),
-      });
-      if (fixedMonthItems(customer, target.status, currencies).length > 0) {
-        const sendable = canSend(customer.phoneNumber);
-        items.push({
-          key: "quick-pay-whatsapp",
-          group: "money",
-          label: t("invoice.pay_and_send_whatsapp"),
-          icon: "logo-whatsapp",
-          renderIcon: (size: number) => (
-            <WhatsAppComboIcon variant="pay" size={size} />
-          ),
-          disabled: !sendable,
-          caption: sendable ? undefined : t("invoice.no_phone"),
-          onPress: () => void quickPay.quickPay(target, true),
-        });
-      }
-    }
-    items.push({
-      key: "record-sale",
-      group: "create",
-      label: t("sales.record_button"),
-      icon: "receipt-outline",
-      iconBadge: "add",
-      onPress: () => setSaleCustomer(customer),
-    });
-    items.push({
-      key: "add-custom-debt",
-      group: "create",
-      label: t("debts.add_custom_debt"),
-      icon: "document-text-outline",
-      iconBadge: "add",
-      onPress: () => setCustomDebtCustomer(customer),
-    });
-    if (
-      hasAnythingOwed(
-        customerStatuses.get(customer.id) ?? null,
-        netDebtByCustomer[customer.id],
-      )
-    ) {
-      items.push({
-        key: "collect",
-        group: "money",
-        label: t("ledger.collect_money"),
-        icon: "cash-outline",
-        iconBadge: "add",
-        onPress: () => void handleCollectDebt(customer),
-      });
-      items.push({
-        key: "write-off-all",
-        group: "danger",
-        label: t("ledger.write_off_all"),
-        caption: t("ledger.write_off_all_caption"),
-        icon: "remove-circle-outline",
-        destructive: true,
-        onPress: () => void handleWriteOffAll(customer),
-      });
-    }
-    if (canSend(customer.phoneNumber)) {
-      items.push({
-        key: "whatsapp-chat",
-        group: "send",
-        label: t("invoice.open_whatsapp_chat"),
-        icon: "logo-whatsapp",
-        onPress: () => void openChat(customer.phoneNumber),
-      });
-    }
-    items.push({
-      key: "edit",
-      group: "manage",
-      label: t("common.edit"),
-      icon: "create-outline",
-      onPress: () => setEditingCustomer(customer),
-    });
-    items.push({
-      key: "history",
-      group: "history",
-      label: t("audit.customer_history_action"),
-      icon: "time-outline",
-      onPress: () => setHistoryCustomer(customer),
-    });
-    if (isAdmin) {
-      items.push({
-        key: "toggle-active",
-        group: "status",
-        label: customer.active
-          ? t("customers.deactivate")
-          : t("customers.activate"),
-        icon: customer.active ? "pause-circle-outline" : "play-circle-outline",
-        destructive: customer.active,
-        onPress: () => void handleToggleActiveCustomer(customer),
-      });
-      items.push({
-        key: "delete",
-        group: "danger",
-        label: t("common.delete"),
-        icon: "trash-outline",
-        destructive: true,
-        onPress: () => void handleDeleteCustomer(customer),
-      });
-    }
-    items.push(...whatsappActions.rowItems(customer));
-    return items;
+    const items = toActionMenuItems(
+      customerMenuItems(
+        customer,
+        {
+          status: target.status,
+          debtUsd: netDebtByCustomer[customer.id],
+          currencies,
+        },
+        { isAdmin, canSend },
+      ),
+      t,
+      {
+        icons: CUSTOMER_ACTION_ICONS,
+        iconBadges: CUSTOMER_ICON_BADGES,
+        renderIcons: { quick_pay_whatsapp: payAndSendIcon },
+        run: {
+          quick_pay: () => void quickPay.quickPay(target),
+          quick_pay_whatsapp: () => void quickPay.quickPay(target, true),
+          record_sale: () => setSaleCustomer(customer),
+          add_custom_debt: () => setCustomDebtCustomer(customer),
+          collect: () => void handleCollectDebt(customer),
+          write_off_all: () => void handleWriteOffAll(customer),
+          whatsapp_chat: () => void openChat(customer.phoneNumber),
+          edit: () => setEditingCustomer(customer),
+          history: () => setHistoryCustomer(customer),
+          deactivate: () => void customerStatus.toggleActive(customer),
+          reactivate: () => void customerStatus.toggleActive(customer),
+          delete: () => void customerStatus.remove([customer]),
+        },
+      },
+    );
+    return [...items, ...whatsappActions.rowItems(customer)];
   }
 
   const listElement = useMemo(

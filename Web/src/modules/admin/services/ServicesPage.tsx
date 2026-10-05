@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Stack from "@mui/material/Stack";
-import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
-import EditOutlined from "@mui/icons-material/EditOutlined";
-import PlayCircleOutlined from "@mui/icons-material/PlayCircleOutlined";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Service } from "@shared/core/types";
 import { confirm } from "@shared/shared/lib/confirm";
@@ -17,10 +14,16 @@ import { activeStatusColumn } from "@/shared/table/activeStatusColumn";
 import { DataTable } from "@/shared/table/DataTable";
 import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
-import type { TableAction } from "@/shared/table/tableAction";
+import { toTableActions, type TableAction } from "@/shared/table/tableAction";
+import { CATALOG_ACTION_ICONS } from "@/shared/table/catalogActionIcons";
+import {
+  catalogRowActions,
+  catalogSelectionActions,
+  type CatalogActionKey,
+} from "@shared/shared/lib/catalogMenu";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
 import { readAllServices, useServicesTable } from "@/state/servicesTable";
-import { useRecordHistoryAction } from "@/modules/admin/audit/useRecordHistoryAction";
+import { useHistoryDoor } from "@/modules/admin/audit/useHistoryDoor";
 import { ServiceFormDialog } from "./ServiceFormDialog";
 
 export function ServicesPage() {
@@ -38,7 +41,7 @@ export function ServicesPage() {
   const bulkDeleteServices = useServiceSlice((s) => s.bulkDeleteServices);
   const moneyPair = useMoneyPair();
   const branchColumn = useBranchColumn<Service>(t("branches.shared_all_branches"));
-  const history = useRecordHistoryAction("services");
+  const history = useHistoryDoor("services");
   const [form, setForm] = useState<{ service: Service | null } | null>(null);
 
   const confirmDelete = (services: Service[]) => {
@@ -66,44 +69,26 @@ export function ServicesPage() {
     if (updated) patchRow(updated);
   };
 
-  const editAction = (service: Service): TableAction => ({
-    key: "edit",
-    group: "manage",
-    label: t("common.edit"),
-    icon: EditOutlined,
-    onClick: () => setForm({ service }),
+  const runFor = (service: Service): Partial<Record<CatalogActionKey, () => void>> => ({
+    edit: () => setForm({ service }),
+    history: () => history.open(service.id, service.name),
+    reactivate: () => void reactivate(service),
   });
 
-  const reactivateAction = (service: Service): TableAction => ({
-    key: "reactivate",
-    group: "status",
-    label: t("common.reactivate"),
-    icon: PlayCircleOutlined,
-    onClick: () => void reactivate(service),
-  });
+  const rowActions = (service: Service): TableAction[] =>
+    toTableActions(catalogRowActions("service", service), t, {
+      icons: CATALOG_ACTION_ICONS,
+      run: { ...runFor(service), delete: () => void confirmDelete([service]) },
+    });
 
-  const deleteAction = (services: Service[]): TableAction => ({
-    key: "delete",
-    group: "danger",
-    label: t("common.delete"),
-    icon: DeleteOutlined,
-    destructive: true,
-    onClick: () => void confirmDelete(services),
-  });
-
-  const rowActions = (service: Service): TableAction[] => [
-    editAction(service),
-    history.action(service.id, service.name),
-    service.active ? deleteAction([service]) : reactivateAction(service),
-  ];
-
-  const bulkActions = (selected: Service[]): TableAction[] => {
-    if (selected.length > 1) return [deleteAction(selected)];
-    const one = selected[0];
-    return one.active
-      ? [editAction(one), deleteAction(selected)]
-      : [editAction(one), reactivateAction(one), deleteAction(selected)];
-  };
+  const bulkActions = (selected: Service[]): TableAction[] =>
+    toTableActions(catalogSelectionActions("service", selected), t, {
+      icons: CATALOG_ACTION_ICONS,
+      run: {
+        ...(selected.length === 1 ? runFor(selected[0]) : {}),
+        delete: () => void confirmDelete(selected),
+      },
+    });
 
   const columns: GridColDef<Service>[] = [
     {

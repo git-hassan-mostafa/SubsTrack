@@ -9,7 +9,7 @@ import ListSubheader from "@mui/material/ListSubheader";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
-import { canOpen } from "@/app/routes/access";
+import { canOpen } from "@shared/modules/authentication/auth/utils/pageAccess";
 import { APP_PAGES, type AppPage, type NavSection } from "@/app/routes/appPages";
 
 interface SideNavProps {

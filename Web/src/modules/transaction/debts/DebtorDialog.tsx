@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import Button from "@mui/material/Button";
@@ -12,19 +12,19 @@ import CloseIcon from "@mui/icons-material/Close";
 import NoteAddOutlined from "@mui/icons-material/NoteAddOutlined";
 import OpenInNewOutlined from "@mui/icons-material/OpenInNewOutlined";
 import PersonOutlined from "@mui/icons-material/PersonOutlined";
-import RemoveCircleOutlineOutlined from "@mui/icons-material/RemoveCircleOutlineOutlined";
 import type { CustomerDebts } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useWrittenOffDebts, type DebtScope } from "@shared/modules/transaction/debts/hooks/useWrittenOffDebts";
+import { useDebtScope } from "@shared/modules/transaction/debts/hooks/useDebtScope";
 import { sortDebts } from "@shared/modules/transaction/debts/utils/allDebtsFilter";
-import { debtorOwedItems, debtorOwedUsd } from "@shared/modules/transaction/debts/utils/debtorView";
+import { debtorActions, debtorOwedItems, debtorOwedUsd } from "@shared/modules/transaction/debts/utils/debtorView";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { DialogHeading } from "@/shared/components/DialogHeading";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { RowActionsMenu } from "@/shared/table/RowActionsMenu";
-import type { TableAction } from "@/shared/table/tableAction";
+import { toTableActions, type TableAction } from "@/shared/table/tableAction";
+import { DEBTOR_ACTION_ICONS } from "./debtActionIcons";
 import { DebtItemsTable } from "./DebtItemsTable";
 import { DebtScopeTabs } from "./DebtScopeTabs";
 import type { DebtDoors } from "./useDebtDoors";
@@ -44,11 +44,9 @@ export function DebtorDialog({ debtor, doors, onClose }: DebtorDialogProps) {
   const display = findCurrency(currencies, useDisplayCurrencyId());
   const ledgerError = useLedgerSlice((s) => s.error);
   const clearLedgerError = useLedgerSlice((s) => s.clearError);
-  const [scope, setScope] = useState<DebtScope>("live");
-  const writtenOff = useWrittenOffDebts(debtor.customerId, debtor.customerName);
+  const { scope, setScope, showingWrittenOff, writtenOff } = useDebtScope(debtor.customerId, debtor.customerName);
   const owed = debtorOwedItems(debtor);
   const total = formatMoney(debtorOwedUsd(debtor), null, display);
-  const showingWrittenOff = scope === "written_off";
   const customer = { id: debtor.customerId, name: debtor.customerName };
 
   const menu: TableAction[] = [
@@ -59,18 +57,11 @@ export function DebtorDialog({ debtor, doors, onClose }: DebtorDialogProps) {
       icon: OpenInNewOutlined,
       onClick: () => void navigate(`/customers/${debtor.customerId}`),
     },
+    ...toTableActions(debtorActions(owed), t, {
+      icons: DEBTOR_ACTION_ICONS,
+      run: { write_off_all: () => doors.writeOffAll(debtor.customerName, owed) },
+    }),
   ];
-  if (owed.length > 0) {
-    menu.push({
-      key: "write-off-all",
-      group: "danger",
-      label: t("ledger.write_off_all"),
-      caption: t("ledger.write_off_all_caption"),
-      icon: RemoveCircleOutlineOutlined,
-      destructive: true,
-      onClick: () => doors.writeOffAll(debtor.customerName, owed),
-    });
-  }
 
   return (
     <Dialog open onClose={onClose} maxWidth="lg" fullWidth aria-labelledby={titleId}>
