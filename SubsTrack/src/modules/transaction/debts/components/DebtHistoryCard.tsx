@@ -8,12 +8,13 @@ import {
   CardTitle,
 } from "@/src/shared/components/CardText";
 import { COLORS } from "@/src/shared/constants";
-import { Chip, type ChipTone } from "@/src/shared/components/Chip";
+import { Chip } from "@/src/shared/components/Chip";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import type { DebtHistoryItem } from "@shared/core/types";
 import {
   findCurrency,
   formatMoney,
+  formatMoneyPair,
   formatPaidFraction,
   snapshotCurrency,
 } from "@shared/core/utils/currency";
@@ -23,7 +24,10 @@ import { formatDate } from "@shared/core/utils/date";
 import {
   daysLateSettling,
   daysOverdue,
+  HISTORY_OUTCOME_TONE,
   historyOutcomeOf,
+  isDeadHistoryRow,
+  laterPaidOf,
   type HistoryOutcome,
 } from "@shared/modules/transaction/debts/utils/debtHistory";
 import { KIND_ICON } from "../utils/kindIcon";
@@ -34,23 +38,14 @@ interface Props {
   loading?: boolean;
 }
 
-const OUTCOME_TONE: Record<
-  HistoryOutcome,
-  { chip: ChipTone; icon: string; bg: string }
-> = {
-  settled: { chip: "emerald", icon: COLORS.success, bg: "bg-emerald-50" },
-  partial: { chip: "amber", icon: COLORS.warning, bg: "bg-amber-50" },
-  open: { chip: "red", icon: COLORS.danger, bg: "bg-red-50" },
-  written_off: { chip: "orange", icon: COLORS.gray500, bg: "bg-gray-100" },
+const OUTCOME_ICON: Record<HistoryOutcome, { color: string; bg: string }> = {
+  settled: { color: COLORS.success, bg: "bg-emerald-50" },
+  partial: { color: COLORS.warning, bg: "bg-amber-50" },
+  open: { color: COLORS.danger, bg: "bg-red-50" },
+  written_off: { color: COLORS.gray500, bg: "bg-gray-100" },
 };
 
-/**
- * ONE past bill and what became of it.
- *
- * The money is a FRACTION — collected out of billed — because neither half
- * alone tells the story: a settled bill's balance reads 0, and the amount on
- * its own hides how much ever actually arrived.
- */
+// Collected out of billed: a settled bill's balance alone reads 0.
 export function DebtHistoryCard({ item, onOpen, loading = false }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
@@ -59,15 +54,12 @@ export function DebtHistoryCard({ item, onOpen, loading = false }: Props) {
   const source = snapshotCurrency(item, currencies);
   const display = findCurrency(currencies, displayCurrencyId);
   const outcome = historyOutcomeOf(item);
-  const tone = OUTCOME_TONE[outcome];
-  const dead = outcome === "written_off";
+  const icon = OUTCOME_ICON[outcome];
+  const dead = isDeadHistoryRow(item);
 
   const fraction = formatPaidFraction(item.downPaid, item.amount, source, source);
-  const laterPaid = item.paid - item.downPaid;
-  const sameCurrency = (source?.id ?? null) === (display?.id ?? null);
-  const approx = sameCurrency
-    ? null
-    : `≈ ${formatMoney(item.amount, source, display)}`;
+  const laterPaid = laterPaidOf(item);
+  const { approx } = formatMoneyPair(item.amount, source, display);
 
   const lateSettling = daysLateSettling(item);
   const overdue = daysOverdue(item);
@@ -75,8 +67,8 @@ export function DebtHistoryCard({ item, onOpen, loading = false }: Props) {
   return (
     <EntityCard
       icon={KIND_ICON[item.kind]}
-      iconColor={tone.icon}
-      iconBgClassName={tone.bg}
+      iconColor={icon.color}
+      iconBgClassName={icon.bg}
       dimmed={dead}
       onPress={onOpen && item.chargeId ? () => onOpen(item) : undefined}
       reserveMenuSpace
@@ -105,7 +97,7 @@ export function DebtHistoryCard({ item, onOpen, loading = false }: Props) {
         </CardMeta>
 
         <CardChips>
-          <Chip text={t(`debts.outcome_${outcome}`)} tone={tone.chip} />
+          <Chip text={t(`debts.outcome_${outcome}`)} tone={HISTORY_OUTCOME_TONE[outcome]} />
           {laterPaid > 0 ? (
             <Chip
               text={t("debts.history_paid_later", {

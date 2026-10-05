@@ -22,9 +22,14 @@ import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { KIND_STYLE } from "../utils/kindStyle";
+import { KIND_TONE } from "@shared/modules/ledger/utils/collectionKind";
 import { collectionLabel } from "@shared/modules/ledger/utils/collectionLabel";
 import { PAYMENT_ACTION_ICONS } from "../utils/paymentActionIcons";
-import { paymentMenuItems } from "@shared/modules/ledger/utils/collectionView";
+import {
+  heldByLabel,
+  isHeldByCollector,
+  paymentMenuItems,
+} from "@shared/modules/ledger/utils/collectionView";
 import { toActionMenuItems } from "@/src/shared/lib/menuActions";
 
 interface Props {
@@ -68,12 +73,7 @@ export function CollectionCard({
   const style = KIND_STYLE[item.kind];
   const paidFor = collectionLabel(item, t);
   const collector = userName(item.receivedByUserId);
-  const holder =
-    item.heldByUserId === null
-      ? t("ledger.banked")
-      : item.heldByUserId !== item.receivedByUserId
-        ? userName(item.heldByUserId)
-        : undefined;
+  const holder = isHeldByCollector(item) ? null : heldByLabel(item, t, userName);
 
   const bind = (handler?: (item: CollectionListItem) => void) =>
     handler ? () => handler(item) : undefined;
@@ -132,14 +132,14 @@ export function CollectionCard({
         </CardMeta>
 
         <CardChips>
-          <Chip text={t(`ledger.kind_${item.kind}`)} tone={style.chipTone} />
+          <Chip text={t(`ledger.kind_${item.kind}`)} tone={KIND_TONE[item.kind]} />
           {item.itemCount > 1 ? (
             <Chip
               text={t("ledger.n_items", { count: item.itemCount })}
               tone="gray"
             />
           ) : null}
-          {holder && !voided ? <Chip text={holder} tone="amber" /> : null}
+          {holder ? <Chip text={holder} tone="amber" /> : null}
           {voided ? (
             <Chip
               text={

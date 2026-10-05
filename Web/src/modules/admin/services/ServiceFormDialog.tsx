@@ -4,6 +4,12 @@ import TextField from "@mui/material/TextField";
 import type { Service } from "@shared/core/types";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
+import {
+  canSaveService,
+  serviceDraftOf,
+  serviceInput,
+  type ServiceDraft,
+} from "@shared/modules/admin/service-catalog/utils/serviceForm";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
@@ -18,14 +24,6 @@ interface ServiceFormDialogProps {
   onSaved: (saved: Service) => void;
 }
 
-type ServiceForm = {
-  name: string;
-  description: string;
-  price: number | null;
-  currencyId: string | null;
-  branchId: string | null;
-};
-
 export function ServiceFormDialog({ service, onClose, onSaved }: ServiceFormDialogProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -35,13 +33,9 @@ export function ServiceFormDialog({ service, onClose, onSaved }: ServiceFormDial
   const clearError = useServiceSlice((s) => s.clearError);
   const currencies = useCurrencySlice((s) => s.items);
   const activeBranches = useActiveBranches();
-  const [form, setForm] = useState<ServiceForm>({
-    name: service?.name ?? "",
-    description: service?.description ?? "",
-    price: service?.price ?? null,
-    currencyId: service?.currencyId ?? null,
-    branchId: service ? service.branchId : defaultNewBranchId(user, activeBranches),
-  });
+  const [form, setForm] = useState(() =>
+    serviceDraftOf(service, defaultNewBranchId(user, activeBranches)),
+  );
   const dirty = useDirtyForm(form, ["currencyId"]);
 
   useEffect(() => {
@@ -49,20 +43,14 @@ export function ServiceFormDialog({ service, onClose, onSaved }: ServiceFormDial
     return clearError;
   }, [clearError]);
 
-  const change = (patch: Partial<ServiceForm>) => {
+  const change = (patch: Partial<ServiceDraft>) => {
     setForm((prev) => ({ ...prev, ...patch }));
     if (error) clearError();
   };
 
   const submit = async () => {
-    if (!user) return;
-    const data = {
-      name: form.name,
-      description: form.description.trim() || null,
-      price: form.price ?? Number.NaN,
-      currencyId: form.currencyId,
-      branchId: form.branchId,
-    };
+    if (!user || !canSaveService(form)) return;
+    const data = serviceInput(form);
     const saved = service
       ? await updateService(service.id, data)
       : await createService(data, user.tenantId);
@@ -79,6 +67,7 @@ export function ServiceFormDialog({ service, onClose, onSaved }: ServiceFormDial
       error={error}
       onDismissError={clearError}
       submitLabel={service ? t("common.save_changes") : t("web.services.add")}
+      submitDisabled={!canSaveService(form)}
     >
       <TextField
         label={t("services.name_label")}

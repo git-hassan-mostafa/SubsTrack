@@ -13,6 +13,7 @@ import {
   cellBadge,
   type CellJoin,
 } from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
+import { isSelectableMonth } from "@shared/modules/customer/customer-payments/utils/monthView";
 import type { TableAction } from "@/shared/table/tableAction";
 import { RowActionsMenu } from "@/shared/table/RowActionsMenu";
 import { monthCellLook } from "./monthCellLook";
@@ -46,7 +47,7 @@ export function MonthCell({
   const { t } = useTranslation();
   const look = monthCellLook(entry, isRegular);
   const badge = cellBadge(entry);
-  const selectable = entry.status !== "before_start";
+  const selectable = isSelectableMonth(entry);
   const monthYear = `${t(`months.${entry.label}`)} ${entry.year}`;
   const squareStart = join.joinStart || join.wrapFromPrev;
   const squareEnd = join.joinEnd || join.wrapToNext;

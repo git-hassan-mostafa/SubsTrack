@@ -11,7 +11,7 @@ import { findCurrency, formatMoney, formatMoneyPair, snapshotCurrency } from "@s
 import { formatDateTime } from "@shared/core/utils/date";
 import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
 import { collectionService } from "@shared/modules/ledger/services/CollectionService";
-import { collectionLabel } from "@shared/modules/ledger/utils/collectionLabel";
+import { collectionItemLabel, collectionLabel } from "@shared/modules/ledger/utils/collectionLabel";
 import { hasCollectionFilter } from "@shared/modules/ledger/utils/collectionFilters";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
@@ -25,6 +25,7 @@ import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
 import { toTableActions, type TableAction } from "@/shared/table/tableAction";
 import {
+  heldByLabel,
   paymentMenuItems,
   paymentSelectionItems,
   voidablePayments,
@@ -34,7 +35,8 @@ import { useCollectionsTable } from "@/state/collectionsTable";
 import { useSendCollectionReceipt } from "@/modules/invoicing/useSendCollectionReceipt";
 import { useBillDialog } from "../bill/useBillDialog";
 import { CorrectPaymentDialog } from "../payment/CorrectPaymentDialog";
-import { KIND_ICON, KIND_TONE } from "../kindLook";
+import { KIND_TONE } from "@shared/modules/ledger/utils/collectionKind";
+import { KIND_ICON } from "../kindLook";
 import { PaymentDetailDialog } from "../payment/PaymentDetailDialog";
 import { PAYMENT_ACTION_ICONS } from "../payment/paymentActionIcons";
 import { VoidPaymentsDialog } from "../void/VoidPaymentsDialog";
@@ -114,7 +116,7 @@ export function MoneyReceivedPage() {
   const columns = useMemo<GridColDef<CollectionListItem>[]>(() => {
     const openPaidFor = (row: CollectionListItem) => {
       const item = row.items[0];
-      if (item) void openItem(item, row.itemLabels[0] || t("ledger.payment"), row.customerName, recipientOf(row));
+      if (item) void openItem(item, collectionItemLabel(row, 0, t), row.customerName, recipientOf(row));
     };
     return [
       {
@@ -173,11 +175,7 @@ export function MoneyReceivedPage() {
         field: "heldByUserId",
         headerName: t("ledger.held_by"),
         width: 170,
-        valueGetter: (_value, row) => {
-          if (isVoided(row)) return "";
-          if (row.heldByUserId === null) return t("ledger.banked");
-          return userName(row.heldByUserId) ?? t("common.unknown");
-        },
+        valueGetter: (_value, row) => heldByLabel(row, t, userName) ?? "",
       },
       ...(branchColumn ? [branchColumn] : []),
       {

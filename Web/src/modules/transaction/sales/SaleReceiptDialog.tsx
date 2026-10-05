@@ -34,7 +34,8 @@ import { BillHistoryDialog } from "@/modules/admin/audit/RecordHistoryDialog";
 import { BillPaymentsList } from "@/modules/ledger/bill/BillPaymentsList";
 import { BillSummary } from "@/modules/ledger/bill/BillSummary";
 import { withInfoIcons } from "@/modules/ledger/infoIcons";
-import { KIND_ICON, KIND_TONE } from "@/modules/ledger/kindLook";
+import { KIND_TONE } from "@shared/modules/ledger/utils/collectionKind";
+import { KIND_ICON } from "@/modules/ledger/kindLook";
 import { SALE_ACTION_ICONS } from "./saleActionIcons";
 import { SaleItemsTable } from "./SaleItemsTable";
 

@@ -1,15 +1,7 @@
+import type { Tone } from "@shared/shared/lib/tone";
 import { Text } from "@/src/shared/components/Text";
 
-export type ChipTone =
-  | "emerald"
-  | "amber"
-  | "red"
-  | "orange"
-  | "sky"
-  | "gray"
-  | "indigo"
-  | "teal"
-  | "violet";
+export type ChipTone = Tone;
 
 export type ChipSize = "sm" | "md";
 

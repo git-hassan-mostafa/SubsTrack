@@ -77,6 +77,10 @@ export function allocateExcluding(
   );
 }
 
+export function linesTotal(lines: readonly { amount: number }[]): number {
+  return lines.reduce((sum, l) => sum + l.amount, 0);
+}
+
 /** The most that can be collected from this pool — the overpay ceiling. */
 export function totalOwed(items: OpenItem[]): number {
   return roundMoney(

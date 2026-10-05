@@ -1,6 +1,6 @@
 import type { AllocationLine, Currency, OpenItem } from "@shared/core/types";
 import { findCurrency, toUsd } from "@shared/core/utils/currency";
-import { allocate, keyOf, sortByDue, totalOwed } from "./waterfall";
+import { allocate, keyOf, linesTotal, sortByDue, totalOwed } from "./waterfall";
 
 export interface CurrencyGroup {
   currencyId: string | null;
@@ -87,17 +87,13 @@ export function groupKey(group: { currencyId: string | null }): string {
   return group.currencyId ?? "__usd__";
 }
 
-/** Total being collected across every currency, in USD at today's rates. */
+// Total being collected across every currency, in USD at today's rates.
 export function totalCollectingUsd(plans: CurrencyPlan[]): number {
-  return plans.reduce(
-    (sum, p) =>
-      sum +
-      toUsd(
-        p.lines.reduce((n, l) => n + l.amount, 0),
-        p.currency,
-      ),
-    0,
-  );
+  return plans.reduce((sum, p) => sum + toUsd(linesTotal(p.lines), p.currency), 0);
+}
+
+export function stillOwedAfter(plan: CurrencyPlan): number {
+  return Math.max(0, plan.owed - linesTotal(plan.lines));
 }
 
 /** Groups with money on them — the ones that become a hand-over. */

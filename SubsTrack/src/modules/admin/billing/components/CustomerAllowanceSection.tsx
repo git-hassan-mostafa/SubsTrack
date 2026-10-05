@@ -9,8 +9,12 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useBillingSlice } from "@shared/state/hooks/useBillingSlice";
 import { confirm } from "@shared/shared/lib/confirm";
-import billingService from "@shared/modules/admin/billing/services/BillingService";
 import { askText, requestedPair } from "@shared/modules/admin/billing/utils/requestAsk";
+import {
+  freeLineCount,
+  monthlyAmountText,
+  requestsByStatus,
+} from "@shared/modules/admin/billing/utils/usage";
 import { UpdateAllowanceSheet } from "./UpdateAllowanceSheet";
 import { UsageBar } from "./UsageBar";
 
@@ -37,10 +41,8 @@ export function CustomerAllowanceSection() {
     }, [tenantId, refreshRequest, refreshCounts]),
   );
 
-  const amount = billingService.monthlyAmountUsd(limits.plans, price);
-  const remaining = Math.max(0, limits.plans - active.plans);
-  const pending = request?.status === "pending" ? request : null;
-  const declined = request?.status === "declined" ? request : null;
+  const remaining = freeLineCount(limits, active);
+  const { pending, declined } = requestsByStatus(request);
   const pendingAsk = pending ? askText(t, requestedPair(pending)) : "";
   const declinedAsk = declined ? askText(t, requestedPair(declined)) : "";
 
@@ -89,7 +91,7 @@ export function CustomerAllowanceSection() {
           </Text>
         </View>
         <Text fontWeight="SemiBold" className="text-lg text-gray-900">
-          {`$${amount.toFixed(2)}`}
+          {monthlyAmountText(limits.plans, price)}
         </Text>
       </View>
 

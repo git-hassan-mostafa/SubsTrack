@@ -2,6 +2,7 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { Chip } from "@/src/shared/components/Chip";
+import { owedHeadlineKey } from "@shared/modules/ledger/utils/allocationRows";
 
 interface Props {
   amount: string;
@@ -25,9 +26,7 @@ export function CollectHero({ amount, approx, billCount }: Props) {
       <View>
         <Chip
           text={
-            billCount > 1
-              ? t("ledger.owed_bills", { count: billCount })
-              : t("ledger.owed")
+            t(owedHeadlineKey(billCount), { count: billCount })
           }
           tone="red"
           size="md"

@@ -17,6 +17,13 @@ import { COLORS } from "@/src/shared/constants";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
+import {
+  canSavePlan,
+  isMultiMonthPlan,
+  planDraftOf,
+  planInput,
+  withPlanDuration,
+} from "@shared/modules/admin/plans/utils/planForm";
 
 interface Props {
   plan?: Plan | null;
@@ -24,17 +31,7 @@ interface Props {
   onRequestDelete?: (plan: Plan) => void;
 }
 
-type FormState = {
-  name: string;
-  isCustomPrice: boolean;
-  price: number | null;
-  currencyId: string | null;
-  branchId: string | null;
-  durationMonths: number;
-};
-
 const DURATION_OPTIONS = [1, 2, 3, 6, 12];
-const MAX_DURATION = 12;
 
 export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
   const { t } = useTranslation();
@@ -47,20 +44,11 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
   const currencies = useCurrencySlice((s) => s.items);
   const activeBranches = useActiveBranches();
 
-  const defaultBranchId = plan
-    ? plan.branchId
-    : defaultNewBranchId(user, activeBranches);
-
   const branchPickerNullable = user?.branchId === null;
 
-  const [form, setForm] = useState<FormState>({
-    name: plan?.name ?? "",
-    isCustomPrice: plan?.isCustomPrice ?? false,
-    price: plan?.price ?? null,
-    currencyId: plan?.currencyId ?? null,
-    branchId: defaultBranchId,
-    durationMonths: plan?.durationMonths ?? 1,
-  });
+  const [form, setForm] = useState(() =>
+    planDraftOf(plan ?? null, defaultNewBranchId(user, activeBranches)),
+  );
 
   const dirty = useDirtyForm(form, ["currencyId"]);
 
@@ -68,40 +56,22 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
     clearError();
   }, [clearError]);
 
-  const isMultiMonth = form.durationMonths > 1;
+  const isMultiMonth = isMultiMonthPlan(form);
 
-  function setDuration(delta: number) {
-    setForm((prev) => ({
-      ...prev,
-      durationMonths: Math.min(
-        MAX_DURATION,
-        Math.max(1, prev.durationMonths + delta),
-      ),
-      isCustomPrice: false,
-    }));
+  function setDuration(months: number) {
+    setForm((prev) => withPlanDuration(prev, months));
   }
 
   async function handleSubmit() {
-    if (!user) return;
-    const price = form.isCustomPrice ? null : form.price;
-    const data = {
-      name: form.name,
-      isCustomPrice: form.isCustomPrice,
-      price,
-      currencyId: form.isCustomPrice ? null : form.currencyId,
-      branchId: form.branchId,
-      durationMonths: form.durationMonths,
-    };
+    if (!user || !canSavePlan(form)) return;
+    const data = planInput(form);
     const saved = plan
       ? await updatePlan(plan.id, data)
       : await createPlan(data, user.tenantId);
     if (saved) onDismiss();
   }
 
-  const submitDisabled =
-    !form.name.trim() ||
-    (!form.isCustomPrice && (form.price == null || form.price <= 0)) ||
-    loading;
+  const submitDisabled = !canSavePlan(form) || loading;
 
   return (
     <FormSheet
@@ -141,13 +111,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
             return (
               <PressableOpacity
                 key={d}
-                onPress={() =>
-                  setForm((prev) => ({
-                    ...prev,
-                    durationMonths: d,
-                    isCustomPrice: d > 1 ? false : prev.isCustomPrice,
-                  }))
-                }
+                onPress={() => setDuration(d)}
                 className={`px-4 py-2.5 rounded-xl border ${
                   selected
                     ? "bg-primary border-primary"
@@ -177,7 +141,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
           </Text>
           <View className="flex-row items-center">
             <PressableOpacity
-              onPress={() => setDuration(-1)}
+              onPress={() => setDuration(form.durationMonths - 1)}
               className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
             >
               <Text fontWeight="Bold" className="text-gray-700 text-lg">
@@ -191,7 +155,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
               {form.durationMonths}
             </Text>
             <PressableOpacity
-              onPress={() => setDuration(1)}
+              onPress={() => setDuration(form.durationMonths + 1)}
               className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
             >
               <Text fontWeight="Bold" className="text-gray-700 text-lg">
@@ -224,7 +188,6 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
         />
       ) : null}
 
-      {/* Custom pricing toggle — hidden for multi-month plans */}
       {!isMultiMonth ? (
         <View className="flex-row items-center justify-between py-4 border border-gray-100 rounded-xl px-4 mb-6">
           <View>
@@ -255,7 +218,6 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
         fullWidth
       />
 
-      {/* Delete plan (edit mode only) */}
       {plan && onRequestDelete ? (
         <>
           <PressableOpacity

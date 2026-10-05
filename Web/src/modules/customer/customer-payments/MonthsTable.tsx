@@ -7,6 +7,14 @@ import { findCurrency, formatMoney, snapshotCurrency } from "@shared/core/utils/
 import type { CustomerMonthGrid } from "@shared/modules/customer/customer-payments/hooks/useCustomerMonthGrid";
 import { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/utils/blockRangeLabel";
 import { isCurrentMonth } from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
+import {
+  isSelectableMonth,
+  monthBillFigure,
+  monthNoteOf,
+  monthOwedFigure,
+  monthPaidFigure,
+  monthRowEmphasis,
+} from "@shared/modules/customer/customer-payments/utils/monthView";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { MoneyText } from "@/shared/components/MoneyText";
 import { StatusChip } from "@/shared/components/StatusChip";
@@ -22,17 +30,11 @@ interface MonthsTableProps {
   menuActions: (entry: MonthEntry) => TableAction[];
 }
 
-// Money reached the month: the bill's own figures, never the line's price.
-function hasMoney(entry: MonthEntry): boolean {
-  return entry.collected > 0 || !!entry.charge?.writtenOffAt;
-}
-
 // One row per month of the viewed year; a bundle's money sits on its first month.
 export function MonthsTable({ grid, menuActions }: MonthsTableProps) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const { linePrice, selection } = grid;
-  const lineCurrency = findCurrency(currencies, linePrice.currencyId);
   const rows: MonthRow[] = grid.grid.map((entry) => ({ ...entry, id: entry.billingMonth }));
 
   const monthName = (entry: MonthEntry) => `${t(`months.${entry.label}`)} ${entry.year}`;
@@ -40,28 +42,24 @@ export function MonthsTable({ grid, menuActions }: MonthsTableProps) {
   const money = (amount: number, currency: Currency | null) => formatMoney(amount, currency, currency);
 
   const billCell = (entry: MonthEntry) => {
-    if (entry.isGroupSecondary) return null;
-    if (entry.charge && hasMoney(entry)) {
-      return <MoneyText primary={money(entry.charge.amount, snapshotCurrency(entry.charge, currencies))} />;
+    const figure = monthBillFigure(entry, linePrice);
+    if (!figure) return null;
+    if (figure.from === "bill") {
+      return <MoneyText primary={money(figure.charge.amount, snapshotCurrency(figure.charge, currencies))} />;
     }
-    const due = entry.status === "unpaid" || entry.status === "future";
-    if (!due || !linePrice.isFixed || linePrice.durationMonths > 1) return null;
     return (
       <Typography variant="body2" color="text.secondary">
-        {money(linePrice.amount!, lineCurrency)}
+        {money(figure.amount, findCurrency(currencies, figure.currencyId))}
       </Typography>
     );
   };
 
   const noteOf = (entry: MonthEntry): string => {
-    const charge = entry.charge;
-    if (charge && entry.collected > 0 && charge.durationMonths > 1) {
-      const range = getBlockRangeLabel(charge.billingMonth ?? entry.billingMonth, charge.durationMonths, t);
-      return entry.isGroupSecondary
-        ? t("web.month_grid.in_bill", { range })
-        : t("web.month_grid.covers", { range });
-    }
-    return entry.skip?.note ?? "";
+    const note = monthNoteOf(entry);
+    if (!note) return "";
+    if (note.kind === "skip") return note.note;
+    const range = getBlockRangeLabel(note.startMonth, note.durationMonths, t);
+    return t(`web.month_grid.${note.kind}`, { range });
   };
 
   const columns: GridColDef<MonthRow>[] = [
@@ -71,7 +69,7 @@ export function MonthsTable({ grid, menuActions }: MonthsTableProps) {
       width: 160,
       renderCell: (params) => (
         <Box>
-          {params.row.status === "before_start" ? (
+          {!isSelectableMonth(params.row) ? (
             <Typography variant="body2">{monthName(params.row)}</Typography>
           ) : (
             <RowLink label={monthName(params.row)} tabIndex={params.tabIndex} onClick={() => grid.tap(params.row)} />
@@ -107,12 +105,14 @@ export function MonthsTable({ grid, menuActions }: MonthsTableProps) {
       width: 140,
       align: "right",
       headerAlign: "right",
-      renderCell: (params) =>
-        !params.row.isGroupSecondary && params.row.charge && params.row.collected > 0 ? (
+      renderCell: (params) => {
+        const paid = monthPaidFigure(params.row);
+        return paid ? (
           <Typography variant="body2" sx={{ color: "success.dark", fontWeight: 600 }}>
-            {money(params.row.collected, snapshotCurrency(params.row.charge, currencies))}
+            {money(paid.amount, snapshotCurrency(paid.charge, currencies))}
           </Typography>
-        ) : null,
+        ) : null;
+      },
     },
     {
       field: "owed",
@@ -121,15 +121,12 @@ export function MonthsTable({ grid, menuActions }: MonthsTableProps) {
       align: "right",
       headerAlign: "right",
       renderCell: (params) => {
-        const { charge, balance, isGroupSecondary } = params.row;
-        if (isGroupSecondary || !charge || charge.writtenOffAt || params.row.collected <= 0 || balance <= 0) {
-          return null;
-        }
-        return (
+        const owed = monthOwedFigure(params.row);
+        return owed ? (
           <Typography variant="body2" sx={{ color: "error.main", fontWeight: 600 }}>
-            {money(balance, snapshotCurrency(charge, currencies))}
+            {money(owed.amount, snapshotCurrency(owed.charge, currencies))}
           </Typography>
-        );
+        ) : null;
       },
     },
     {
@@ -149,12 +146,12 @@ export function MonthsTable({ grid, menuActions }: MonthsTableProps) {
       rowLabel={monthName}
       rowActions={menuActions}
       rowBusy={(row) => grid.busyMonth === row.billingMonth}
-      rowTone={(row) => (row.status === "before_start" ? "muted" : isCurrentMonth(row) ? "highlighted" : null)}
+      rowTone={monthRowEmphasis}
       autoRowHeight
       selection={{
         ids: selection.selectedIds,
         onChange: selection.replace,
-        isSelectable: (row) => row.status !== "before_start",
+        isSelectable: isSelectableMonth,
       }}
     />
   );

@@ -21,7 +21,8 @@ import { MoneyText } from "@/shared/components/MoneyText";
 import { StatusChip } from "@/shared/components/StatusChip";
 import { LocalTable } from "@/shared/table/LocalTable";
 import { RowLink } from "@/shared/table/RowLink";
-import { KIND_ICON, KIND_TONE } from "@/modules/ledger/kindLook";
+import { KIND_TONE } from "@shared/modules/ledger/utils/collectionKind";
+import { KIND_ICON } from "@/modules/ledger/kindLook";
 import type { DebtDoors } from "./useDebtDoors";
 
 type DebtRow = OpenItem & { id: string };

@@ -1,4 +1,5 @@
 import type { ChargeKind, WalletSource } from "@shared/core/types";
+import type { Tone } from "@shared/shared/lib/tone";
 
 /**
  * What a hand-over PAID FOR: the one kind every line shares, or 'mixed'.
@@ -17,3 +18,10 @@ export function collectionKind(
   if (present.length === 0) return "mixed";
   return present.every((k) => k === present[0]) ? present[0] : "mixed";
 }
+
+export const KIND_TONE: Record<WalletSource, Tone> = {
+  month: "emerald",
+  sale: "emerald",
+  manual: "violet",
+  mixed: "indigo",
+};

@@ -19,14 +19,17 @@ import {
   daysLateSettling,
   daysOverdue,
   hasActiveHistoryFilters,
+  HISTORY_OUTCOME_TONE,
   historyOutcomeOf,
+  historyPeriodLabelKey,
+  isDeadHistoryRow,
+  laterPaidOf,
   type HistoryOutcome,
   type HistoryPeriodPreset,
   type HistorySort,
 } from "@shared/modules/transaction/debts/utils/debtHistory";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
-import type { ChipTone } from "@/shared/components/chipTones";
 import { MoneyText } from "@/shared/components/MoneyText";
 import { StatusChip } from "@/shared/components/StatusChip";
 import { DataTable } from "@/shared/table/DataTable";
@@ -34,19 +37,13 @@ import { usePagedTable } from "@/shared/table/usePagedTable";
 import { FilterSelect } from "@/shared/table/FilterSelect";
 import { RowLink } from "@/shared/table/RowLink";
 import { CustomerPicker } from "@/modules/customer/customers/CustomerPicker";
-import { KIND_ICON, KIND_TONE } from "@/modules/ledger/kindLook";
+import { KIND_TONE } from "@shared/modules/ledger/utils/collectionKind";
+import { KIND_ICON } from "@/modules/ledger/kindLook";
 import { useDebtHistoryTable, type DebtHistoryRow } from "@/state/debtHistoryTable";
 import type { DebtDoors } from "./useDebtDoors";
 
-const OUTCOME_TONE: Record<HistoryOutcome, ChipTone> = {
-  settled: "emerald",
-  partial: "amber",
-  open: "red",
-  written_off: "orange",
-};
-
 const rowLabel = (row: DebtHistoryRow) => row.label;
-const rowTone = (row: DebtHistoryRow) => (historyOutcomeOf(row) === "written_off" ? "muted" : null);
+const rowTone = (row: DebtHistoryRow) => (isDeadHistoryRow(row) ? "muted" : null);
 
 interface DebtHistoryTabProps {
   branch: BranchFilter;
@@ -171,7 +168,7 @@ export function DebtHistoryTab({ branch, doors }: DebtHistoryTabProps) {
             onChange={(period) => setFilters({ period })}
             options={HISTORY_PERIOD_PRESETS.map((preset) => ({
               value: preset,
-              label: preset === "all" ? t("debts.period_all") : t(`reports.period_${preset}`),
+              label: t(historyPeriodLabelKey(preset)),
             }))}
           />
           <CustomerPicker
@@ -219,12 +216,12 @@ function OutcomeChips({ item }: { item: DebtHistoryItem }) {
   const currencies = useCurrencySlice((s) => s.items);
   const source = snapshotCurrency(item, currencies);
   const outcome = historyOutcomeOf(item);
-  const laterPaid = item.paid - item.downPaid;
+  const laterPaid = laterPaidOf(item);
   const lateSettling = daysLateSettling(item);
   const overdue = daysOverdue(item);
   return (
     <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", rowGap: 0.5 }}>
-      <StatusChip label={t(`debts.outcome_${outcome}`)} tone={OUTCOME_TONE[outcome]} />
+      <StatusChip label={t(`debts.outcome_${outcome}`)} tone={HISTORY_OUTCOME_TONE[outcome]} />
       {laterPaid > 0 ? (
         <StatusChip
           label={t("debts.history_paid_later", { amount: formatMoney(laterPaid, source, source) })}

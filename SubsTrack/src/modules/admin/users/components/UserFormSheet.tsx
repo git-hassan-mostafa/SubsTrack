@@ -18,29 +18,26 @@ import { useBranchSlice } from "@shared/state/hooks/useBranchSlice";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { canManageUser } from "@shared/modules/admin/users/utils/userPermissions";
 import {
-  isLongEnoughPassword,
-  isValidUsername,
   mayBeTenantWide,
   roleLabelKey,
 } from "@shared/modules/admin/users/utils/userRules";
+import {
+  canSaveUser,
+  isPasswordMismatch,
+  isRoleLocked,
+  isUsernameInvalid,
+  pickableRoles,
+  seededStaffBranchId,
+  userCreateInput,
+  userDraftOf,
+  userUpdateInput,
+  withChangePassword,
+} from "@shared/modules/admin/users/utils/userForm";
 
 interface Props {
   user?: AppUser | null;
   onDismiss: () => void;
 }
-
-type FormState = {
-  username: string;
-  fullName: string;
-  password: string;
-  confirmPassword: string;
-  phoneNumber: string;
-  role: "admin" | "user";
-  branchId: string | null;
-  changePassword: boolean;
-  newPassword: string;
-  confirmNewPassword: string;
-};
 
 export function UserFormSheet({ user: editUser, onDismiss }: Props) {
   const { t } = useTranslation();
@@ -56,27 +53,16 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
   const activeBranches = useActiveBranches();
   const branchesLoaded = useBranchSlice((s) => s.loaded);
 
-  const defaultBranchId = editUser
-    ? editUser.branchId
-    : defaultNewBranchId(currentUser, activeBranches);
-
-  const [form, setForm] = useState<FormState>({
-    username: editUser?.username ?? "",
-    fullName: editUser?.fullName ?? "",
-    password: "",
-    confirmPassword: "",
-    phoneNumber: editUser?.phoneNumber ?? "",
-    role: (editUser?.role as "admin" | "user") ?? "user",
-    branchId: defaultBranchId,
-    changePassword: false,
-    newPassword: "",
-    confirmNewPassword: "",
-  });
+  const editing = !!editUser;
+  const [form, setForm] = useState(() =>
+    userDraftOf(editUser ?? null, defaultNewBranchId(currentUser, activeBranches)),
+  );
 
   const [branchAutoSeeded, setBranchAutoSeeded] = useState(false);
   const dirty = useDirtyForm(form, branchAutoSeeded ? ["branchId"] : undefined);
 
-  const isOwnAccount = editUser?.id === currentUser?.id;
+  const isOwnAccount = editing && editUser.id === currentUser?.id;
+  const roleLocked = isRoleLocked(form, editUser ?? null, currentUser?.id);
 
   const canToggleActive =
     !!editUser && !!currentUser && canManageUser(currentUser, editUser);
@@ -103,73 +89,38 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     if (deleted) onDismiss();
   }
 
-  const usernameInvalid =
-    form.username.length > 0 && !isValidUsername(form.username);
-
-  const passwordMismatch =
-    !editUser &&
-    isLongEnoughPassword(form.password) &&
-    form.confirmPassword.length > 0 &&
-    form.password !== form.confirmPassword;
-
-  const newPasswordMismatch =
-    !!editUser &&
-    form.changePassword &&
-    isLongEnoughPassword(form.newPassword) &&
-    form.confirmNewPassword.length > 0 &&
-    form.newPassword !== form.confirmNewPassword;
+  const usernameInvalid = isUsernameInvalid(form);
+  const passwordMismatch = isPasswordMismatch(form, editing);
 
   useEffect(() => {
     clearError();
   }, [clearError]);
 
-  useEffect(() => {
-    if (editUser || !branchesLoaded || activeBranches.length !== 1) return;
-    if (form.branchId !== null || form.role !== "user") return;
-    setBranchAutoSeeded(true);
-    setForm((prev) => ({ ...prev, branchId: activeBranches[0].id }));
-  }, [editUser, branchesLoaded, activeBranches, form.branchId, form.role]);
+  const seededBranchId = branchesLoaded
+    ? seededStaffBranchId(form, editing, activeBranches)
+    : null;
 
-  const branchMissingForStaff =
-    activeBranches.length > 0 && form.role === "user" && !form.branchId;
+  useEffect(() => {
+    if (seededBranchId === null) return;
+    setBranchAutoSeeded(true);
+    setForm((prev) => ({ ...prev, branchId: seededBranchId }));
+  }, [seededBranchId]);
 
   async function handleSubmit() {
-    if (!currentUser) return;
+    if (!currentUser || !canSubmit) return;
     const saved = editUser
-      ? await updateUser(editUser.id, currentUser.id, currentUser.role, {
-          username: form.username,
-          fullName: form.fullName,
-          phone: form.phoneNumber || null,
-          role: form.role,
-          branchId: form.branchId,
-          newPassword: form.changePassword ? form.newPassword : undefined,
-        })
-      : await createUser(
-          {
-            username: form.username,
-            fullName: form.fullName,
-            password: form.password,
-            phone: form.phoneNumber || null,
-            role: form.role,
-            branchId: form.branchId,
-          },
-          currentUser.tenantId,
-        );
+      ? await updateUser(
+          editUser.id,
+          currentUser.id,
+          currentUser.role,
+          userUpdateInput(form),
+        )
+      : await createUser(userCreateInput(form), currentUser.tenantId);
     if (saved) onDismiss();
   }
 
   const canSubmit =
-    branchesLoaded &&
-    !!form.username.trim() &&
-    !!form.fullName.trim() &&
-    !usernameInvalid &&
-    !branchMissingForStaff &&
-    (!!editUser
-      ? !form.changePassword ||
-        (isLongEnoughPassword(form.newPassword) &&
-          form.newPassword === form.confirmNewPassword)
-      : isLongEnoughPassword(form.password) &&
-        form.password === form.confirmPassword);
+    branchesLoaded && canSaveUser(form, editing, activeBranches.length);
 
   return (
     <FormSheet
@@ -224,12 +175,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
         <>
           <PressableOpacity
             onPress={() =>
-              setForm((prev) => ({
-                ...prev,
-                changePassword: !prev.changePassword,
-                newPassword: "",
-                confirmNewPassword: "",
-              }))
+              setForm((prev) => withChangePassword(prev, !prev.changePassword))
             }
             className={`flex-row items-center justify-between border rounded-xl px-4 py-3.5 mb-4 ${
               form.changePassword
@@ -262,9 +208,9 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
             <>
               <Input
                 label={t("users.new_password_label") + " *"}
-                value={form.newPassword}
+                value={form.password}
                 onChangeText={(v) =>
-                  setForm((prev) => ({ ...prev, newPassword: v }))
+                  setForm((prev) => ({ ...prev, password: v }))
                 }
                 placeholder={t("users.new_password_placeholder")}
                 secureTextEntry
@@ -272,15 +218,15 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
               />
               <Input
                 label={t("users.confirm_new_password_label") + " *"}
-                value={form.confirmNewPassword}
+                value={form.confirmPassword}
                 onChangeText={(v) =>
-                  setForm((prev) => ({ ...prev, confirmNewPassword: v }))
+                  setForm((prev) => ({ ...prev, confirmPassword: v }))
                 }
                 placeholder={t("users.confirm_new_password_placeholder")}
                 secureTextEntry
                 onFocus={clearError}
                 error={
-                  newPasswordMismatch ? t("users.password_mismatch") : undefined
+                  passwordMismatch ? t("users.password_mismatch") : undefined
                 }
               />
             </>
@@ -311,17 +257,17 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
         {t("users.role_label")}
       </Text>
       <View className="flex-row gap-3 mb-6">
-        {(["user", "admin"] as const).map((r) => (
+        {pickableRoles(form).map((r) => (
           <PressableOpacity
             key={r}
             onPress={() =>
-              !isOwnAccount && setForm((prev) => ({ ...prev, role: r }))
+              !roleLocked && setForm((prev) => ({ ...prev, role: r }))
             }
             className={`flex-1 border rounded-lg py-3 items-center ${
               form.role === r
                 ? "border-primary bg-indigo-50"
                 : "border-gray-300"
-            } ${isOwnAccount ? "opacity-40" : ""}`}
+            } ${roleLocked ? "opacity-40" : ""}`}
           >
             <Text
               fontWeight="Medium"

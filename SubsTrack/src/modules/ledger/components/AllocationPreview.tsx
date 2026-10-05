@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,11 +9,11 @@ import {
   CardSubtitle,
   CardTitle,
 } from "@/src/shared/components/CardText";
-import { Chip, type ChipTone } from "@/src/shared/components/Chip";
+import { Chip } from "@/src/shared/components/Chip";
 import { COLORS } from "@/src/shared/constants";
 import type { AllocationLine, OpenItem } from "@shared/core/types";
 import { daysLate, formatDate } from "@shared/core/utils/date";
-import { keyOf } from "@shared/modules/ledger/utils/waterfall";
+import { allocationRows } from "@shared/modules/ledger/utils/allocationRows";
 
 interface Props {
   items: OpenItem[];
@@ -36,20 +35,7 @@ export function AllocationPreview({
 }: Props) {
   const { t } = useTranslation();
 
-  const byKey = useMemo(
-    () => new Map(lines.map((l) => [keyOf(l.item), l])),
-    [lines],
-  );
-
-  const positions = useMemo(() => {
-    const out = new Map<string, number>();
-    let n = 0;
-    for (const item of items) {
-      const key = keyOf(item);
-      if (!excluded.has(key)) out.set(key, ++n);
-    }
-    return out;
-  }, [items, excluded]);
+  const rows = allocationRows(items, lines, excluded);
 
   return (
     <View>
@@ -66,28 +52,20 @@ export function AllocationPreview({
       ) : null}
 
       <View>
-        {items.map((item) => {
-          const key = keyOf(item);
-          const line = byKey.get(key);
-          const skipped = excluded.has(key);
+        {rows.map((row) => {
+          const { item, line, skipped } = row;
           const late = daysLate(item.dueDate);
-          const status = skipped
-            ? t("ledger.skipped_bill")
-            : !line
-              ? null
-              : line.settles
-                ? t("ledger.pays_in_full")
-                : t("ledger.leaves_owing", {
-                    amount: money(item.balance - line.amount),
-                  });
+          const status = row.statusKey
+            ? t(row.statusKey, { amount: money(row.leavesOwing) })
+            : null;
           return (
             <EntityCard
-              key={key}
+              key={row.key}
               onPress={onToggle ? () => onToggle(item) : undefined}
               dimmed={skipped}
               renderIcon={
                 <QueueBadge
-                  position={positions.get(key)}
+                  position={row.position}
                   skipped={skipped}
                   funded={!!line}
                 />
@@ -115,7 +93,7 @@ export function AllocationPreview({
 
                 {status ? (
                   <CardChips>
-                    <Chip text={status} tone={statusTone(skipped, line)} />
+                    <Chip text={status} tone={row.tone} />
                   </CardChips>
                 ) : null}
               </View>
@@ -129,7 +107,7 @@ export function AllocationPreview({
           {t("ledger.still_owed_after")}
         </Text>
         <Text fontWeight="Bold" className="text-sm text-gray-900">
-          {money(Math.max(0, remainingAfter))}
+          {money(remainingAfter)}
         </Text>
       </View>
     </View>
@@ -137,7 +115,7 @@ export function AllocationPreview({
 }
 
 interface BadgeProps {
-  position?: number;
+  position: number | null;
   skipped: boolean;
   funded: boolean;
 }
@@ -165,10 +143,4 @@ function QueueBadge({ position, skipped, funded }: BadgeProps) {
       </Text>
     </View>
   );
-}
-
-/** Emerald = closed, amber = part paid, gray = nothing reached it. */
-function statusTone(skipped: boolean, line?: AllocationLine): ChipTone {
-  if (skipped || !line) return "gray";
-  return line.settles ? "emerald" : "amber";
 }

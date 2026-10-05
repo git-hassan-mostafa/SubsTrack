@@ -7,12 +7,16 @@ import { useTranslation } from "react-i18next";
 import {
   CELL_BADGE_KEYS,
   cellBadge,
-  isCurrentMonth as isCurrentMonthOf,
   showsPartialRing,
 } from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
+import {
+  isSelectableMonth,
+  monthCellTone,
+  type MonthCellTone,
+} from "@shared/modules/customer/customer-payments/utils/monthView";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
-import type { MonthEntry, MonthStatus } from "@shared/core/types";
+import type { MonthEntry } from "@shared/core/types";
 
 interface Props {
   entry: MonthEntry;
@@ -30,36 +34,22 @@ interface Props {
   onLongPress?: (entry: MonthEntry) => void;
 }
 
-const regularBgColor: Record<MonthStatus, string> = {
-  paid: "bg-green-500",
-  unpaid: "bg-red-500",
-  future: "bg-gray-100",
-  before_start: "bg-gray-100",
-  skipped: "bg-gray-400",
-};
-
-const nonRegularBgColor: Record<MonthStatus, string> = {
-  paid: "bg-yellow-400",
-  unpaid: "bg-gray-200",
-  future: "bg-gray-100",
-  before_start: "bg-gray-100",
-  skipped: "bg-gray-400",
-};
-
-const regularTextColor: Record<MonthStatus, string> = {
-  paid: "text-white",
-  unpaid: "text-white",
-  future: "text-gray-400",
-  before_start: "text-gray-300",
-  skipped: "text-white",
-};
-
-const nonRegularTextColor: Record<MonthStatus, string> = {
-  paid: "text-white",
-  unpaid: "text-gray-400",
-  future: "text-gray-400",
-  before_start: "text-gray-300",
-  skipped: "text-white",
+const TONE_LOOK: Record<
+  MonthCellTone,
+  { bg: string; text: string; icon: string }
+> = {
+  paid: { bg: "bg-green-500", text: "text-white", icon: COLORS.white },
+  paid_irregular: { bg: "bg-yellow-400", text: "text-white", icon: COLORS.white },
+  unpaid: { bg: "bg-red-500", text: "text-white", icon: COLORS.white },
+  unpaid_irregular: { bg: "bg-gray-200", text: "text-gray-400", icon: COLORS.gray500 },
+  current_unpaid: {
+    bg: "bg-red-100 border-2 border-red-500",
+    text: "text-red-600",
+    icon: COLORS.danger,
+  },
+  future: { bg: "bg-gray-100", text: "text-gray-400", icon: COLORS.gray500 },
+  before_start: { bg: "bg-gray-100", text: "text-gray-300", icon: COLORS.gray500 },
+  skipped: { bg: "bg-gray-400", text: "text-white", icon: COLORS.white },
 };
 
 export const MonthCell = memo(function MonthCell({
@@ -78,40 +68,14 @@ export const MonthCell = memo(function MonthCell({
   onLongPress,
 }: Props) {
   const { t } = useTranslation();
-  const isCurrentMonth = isCurrentMonthOf(entry);
-
-  const selectable = entry.status !== "before_start";
-
-  const showPartialRing = showsPartialRing(entry);
-
-  const bgColor = isRegular ? regularBgColor : nonRegularBgColor;
-  const textColor = isRegular ? regularTextColor : nonRegularTextColor;
-
-  const containerBg =
-    isRegular && isCurrentMonth && entry.status === "unpaid"
-      ? "bg-red-100 border-2 border-red-500"
-      : showPartialRing
-        ? `${bgColor.paid} border-2 border-amber-500`
-        : bgColor[entry.status];
-
-  const labelColor =
-    isRegular && isCurrentMonth && entry.status === "unpaid"
-      ? "text-red-600"
-      : textColor[entry.status];
-
-  const showMenu =
-    !selectionMode && !!onMenu && entry.status !== "before_start";
-
-  const usesWhiteText =
-    entry.status === "paid" ||
-    entry.status === "skipped" ||
-    (isRegular && entry.status === "unpaid");
-  const menuIconColor =
-    isRegular && isCurrentMonth && entry.status === "unpaid"
-      ? COLORS.danger
-      : usesWhiteText
-        ? COLORS.white
-        : COLORS.gray500;
+  const selectable = isSelectableMonth(entry);
+  const look = TONE_LOOK[monthCellTone(entry, isRegular)];
+  const containerBg = showsPartialRing(entry)
+    ? `${look.bg} border-2 border-amber-500`
+    : look.bg;
+  const labelColor = look.text;
+  const showMenu = !selectionMode && !!onMenu && selectable;
+  const menuIconColor = look.icon;
 
   const badge = cellBadge(entry);
   const sublabel = badge

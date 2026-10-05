@@ -9,6 +9,7 @@ import { formatDateTime } from "@shared/core/utils/date";
 import { useCorrectPayment } from "@shared/modules/ledger/hooks/useCorrectPayment";
 import type { CollectionCorrection } from "@shared/modules/ledger/services/CollectionService";
 import type { CorrectionProblem } from "@shared/modules/ledger/utils/correction";
+import { stillOwedAfter } from "@shared/modules/ledger/utils/currencyGroups";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { FormDialog } from "@/shared/components/FormDialog";
 import { InfoRows } from "@/shared/components/InfoRows";
@@ -98,7 +99,7 @@ export function CorrectPaymentDialog({ collectionId, onDone, onClose }: CorrectP
             lines={plan.lines}
             excluded={NO_SKIPS}
             money={money}
-            remainingAfter={plan.owed - plan.lines.reduce((sum, line) => sum + line.amount, 0)}
+            remainingAfter={stillOwedAfter(plan)}
           />
           <TextField
             label={t("ledger.correct_note")}

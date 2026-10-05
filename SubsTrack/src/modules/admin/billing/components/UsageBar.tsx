@@ -2,6 +2,7 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import type { QuotaKind } from "@shared/modules/admin/billing/utils/types";
+import { usageOf, type UsageLevel } from "@shared/modules/admin/billing/utils/usage";
 
 interface Props {
   kind: QuotaKind;
@@ -9,20 +10,16 @@ interface Props {
   total: number;
 }
 
-// Amber from 80% of the allowance, red once it is full or over — the admin
-// should see the wall coming before they hit it.
-function toneFor(used: number, total: number): { fill: string; text: string } {
-  if (total === 0 || used >= total)
-    return { fill: "bg-danger", text: "text-danger" };
-  if (used / total >= 0.8) return { fill: "bg-warning", text: "text-warning" };
-  return { fill: "bg-primary", text: "text-gray-900" };
-}
+const LEVEL_TONE: Record<UsageLevel, { fill: string; text: string }> = {
+  full: { fill: "bg-danger", text: "text-danger" },
+  near: { fill: "bg-warning", text: "text-warning" },
+  ok: { fill: "bg-primary", text: "text-gray-900" },
+};
 
 export function UsageBar({ kind, used, total }: Props) {
   const { t } = useTranslation();
-  const tone = toneFor(used, total);
-  const percent = total === 0 ? 100 : Math.min(100, (used / total) * 100);
-  const remaining = Math.max(0, total - used);
+  const usage = usageOf(used, total);
+  const tone = LEVEL_TONE[usage.level];
 
   return (
     <View>
@@ -39,14 +36,14 @@ export function UsageBar({ kind, used, total }: Props) {
       <View className="h-2 rounded-full bg-gray-100 overflow-hidden">
         <View
           className={`h-full rounded-full ${tone.fill}`}
-          style={{ width: `${percent}%` }}
+          style={{ width: `${usage.percent}%` }}
         />
       </View>
 
       <Text className="text-xs text-gray-500 mt-2">
-        {used >= total
+        {usage.full
           ? t("billing.usage_full")
-          : t(`billing.remaining_${kind}`, { count: remaining })}
+          : t(`billing.remaining_${kind}`, { count: usage.remaining })}
       </Text>
     </View>
   );

@@ -21,6 +21,7 @@ import { formatDate, formatDateTime } from "@shared/core/utils/date";
 import { useCollectionDetail } from "@shared/modules/ledger/hooks/useCollectionDetail";
 import type { InfoKey } from "@shared/modules/ledger/utils/billView";
 import { collectionInfoRows } from "@shared/modules/ledger/utils/collectionView";
+import { collectionItemLabel } from "@shared/modules/ledger/utils/collectionLabel";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
@@ -32,7 +33,8 @@ import { StatusChip } from "@/shared/components/StatusChip";
 import { LocalTable } from "@/shared/table/LocalTable";
 import { RowLink } from "@/shared/table/RowLink";
 import { withInfoIcons } from "../infoIcons";
-import { KIND_ICON, KIND_TONE } from "../kindLook";
+import { KIND_TONE } from "@shared/modules/ledger/utils/collectionKind";
+import { KIND_ICON } from "../kindLook";
 
 export type OpenPaidBill = (item: CollectionItem, label: string, customerName: string | null) => void;
 
@@ -114,7 +116,7 @@ function PaymentBody({ collection, onOpenItem, loadingItemId }: PaymentBodyProps
   const tableLabel = voided ? t("web.payment.had_paid_for") : t("web.payment.paid_for");
   const rows: PaidRow[] = collection.items.map((item, index) => ({
     ...item,
-    label: collection.itemLabels[index] || t("ledger.payment"),
+    label: collectionItemLabel(collection, index, t),
   }));
 
   const voidedText = voided

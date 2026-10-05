@@ -6,6 +6,19 @@ import type { LabeledValue } from "./billView";
 type Translate = (key: string, opts?: Record<string, unknown>) => string;
 type UserName = (id: string | null) => string | null;
 
+type Custody = Pick<CollectionListItem, "voidedAt" | "heldByUserId" | "receivedByUserId">;
+
+// Who has the cash now; a voided hand-over holds nothing, so it has no holder.
+export function heldByLabel(collection: Custody, t: Translate, userName: UserName): string | null {
+  if (collection.voidedAt !== null) return null;
+  if (collection.heldByUserId === null) return t("ledger.banked");
+  return userName(collection.heldByUserId) ?? t("common.unknown");
+}
+
+export function isHeldByCollector(collection: Custody): boolean {
+  return collection.heldByUserId !== null && collection.heldByUserId === collection.receivedByUserId;
+}
+
 // Every field one hand-over MIGHT print; custody only while it still counts.
 export function collectionInfoRows(
   collection: CollectionListItem,
@@ -17,12 +30,11 @@ export function collectionInfoRows(
   const received = formatDateTime(collection.receivedAt);
   const recorded = formatDateTime(collection.createdAt);
   const unknown = t("common.unknown");
-  const heldBy = banked ? t("ledger.banked") : (userName(collection.heldByUserId) ?? unknown);
   return [
     { key: "received_at", label: t("ledger.received_at"), value: received },
     { key: "recorded_at", label: t("ledger.recorded_at"), value: recorded !== received ? recorded : null },
     { key: "collected_by", label: t("ledger.collected_by"), value: userName(collection.receivedByUserId) ?? unknown },
-    { key: "held_by", label: t("ledger.held_by"), value: voided ? null : heldBy },
+    { key: "held_by", label: t("ledger.held_by"), value: heldByLabel(collection, t, userName) },
     {
       key: "banked_at",
       label: t("ledger.banked_at"),
@@ -68,6 +80,15 @@ export function paymentMenuItems(
     keys.push("correct", "void");
   }
   return pickMenu(PAYMENT_MENU, keys);
+}
+
+// A voided bill takes every payment on it down with it (gotcha #109).
+export function isPaymentVoided(payment: Voidable, billVoided: boolean): boolean {
+  return billVoided || payment.voidedAt !== null;
+}
+
+export function coversOtherBills(payment: Pick<Collection, "items">): boolean {
+  return (payment.items?.length ?? 0) > 1;
 }
 
 export function voidablePayments<T extends Voidable>(payments: readonly T[]): T[] {

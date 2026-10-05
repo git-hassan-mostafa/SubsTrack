@@ -17,6 +17,13 @@ import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
+import { findCurrency } from "@shared/core/utils/currency";
+import {
+  canSaveProduct,
+  newProductInput,
+  productDraftOf,
+  productInput,
+} from "@shared/modules/admin/products/utils/productForm";
 
 interface Props {
   product?: Product | null;
@@ -24,17 +31,6 @@ interface Props {
   onRequestDelete?: (product: Product) => void;
   onAdjustStock?: (product: Product) => void;
 }
-
-type FormState = {
-  name: string;
-  description: string;
-  price: number | null;
-  currencyId: string | null;
-  costPrice: number | null;
-  costCurrencyId: string | null;
-  branchId: string | null;
-  initialStock: string;
-};
 
 export function ProductFormSheet({
   product,
@@ -58,22 +54,11 @@ export function ProductFormSheet({
   const currencies = useCurrencySlice((s) => s.items);
   const activeBranches = useActiveBranches();
 
-  const defaultBranchId = product
-    ? product.branchId
-    : defaultNewBranchId(user, activeBranches);
-
   const branchPickerNullable = user?.branchId === null;
 
-  const [form, setForm] = useState<FormState>({
-    name: product?.name ?? "",
-    description: product?.description ?? "",
-    price: product?.price ?? null,
-    currencyId: product?.currencyId ?? null,
-    costPrice: product?.costPrice ?? null,
-    costCurrencyId: product?.costCurrencyId ?? null,
-    branchId: defaultBranchId,
-    initialStock: "",
-  });
+  const [form, setForm] = useState(() =>
+    productDraftOf(product ?? null, defaultNewBranchId(user, activeBranches)),
+  );
 
   const dirty = useDirtyForm(form, ["currencyId", "costCurrencyId"]);
 
@@ -82,29 +67,19 @@ export function ProductFormSheet({
   }, [clearError]);
 
   async function handleSubmit() {
-    if (!user) return;
-    const payload = {
-      name: form.name,
-      description: form.description.trim() || null,
-      price: form.price ?? Number.NaN,
-      currencyId: form.currencyId,
-      costPrice: form.costPrice,
-      costCurrencyId: form.costCurrencyId,
-      branchId: form.branchId,
-    };
+    if (!user || !canSaveProduct(form)) return;
     const saved = product
-      ? await updateProduct(product.id, payload)
+      ? await updateProduct(product.id, productInput(form))
       : await createProduct(
-          { ...payload, initialStock: Number(form.initialStock) || 0 },
+          newProductInput(form),
           user.tenantId,
           user.id,
-          currencies.find((c) => c.id === form.costCurrencyId) ?? null,
+          findCurrency(currencies, form.costCurrencyId),
         );
     if (saved) onDismiss();
   }
 
-  const submitDisabled =
-    !form.name.trim() || form.price == null || form.price <= 0 || loading;
+  const submitDisabled = !canSaveProduct(form) || loading;
 
   return (
     <FormSheet

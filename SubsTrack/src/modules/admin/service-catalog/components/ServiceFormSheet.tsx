@@ -16,6 +16,11 @@ import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
+import {
+  canSaveService,
+  serviceDraftOf,
+  serviceInput,
+} from "@shared/modules/admin/service-catalog/utils/serviceForm";
 
 interface Props {
   service?: Service | null;
@@ -23,14 +28,6 @@ interface Props {
   onRequestDelete?: (service: Service) => void;
   onSaved?: (service: Service) => void;
 }
-
-type FormState = {
-  name: string;
-  description: string;
-  price: number | null;
-  currencyId: string | null;
-  branchId: string | null;
-};
 
 export function ServiceFormSheet({
   service,
@@ -48,19 +45,11 @@ export function ServiceFormSheet({
   const currencies = useCurrencySlice((s) => s.items);
   const activeBranches = useActiveBranches();
 
-  const defaultBranchId = service
-    ? service.branchId
-    : defaultNewBranchId(user, activeBranches);
-
   const branchPickerNullable = user?.branchId === null;
 
-  const [form, setForm] = useState<FormState>({
-    name: service?.name ?? "",
-    description: service?.description ?? "",
-    price: service?.price ?? null,
-    currencyId: service?.currencyId ?? null,
-    branchId: defaultBranchId,
-  });
+  const [form, setForm] = useState(() =>
+    serviceDraftOf(service ?? null, defaultNewBranchId(user, activeBranches)),
+  );
 
   const dirty = useDirtyForm(form, ["currencyId"]);
 
@@ -69,14 +58,8 @@ export function ServiceFormSheet({
   }, [clearError]);
 
   async function handleSubmit() {
-    if (!user) return;
-    const payload = {
-      name: form.name,
-      description: form.description.trim() || null,
-      price: form.price ?? 0,
-      currencyId: form.currencyId,
-      branchId: form.branchId,
-    };
+    if (!user || !canSaveService(form)) return;
+    const payload = serviceInput(form);
     const saved = service
       ? await updateService(service.id, payload)
       : await createService(payload, user.tenantId);
@@ -85,8 +68,7 @@ export function ServiceFormSheet({
     onDismiss();
   }
 
-  const submitDisabled =
-    !form.name.trim() || form.price == null || form.price <= 0 || loading;
+  const submitDisabled = !canSaveService(form) || loading;
 
   return (
     <FormSheet

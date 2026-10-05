@@ -6,6 +6,12 @@ import type { Currency } from "@shared/core/types";
 import { decimalDigitsOnly, digitsOnly, upperCaseText } from "@shared/core/utils/inputText";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
+import {
+  canSaveCurrency,
+  currencyDraftOf,
+  currencyInput,
+  type CurrencyDraft,
+} from "@shared/modules/admin/currencies/utils/currencyForm";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { FormDialog } from "@/shared/components/FormDialog";
 
@@ -15,14 +21,6 @@ interface CurrencyFormDialogProps {
   onSaved: (saved: Currency) => void;
 }
 
-type CurrencyForm = {
-  code: string;
-  name: string;
-  symbol: string;
-  rateText: string;
-  decimalsText: string;
-};
-
 export function CurrencyFormDialog({ currency, onClose, onSaved }: CurrencyFormDialogProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -30,13 +28,7 @@ export function CurrencyFormDialog({ currency, onClose, onSaved }: CurrencyFormD
   const updateCurrency = useCurrencySlice((s) => s.updateCurrency);
   const error = useCurrencySlice((s) => s.error);
   const clearError = useCurrencySlice((s) => s.clearError);
-  const [form, setForm] = useState<CurrencyForm>({
-    code: currency?.code ?? "",
-    name: currency?.name ?? "",
-    symbol: currency?.symbol ?? "",
-    rateText: currency ? String(currency.ratePerUsd) : "",
-    decimalsText: currency ? String(currency.decimals) : "2",
-  });
+  const [form, setForm] = useState(() => currencyDraftOf(currency));
   const dirty = useDirtyForm(form);
 
   useEffect(() => {
@@ -44,20 +36,14 @@ export function CurrencyFormDialog({ currency, onClose, onSaved }: CurrencyFormD
     return clearError;
   }, [clearError]);
 
-  const change = (patch: Partial<CurrencyForm>) => {
+  const change = (patch: Partial<CurrencyDraft>) => {
     setForm((prev) => ({ ...prev, ...patch }));
     if (error) clearError();
   };
 
   const submit = async () => {
-    if (!user) return;
-    const data = {
-      code: form.code,
-      name: form.name,
-      symbol: form.symbol.trim() || null,
-      ratePerUsd: parseFloat(form.rateText),
-      decimals: parseInt(form.decimalsText, 10),
-    };
+    if (!user || !canSaveCurrency(form)) return;
+    const data = currencyInput(form);
     const saved = currency
       ? await updateCurrency(currency.id, data)
       : await createCurrency(data, user.tenantId);
@@ -76,6 +62,7 @@ export function CurrencyFormDialog({ currency, onClose, onSaved }: CurrencyFormD
       error={error}
       onDismissError={clearError}
       submitLabel={currency ? t("common.save_changes") : t("web.currencies.add")}
+      submitDisabled={!canSaveCurrency(form)}
     >
       {currency && !currency.active ? (
         <Alert severity="warning">{t("tenant_settings.inactive_currency_note")}</Alert>

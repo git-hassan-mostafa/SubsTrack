@@ -23,3 +23,12 @@ export function collectionLabel(
     ? `${named} ${t("ledger.plus_more", { count: rest })}`
     : named;
 }
+
+// A paid-for line whose label never loaded still reads as a payment.
+export function collectionItemLabel(
+  item: Pick<CollectionListItem, "itemLabels">,
+  index: number,
+  t: TFn,
+): string {
+  return item.itemLabels[index] || t("ledger.payment");
+}

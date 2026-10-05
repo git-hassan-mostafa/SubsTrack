@@ -6,8 +6,12 @@ import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import billingService from "@shared/modules/admin/billing/services/BillingService";
 import { askText, requestedPair } from "@shared/modules/admin/billing/utils/requestAsk";
+import {
+  freeLineCount,
+  monthlyAmountText,
+  requestsByStatus,
+} from "@shared/modules/admin/billing/utils/usage";
 import { confirm } from "@shared/shared/lib/confirm";
 import { useBillingSlice } from "@shared/state/hooks/useBillingSlice";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
@@ -28,8 +32,7 @@ export function LimitsSection() {
   const clearError = useBillingSlice((s) => s.clearError);
   const [dialog, setDialog] = useState<"update" | "edit" | null>(null);
 
-  const pending = request?.status === "pending" ? request : null;
-  const declined = request?.status === "declined" ? request : null;
+  const { pending, declined } = requestsByStatus(request);
   const pendingAsk = pending ? askText(t, requestedPair(pending)) : "";
 
   const confirmCancel = () =>
@@ -58,7 +61,7 @@ export function LimitsSection() {
           </Typography>
         </Stack>
         <Typography variant="h6" component="p" sx={{ fontWeight: 700 }}>
-          {`$${billingService.monthlyAmountUsd(limits.plans, price).toFixed(2)}`}
+          {monthlyAmountText(limits.plans, price)}
         </Typography>
       </Stack>
 
@@ -93,7 +96,7 @@ export function LimitsSection() {
             </Button>
             <Typography variant="body2" color="text.secondary">
               {t("billing.update_number_hint", {
-                count: Math.max(0, limits.plans - active.plans),
+                count: freeLineCount(limits, active),
               })}
             </Typography>
           </Stack>

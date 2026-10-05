@@ -16,20 +16,17 @@ import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import type { Currency } from "@shared/core/types";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
+import {
+  canSaveCurrency,
+  currencyDraftOf,
+  currencyInput,
+} from "@shared/modules/admin/currencies/utils/currencyForm";
 
 interface Props {
   currency?: Currency | null;
   onDismiss: () => void;
   onRequestDelete?: (currency: Currency) => void;
 }
-
-type FormState = {
-  code: string;
-  name: string;
-  symbol: string;
-  rateText: string;
-  decimalsText: string;
-};
 
 export function CurrencyFormSheet({
   currency,
@@ -45,13 +42,7 @@ export function CurrencyFormSheet({
   const error = useCurrencySlice((s) => s.error);
   const clearError = useCurrencySlice((s) => s.clearError);
 
-  const [form, setForm] = useState<FormState>({
-    code: currency?.code ?? "",
-    name: currency?.name ?? "",
-    symbol: currency?.symbol ?? "",
-    rateText: currency?.ratePerUsd != null ? String(currency.ratePerUsd) : "",
-    decimalsText: currency?.decimals != null ? String(currency.decimals) : "2",
-  });
+  const [form, setForm] = useState(() => currencyDraftOf(currency ?? null));
 
   const dirty = useDirtyForm(form);
 
@@ -60,14 +51,8 @@ export function CurrencyFormSheet({
   }, [clearError]);
 
   async function handleSubmit() {
-    if (!user) return;
-    const data = {
-      code: form.code,
-      name: form.name,
-      symbol: form.symbol.trim() || null,
-      ratePerUsd: parseFloat(form.rateText),
-      decimals: parseInt(form.decimalsText, 10),
-    };
+    if (!user || !canSaveCurrency(form)) return;
+    const data = currencyInput(form);
     const saved = currency
       ? await updateCurrency(currency.id, data)
       : await createCurrency(data, user.tenantId);
@@ -79,12 +64,7 @@ export function CurrencyFormSheet({
     if (await reactivateCurrency(currency.id)) onDismiss();
   }
 
-  const submitDisabled =
-    !form.code.trim() ||
-    !form.name.trim() ||
-    !form.rateText ||
-    !form.decimalsText ||
-    loading;
+  const submitDisabled = !canSaveCurrency(form) || loading;
 
   return (
     <FormSheet

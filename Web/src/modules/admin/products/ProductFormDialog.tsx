@@ -10,6 +10,13 @@ import { findCurrency } from "@shared/core/utils/currency";
 import { digitsOnly } from "@shared/core/utils/inputText";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
+import {
+  canSaveProduct,
+  newProductInput,
+  productDraftOf,
+  productInput,
+  type ProductDraft,
+} from "@shared/modules/admin/products/utils/productForm";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
@@ -25,18 +32,6 @@ interface ProductFormDialogProps {
   onAdjustStock?: (product: Product) => void;
 }
 
-type ProductForm = {
-  name: string;
-  description: string;
-  price: number | null;
-  currencyId: string | null;
-  costPrice: number | null;
-  costCurrencyId: string | null;
-  branchId: string | null;
-  initialStock: string;
-};
-
-// Stock is typed once on create; after that only the stock dialog changes it.
 export function ProductFormDialog({
   product,
   onClose,
@@ -51,16 +46,9 @@ export function ProductFormDialog({
   const clearError = useProductSlice((s) => s.clearError);
   const currencies = useCurrencySlice((s) => s.items);
   const activeBranches = useActiveBranches();
-  const [form, setForm] = useState<ProductForm>({
-    name: product?.name ?? "",
-    description: product?.description ?? "",
-    price: product?.price ?? null,
-    currencyId: product?.currencyId ?? null,
-    costPrice: product?.costPrice ?? null,
-    costCurrencyId: product?.costCurrencyId ?? null,
-    branchId: product ? product.branchId : defaultNewBranchId(user, activeBranches),
-    initialStock: "",
-  });
+  const [form, setForm] = useState(() =>
+    productDraftOf(product, defaultNewBranchId(user, activeBranches)),
+  );
   const dirty = useDirtyForm(form, ["currencyId", "costCurrencyId"]);
 
   useEffect(() => {
@@ -68,26 +56,17 @@ export function ProductFormDialog({
     return clearError;
   }, [clearError]);
 
-  const change = (patch: Partial<ProductForm>) => {
+  const change = (patch: Partial<ProductDraft>) => {
     setForm((prev) => ({ ...prev, ...patch }));
     if (error) clearError();
   };
 
   const submit = async () => {
-    if (!user) return;
-    const data = {
-      name: form.name,
-      description: form.description.trim() || null,
-      price: form.price ?? Number.NaN,
-      currencyId: form.currencyId,
-      costPrice: form.costPrice,
-      costCurrencyId: form.costCurrencyId,
-      branchId: form.branchId,
-    };
+    if (!user || !canSaveProduct(form)) return;
     const saved = product
-      ? await updateProduct(product.id, data)
+      ? await updateProduct(product.id, productInput(form))
       : await createProduct(
-          { ...data, initialStock: Number(form.initialStock) || 0 },
+          newProductInput(form),
           user.tenantId,
           user.id,
           findCurrency(currencies, form.costCurrencyId),
@@ -105,6 +84,7 @@ export function ProductFormDialog({
       error={error}
       onDismissError={clearError}
       submitLabel={product ? t("common.save_changes") : t("web.products.add")}
+      submitDisabled={!canSaveProduct(form)}
     >
       <TextField
         label={t("products.name_label")}

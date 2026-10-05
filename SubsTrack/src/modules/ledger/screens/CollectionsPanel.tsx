@@ -70,6 +70,7 @@ import {
   paymentSelectionItems,
   voidablePayments,
 } from "@shared/modules/ledger/utils/collectionView";
+import { collectionItemLabel } from "@shared/modules/ledger/utils/collectionLabel";
 
 interface Props {
   onOpenSale?: (saleId: string) => Promise<void> | void;
@@ -262,7 +263,7 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
       return;
     }
     const first = row.items[0];
-    if (first) openItem(first, row.itemLabels[0] ?? "", row.customerName);
+    if (first) openItem(first, collectionItemLabel(row, 0, t), row.customerName);
   }
 
   function buildSelectionActions(

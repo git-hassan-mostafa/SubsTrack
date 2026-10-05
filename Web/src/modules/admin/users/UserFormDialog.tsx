@@ -11,8 +11,20 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import type { AppUser, UserRole } from "@shared/core/types";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
-import type { StaffRole } from "@shared/modules/admin/users/utils/types";
-import { isValidUsername, mayBeTenantWide, roleLabelKey } from "@shared/modules/admin/users/utils/userRules";
+import {
+  asksPassword,
+  canSaveUser,
+  isPasswordMismatch,
+  isRoleLocked,
+  isUsernameInvalid,
+  pickableRoles,
+  userCreateInput,
+  userDraftOf,
+  userUpdateInput,
+  withChangePassword,
+  type UserDraft,
+} from "@shared/modules/admin/users/utils/userForm";
+import { mayBeTenantWide, roleLabelKey } from "@shared/modules/admin/users/utils/userRules";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { useUserSlice } from "@shared/state/hooks/useUserSlice";
@@ -25,19 +37,6 @@ interface UserFormDialogProps {
   onSaved: (saved: AppUser) => void;
 }
 
-type UserForm = {
-  username: string;
-  fullName: string;
-  password: string;
-  confirmPassword: string;
-  phoneNumber: string;
-  role: UserRole;
-  branchId: string | null;
-  changePassword: boolean;
-};
-
-const STAFF_ROLES: readonly StaffRole[] = ["user", "admin"];
-
 // Accounts are created and re-passworded by edge functions, so this is online-only.
 export function UserFormDialog({ user: editUser, onClose, onSaved }: UserFormDialogProps) {
   const { t } = useTranslation();
@@ -47,57 +46,32 @@ export function UserFormDialog({ user: editUser, onClose, onSaved }: UserFormDia
   const error = useUserSlice((s) => s.error);
   const clearError = useUserSlice((s) => s.clearError);
   const activeBranches = useActiveBranches();
-  const [mismatch, setMismatch] = useState(false);
-  const [form, setForm] = useState<UserForm>({
-    username: editUser?.username ?? "",
-    fullName: editUser?.fullName ?? "",
-    password: "",
-    confirmPassword: "",
-    phoneNumber: editUser?.phoneNumber ?? "",
-    role: editUser?.role ?? "user",
-    branchId: editUser ? editUser.branchId : defaultNewBranchId(currentUser, activeBranches),
-    changePassword: false,
-  });
+  const [form, setForm] = useState(() =>
+    userDraftOf(editUser, defaultNewBranchId(currentUser, activeBranches)),
+  );
   const dirty = useDirtyForm(form);
-  const isOwnAccount = !!editUser && editUser.id === currentUser?.id;
-  const isOwner = form.role === "superadmin";
-  const roles: readonly UserRole[] = isOwner ? ["superadmin"] : STAFF_ROLES;
-  const askPassword = !editUser || form.changePassword;
-  const usernameInvalid = form.username.length > 0 && !isValidUsername(form.username);
+  const editing = editUser !== null;
+  const isOwnAccount = editing && editUser.id === currentUser?.id;
+  const askPassword = asksPassword(form, editing);
+  const usernameInvalid = isUsernameInvalid(form);
+  const mismatch = isPasswordMismatch(form, editing);
+  const canSave = canSaveUser(form, editing, activeBranches.length);
 
   useEffect(() => {
     clearError();
     return clearError;
   }, [clearError]);
 
-  const change = (patch: Partial<UserForm>) => {
+  const change = (patch: Partial<UserDraft>) => {
     setForm((prev) => ({ ...prev, ...patch }));
-    setMismatch(false);
     if (error) clearError();
   };
 
   const submit = async () => {
-    if (!currentUser) return;
-    if (askPassword && form.password !== form.confirmPassword) {
-      setMismatch(true);
-      return;
-    }
-    const details = {
-      username: form.username,
-      fullName: form.fullName,
-      phone: form.phoneNumber || null,
-      branchId: form.branchId,
-    };
+    if (!currentUser || !canSave) return;
     const saved = editUser
-      ? await updateUser(editUser.id, currentUser.id, currentUser.role, {
-          ...details,
-          role: form.role,
-          newPassword: form.changePassword ? form.password : undefined,
-        })
-      : await createUser(
-          { ...details, role: form.role === "user" ? "user" : "admin", password: form.password },
-          currentUser.tenantId,
-        );
+      ? await updateUser(editUser.id, currentUser.id, currentUser.role, userUpdateInput(form))
+      : await createUser(userCreateInput(form), currentUser.tenantId);
     if (saved) onSaved(saved);
   };
 
@@ -111,6 +85,7 @@ export function UserFormDialog({ user: editUser, onClose, onSaved }: UserFormDia
       error={error}
       onDismissError={clearError}
       submitLabel={editUser ? t("common.save_changes") : t("web.users.add")}
+      submitDisabled={!canSave}
     >
       <TextField
         label={t("users.username_label")}
@@ -137,9 +112,10 @@ export function UserFormDialog({ user: editUser, onClose, onSaved }: UserFormDia
           control={
             <Checkbox
               checked={form.changePassword}
-              onChange={(event) =>
-                change({ changePassword: event.target.checked, password: "", confirmPassword: "" })
-              }
+              onChange={(event) => {
+                setForm((prev) => withChangePassword(prev, event.target.checked));
+                if (error) clearError();
+              }}
             />
           }
           label={t("users.change_password_label")}
@@ -190,10 +166,10 @@ export function UserFormDialog({ user: editUser, onClose, onSaved }: UserFormDia
           onChange={(_event, role: UserRole | null) => {
             if (role) change({ role });
           }}
-          disabled={isOwnAccount || isOwner}
+          disabled={isRoleLocked(form, editUser, currentUser?.id)}
           aria-labelledby="user-role-label"
         >
-          {roles.map((role) => (
+          {pickableRoles(form).map((role) => (
             <ToggleButton key={role} value={role} sx={{ px: 3 }}>
               {t(roleLabelKey(role))}
             </ToggleButton>

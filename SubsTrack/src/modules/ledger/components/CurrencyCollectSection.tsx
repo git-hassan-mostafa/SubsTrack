@@ -4,8 +4,12 @@ import { Text } from "@/src/shared/components/Text";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { CARD_SURFACE } from "@/src/shared/constants";
 import type { Currency, OpenItem } from "@shared/core/types";
-import { formatMoney } from "@shared/core/utils/currency";
-import type { CurrencyPlan } from "@shared/modules/ledger/utils/currencyGroups";
+import { formatMoney, formatMoneyPair } from "@shared/core/utils/currency";
+import {
+  stillOwedAfter,
+  type CurrencyPlan,
+} from "@shared/modules/ledger/utils/currencyGroups";
+import { overByText } from "@shared/modules/ledger/utils/allocationRows";
 import { AllocationPreview } from "./AllocationPreview";
 import { CollectAllButton } from "./CollectAllButton";
 
@@ -19,17 +23,7 @@ interface Props {
   onToggle?: (item: OpenItem) => void;
 }
 
-/**
- * One currency's slice of the collect sheet: what is owed in it, the cash
- * actually received in it, and where that cash lands.
- *
- * The amount is typed in the currency's OWN units — never converted — because
- * this section is what becomes one `collections` row, and that row must say
- * what the customer physically handed over.
- *
- * `grouped` is the ONE-currency case turned off: a lone section is the sheet
- * itself, so it drops the card and the owed header the hero already carries.
- */
+// Typed in the currency's OWN units: each section becomes one hand-over (#108b).
 export function CurrencyCollectSection({
   plan,
   currencies,
@@ -42,12 +36,9 @@ export function CurrencyCollectSection({
   const { t } = useTranslation();
   const money = (value: number) =>
     formatMoney(value, plan.currency, plan.currency);
-  const collecting = plan.lines.reduce((sum, l) => sum + l.amount, 0);
-  const sameAsDisplay = (plan.currencyId ?? null) === (display?.id ?? null);
   const code = plan.currency?.code ?? "USD";
-  const approx = sameAsDisplay
-    ? null
-    : `≈ ${formatMoney(plan.owed, plan.currency, display)}`;
+  const { approx } = formatMoneyPair(plan.owed, plan.currency, display);
+  const overBy = overByText(plan, money, t);
 
   return (
     <View className={grouped ? `${CARD_SURFACE} mb-4 px-4 pb-4 pt-4` : "mb-4"}>
@@ -85,19 +76,12 @@ export function CurrencyCollectSection({
         excluded={excluded}
         onToggle={onToggle}
         money={money}
-        remainingAfter={plan.owed - collecting}
+        remainingAfter={stillOwedAfter(plan)}
       />
 
-      {plan.leftover > 0 && (
-        <Text className="mt-3 text-xs text-amber-700">
-          {plan.skippedCount > 0
-            ? t("ledger.over_by_skipped", {
-                count: plan.skippedCount,
-                max: money(plan.payable),
-              })
-            : t("ledger.over_by", { max: money(plan.payable) })}
-        </Text>
-      )}
+      {overBy ? (
+        <Text className="mt-3 text-xs text-amber-700">{overBy}</Text>
+      ) : null}
     </View>
   );
 }

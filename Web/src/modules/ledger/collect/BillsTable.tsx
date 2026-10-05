@@ -12,8 +12,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import type { AllocationLine, OpenItem } from "@shared/core/types";
 import { daysLate, formatDate } from "@shared/core/utils/date";
-import { keyOf } from "@shared/modules/ledger/utils/waterfall";
-import type { ChipTone } from "@/shared/components/chipTones";
+import { allocationRows } from "@shared/modules/ledger/utils/allocationRows";
 import { StatusChip } from "@/shared/components/StatusChip";
 
 interface BillsTableProps {
@@ -28,7 +27,7 @@ interface BillsTableProps {
 }
 
 // The number IS the queue: filled once money reaches the bill, hollow before.
-function QueueNumber({ position, funded }: { position: number | undefined; funded: boolean }) {
+function QueueNumber({ position, funded }: { position: number | null; funded: boolean }) {
   return (
     <Box
       aria-hidden
@@ -52,12 +51,6 @@ function QueueNumber({ position, funded }: { position: number | undefined; funde
   );
 }
 
-function statusOf(skipped: boolean, line: AllocationLine | undefined): { tone: ChipTone; key: string } | null {
-  if (skipped) return { tone: "gray", key: "ledger.skipped_bill" };
-  if (!line) return null;
-  return line.settles ? { tone: "emerald", key: "ledger.pays_in_full" } : { tone: "amber", key: "ledger.leaves_owing" };
-}
-
 // One currency's bills in the waterfall's own order; untick one to send the money past it.
 export function BillsTable({
   title,
@@ -70,11 +63,7 @@ export function BillsTable({
   remainingAfter,
 }: BillsTableProps) {
   const { t } = useTranslation();
-  const byKey = new Map(lines.map((l) => [keyOf(l.item), l]));
-  const positions = new Map<string, number>();
-  for (const item of items) {
-    if (!excluded.has(keyOf(item))) positions.set(keyOf(item), positions.size + 1);
-  }
+  const rows = allocationRows(items, lines, excluded);
   const toggleable = !!onToggle && items.length > 1;
 
   return (
@@ -101,14 +90,11 @@ export function BillsTable({
             </TableRow>
           </TableHead>
           <TableBody>
-            {items.map((item) => {
-              const key = keyOf(item);
-              const skipped = excluded.has(key);
-              const line = byKey.get(key);
+            {rows.map((row) => {
+              const { item, line, skipped } = row;
               const late = daysLate(item.dueDate);
-              const status = statusOf(skipped, line);
               return (
-                <TableRow key={key} sx={{ opacity: skipped ? 0.55 : 1 }}>
+                <TableRow key={row.key} sx={{ opacity: skipped ? 0.55 : 1 }}>
                   {toggleable ? (
                     <TableCell padding="checkbox">
                       <Checkbox
@@ -119,7 +105,7 @@ export function BillsTable({
                     </TableCell>
                   ) : null}
                   <TableCell>
-                    <QueueNumber position={positions.get(key)} funded={Boolean(line)} />
+                    <QueueNumber position={row.position} funded={Boolean(line)} />
                   </TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>{item.label}</TableCell>
                   <TableCell>
@@ -139,11 +125,8 @@ export function BillsTable({
                     )}
                   </TableCell>
                   <TableCell>
-                    {status ? (
-                      <StatusChip
-                        tone={status.tone}
-                        label={t(status.key, { amount: line ? money(item.balance - line.amount) : "" })}
-                      />
+                    {row.statusKey ? (
+                      <StatusChip tone={row.tone} label={t(row.statusKey, { amount: money(row.leavesOwing) })} />
                     ) : null}
                   </TableCell>
                 </TableRow>
@@ -160,7 +143,7 @@ export function BillsTable({
             {t("ledger.still_owed_after")}
           </Typography>
           <Typography variant="body2" sx={{ fontWeight: 700 }}>
-            {money(Math.max(0, remainingAfter))}
+            {money(remainingAfter)}
           </Typography>
         </Stack>
       </TableContainer>

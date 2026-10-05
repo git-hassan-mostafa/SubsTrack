@@ -2,6 +2,7 @@ import type { AllocationLine, OpenItem } from "@shared/core/types";
 import { dayToInstantIso } from "@shared/core/utils/date";
 import type { CollectInput } from "@shared/modules/ledger/services/CollectionService";
 import type { CurrencyPlan } from "./currencyGroups";
+import { linesTotal } from "./waterfall";
 
 export interface CollectGroupSubmit {
   currencyId: string | null;
@@ -65,7 +66,7 @@ export function singleGroups(
     {
       currencyId,
       ratePerUsdSnapshot: ratePerUsd,
-      amount: plan.lines.reduce((sum, l) => sum + l.amount, 0),
+      amount: linesTotal(plan.lines),
       lines: plan.lines.map((l) => ({ item: l.item, amount: l.amount })),
     },
   ];
@@ -76,7 +77,7 @@ export function poolGroups(funded: CurrencyPlan[]): CollectGroupSubmit[] {
   return funded.map((p) => ({
     currencyId: p.currencyId,
     ratePerUsdSnapshot: p.ratePerUsd,
-    amount: p.lines.reduce((sum, l) => sum + l.amount, 0),
+    amount: linesTotal(p.lines),
     lines: p.lines.map((l) => ({ item: l.item, amount: l.amount })),
   }));
 }

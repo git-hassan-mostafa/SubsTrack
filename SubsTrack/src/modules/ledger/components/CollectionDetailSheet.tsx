@@ -1,3 +1,4 @@
+import { KIND_TONE } from "@shared/modules/ledger/utils/collectionKind";
 import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { FormSheet } from "@/src/shared/components/FormSheet";
@@ -17,6 +18,7 @@ import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice"
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useCollectionDetail } from "@shared/modules/ledger/hooks/useCollectionDetail";
 import { collectionInfoRows } from "@shared/modules/ledger/utils/collectionView";
+import { collectionItemLabel } from "@shared/modules/ledger/utils/collectionLabel";
 import { CollectionItemCard } from "./CollectionItemCard";
 
 type OpenBillHandler = (
@@ -105,7 +107,7 @@ function DetailBody({
         <View className="mt-1 flex-row items-center gap-1.5">
           <Chip
             text={t(`ledger.kind_${collection.kind}`)}
-            tone="gray"
+            tone={KIND_TONE[collection.kind]}
             size="md"
           />
           {voided ? (
@@ -131,7 +133,7 @@ function DetailBody({
           </Text>
         ) : null}
         {collection.items.map((item, i) => {
-          const label = collection.itemLabels[i] ?? "";
+          const label = collectionItemLabel(collection, i, t);
           return (
             <CollectionItemCard
               key={item.id}

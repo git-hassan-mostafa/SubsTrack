@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import { owedHeadlineKey } from "@shared/modules/ledger/utils/allocationRows";
 
 interface CollectSummaryProps {
   amount: string;
@@ -14,7 +15,7 @@ export function CollectSummary({ amount, approx, billCount }: CollectSummaryProp
   return (
     <Stack spacing={0.25}>
       <Typography variant="body2" color="text.secondary">
-        {billCount > 1 ? t("ledger.owed_bills", { count: billCount }) : t("ledger.owed")}
+        {t(owedHeadlineKey(billCount), { count: billCount })}
       </Typography>
       <Typography variant="h5" component="p" sx={{ fontWeight: 700 }}>
         {amount}

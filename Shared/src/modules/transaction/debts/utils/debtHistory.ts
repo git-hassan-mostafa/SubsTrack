@@ -10,6 +10,7 @@ import type { SortDirection } from "@shared/modules/ledger/repository/ICollectio
 import { chargeStatusOf } from "@shared/modules/ledger/utils/billState";
 import { daysLate } from "@shared/core/utils/date";
 import { periodFromPreset, type ReportPeriod } from "@shared/core/utils/dateRange";
+import type { Tone } from "@shared/shared/lib/tone";
 
 export type HistoryOutcome = "settled" | "partial" | "open" | "written_off";
 export type HistorySort =
@@ -186,4 +187,24 @@ export function matchesOutcome(
   outcome: HistoryOutcome | null,
 ): boolean {
   return outcome === null || historyOutcomeOf(item) === outcome;
+}
+
+export const HISTORY_OUTCOME_TONE: Record<HistoryOutcome, Tone> = {
+  settled: "emerald",
+  partial: "amber",
+  open: "red",
+  written_off: "orange",
+};
+
+export function isDeadHistoryRow(item: DebtHistoryItem): boolean {
+  return historyOutcomeOf(item) === "written_off";
+}
+
+// Money that arrived after the bill was raised, not its down payment.
+export function laterPaidOf(item: DebtHistoryItem): number {
+  return item.paid - item.downPaid;
+}
+
+export function historyPeriodLabelKey(preset: HistoryPeriodPreset): string {
+  return preset === "all" ? "debts.period_all" : `reports.period_${preset}`;
 }

@@ -28,6 +28,7 @@ import {
   HISTORY_PERIOD_PRESETS,
   HISTORY_SORTS,
   hasActiveHistoryFilters,
+  historyPeriodLabelKey,
   type HistoryOutcome,
   type HistoryPeriodPreset,
   type HistorySort,
@@ -81,10 +82,7 @@ export function DebtHistorySheet({
   const periodOptions: DropdownOption<HistoryPeriodPreset>[] = useMemo(
     () =>
       HISTORY_PERIOD_PRESETS.map((preset) => ({
-        label:
-          preset === "all"
-            ? t("debts.period_all")
-            : t(`reports.period_${preset}`),
+        label: t(historyPeriodLabelKey(preset)),
         value: preset,
       })),
     [t],

@@ -8,7 +8,15 @@ import Typography from "@mui/material/Typography";
 import type { Plan } from "@shared/core/types";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
-import type { PlanInput } from "@shared/modules/admin/plans/utils/types";
+import {
+  canSavePlan,
+  isMultiMonthPlan,
+  MAX_PLAN_DURATION,
+  planDraftOf,
+  planInput,
+  withPlanDuration,
+  type PlanDraft,
+} from "@shared/modules/admin/plans/utils/planForm";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
@@ -19,7 +27,7 @@ import { FormDialog } from "@/shared/components/FormDialog";
 import { markCustomersTableStale } from "@/state/customersTable";
 import { usePlanDurationLabel } from "./usePlanDurationLabel";
 
-const DURATIONS = Array.from({ length: 12 }, (_, i) => i + 1);
+const DURATIONS = Array.from({ length: MAX_PLAN_DURATION }, (_, i) => i + 1);
 
 interface PlanFormDialogProps {
   plan: Plan | null;
@@ -27,7 +35,6 @@ interface PlanFormDialogProps {
   onSaved: (saved: Plan) => void;
 }
 
-// A plan billed over several months has one bundle price, never a custom one.
 export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -38,34 +45,30 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
   const currencies = useCurrencySlice((s) => s.items);
   const activeBranches = useActiveBranches();
   const durationLabel = usePlanDurationLabel();
-  const [form, setForm] = useState<PlanInput>({
-    name: plan?.name ?? "",
-    isCustomPrice: plan?.isCustomPrice ?? false,
-    price: plan?.price ?? null,
-    currencyId: plan?.currencyId ?? null,
-    branchId: plan ? plan.branchId : defaultNewBranchId(user, activeBranches),
-    durationMonths: plan?.durationMonths ?? 1,
-  });
+  const [form, setForm] = useState(() =>
+    planDraftOf(plan, defaultNewBranchId(user, activeBranches)),
+  );
   const dirty = useDirtyForm(form, ["currencyId"]);
-  const isMultiMonth = form.durationMonths > 1;
+  const isMultiMonth = isMultiMonthPlan(form);
 
   useEffect(() => {
     clearError();
     return clearError;
   }, [clearError]);
 
-  const change = (patch: Partial<PlanInput>) => {
+  const change = (patch: Partial<PlanDraft>) => {
     setForm((prev) => ({ ...prev, ...patch }));
     if (error) clearError();
   };
 
+  const changeDuration = (months: number) => {
+    setForm((prev) => withPlanDuration(prev, months));
+    if (error) clearError();
+  };
+
   const submit = async () => {
-    if (!user) return;
-    const data: PlanInput = {
-      ...form,
-      price: form.isCustomPrice ? null : form.price,
-      currencyId: form.isCustomPrice ? null : form.currencyId,
-    };
+    if (!user || !canSavePlan(form)) return;
+    const data = planInput(form);
     const saved = plan
       ? await updatePlan(plan.id, data)
       : await createPlan(data, user.tenantId);
@@ -84,6 +87,7 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
       error={error}
       onDismissError={clearError}
       submitLabel={plan ? t("common.save_changes") : t("web.plans.add")}
+      submitDisabled={!canSavePlan(form)}
     >
       <TextField
         label={t("plans.plan_name_label")}
@@ -104,13 +108,7 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
         select
         label={t("plans.duration_label")}
         value={form.durationMonths}
-        onChange={(event) => {
-          const durationMonths = Number(event.target.value);
-          change({
-            durationMonths,
-            isCustomPrice: durationMonths > 1 ? false : form.isCustomPrice,
-          });
-        }}
+        onChange={(event) => changeDuration(Number(event.target.value))}
         helperText={isMultiMonth ? t("plans.bundle_price_hint") : t("plans.per_month")}
         fullWidth
       >

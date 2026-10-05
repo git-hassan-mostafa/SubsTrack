@@ -1,13 +1,6 @@
-export type ChipTone =
-  | "emerald"
-  | "amber"
-  | "red"
-  | "orange"
-  | "sky"
-  | "gray"
-  | "indigo"
-  | "teal"
-  | "violet";
+import type { Tone } from "@shared/shared/lib/tone";
+
+export type ChipTone = Tone;
 
 const TONES: Record<ChipTone, { bg: string; fg: string }> = {
   emerald: { bg: "#ecfdf5", fg: "#047857" },

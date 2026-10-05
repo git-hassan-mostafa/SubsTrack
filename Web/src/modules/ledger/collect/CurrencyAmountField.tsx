@@ -4,6 +4,7 @@ import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
 import type { Currency } from "@shared/core/types";
 import { formatMoney } from "@shared/core/utils/currency";
+import { overByText } from "@shared/modules/ledger/utils/allocationRows";
 import type { CurrencyPlan } from "@shared/modules/ledger/utils/currencyGroups";
 import { CurrencyInput } from "@/shared/components/CurrencyInput";
 
@@ -19,11 +20,7 @@ export function CurrencyAmountField({ plan, currencies, grouped, onChangeAmount 
   const { t } = useTranslation();
   const money = (value: number) => formatMoney(value, plan.currency, plan.currency);
   const code = plan.currency?.code ?? "USD";
-  const overBy = plan.leftover > 0
-    ? plan.skippedCount > 0
-      ? t("ledger.over_by_skipped", { count: plan.skippedCount, max: money(plan.payable) })
-      : t("ledger.over_by", { max: money(plan.payable) })
-    : null;
+  const overBy = overByText(plan, money, t);
 
   return (
     <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>

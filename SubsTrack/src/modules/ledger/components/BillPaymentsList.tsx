@@ -19,7 +19,11 @@ import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useSendInvoice } from "@/src/modules/invoicing";
 import { paidToCharge } from "@shared/modules/ledger/utils/paidToCharge";
 import { PAYMENT_ACTION_ICONS } from "../utils/paymentActionIcons";
-import { paymentMenuItems } from "@shared/modules/ledger/utils/collectionView";
+import {
+  coversOtherBills,
+  isPaymentVoided,
+  paymentMenuItems,
+} from "@shared/modules/ledger/utils/collectionView";
 import { toActionMenuItems } from "@/src/shared/lib/menuActions";
 import type { CollectionCorrection } from "@shared/modules/ledger/services/CollectionService";
 import { useBillPayments } from "@shared/modules/ledger/hooks/useBillPayments";
@@ -141,8 +145,8 @@ export function BillPaymentsList({
       ) : (
         rows.map((p) => {
           const paidHere = paidToCharge(p, chargeId);
-          const coversMore = (p.items?.length ?? 0) > 1;
-          const voided = billVoided || p.voidedAt !== null;
+          const coversMore = coversOtherBills(p);
+          const voided = isPaymentVoided(p, billVoided);
           return (
             <PressableOpacity
               key={p.id}

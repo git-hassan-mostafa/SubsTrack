@@ -13,7 +13,11 @@ import { formatDateTime } from "@shared/core/utils/date";
 import type { BillPayments } from "@shared/modules/ledger/hooks/useBillPayments";
 import type { CollectionCorrection } from "@shared/modules/ledger/services/CollectionService";
 import { paidToCharge } from "@shared/modules/ledger/utils/paidToCharge";
-import { paymentMenuItems } from "@shared/modules/ledger/utils/collectionView";
+import {
+  coversOtherBills,
+  isPaymentVoided,
+  paymentMenuItems,
+} from "@shared/modules/ledger/utils/collectionView";
 import { toTableActions } from "@/shared/table/tableAction";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
@@ -69,7 +73,7 @@ export function BillPaymentsList({ bill, chargeId, source, billVoided, recipient
       },
     });
 
-  const isVoided = (payment: Collection) => billVoided || payment.voidedAt !== null;
+  const isVoided = (payment: Collection) => isPaymentVoided(payment, billVoided);
 
   const columns: GridColDef<Collection>[] = [
     {
@@ -114,7 +118,7 @@ export function BillPaymentsList({ bill, chargeId, source, billVoided, recipient
           >
             {money(paidToCharge(params.row, chargeId))}
           </Typography>
-          {(params.row.items?.length ?? 0) > 1 ? (
+          {coversOtherBills(params.row) ? (
             <Typography variant="caption" color="text.secondary">
               {t("ledger.covers_others")}
             </Typography>

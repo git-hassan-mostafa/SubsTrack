@@ -9,11 +9,12 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import type { Collection, OpenItem } from "@shared/core/types";
-import { formatMoney } from "@shared/core/utils/currency";
+import { formatMoney, formatMoneyPair } from "@shared/core/utils/currency";
 import { daysLate, formatDate } from "@shared/core/utils/date";
 import { useCollectForm, type CollectForm } from "@shared/modules/ledger/hooks/useCollectForm";
 import { useCollectSubmit } from "@shared/modules/ledger/hooks/useCollectSubmit";
-import { groupKey, type CurrencyPlan } from "@shared/modules/ledger/utils/currencyGroups";
+import { collectBlocker } from "@shared/modules/ledger/utils/allocationRows";
+import { groupKey, stillOwedAfter, type CurrencyPlan } from "@shared/modules/ledger/utils/currencyGroups";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { CurrencyInput } from "@/shared/components/CurrencyInput";
 import { DateField } from "@/shared/components/DateField";
@@ -34,15 +35,6 @@ interface CollectDialogProps {
   onClose: () => void;
   onCollected: (collections: Collection[]) => void;
   header?: ReactNode;
-}
-
-function blockerKey(form: CollectForm): string {
-  if (form.single) {
-    if (form.single.plan.overpaying) return "web.collect.lower_amount";
-    if (form.single.item.openAmount && !form.single.openBill) return "web.collect.type_month_amount";
-    return "web.collect.type_amount";
-  }
-  return form.pool.overpaying ? "web.collect.lower_amount" : "web.collect.type_amount";
 }
 
 function dueText(item: OpenItem, t: TFunction): string {
@@ -146,9 +138,9 @@ function SingleFields({ form }: { form: CollectForm }) {
 }
 
 function billsCaption(plan: CurrencyPlan, form: CollectForm, t: TFunction): string {
-  const owed = t("ledger.amount_owed", { amount: formatMoney(plan.owed, plan.currency, plan.currency) });
-  if ((plan.currencyId ?? null) === (form.display?.id ?? null)) return owed;
-  return `${owed} · ≈ ${formatMoney(plan.owed, plan.currency, form.display)}`;
+  const { primary, approx } = formatMoneyPair(plan.owed, plan.currency, form.display);
+  const owed = t("ledger.amount_owed", { amount: primary });
+  return approx ? `${owed} · ${approx}` : owed;
 }
 
 // Where the money goes on the left, what was handed over on the right.
@@ -181,7 +173,7 @@ function PoolFields({ form }: { form: CollectForm }) {
             excluded={pool.excluded}
             onToggle={pool.toggle}
             money={(value) => formatMoney(value, plan.currency, plan.currency)}
-            remainingAfter={plan.owed - plan.lines.reduce((sum, l) => sum + l.amount, 0)}
+            remainingAfter={stillOwedAfter(plan)}
           />
         ))}
       </Stack>
@@ -240,7 +232,7 @@ export function CollectDialog({ target, onClose, onCollected, header }: CollectD
   const save = async () => {
     const submission = form.submission();
     if (!submission) {
-      setBlocker(t(blockerKey(form)));
+      setBlocker(t(`web.collect.${collectBlocker(form)}`));
       return;
     }
     const collections = await submit(submission, target.customerId);
