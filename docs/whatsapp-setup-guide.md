@@ -1,7 +1,7 @@
 # WhatsApp — Setup and Test Guide (for the Sijil owner)
 
 This is the step-by-step list to get WhatsApp messaging working, first for you, then for your tenants.
-The technical design is in [whatsapp.md](whatsapp.md). The full test list is in [QA/whatsapp-cloud.md](../QA/whatsapp-cloud.md).
+The technical design is in [whatsapp.md](whatsapp.md).
 
 **How it works in one line:** each tenant connects **their own** WhatsApp number through Meta, and **Meta bills the tenant**, not you. Your job is to set up one Meta app once, and then turn WhatsApp on for each tenant.
 
@@ -145,8 +145,6 @@ Start this early. **Business Verification can take a few days.**
 31. **Disconnect and reconnect.** Admin → WhatsApp → **Disconnect**. History stays. Connect again with the same number, and the old history is still there.
 32. **Test a branch admin.** Log in as a branch admin. They can send only to their own branch, and they do not see the WhatsApp settings screen.
 33. **Test "not connected".** On another tenant that is not connected, the row menu → **Send payment reminder** opens WhatsApp on the phone with the same text (the `wa.me` fallback).
-
-All other checks (expired link, wrong PIN, number owned by another tenant, duplicate webhooks, isolation between tenants) are in [QA/whatsapp-cloud.md](../QA/whatsapp-cloud.md).
 
 ---
 

@@ -548,7 +548,7 @@ Money **out**, so the dashboard answers "did I actually make money?". **Admin-on
 
 **Dashboard.** `DashboardMetrics` + `monthlyExpenses` / `stockExpenses` / `customExpenses` / `netIncome`. **`monthlyRevenue` stays GROSS** (`netIncome` = subtraction; `prevMonthRevenue` + pill keep meaning). Hero: orange `Expenses $X` chip (unsigned, like `outflowLabel()`) beside red "Owed by customers −$X" (spent vs not yet collected), `Net this month` line (red if negative); two full-width tiles. Admin gate = wallet's `viewer` in `getMetrics`.
 
-**Code map:** `src/modules/transaction/expenses/` (repository, service, `expenseCategories.ts`, panel/card/form), `expenses` slice + `useExpenseSlice`, `stockCostsInRange` on `IProductRepository`. Gotchas #88, #89, #94; QA `QA/expenses.md`.
+**Code map:** `src/modules/transaction/expenses/` (repository, service, `expenseCategories.ts`, panel/card/form), `expenses` slice + `useExpenseSlice`, `stockCostsInRange` on `IProductRepository`. Gotchas #88, #89, #94.
 
 ---
 
@@ -563,7 +563,7 @@ Each tenant connects its **own** WhatsApp Business number (Embedded Signup, web 
 - **Background:** queued + background-processed, retries, Meta daily limit, idempotent webhooks. Opt-out (STOP reply or admin) also cancels that number's waiting messages; account problem (e.g. no payment method) keeps them waiting until **Check again**.
 - **Not connected:** single reminder opens `wa.me` w/ same wording.
 
-Full design, Meta setup, tenant steps: `docs/whatsapp.md`. QA: `QA/whatsapp-cloud.md`.
+Full design, Meta setup, tenant steps: `docs/whatsapp.md`.
 
 ## WhatsApp Invoices
 
@@ -601,7 +601,7 @@ Stacked, not side-by-side: `Button` takes no `className`; long label (+ Arabic) 
 
 **Created record:** `ledger.collect` returns the created `Collection` (no new state field) — header, split, id.
 
-Gotchas #68, #69, #80. QA: `QA/whatsapp-invoices.md`.
+Gotchas #68, #69, #80.
 
 ---
 

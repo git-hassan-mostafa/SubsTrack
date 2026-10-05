@@ -6,7 +6,7 @@ Trees go stale — when in doubt, file-search. Update on any structure change.
 
 `App/`: `CLAUDE.md` (lean core context), `docs/`, `new-features.md` (backlog; mark done when implemented), `Shared/` (types → services → repositories → stores; source only, not a workspace), `SubsTrack/` (tenant Expo app: UI + offline layer), `Web/` (staff desktop, React + Vite + MUI, on Shared services + stores), `Portal/` (read-only customer portal, React + Vite, Shared pure code), `SuperAdmin/` (SaaS-owner Expo app), `tests/` (Jest money rules; own package, never inside SubsTrack/), `sql scripts/` (script.sql schema + RLS, migration.sql one-offs, reset.sql teardown), `Design/`, `QA/`.
 
-`Web/scripts/`: `build-edge.mjs` (bundles Shared code for `customer-status` edge fn), `status-speed/` (seed + speed test, TEST project only — `QA/web/customer-status.md`).
+`Web/scripts/`: `build-edge.mjs` (bundles Shared code for `customer-status` edge fn), `status-speed/` (seed + speed test, TEST project only).
 
 ```
 Web/src/

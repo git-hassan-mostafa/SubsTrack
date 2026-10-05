@@ -55,4 +55,4 @@ It sends the project **anon key** b/c Supabase function gateway answers `401 UNA
 
 That key = same public one staff app ships; alone it reaches exactly one table: `app_options` (global config — only policy granted `TO anon`). No customer/tenant row reachable → portal's boundary is still the edge function alone.
 
-QA scenarios: `QA/customer-portal.md`. Unit tests for shared money seam: `tests/suites/portalReadModel.test.ts`.
+Unit tests for shared money seam: `tests/suites/portalReadModel.test.ts`.

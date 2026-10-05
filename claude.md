@@ -28,7 +28,7 @@ Read first, every session. **Don't re-explore the codebase at start** — this i
 11. Exactly **two quantity limits**, both on `tenants`: `customer_allowance` (active customers), `plan_allowance` (active service lines — the **bill** count, at `price_per_plan_usd`); `plan_allowance >= customer_allowance` always. Enforced at the **service** layer by ONE gate, `billingService.assertQuotas(limits, before, after)`, refusing only a quota the write **grows**. `CustomerService.createCustomer()` counts drafted lines before the first write; `CustomerPlanService.syncLines()` nets removals vs additions. `QuotaExceededError` → billing slice structured `quotaError`; never parse error strings. Branches, users, plans, products, currencies uncapped. Gotcha #149.
 
 ### 1.3 QA / tests
-- New scenario → test-plan scenarios under `QA/`.
+- New/changed MONEY rule → one line in the matching `QA/` area file: `action → what to check` (only what matters, no steps). No CRUD/UI/layout scenarios in `QA/`.
 - **Anything touching money → unit test in `tests/`**; run `npm test` there before claiming it works (`cd tests && npm install --ignore-scripts`; _Access is denied_ → `node node_modules/jest/bin/jest.js`).
 - `tests/` is a separate npm package, **never move into `SubsTrack/`** — its `package.json` would feed the OTA fingerprint and cut every installed app off updates (gotcha #53).
 - A stub may fake a platform, never a rule.

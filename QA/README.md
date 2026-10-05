@@ -1,130 +1,37 @@
-# SubsTrack — QA Test Documentation
+# Money QA
 
-This folder contains the production QA test plan for the SubsTrack mobile app. Each markdown file owns one feature area and lists every test scenario the QA team should execute before sign-off, including happy paths, validation, error states, edge cases, permissions, and platform variations.
+Only the money rules. No add / edit / delete screens, no layout checks.
 
-## How to use
+Each line is one test: **what to do → what to check**. Check only the things named after the arrow — they are the ones that matter.
 
-1. Open the feature you're testing — each scenario is numbered (e.g. `3.4`) for traceability in your test runs.
-2. Read the **Reference code** section at the top of each file when you need to confirm the expected behavior in the source.
-3. File any deviation against the corresponding scenario number.
-4. Cross-cutting concerns (perf, accessibility, i18n, resilience) live in [non-functional.md](non-functional.md) — run them on every release.
-5. Multi-tenancy isolation ([multi-tenancy.md](multi-tenancy.md)) is a release blocker. Run it last and confirm zero leakage.
+Run every line on the **phone** and on the **web** app, unless the line says (phone) or (web).
 
 ## Files
 
-| Area                   | File                                               | What it covers                                                                                                                                                                                                                                                                                |
-| ---------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Authentication         | [authentication.md](authentication.md)             | Login, session restore, tenant inactive, logout                                                                                                                                                                                                                                               |
-| Signup                 | [signup.md](signup.md)                             | Self-service 2-step tenant creation: organization name + code, owner account, Edge Function atomicity, auto-login, security                                                                                                                                                                   |
-| Customers              | [customers.md](customers.md)                       | List, search, filter, action menu, Quick Pay, create/edit, delete, deactivate/reactivate, detail (with branch + notes + area + isRegular)                                                                                                                                                     |
-| Payments               | [payments.md](payments.md)                         | Record (Scenarios A/B/C/D), partial payments, multi-month bundles, multi-currency, edit payment, void, receipt sheet                                                                                                                                                                          |
-| Monthly Grid           | [monthly-grid.md](monthly-grid.md)                 | Cell statuses (a partial payment looks paid — remainder is a debt), regular vs non-regular colors, multi-month merging, year navigation, date/timezone correctness                                                                                                                            |
-| Plans                  | [plans.md](plans.md)                               | List, create/edit/delete, fixed vs custom pricing, multi-month bundles (1–12), per-currency price, branch scoping (shared vs branch-specific)                                                                                                                                                 |
-| Users (Staff)          | [users.md](users.md)                               | List, create/edit, role assignment, password rules, branch enforcement, delete user                                                                                                                                                                                                           |
-| Currencies             | [currencies.md](currencies.md)                     | Tenant currencies CRUD, USD base, rate per USD + snapshots, CurrencyInput, display currency preference, soft/hard delete                                                                                                                                                                      |
-| Currency × Payments    | [currency-payments.md](currency-payments.md)       | End-to-end: plan pricing in non-USD, snapshot capture/immunity, CurrencyInput in payment form, receipt primary/secondary display, edit re-snapshot, display-currency conversions, dashboard/year aggregation, partial + multi-month in non-USD, edge cases                                    |
-| Branches               | [branches.md](branches.md)                         | Multi-location: branch CRUD, default branch, single-branch UI hiding, BranchSelector, RLS isolation, form scoping, mandatory branch enforcement                                                                                                                                               |
-| Tenant Settings        | [tenant-settings.md](tenant-settings.md)           | Admin-only hub: display currency preference, links to currencies + branches                                                                                                                                                                                                                   |
-| Customer Allowance     | [customer-allowance.md](customer-allowance.md)     | Per-customer pricing: the Customers & billing card and its always-USD monthly amount, request → edit / cancel, the owner accepting (granting any number) or declining, the hard cap on creating customers, and the owner-only locks on the allowance                                          |
-| Products               | [products.md](products.md)                         | Product catalog CRUD, branch scoping, soft/hard delete, snapshot immunity in sales                                                                                                                                                                                                            |
-| Services               | [services.md](services.md)                         | The labour price list (Admin → Services): CRUD, branch scoping, **no** stock / cost, soft-vs-hard delete off `sale_items.service_id`, audit, offline. Selling one is in sales.md                                                                                                              |
-| Sales                  | [sales.md](sales.md)                               | One-off sale recording (**products and/or services** per line), the row's **3-dot action menu**, **editing a recorded sale** (lines + stock ledger), walk-in (no customer), name snapshots, async customer picker, void, customer panel, dashboard revenue integration                        |
-| WhatsApp Invoices      | [whatsapp-invoices.md](whatsapp-invoices.md)       | Sending the receipt over WhatsApp from the payment form, the sale form, quick pay, and the saved receipt sheets; message content (partial / multi-month / multi-plan / multi-currency); no-phone + walk-in disabled states; voided records never sendable; web popup blocker; Arabic; offline |
-| **The Ledger**         | [ledger-collections.md](ledger-collections.md)     | **Run this first.** The money model: bills (charges) + hand-overs (collections), installments, the oldest-first waterfall, virtual months, void vs write-off, two currencies, offline convergence                                                                                             |
-| Debts                  | [debts.md](debts.md)                               | Who owes and how far behind, the debt-vs-unpaid-month split, hand-typed fees, write-off vs void, branch + offline. The model itself is in ledger-collections.md                                                                                                                               |
-| Shared hand-over voids | [shared-handover-void.md](shared-handover-void.md) | The red warning that NAMES the other bills a void un-pays — one hand-over settles several bills and is always voided whole, from all three doors (month bill, payment, sale)                                                                                                                  |
-| **Money unit tests**   | [money-unit-tests.md](money-unit-tests.md)         | The automated Jest suite under `tests/` — the waterfall, the month grid, the badge, every collect/void refusal and the money-conservation invariants. Run it before the manual pass; it is 3 seconds and catches a regression the manual files would not re-check                             |
-| Reports                | [reports.md](reports.md)                           | The admin-only Reports tab: period presets + custom range, Money (collected/spent/net, breakdowns, currency split) and Debts (all-time owed vs period-collected, behind-on-payments counted to today, top debtors), list drill-downs, CSV export, branch scoping, offline                     |
-| Collector Wallet       | [wallet.md](wallet.md)                             | Runtime-computed per-collector cash-on-hand (payments/sales/hand-overs), per-currency + USD, per-transaction settle + "receive all", void/re-pay self-correction, admin-only, branch + offline                                                                                                |
-| Dashboard              | [dashboard.md](dashboard.md)                       | Hero card (subscription + sales revenue, USD-aggregated via snapshots, display-currency formatted), stat cards, admin compact stats, refresh, branch scoping                                                                                                                                  |
-| Web — Login & guards   | [web/authentication.md](web/authentication.md)     | The desktop web app: login page, session restore, organization deactivated, which role may open which page                                                                                                                                                                                  |
-| Web — App shell        | [web/app-shell.md](web/app-shell.md)               | The desktop web app frame: left nav by role / branch scope / WhatsApp, page title, branch selector, user menu + log out, the app-wide confirm dialog, the form dialog and its discard-changes guard                                                                                         |
-| Web — Tables & Branches | [web/branches.md](web/branches.md)             | The shared web data table (server paging, search, status filter, empty states, row menu, checkbox selection + bulk bar, CSV export of a page or all rows, record history dialog) on its first page, Branches                                                                          |
-| Web — Currencies        | [web/currencies.md](web/currencies.md)         | The web Currencies admin page: code / name / symbol / rate / decimals table with the USD base line, add/edit dialog, deactivate (never removes) vs delete (removes only when unused), bulk delete, history |
-| Web — Services          | [web/services.md](web/services.md)             | The web Services price list: price in its own currency with "≈" display currency, branch column + header branch scope, add/edit dialog with the branch field and price currency, delete (hidden when sold) / reactivate, bulk |
-| Web — Plans             | [web/plans.md](web/plans.md)                   | The web Plans admin page: price / "Custom" / billing columns, add/edit dialog (duration 1–12, bundle price, custom pricing only when monthly), branch scope, delete, bulk |
-| Web — Products          | [web/products.md](web/products.md)             | The web Products page: price / cost / stock-pill columns, add/edit dialog (starting stock on create, stock box on edit), stock dialog (add, unit ↔ total cost, edit / revert an entry, history), Batch Restock dialog + header quick action |
-| Web — Staff             | [web/users.md](web/users.md)                   | The web Staff page: search by name / username / phone inside the branch scope, role + status filters, who may edit / deactivate / delete whom, add/edit dialog (password pair, change password, own and owner role locked), bulk delete with skipped rows |
-| Web — Organization      | [web/organization.md](web/organization.md)     | The web Organization Settings page: usage meters + monthly amount, update-limits dialog (total + signed change boxes, lower now / raise by request, + WhatsApp), pending / declined request, display currency, unpaid rule, limit-reached dialog |
-| Web — Audit Log         | [web/audit-log.md](web/audit-log.md)           | The web Audit Log: server-paged newest-first table, record type / action / staff / date filters, branch scope, entry details dialog (old → new), history of one record, CSV of a page or all matching |
-| Web — Customer status   | [web/customer-status.md](web/customer-status.md) | The `customer-status` edge function behind the web Customers page: exact tabs over every customer, same answer as the phone, the caller's day, refusals, and the 10k / 50k speed test on the TEST project |
-| Web — Customers         | [web/customers.md](web/customers.md)           | The web Customers page: exact status tabs with counts, plan / phone / status pills / debt columns, edit / history / WhatsApp chat / activate / delete + bulk, customer form (service lines, special price, paid-line remove choice, locked start date, portal password + link), limit dialog, Add customer quick action, money row actions (quick pay, pay + WhatsApp receipt, collect, bulk quick pay for every role) |
-| Web — Bill + payments   | [web/bill.md](web/bill.md)                     | The web bill dialog (figure, status, details, every payment), payment details, Correct amount, Void payment (other bills named), Void this month, write off / undo, Write off all on the Customers list, and the phone regression for the shared bill rules |
-| Web — Collect money     | [web/collect.md](web/collect.md)               | The web Collect money dialog: a customer’s whole pool with one amount box per currency (never converted), the pay order shown with bills you can untick, over-the-top and nothing-typed messages, one bill / a month with no set price, received date + notes, the header quick action with the customer picker, a half-saved two-currency payment never collected twice |
-| Web — Money received    | [web/money-received.md](web/money-received.md) | The web Money received page: every hand-over in a server-paged table (paid-for names, own-currency amount, type pill, who holds the cash, voided rows greyed), period / staff / type / status / sort filters + customer search, "Collected in this view" over the whole filter (past the 1000-row cap), payment details and the bill behind a payment, send / correct / void, bulk void, header quick action |
-| Web — Customer page     | [web/customer-detail.md](web/customer-detail.md) | The web customer page. Part 2: the Details panel (map link, portal link copy), Activate / Delete beside Edit, the Debts panel (owed now / written off, collect, write off, undo, remove, collect all, write off all), the Sales panel (latest 10, collect the rest, the bill, history) and their phone regression. Part 1: service-line tabs, the year header, the months table (status, bill, paid, still owed, note), click rules and ⋮ menus (oldest-first pay, newest-first void, locked skips, bundles), ticking several months + the bulk bar, skip / unskip, Void this month, `?quickPay=1`, the unpaid banner, and the phone regression for the shared grid code |
-| Web — Sales             | [web/sales.md](web/sales.md)                   | The web Sales page: server-paged sales (receipt number, customer link, own-currency total, still owed, status chips), product / date / status filters + item / customer / receipt search, "Total sold" over the whole filter, the sale receipt dialog (items, typed-total note, payments, collect the rest, send, history, void), void + bulk void, one WhatsApp invoice for many, a customer's full sales page, and the sale receipt opened from Money received and the customer page |
-| Web — Debts             | [web/debts.md](web/debts.md)                   | The web Debts page: the summary bar (total = months + sales + custom), Debtors (how late, search, the debtor dialog with owed now / written off, collect all, write off all), All debts (every open bill with type / status / sort filters and its own total), History (server-paged past bills: billed, paid on the day, still owed, what happened, settled on, period / customer / outcome / type / sort), the custom debt form (add from three doors, edit, part-paid locks, the frozen rate) and the phone regression |
-| Settings               | [settings.md](settings.md)                         | User-level prefs: profile, language switcher with restart, logout                                                                                                                                                                                                                             |
-| Local Backup           | [local-backup.md](local-backup.md)                 | Settings → Developer: the whole SQLite mirror exported as a JSON file and restored from one. Admin-only, export refused while un-synced, every cross-tenant / cross-branch / lock-out refusal, and the optional "also replace the server copy" push                                           |
-| Admin & Navigation     | [admin-and-navigation.md](admin-and-navigation.md) | Tab visibility, role gating, routing, deep links, ActionMenu pattern, PressableOpacity feedback, asterisk required fields                                                                                                                                                                     |
-| Query Cost             | [query-cost.md](query-cost.md)                     | App-wide: the money reads and writes were rewritten to cost fewer queries (one-query owed read, bills that arrive with what has reached them, writes that return what they wrote, mirror pragmas + indexes). No number on any screen should change — this file exists to prove it             |
-| Store Freshness        | [store-freshness.md](store-freshness.md)           | App-wide: a create / edit / delete patches the store from what the write returned instead of re-reading — lists, month section totals, stock on-hand, expense totals, and the two voids that deliberately still re-read                                                                       |
-| Unsaved Changes        | [unsaved-changes.md](unsaved-changes.md)           | App-wide "Discard changes?" guard on every form-sheet close path (button / Back / drag-down / backdrop), clean forms never prompting, nested sheets                                                                                                                                           |
-| Audit Trail            | [audit-log.md](audit-log.md)                       | Append-only `audit_logs`: what is (and isn't) recorded, old→new diffs, offline writes + real action time, the 30-day local window and pruning, admin-only reads, append-only RLS, per-record History                                                                                          |
-| Multi-tenancy          | [multi-tenancy.md](multi-tenancy.md)               | Tenant isolation reads/writes, tenant inactive, organization code                                                                                                                                                                                                                             |
-| Non-functional         | [non-functional.md](non-functional.md)             | Performance, accessibility, i18n/RTL, security, resilience                                                                                                                                                                                                                                    |
+| File | What it covers |
+| --- | --- |
+| [collect-money.md](collect-money.md) | Collecting months, quick pay, partial payments, paying several bills at once, two currencies, pay order |
+| [void-and-correct.md](void-and-correct.md) | Voiding a payment, voiding a month, correcting a wrong amount |
+| [months.md](months.md) | What a month shows after money moves: re-pricing, skipped months, written-off months, unpaid rule |
+| [debts.md](debts.md) | What is a debt, custom debts, write off, undo write off |
+| [sales.md](sales.md) | Recording, collecting, editing and voiding a sale, and its stock |
+| [wallet.md](wallet.md) | Who holds the cash, handing it up, closing it out |
+| [dashboard-and-reports.md](dashboard-and-reports.md) | Revenue, expenses, net, reports, collection progress |
+| [offline.md](offline.md) | (phone) Money written with no network and on two phones |
+| [money-unit-tests.md](money-unit-tests.md) | The automated tests in `tests/` — run `cd tests && npm test` before the manual pass |
 
-## Pre-release checklist (high level)
+## Test data to prepare
 
-- [ ] All scenarios in [authentication.md](authentication.md) pass.
-- [ ] All scenarios in [signup.md](signup.md) pass — Edge Function atomicity and rollback are critical.
-- [ ] All scenarios in [multi-tenancy.md](multi-tenancy.md) pass — **release blocker.**
-- [ ] [Customers](customers.md), [Payments](payments.md), [Monthly Grid](monthly-grid.md) pass for both `admin` and `user` roles.
-- [ ] [Plans](plans.md), [Users](users.md), [Dashboard](dashboard.md), [Currencies](currencies.md), [Branches](branches.md), [Tenant Settings](tenant-settings.md) pass for `admin` (and confirm hidden for `user`).
-- [ ] [Settings](settings.md) passes including language restart on iOS, Android, and Expo Go.
-- [ ] [Non-functional](non-functional.md) sections 1 (performance), 2 (errors), 5 (i18n/RTL), 7 (security), 8 (data integrity) pass.
-- [ ] Multi-currency invariants: snapshot rate freeze on payments, live rate edit doesn't shift history, display currency preference persists, USD is implicit (`currency_id = NULL`). Full cross-cutting coverage in [currency-payments.md](currency-payments.md).
-- [ ] Branch invariants: tenants with ≥1 branch require branch on customers/plans/staff users; tenant-wide admins remain the only `branch_id IS NULL` users; new tenants auto-get "Default Branch".
-- [ ] Multi-month invariants: bundle creates a single payment row with `duration_months > 1`; `isGroupSecondary` cells render "Included"; conflict detection on overlap.
-- [ ] Partial payment invariants: a balance > 0 still renders a **paid** cell (an amber ring, never a separate status), the customer badge reads paid, and the remainder shows only as a debt; the collect sheet says "leaves N owing" as the amount is typed; an emptied bill renders as unpaid; tapping a partial cell opens the BILL sheet with its running fraction.
-- [ ] [Products](products.md) passes: soft/hard delete, branch scoping, snapshot immunity in sales.
-- [ ] [Services](services.md) passes: a service never writes a stock movement or an expense, and is soft-deleted once any sale line (even a voided one) references it.
-- [ ] [Customer allowance](customer-allowance.md) passes: the monthly amount is always USD, the cap blocks **at** the allowance on active customers only, one pending request at a time, and §9 (a tenant admin cannot raise their own allowance, self-accept, or call `accept_customer_request`) — **release blocker.**
-- [ ] [Sales](sales.md) passes: snapshots frozen at sale time, editing a sale re-cuts its lines + stock without double-counting, a **service line moves no stock in either direction** (§2A-b, §2C.25c–f), walk-in customer, void, customer panel, dashboard revenue included.
-- [ ] [Debts](debts.md) passes: runtime net = Σ debts − Σ payments; debt payment doesn't touch the underlying month/sale; partial sales create a Sales debt; void + credit + branch/offline behave.
-- [ ] [Reports](reports.md) passes: **Reports and the dashboard reconcile to the cent for one month** (§3), the period scopes the cash but never the outstanding debt (§6.2), overdue ageing agrees with the customer-list badges and covers every customer (§6.5, §6.11), per-branch figures **sum** to the all-branches total (§8.2), and a drill-down adds up to exactly the number tapped (§7.2).
-- [ ] [Unsaved changes](unsaved-changes.md) passes: all four close paths prompt on a dirty form, a **clean** form never prompts, and repeated keep-editing → discard never shows an extra dialog or navigates the route away.
-- [ ] [Audit trail](audit-log.md) passes: an edit records the **old** value, a no-op save records **nothing**, `occurred_at` is the action time (not the sync time), offline writes commit with their change, staff can write but never read, and the trail cannot be edited or deleted from the app.
-- [ ] All identified findings ("verify…", "file a finding…" notes) reviewed and either fixed or signed off as known limitations.
+- A customer on a **$20 / month** plan with a few unpaid months.
+- A customer on a **3-month plan** ($60 for 3 months).
+- A customer on a plan with **no set price** (amount typed each month).
+- An **LBP** currency at 90,000 per $1.
+- A product with **stock 5** and a cost price.
+- Staff: a collector and a branch admin in branch A, a tenant-wide admin, and the owner.
 
-## Test data needed
+## Words used
 
-- At least 2 tenants, both active.
-- 1 deactivated tenant for tenant-inactive scenarios.
-- At least 3 users per tenant: 1 tenant-wide admin, 1 branch admin, 1 user (staff). 1 superadmin (test fixture).
-- 3+ branches in one tenant (e.g. Beirut, Tripoli, Saida) to exercise multi-branch UI; another tenant with only "Default Branch" for single-branch UI.
-- 2+ tenant currencies (e.g. LBP, EUR) with non-trivial `rate_per_usd` for snapshot verification.
-- 5 plans per tenant: 2 fixed-price single-month, 2 custom-price, 1 multi-month (durationMonths > 1), and at least 1 priced in a non-USD currency.
-- 30+ customers in tenant A (to test pagination), mix of: active/inactive, regular/non-regular, assigned/unassigned plans, branched/unbranched.
-- Customers whose PLAN LINE start_dates span past, current and future to exercise the monthly grid.
-- Existing payments per customer covering: paid full, paid partial, voided, multi-month bundles, multi-year history, mixed currencies.
-- 5+ products per tenant (mix of SHARED and branch-specific, USD and non-USD prices, at least 1 with existing sales and 1 with none) to test soft vs hard delete.
-- 10+ sales: linked to customers, walk-in (customer = null), in multiple currencies, at least 1 voided, spanning current and prior months.
-
-## Reporting findings
-
-When a scenario fails, capture:
-
-- Scenario id (e.g. `payments.md § 5.3`).
-- Steps to reproduce.
-- Expected vs actual.
-- Device, OS version, app build, tenant id, user id, branch id (if multi-branch tenant).
-- Screenshot or screen recording if UI-related.
-- Network HAR or Supabase logs if backend-related.
-
-## Open items / verifications
-
-These were called out inside the scenario files and should be resolved before release:
-
-- **Payment void permission gating** — confirm whether the `user` role can void payments via UI or API. (See [payments.md § 10.13](payments.md))
-- **Edit Payment permission** — confirm whether the `user` role can edit a payment. (See [payments.md § 9](payments.md))
-- **"New This Month" label** on Dashboard — value displayed is `totalCustomers`, not a true monthly count. Reconcile label with intent. (See [dashboard.md § 3.2](dashboard.md))
-- **Multi-month coverage in "paid this month"** — verify customers covered by a multi-month bundle are counted as paid in the dashboard for months 2/3 of the bundle. (See [dashboard.md § 8.10](dashboard.md))
-- **Hardcoded English strings** in several screens. (See [admin-and-navigation.md § 11.2](admin-and-navigation.md))
-- **Currency / Date locale** — verify Arabic vs en-US selection in places where formatting is still hardcoded. (See [non-functional.md § 5.4–5.5](non-functional.md))
-- **Accessibility labels** on month cells and avatars not explicitly set. (See [monthly-grid.md § 9.4](monthly-grid.md))
-- **Tenant_code migration** must be applied to Supabase before user-creation flow works for new tenants. (See [users.md § 10.11](users.md))
-- **Last active branch deletion** — document whether deleting the last active branch is allowed (transitions tenant back to 0-branch) or blocked. (See [branches.md § 4.12](branches.md))
-- **Single-branch tenant + role=admin** — clarify whether the form auto-binds branch or lets admin stay tenant-wide. (See [branches.md § 2.6](branches.md))
-- **Soft-deleted currency display** in plans and payments — verify the UI gracefully shows the inactive currency label instead of crashing. (See [currencies.md § 11.7](currencies.md))
+- **Bill** — what a customer owes for one thing (a month, a sale, a custom debt).
+- **Payment** — one hand-over of cash. One payment can pay several bills.
+- **Debt** — a bill with something still owed that is NOT a fully unpaid month (a partly paid month, an unpaid sale, a custom debt). A fully unpaid month is shown only in the month grid.
+- **Void** — the record was a mistake; it stops counting. **Write off** — the money is real but lost.
