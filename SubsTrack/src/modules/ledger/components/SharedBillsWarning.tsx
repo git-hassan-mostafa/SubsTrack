@@ -1,13 +1,9 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
-import {
-  findCurrency,
-  formatMoney,
-  snapshotCurrency,
-} from "@shared/core/utils/currency";
+import { formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import type { SharedBill } from "@shared/modules/ledger/utils/sharedBills";
 
 interface Props {
@@ -24,10 +20,9 @@ interface Props {
 export function SharedBillsWarning({ bills }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
   if (bills.length === 0) return null;
 
-  const display = findCurrency(currencies, displayCurrencyId);
+  const display = useDisplayCurrency();
 
   return (
     <View>

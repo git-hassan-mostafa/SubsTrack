@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -36,7 +36,7 @@ import {
   type StockEntryActionKey,
 } from "@shared/modules/admin/products/utils/stockText";
 import { toActionMenuItems, type Glyph } from "@/src/shared/lib/menuActions";
-import productService from "@shared/modules/admin/products/services/ProductService";
+import { useStockMovements } from "@shared/modules/admin/products/hooks/useStockMovements";
 
 interface Props {
   product: Product;
@@ -77,22 +77,15 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   const form = useStockEntryForm(product, currencies);
   const { editing, adding, costEffect, costCurrency } = form;
 
-  const [history, setHistory] = useState<StockMovement[]>([]);
+  const { history, reload: loadHistory } = useStockMovements(product.id);
   const [menuFor, setMenuFor] = useState<StockMovement | null>(null);
   const recordHistory = useHistoryDoor("stock_movements");
   const scrollBody = useRef<SheetScrollTo | null>(null);
 
-  const loadHistory = useCallback(async () => {
-    try {
-      setHistory(await productService.getMovements(product.id));
-    } catch {}
-  }, [product.id]);
-
   useEffect(() => {
     clearError();
-    void loadHistory();
     return clearError;
-  }, [clearError, loadHistory]);
+  }, [clearError]);
 
   const projected = form.projectedStock(onHand);
 

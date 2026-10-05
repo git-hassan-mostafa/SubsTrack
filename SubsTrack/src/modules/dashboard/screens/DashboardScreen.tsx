@@ -13,11 +13,10 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { formatMoney } from "@shared/core/utils/currency";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useDashboardStore } from "@shared/modules/dashboard/state/dashboardStore";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { BranchSelector } from "@/src/shared/components/BranchSelector";
 import { QuickActionsMenuButton } from "@/src/shared/components/QuickActionsMenuButton";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
@@ -35,9 +34,7 @@ export function DashboardScreen() {
   const error = useDashboardStore((s) => s.error);
   const fetchMetrics = useDashboardStore((s) => s.fetchMetrics);
   const clearError = useDashboardStore((s) => s.clearError);
-  const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
-  const displayCurrency = findCurrency(currencies, displayCurrencyId);
+  const displayCurrency = useDisplayCurrency();
   const fmt = (usd: number) => formatMoney(usd, null, displayCurrency);
 
   const branchFilter = useEffectiveBranchFilter();

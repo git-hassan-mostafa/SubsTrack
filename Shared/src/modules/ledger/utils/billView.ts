@@ -1,4 +1,4 @@
-import type { Charge, ChargeStatus, Currency } from "@shared/core/types";
+import type { Charge, ChargeStatus, Collection, Currency } from "@shared/core/types";
 import { formatMoney, formatPaidFraction } from "@shared/core/utils/currency";
 import { formatDate, formatDateTime } from "@shared/core/utils/date";
 import { pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
@@ -136,6 +136,29 @@ export function billInfoRows(
     { key: "written_off_by", label: t("ledger.written_off_by"), value: userName(charge.writtenOffBy) },
     { key: "write_off_reason", label: t("ledger.write_off_reason_label"), value: charge.writeOffReason },
   ];
+}
+
+export interface BillPaymentsHeader {
+  counted: number | null;
+  voided: number | null;
+  hintKey: string | null;
+}
+
+// A voided bill took its payments with it, so every row on it counts as voided.
+export function billPaymentsHeader(
+  payments: readonly Pick<Collection, "voidedAt">[],
+  billVoided: boolean,
+): BillPaymentsHeader {
+  if (payments.length === 0) return { counted: null, voided: null, hintKey: null };
+  if (billVoided) {
+    return { counted: null, voided: payments.length, hintKey: "ledger.bill_voided_payments_hint" };
+  }
+  const voided = payments.filter((p) => p.voidedAt !== null).length;
+  return {
+    counted: payments.length - voided,
+    voided: voided > 0 ? voided : null,
+    hintKey: "ledger.payments_hint",
+  };
 }
 
 export type BillActionKey = "history" | "revert_write_off" | "write_off" | "void";

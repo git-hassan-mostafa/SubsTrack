@@ -8,13 +8,9 @@ import { Chip } from "@/src/shared/components/Chip";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { COLORS } from "@/src/shared/constants";
 import type { CollectionItem, CollectionListItem } from "@shared/core/types";
-import {
-  findCurrency,
-  formatMoneyPair,
-  snapshotCurrency,
-} from "@shared/core/utils/currency";
+import { formatMoneyPair, snapshotCurrency } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useCollectionDetail } from "@shared/modules/ledger/hooks/useCollectionDetail";
 import { collectionInfoRows } from "@shared/modules/ledger/utils/collectionView";
@@ -83,10 +79,9 @@ function DetailBody({
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const userName = useUserNames();
-  const displayCurrencyId = useDisplayCurrencyId();
 
   const source = snapshotCurrency(collection, currencies);
-  const display = findCurrency(currencies, displayCurrencyId);
+  const display = useDisplayCurrency();
   const money = formatMoneyPair(collection.amount, source, display);
   const voided = collection.voidedAt !== null;
 

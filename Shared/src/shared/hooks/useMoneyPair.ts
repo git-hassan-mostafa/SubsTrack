@@ -1,6 +1,6 @@
 import { findCurrency, formatMoneyPair } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 
 export type MoneyPairFormatter = (
   amount: number,
@@ -10,7 +10,7 @@ export type MoneyPairFormatter = (
 // The amount in its own currency, plus "≈" the tenant's display currency.
 export function useMoneyPair(): MoneyPairFormatter {
   const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
   return (amount, currencyId) =>
     formatMoneyPair(amount, findCurrency(currencies, currencyId), display);
 }

@@ -18,10 +18,9 @@ import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { formatMoney } from "@shared/core/utils/currency";
 import type { CustomerDebts } from "@shared/core/types";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useCollectSheet, useOpenBill } from "@/src/modules/ledger";
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
@@ -46,8 +45,6 @@ interface Props {
 // One row per customer who still owes, all from ONE read of the open bills.
 export function DebtsPanel({ onOpenSale }: Props = {}) {
   const { t } = useTranslation();
-  const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
 
   const view = useLedgerSlice((s) => s.debts);
   const loading = useLedgerSlice((s) => s.loading);
@@ -85,7 +82,7 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
     refresh();
   }, [refresh]);
 
-  const target = findCurrency(currencies, displayCurrencyId);
+  const target = useDisplayCurrency();
   const debtors = useMemo(() => view?.customers ?? [], [view]);
 
   const visibleDebtors = useMemo(

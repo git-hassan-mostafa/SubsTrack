@@ -107,7 +107,6 @@ export function ProductFormDialog({
       <BranchPicker
         value={form.branchId}
         onChange={(branchId) => change({ branchId })}
-        nullable={user?.branchId === null}
         nullLabel={t("branches.shared_all_branches")}
       />
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>

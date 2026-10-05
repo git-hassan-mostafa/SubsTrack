@@ -10,44 +10,24 @@ import {
   type BranchFilter,
 } from "@shared/core/constants";
 import { COLORS } from "@/src/shared/constants";
-import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
 import { useUiPrefStore } from "@shared/shared/lib/uiPrefStore";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
-import { useIsMultiBranchActive } from "@shared/modules/admin/branches/hooks/useIsMultiBranchActive";
+import { useCanPickBranch } from "@shared/modules/admin/branches/hooks/useCanPickBranch";
 
-/**
- * Header branch filter chip for tenant-wide admins. Renders on the top-right of
- * PageHeader on Customers / Plans / Users, and inside the greeting block on
- * Dashboard.
- *
- * Self-conceals (returns null) when:
- *   - There is no logged-in user
- *   - The user is branch-scoped (RLS already pins them to their branch)
- *   - The tenant has fewer than 2 active branches
- *
- * Filter states stored in uiPrefStore.currentBranchId:
- *   null                      → "All Branches" — no filter
- *   <UUID>                    → that specific branch
- *   BRANCH_FILTER_UNASSIGNED  → only rows with branch_id IS NULL
- *
- * `className` styles the container so each call site controls placement
- * (Dashboard keeps the default top margin; PageHeader drops it for the
- * right-aligned slot).
- */
+// Header filter: null = all branches, UNASSIGNED = rows with no branch.
 export function BranchSelector({
   className = "mt-2 self-start",
 }: {
   className?: string;
 }) {
   const { t } = useTranslation();
-  const user = useAuthSlice((s) => s.user);
   const activeBranches = useActiveBranches();
-  const isMultiBranchActive = useIsMultiBranchActive();
+  const canPick = useCanPickBranch();
   const currentBranchId = useUiPrefStore((s) => s.currentBranchId);
   const setCurrentBranchId = useUiPrefStore((s) => s.setCurrentBranchId);
   const [open, setOpen] = useState(false);
 
-  if (!user || user.branchId !== null || !isMultiBranchActive) return null;
+  if (!canPick) return null;
 
   const options: DropdownOption<BranchFilter>[] = [
     ...activeBranches.map((b) => ({

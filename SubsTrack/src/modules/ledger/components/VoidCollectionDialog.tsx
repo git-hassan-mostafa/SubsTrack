@@ -11,7 +11,7 @@ import { COLORS } from "@/src/shared/constants";
 import { useTextField } from "@/src/shared/hooks/useTextField";
 import type { Collection } from "@shared/core/types";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
-import { sharedBillsOf } from "@shared/modules/ledger/utils/sharedBills";
+import { voidPaymentsNotice } from "@shared/modules/ledger/utils/sharedBills";
 import { SharedBillsWarning } from "./SharedBillsWarning";
 
 interface Props {
@@ -22,15 +22,7 @@ interface Props {
   onDismiss: () => void;
 }
 
-/**
- * Undo ONE hand-over of cash.
- *
- * Every bill it touched gets its balance back on its own — a balance is a sum
- * over live items and this row stops being one — so the warning names how many
- * bills that is. A month bill left at zero collected is deliberately kept: it
- * holds the frozen price, and it reads as plain "unpaid" everywhere because
- * nothing in the app asks whether a bill row exists, only how much money came.
- */
+// Undoes ONE hand-over whole; an emptied month bill stays and reads unpaid (#106).
 export function VoidCollectionDialog({
   collection,
   voidedBy,
@@ -45,7 +37,7 @@ export function VoidCollectionDialog({
   const [reason, setReason] = useState("");
   const field = useTextField(reason, setReason);
 
-  const shared = sharedBillsOf(collection, onBillChargeId, t);
+  const notice = voidPaymentsNotice([collection], onBillChargeId, t);
 
   async function handleConfirm() {
     const voided = await voidCollection(
@@ -68,20 +60,16 @@ export function VoidCollectionDialog({
   return (
     <ConfirmDialog
       visible
-      title={t("ledger.void_payment")}
-      message={
-        shared.length > 0
-          ? t("ledger.void_covers_many_warning", { count: shared.length + 1 })
-          : t("ledger.void_warning")
-      }
+      title={notice.title}
+      message={notice.message}
       confirmLabel={t("ledger.void_payment")}
       destructive
       onConfirm={handleConfirm}
       onCancel={handleDismiss}
     >
-      {shared.length > 0 ? (
+      {notice.bills.length > 0 ? (
         <View className="mb-3">
-          <SharedBillsWarning bills={shared} />
+          <SharedBillsWarning bills={notice.bills} />
         </View>
       ) : null}
       {error ? (

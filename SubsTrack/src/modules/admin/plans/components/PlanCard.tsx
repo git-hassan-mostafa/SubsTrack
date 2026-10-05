@@ -7,9 +7,8 @@ import {
   CardTitle,
 } from "@/src/shared/components/CardText";
 import { Chip } from "@/src/shared/components/Chip";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useMoneyPair } from "@shared/shared/hooks/useMoneyPair";
+import { planDurationLabel } from "@shared/modules/admin/plans/utils/planLabels";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 
 interface Props {
@@ -32,12 +31,9 @@ export function PlanCard({
   onEnterSelection,
 }: Props) {
   const { t } = useTranslation();
-  const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
-  const source = findCurrency(currencies, plan.currencyId);
-  const target = findCurrency(currencies, displayCurrencyId);
-  const priceLabel =
-    plan.price != null ? formatMoney(plan.price, source, target) : "";
+  const moneyPair = useMoneyPair();
+  const price =
+    plan.price != null ? moneyPair(plan.price, plan.currencyId) : null;
   return (
     <EntityCard
       icon="pulse-outline"
@@ -59,12 +55,9 @@ export function PlanCard({
           <Chip text={t("common.custom")} tone="indigo" />
         ) : (
           <>
-            <CardAmount>{priceLabel}</CardAmount>
-            <CardMeta>
-              {plan.durationMonths > 1
-                ? t("plans.n_months", { count: plan.durationMonths })
-                : t("plans.per_month")}
-            </CardMeta>
+            <CardAmount>{price?.primary ?? ""}</CardAmount>
+            {price?.approx ? <CardMeta>{price.approx}</CardMeta> : null}
+            <CardMeta>{planDurationLabel(plan.durationMonths, t)}</CardMeta>
           </>
         )}
       </View>

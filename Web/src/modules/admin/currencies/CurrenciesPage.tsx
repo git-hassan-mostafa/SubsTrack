@@ -5,22 +5,15 @@ import Typography from "@mui/material/Typography";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Currency } from "@shared/core/types";
 import { formatRate } from "@shared/core/utils/currency";
-import { confirm } from "@shared/shared/lib/confirm";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { MoneyText } from "@/shared/components/MoneyText";
 import { ActiveFilterSelect } from "@/shared/table/ActiveFilterSelect";
 import { activeStatusColumn } from "@/shared/table/activeStatusColumn";
 import { DataTable } from "@/shared/table/DataTable";
+import { useCatalogRowActions } from "@/shared/table/useCatalogRowActions";
 import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
-import { toTableActions, type TableAction } from "@/shared/table/tableAction";
-import { CATALOG_ACTION_ICONS } from "@/shared/table/catalogActionIcons";
-import {
-  catalogRowActions,
-  catalogSelectionActions,
-  type CatalogActionKey,
-} from "@shared/shared/lib/catalogMenu";
 import { readAllCurrencies, useCurrenciesTable } from "@/state/currenciesTable";
 import { useHistoryDoor } from "@/modules/admin/audit/useHistoryDoor";
 import { CurrencyFormDialog } from "./CurrencyFormDialog";
@@ -41,63 +34,21 @@ export function CurrenciesPage() {
   const history = useHistoryDoor("currencies");
   const [form, setForm] = useState<{ currency: Currency | null } | null>(null);
 
-  const confirmDeactivate = (currency: Currency) =>
-    confirm({
-      title: t("tenant_settings.deactivate_title"),
-      message: t("tenant_settings.deactivate_message", { code: currency.code }),
-      destructive: true,
-      onConfirm: async () => {
-        const updated = await deactivateCurrency(currency.id);
-        if (updated) patchRow(updated);
-      },
-    });
-
-  const confirmDelete = (currencies: Currency[]) => {
-    const single = currencies.length === 1 ? currencies[0] : null;
-    return confirm({
-      title: single
-        ? t("tenant_settings.delete_title")
-        : t("tenant_settings.bulk_delete_title", { count: currencies.length }),
-      message: single
-        ? t("tenant_settings.delete_message", { code: single.code })
-        : t("tenant_settings.bulk_delete_message", { count: currencies.length }),
-      confirmLabel: t("common.delete"),
-      destructive: true,
-      onConfirm: async () => {
-        const done = single
-          ? (await deleteCurrency(single.id)) !== null
-          : await bulkDeleteCurrencies(currencies.map((c) => c.id));
-        if (done) reload();
-      },
-    });
-  };
-
-  const reactivate = async (currency: Currency) => {
-    const updated = await reactivateCurrency(currency.id);
-    if (updated) patchRow(updated);
-  };
-
-  const runFor = (currency: Currency): Partial<Record<CatalogActionKey, () => void>> => ({
-    edit: () => setForm({ currency }),
-    history: () => history.open(currency.id, currency.code),
-    deactivate: () => void confirmDeactivate(currency),
-    reactivate: () => void reactivate(currency),
+  const { rowActions, bulkActions } = useCatalogRowActions<Currency>({
+    kind: "currency",
+    textKeys: "tenant_settings",
+    nameValues: (currency) => ({ code: currency.code }),
+    remove: deleteCurrency,
+    removeMany: bulkDeleteCurrencies,
+    deactivate: deactivateCurrency,
+    reactivate: reactivateCurrency,
+    patchRow,
+    reload,
+    doors: (currency) => ({
+      edit: () => setForm({ currency }),
+      history: () => history.open(currency.id, currency.code),
+    }),
   });
-
-  const rowActions = (currency: Currency): TableAction[] =>
-    toTableActions(catalogRowActions("currency", currency), t, {
-      icons: CATALOG_ACTION_ICONS,
-      run: { ...runFor(currency), delete: () => void confirmDelete([currency]) },
-    });
-
-  const bulkActions = (selected: Currency[]): TableAction[] =>
-    toTableActions(catalogSelectionActions("currency", selected), t, {
-      icons: CATALOG_ACTION_ICONS,
-      run: {
-        ...(selected.length === 1 ? runFor(selected[0]) : {}),
-        delete: () => void confirmDelete(selected),
-      },
-    });
 
   const columns: GridColDef<Currency>[] = [
     {

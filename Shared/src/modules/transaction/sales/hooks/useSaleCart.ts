@@ -5,7 +5,7 @@ import type {
   SaleLineType,
   Service,
 } from "@shared/core/types";
-import { findCurrency } from "@shared/core/utils/currency";
+import { activeCurrencyId, findCurrency } from "@shared/core/utils/currency";
 import {
   availableFor,
   cartSignature,
@@ -56,11 +56,12 @@ export function useSaleCart(initial: SaleEditorInitial | null): SaleCart {
   const getServices = useServiceSlice((s) => s.getServices);
   const currencies = useCurrencySlice((s) => s.items);
   const lastUsedCurrencyId = useUiPrefStore((s) => s.lastUsedCurrencyId);
+  const rememberCurrency = useUiPrefStore((s) => s.setLastUsedCurrencyId);
 
   const [rows, setRows] = useState<CartRow[]>(() => initialRows(initial));
   const rowKey = useRef(rows.length - 1);
   const [currencyId, setCurrencyId] = useState<string | null>(
-    initial ? initial.currencyId : (lastUsedCurrencyId ?? null),
+    initial ? initial.currencyId : activeCurrencyId(lastUsedCurrencyId, currencies),
   );
   const [currencyTouched, setCurrencyTouched] = useState(initial != null);
   const [baseline] = useState(() => cartSignature(rows, currencyId));
@@ -130,6 +131,7 @@ export function useSaleCart(initial: SaleEditorInitial | null): SaleCart {
   };
 
   const changeCurrency = (nextId: string | null) => {
+    rememberCurrency(nextId);
     setCurrencyTouched(true);
     setCurrencyId(nextId);
     const target = findCurrency(currencies, nextId);

@@ -15,6 +15,7 @@ import type {
   WhatsAppTemplatePurpose,
 } from "@shared/core/types";
 import { newId } from "@shared/core/utils/ids";
+import { canSendWhatsApp } from "@shared/core/utils/whatsappLink";
 import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
 import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
 import {
@@ -163,7 +164,7 @@ class WhatsAppService {
   async buildRecipients(args: RecipientBuildArgs): Promise<RecipientBuild> {
     const skipped: RecipientBuild["skipped"] = [];
     const reachable = args.customers.filter((customer) => {
-      if (!customer.phoneNumber?.trim()) {
+      if (!canSendWhatsApp(customer.phoneNumber)) {
         skipped.push({ customerId: customer.id, reason: "no_phone" });
         return false;
       }

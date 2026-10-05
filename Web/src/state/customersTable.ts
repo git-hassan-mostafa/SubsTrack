@@ -16,22 +16,16 @@ import type {
   CustomerStatusListRow,
 } from "@shared/modules/customer/customers/utils/types";
 import { chargeService } from "@shared/modules/ledger/services/ChargeService";
-import { readAllPages } from "@shared/shared/hooks/loadAllPages";
 import { ownedRowMatchesFilter } from "@shared/shared/lib/branchFilter";
 import { getStore } from "@shared/state/globalStore";
 import { getUnpaidRule } from "@shared/state/slices/payments/utils/unpaidRule";
-import {
-  createPagedStore,
-  pageWindow,
-  type PagedQuery,
-  type RowFit,
-} from "./createPagedStore";
+import { createPagedStore, readEveryPage, type PagedQuery, type RowFit } from "./createPagedStore";
 
 export type CustomerTableFilters = CustomerFilters & { sort: CustomerSort };
 
 export type CustomerRow = CustomerStatusListRow & { id: string; branchId: string | null };
 
-export const DEFAULT_CUSTOMER_TABLE_FILTERS: CustomerTableFilters = {
+const DEFAULT_CUSTOMER_TABLE_FILTERS: CustomerTableFilters = {
   ...DEFAULT_CUSTOMER_FILTERS,
   sort: DEFAULT_CUSTOMER_SORT,
 };
@@ -72,13 +66,13 @@ const customerFits: RowFit<CustomerRow, CustomerTableFilters> = (row, query) => 
 
 // Filters, sort and debt are worked out on the server over EVERY customer (D1).
 export const useCustomersTable = createPagedStore<CustomerRow, CustomerTableFilters>(
-  (query) => readCustomerPage(query, pageWindow(query)),
+  readCustomerPage,
   DEFAULT_CUSTOMER_TABLE_FILTERS,
   { fits: customerFits },
 );
 
 export function readAllCustomers(query: PagedQuery<CustomerTableFilters>): Promise<CustomerRow[]> {
-  return readAllPages((window) => readCustomerPage(query, window), MAX_STATUS_PAGE_SIZE);
+  return readEveryPage(readCustomerPage, query, MAX_STATUS_PAGE_SIZE);
 }
 
 // One customer, read alone, through the same status rule the server page runs.

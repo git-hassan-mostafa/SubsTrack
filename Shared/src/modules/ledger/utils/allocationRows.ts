@@ -90,6 +90,10 @@ export function collectBlocker(form: {
   return form.pool.overpaying ? "lower_amount" : "type_amount";
 }
 
+export function collectBlockerKey(form: Parameters<typeof collectBlocker>[0]): string {
+  return `ledger.collect_blocker.${collectBlocker(form)}`;
+}
+
 export function owedHeadlineKey(billCount: number): string {
   return billCount > 1 ? "ledger.owed_bills" : "ledger.owed";
 }

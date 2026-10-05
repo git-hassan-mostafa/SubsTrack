@@ -19,13 +19,12 @@ import { toActionMenuItems, type Glyph } from "@/src/shared/lib/menuActions";
 import type { OpenItem } from "@shared/core/types";
 import { KIND_ICON } from "../utils/kindIcon";
 import {
-  findCurrency,
   formatMoneyPair,
   formatPaidFraction,
   snapshotCurrency,
 } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { formatDate } from "@shared/core/utils/date";
 import {
   debtItemActions,
@@ -69,11 +68,10 @@ export function DebtItemCard({
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const source = snapshotCurrency(item, currencies);
-  const display = findCurrency(currencies, displayCurrencyId);
+  const display = useDisplayCurrency();
   const money = formatMoneyPair(item.balance, source, display);
   const facts = debtItemFacts(item);
   const paidFraction = facts.partlyPaid

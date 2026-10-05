@@ -7,6 +7,7 @@ import {
   type LabeledValue,
 } from "@shared/modules/ledger/utils/billView";
 import { openItemFromCharge } from "@shared/modules/ledger/utils/openItems";
+import { saleRecipient, sendBlockedKey } from "@shared/modules/invoicing/utils/invoiceRecipient";
 import { pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
 
 type Translate = (key: string, opts?: Record<string, unknown>) => string;
@@ -73,7 +74,6 @@ export type SaleMenuItem = MenuItem<SaleActionKey>;
 
 export interface SaleMenuViewer {
   isAdmin: boolean;
-  canSend: (phone: string | null) => boolean;
 }
 
 const MENU: MenuTable<SaleActionKey> = {
@@ -97,15 +97,10 @@ export function saleMenuItems(
   if (!voided) keys.push("invoice");
   if (viewer.isAdmin) keys.push("history");
   if (!voided) keys.push("void");
-  const phone = sale.customer?.phoneNumber ?? null;
-  const sendable = viewer.canSend(phone);
+  const blockedKey = sendBlockedKey(saleRecipient(sale));
   return pickMenu(MENU, keys).map((item) => {
-    if (item.key !== "invoice" || sendable) return item;
-    return {
-      ...item,
-      disabled: true,
-      captionKey: sale.customer ? "invoice.no_phone" : "invoice.no_customer",
-    };
+    if (item.key !== "invoice" || !blockedKey) return item;
+    return { ...item, disabled: true, captionKey: blockedKey };
   });
 }
 

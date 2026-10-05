@@ -4,8 +4,7 @@ import { useNavigate } from "react-router";
 import Stack from "@mui/material/Stack";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Collection, Customer } from "@shared/core/types";
-import { findCurrency, formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
-import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
+import { formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { planSummary } from "@shared/modules/customer/customer-plans/utils/lineLabel";
 import { useQuickPay } from "@shared/modules/customer/customers/hooks/useQuickPay";
@@ -23,7 +22,7 @@ import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranc
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { MoneyText } from "@/shared/components/MoneyText";
 import { openWhatsApp } from "@/shared/lib/openWhatsApp";
@@ -62,7 +61,7 @@ export function CustomersPage() {
   const { writeOffAll } = useWriteOffActions();
   const sendReceipt = useSendCollectionReceipt();
   const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
   const branch = useEffectiveBranchFilter();
   const branchColumn = useBranchColumn<CustomerRow>(t("branches.unassigned"));
   const history = useCustomerHistoryAction();
@@ -156,7 +155,7 @@ export function CustomersPage() {
       customerMenuItems(
         row.customer,
         { status: row.status, debtUsd: row.debtUsd, currencies },
-        { isAdmin, canSend: (phone) => whatsAppChatUrl(phone) !== null },
+        { isAdmin },
       ),
       t,
       { icons: CUSTOMER_ACTION_ICONS, run: runFor(row), disabled: quickPay.bulkBusy ? ["quick_pay"] : [] },

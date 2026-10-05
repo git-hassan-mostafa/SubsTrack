@@ -41,6 +41,7 @@ import {
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelectionBackHandler";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
+import { customerRecipient } from "@shared/modules/invoicing/utils/invoiceRecipient";
 import {
   BillHistorySheet,
   BillSheet,
@@ -365,7 +366,7 @@ export function CustomerPaymentPanel({
           visible
           charge={bill.charge}
           label={grid.monthLabelOf(bill)}
-          recipient={{ name: customer.name, phone: customer.phoneNumber }}
+          recipient={customerRecipient(customer)}
           onCollect={grid.collectFromBill}
           onVoidBill={async () => grid.voidFromBill()}
           onWriteOff={grid.writeOffFromBill}

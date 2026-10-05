@@ -7,9 +7,8 @@ import {
   CardSubtitle,
   CardTitle,
 } from "@/src/shared/components/CardText";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { formatMoney } from "@shared/core/utils/currency";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import type { CustomerDebts } from "@shared/core/types";
 
 interface Props {
@@ -27,9 +26,7 @@ interface Props {
  */
 export function DebtorCard({ debtor, onPress, onMenu }: Props) {
   const { t } = useTranslation();
-  const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
-  const target = findCurrency(currencies, displayCurrencyId);
+  const target = useDisplayCurrency();
 
   const unpaidCount = debtor.unpaidMonths.length;
 

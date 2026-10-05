@@ -18,6 +18,7 @@ import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useSendInvoice } from "@/src/modules/invoicing";
 import { paidToCharge } from "@shared/modules/ledger/utils/paidToCharge";
+import { billPaymentsHeader } from "@shared/modules/ledger/utils/billView";
 import { PAYMENT_ACTION_ICONS } from "../utils/paymentActionIcons";
 import {
   coversOtherBills,
@@ -27,6 +28,7 @@ import {
 import { toActionMenuItems } from "@/src/shared/lib/menuActions";
 import type { CollectionCorrection } from "@shared/modules/ledger/services/CollectionService";
 import { useBillPayments } from "@shared/modules/ledger/hooks/useBillPayments";
+import type { ContactRecipient } from "@shared/modules/invoicing/utils/invoiceRecipient";
 import { CollectionDetailSheet } from "./CollectionDetailSheet";
 import { CorrectCollectionSheet } from "./CorrectCollectionSheet";
 import { VoidCollectionDialog } from "./VoidCollectionDialog";
@@ -36,7 +38,7 @@ interface Props {
   snapshot: { currencyId: string | null; ratePerUsdSnapshot: number };
   visible: boolean;
   billVoided?: boolean;
-  recipient?: { name: string; phone: string | null } | null;
+  recipient?: ContactRecipient | null;
   onChanged?: (voided: Collection, replacement?: Collection) => void;
   onCollectedChange?: (collected: number) => void;
   onPaymentsChange?: (payments: Collection[]) => void;
@@ -62,7 +64,7 @@ export function BillPaymentsList({
   const { canSend, sendCollectionInvoice } = useSendInvoice();
 
   const bill = useBillPayments(chargeId, visible);
-  const { payments: rows, live, collected, loading, error, clearError } = bill;
+  const { payments: rows, collected, loading, error, clearError } = bill;
   const [menuFor, setMenuFor] = useState<Collection | null>(null);
   const [voidTarget, setVoidTarget] = useState<Collection | null>(null);
   const [correctTarget, setCorrectTarget] = useState<Collection | null>(null);
@@ -82,6 +84,16 @@ export function BillPaymentsList({
   useEffect(() => {
     if (!loading) onPaymentsChange?.(rows);
   }, [loading, rows, onPaymentsChange]);
+
+  const header = billPaymentsHeader(rows, billVoided);
+  const headerCounts = [
+    header.counted !== null
+      ? t("ledger.counted_count", { count: header.counted })
+      : null,
+    header.voided !== null
+      ? t("ledger.voided_count", { count: header.voided })
+      : null,
+  ].filter((part) => part !== null);
 
   const sendable = !!recipient && canSend(recipient.phone);
 
@@ -125,15 +137,11 @@ export function BillPaymentsList({
         fontWeight="SemiBold"
         className="text-xs uppercase tracking-wide text-gray-500"
       >
-        {t("ledger.payments_count", {
-          count: billVoided ? rows.length : live.length,
-        })}
+        {[t("ledger.payments_title"), ...headerCounts].join(" · ")}
       </Text>
 
-      {billVoided && rows.length > 0 ? (
-        <Text className="text-xs text-gray-500">
-          {t("ledger.bill_voided_payments_hint")}
-        </Text>
+      {header.hintKey ? (
+        <Text className="text-xs text-gray-500">{t(header.hintKey)}</Text>
       ) : null}
 
       {loading ? (

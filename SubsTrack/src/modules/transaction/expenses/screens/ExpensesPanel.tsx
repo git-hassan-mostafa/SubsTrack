@@ -28,10 +28,9 @@ import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranc
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { confirm } from "@shared/shared/lib/confirm";
 import type { ExpenseCategory, ExpenseItem } from "@shared/core/types";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { formatMoney } from "@shared/core/utils/currency";
 import { outflowLabel } from "@shared/modules/transaction/expenses/utils/outflow";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useExpenseStore } from "@shared/modules/transaction/expenses/state/expenseStore";
 import { ExpenseCard } from "../components/ExpenseCard";
 import { ExpenseFormSheet } from "../components/ExpenseFormSheet";
@@ -51,8 +50,6 @@ export function ExpensesPanel({ filterRowRef }: Props = {}) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const router = useRouter();
-  const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
 
   const items = useExpenseStore((s) => s.items);
   const summary = useExpenseStore((s) => s.summary);
@@ -78,7 +75,7 @@ export function ExpensesPanel({ filterRowRef }: Props = {}) {
     void fetchExpenses();
   }, [branchFilter, fetchExpenses]);
 
-  const target = findCurrency(currencies, displayCurrencyId);
+  const target = useDisplayCurrency();
 
   const visible = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase();

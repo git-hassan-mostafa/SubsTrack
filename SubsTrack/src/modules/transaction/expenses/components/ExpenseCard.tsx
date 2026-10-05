@@ -14,10 +14,10 @@ import {
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
 import type { ExpenseItem } from "@shared/core/types";
-import { findCurrency, snapshotCurrency } from "@shared/core/utils/currency";
+import { snapshotCurrency } from "@shared/core/utils/currency";
 import { outflowLabel } from "@shared/modules/transaction/expenses/utils/outflow";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { formatDate } from "@shared/core/utils/date";
 import { expenseCategoryLabelKey } from "@shared/modules/transaction/expenses/utils/expenseCategories";
 import { expenseCategoryIcon } from "../utils/expenseCategoryIcon";
@@ -31,11 +31,10 @@ interface Props {
 export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const source = snapshotCurrency(item, currencies);
-  const target = findCurrency(currencies, displayCurrencyId);
+  const target = useDisplayCurrency();
 
   const amountLabel = outflowLabel(item.amount, source, target);
   const isStock = item.source === "stock";

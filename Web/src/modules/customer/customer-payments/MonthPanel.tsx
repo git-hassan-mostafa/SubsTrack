@@ -8,7 +8,8 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import type { Collection, Customer, MonthEntry } from "@shared/core/types";
 import { billingMonthLabel } from "@shared/core/utils/billingMonth";
-import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
+import { canSendWhatsApp } from "@shared/core/utils/whatsappLink";
+import { customerRecipient } from "@shared/modules/invoicing/utils/invoiceRecipient";
 import { useCustomerMonthGrid } from "@shared/modules/customer/customer-payments/hooks/useCustomerMonthGrid";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
@@ -30,7 +31,7 @@ export function MonthPanel({ customer }: { customer: Customer }) {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const sendCollectionReceipt = useSendCollectionReceipt();
-  const sendable = whatsAppChatUrl(customer.phoneNumber) !== null;
+  const sendable = canSendWhatsApp(customer.phoneNumber);
 
   const collect = useCollectDialog({
     onCollected: (collections) => void grid.collected(collections),
@@ -117,7 +118,7 @@ export function MonthPanel({ customer }: { customer: Customer }) {
           charge={bill.charge}
           label={grid.monthLabelOf(bill)}
           customerName={customer.name}
-          recipient={{ name: customer.name, phone: customer.phoneNumber }}
+          recipient={customerRecipient(customer)}
           onClose={grid.closeBill}
           onCollect={grid.collectFromBill}
           onVoidBill={grid.voidFromBill}

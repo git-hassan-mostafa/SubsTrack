@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { FlatList, View } from "react-native";
 import { PressableOpacity } from "./PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
@@ -6,7 +6,8 @@ import { useTranslation } from "react-i18next";
 import { Text } from "./Text";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency } from "@shared/core/types";
-import { useUiPrefStore } from "@shared/shared/lib/uiPrefStore";
+import { currencyChoices } from "@shared/core/utils/currency";
+import { useLastUsedCurrency } from "@shared/shared/hooks/useLastUsedCurrency";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
 import { SheetDragArea } from "./SheetDragArea";
 import { AppTextInput } from "./AppTextInput";
@@ -49,22 +50,14 @@ export function CurrencyInput({
   onFocus,
 }: CurrencyInputProps) {
   const { t } = useTranslation();
-  const { lastUsedCurrencyId, setLastUsedCurrencyId } = useUiPrefStore();
-  const initialDefaultApplied = useRef(false);
-
-  useEffect(() => {
-    if (initialDefaultApplied.current) return;
-    initialDefaultApplied.current = true;
-    if (currencyId === null && amount === null && lastUsedCurrencyId) {
-      const exists = currencies.some(
-        (c) => c.id === lastUsedCurrencyId && c.active,
-      );
-      if (exists) onChange({ amount: null, currencyId: lastUsedCurrencyId });
-    }
-  }, [amount, currencyId, currencies, lastUsedCurrencyId, onChange]);
+  const rememberCurrency = useLastUsedCurrency(
+    { amount, currencyId },
+    currencies,
+    (lastId) => onChange({ amount: null, currencyId: lastId }),
+  );
 
   const activeCurrencies = useMemo(
-    () => currencies.filter((c) => c.active || c.id === currencyId),
+    () => currencyChoices(currencies, currencyId),
     [currencies, currencyId],
   );
   const selected = useMemo(
@@ -82,7 +75,7 @@ export function CurrencyInput({
   );
 
   function handleCurrencyChange(nextId: string | null) {
-    setLastUsedCurrencyId(nextId);
+    rememberCurrency(nextId);
     onChange({ amount, currencyId: nextId });
   }
 

@@ -12,7 +12,11 @@ import {
 } from "@/src/shared/components/Dropdown";
 import { COLORS } from "@/src/shared/constants";
 import type { Service } from "@shared/core/types";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import {
+  currencyChoices,
+  findCurrency,
+  formatMoney,
+} from "@shared/core/utils/currency";
 import type { SaleCart } from "@shared/modules/transaction/sales/hooks/useSaleCart";
 import { ProductFormSheet } from "@/src/modules/admin/products";
 import { ServiceFormSheet } from "@/src/modules/admin/service-catalog";
@@ -29,9 +33,10 @@ export function SaleItemsEditor({ cart, onFocusClearError }: Props) {
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [addServiceFor, setAddServiceFor] = useState<string | null>(null);
 
-  const currencyOptions: DropdownOption<string>[] = currencies
-    .filter((c) => c.active || c.id === currencyId)
-    .map((c) => ({ label: c.code, sublabel: c.name, value: c.id }));
+  const currencyOptions: DropdownOption<string>[] = currencyChoices(
+    currencies,
+    currencyId,
+  ).map((c) => ({ label: c.code, sublabel: c.name, value: c.id }));
 
   const productOptions: DropdownOption<string>[] = cart.products.map((p) => {
     const pool = cart.poolOf(p);

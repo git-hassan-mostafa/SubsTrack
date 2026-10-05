@@ -12,6 +12,7 @@ import { formatMoney } from "@shared/core/utils/currency";
 import { formatDateTime } from "@shared/core/utils/date";
 import type { BillPayments } from "@shared/modules/ledger/hooks/useBillPayments";
 import type { CollectionCorrection } from "@shared/modules/ledger/services/CollectionService";
+import { billPaymentsHeader } from "@shared/modules/ledger/utils/billView";
 import { paidToCharge } from "@shared/modules/ledger/utils/paidToCharge";
 import {
   coversOtherBills,
@@ -20,24 +21,24 @@ import {
 } from "@shared/modules/ledger/utils/collectionView";
 import { toTableActions } from "@/shared/table/tableAction";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
-import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
+import { canSendWhatsApp } from "@shared/core/utils/whatsappLink";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { StatusChip } from "@/shared/components/StatusChip";
 import { LocalTable } from "@/shared/table/LocalTable";
 import { RowLink } from "@/shared/table/RowLink";
 import { useSendCollectionReceipt } from "@/modules/invoicing/useSendCollectionReceipt";
-import type { BillRecipient } from "@/modules/invoicing/useSendBillReceipt";
+import type { ContactRecipient } from "@shared/modules/invoicing/utils/invoiceRecipient";
 import { CorrectPaymentDialog } from "../payment/CorrectPaymentDialog";
 import { PaymentDetailDialog } from "../payment/PaymentDetailDialog";
 import { PAYMENT_ACTION_ICONS } from "../payment/paymentActionIcons";
-import { VoidPaymentDialog } from "../void/VoidPaymentDialog";
+import { VoidPaymentsDialog } from "../void/VoidPaymentsDialog";
 
 interface BillPaymentsListProps {
   bill: BillPayments;
   chargeId: string;
   source: Currency | null;
   billVoided: boolean;
-  recipient?: BillRecipient | null;
+  recipient?: ContactRecipient | null;
   onChanged?: (voided: Collection, replacement?: Collection) => void;
 }
 
@@ -51,8 +52,8 @@ export function BillPaymentsList({ bill, chargeId, source, billVoided, recipient
   const [detailId, setDetailId] = useState<string | null>(null);
   const money = (value: number) => formatMoney(value, source, source);
   const rows = bill.payments;
-  const sendable = !!recipient && whatsAppChatUrl(recipient.phone) !== null;
-  const voidedCount = rows.length - bill.live.length;
+  const sendable = !!recipient && canSendWhatsApp(recipient.phone);
+  const header = billPaymentsHeader(rows, billVoided);
 
   const corrected = (correction: CollectionCorrection) => {
     setCorrectId(null);
@@ -147,17 +148,17 @@ export function BillPaymentsList({ bill, chargeId, source, billVoided, recipient
     <Stack spacing={1}>
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }} useFlexGap>
         <PaymentsOutlined fontSize="small" sx={{ color: "text.secondary" }} aria-hidden />
-        <Typography sx={{ fontWeight: 700 }}>{t("web.bill.payments_title")}</Typography>
-        {rows.length > 0 && !billVoided ? (
-          <StatusChip tone="emerald" label={t("web.bill.counted_count", { count: bill.live.length })} />
+        <Typography sx={{ fontWeight: 700 }}>{t("ledger.payments_title")}</Typography>
+        {header.counted !== null ? (
+          <StatusChip tone="emerald" label={t("ledger.counted_count", { count: header.counted })} />
         ) : null}
-        {voidedCount > 0 && !billVoided ? (
-          <StatusChip tone="gray" label={t("web.bill.voided_count", { count: voidedCount })} />
+        {header.voided !== null ? (
+          <StatusChip tone="gray" label={t("ledger.voided_count", { count: header.voided })} />
         ) : null}
       </Stack>
-      {rows.length > 0 ? (
+      {header.hintKey ? (
         <Typography variant="body2" color="text.secondary">
-          {billVoided ? t("ledger.bill_voided_payments_hint") : t("web.bill.payments_hint")}
+          {t(header.hintKey)}
         </Typography>
       ) : null}
       <ErrorBanner message={bill.error} onDismiss={bill.clearError} />
@@ -167,7 +168,7 @@ export function BillPaymentsList({ bill, chargeId, source, billVoided, recipient
         </Typography>
       ) : (
         <LocalTable<Collection>
-          label={t("web.bill.payments_table")}
+          label={t("ledger.payments_title")}
           columns={columns}
           rows={rows}
           rowLabel={(payment) => formatDateTime(payment.receivedAt)}
@@ -178,13 +179,15 @@ export function BillPaymentsList({ bill, chargeId, source, billVoided, recipient
       )}
 
       {voidTarget ? (
-        <VoidPaymentDialog
-          collection={voidTarget}
+        <VoidPaymentsDialog
+          payments={[voidTarget]}
           onBillChargeId={chargeId}
           onDone={(voided) => {
             setVoidTarget(null);
-            bill.markVoided(voided);
-            onChanged?.(voided);
+            for (const payment of voided) {
+              bill.markVoided(payment);
+              onChanged?.(payment);
+            }
           }}
           onClose={() => setVoidTarget(null)}
         />

@@ -6,23 +6,23 @@ import {
   debtHistoryReadOptions,
   type DebtHistoryFilters,
 } from "@shared/modules/transaction/debts/utils/debtHistory";
-import { createPagedStore, pageWindow } from "./createPagedStore";
+import { createPagedStore } from "./createPagedStore";
 
 export type DebtHistoryRow = DebtHistoryItem & { id: string };
 
 // The picked customer rides along so the picker can show the name back.
 export type DebtHistoryTableFilters = DebtHistoryFilters & { customer: Customer | null };
 
-export const DEFAULT_DEBT_HISTORY_TABLE_FILTERS: DebtHistoryTableFilters = {
+const DEFAULT_DEBT_HISTORY_TABLE_FILTERS: DebtHistoryTableFilters = {
   ...DEFAULT_DEBT_HISTORY_FILTERS,
   customer: null,
 };
 
 export const useDebtHistoryTable = createPagedStore<DebtHistoryRow, DebtHistoryTableFilters>(
-  async (query) => {
+  async (query, window) => {
     const page = await chargeService.getChargeHistoryPage({
       ...debtHistoryReadOptions(query.filters, query.branch),
-      ...pageWindow(query),
+      ...window,
     });
     return { rows: page.rows.map((item) => ({ ...item, id: keyOf(item) })), total: page.total };
   },

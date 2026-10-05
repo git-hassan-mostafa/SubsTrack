@@ -1,8 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Dropdown, type DropdownOption } from "./Dropdown";
-import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
-import { useIsMultiBranchActive } from "@shared/modules/admin/branches/hooks/useIsMultiBranchActive";
+import { useCanPickBranch } from "@shared/modules/admin/branches/hooks/useCanPickBranch";
 
 interface BranchPickerProps {
   value: string | null;
@@ -13,19 +12,7 @@ interface BranchPickerProps {
   nullable?: boolean;
 }
 
-/**
- * Form-field branch picker. Encapsulates all the boilerplate that previously
- * lived in every FormSheet that touched branches: store subscription, load
- * on mount, visibility decision, option construction.
- *
- * Self-conceals (returns null) when:
- *   - There is no logged-in user
- *   - The user is branch-scoped (their branch is fixed; picker is irrelevant)
- *   - The tenant has zero active branches
- *
- * The semantic of NULL varies per consumer, so callers pass `nullLabel` to
- * describe what "no branch selected" means in their context.
- */
+// NULL means something different per form, so each caller names it via `nullLabel`.
 export function BranchPicker({
   value,
   onChange,
@@ -35,11 +22,10 @@ export function BranchPicker({
   nullable = true,
 }: BranchPickerProps) {
   const { t } = useTranslation();
-  const user = useAuthSlice((s) => s.user);
   const activeBranches = useActiveBranches();
-  const isMultiBranchActive = useIsMultiBranchActive();
+  const canPick = useCanPickBranch();
 
-  if (!user || user.branchId !== null || !isMultiBranchActive) return null;
+  if (!canPick) return null;
 
   const options: DropdownOption<string>[] = activeBranches.map((b) => ({
     value: b.id,

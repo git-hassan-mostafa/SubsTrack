@@ -12,14 +12,13 @@ import { Chip } from "@/src/shared/components/Chip";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import type { DebtHistoryItem } from "@shared/core/types";
 import {
-  findCurrency,
   formatMoney,
   formatMoneyPair,
   formatPaidFraction,
   snapshotCurrency,
 } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { formatDate } from "@shared/core/utils/date";
 import {
   daysLateSettling,
@@ -49,10 +48,9 @@ const OUTCOME_ICON: Record<HistoryOutcome, { color: string; bg: string }> = {
 export function DebtHistoryCard({ item, onOpen, loading = false }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
 
   const source = snapshotCurrency(item, currencies);
-  const display = findCurrency(currencies, displayCurrencyId);
+  const display = useDisplayCurrency();
   const outcome = historyOutcomeOf(item);
   const icon = OUTCOME_ICON[outcome];
   const dead = isDeadHistoryRow(item);

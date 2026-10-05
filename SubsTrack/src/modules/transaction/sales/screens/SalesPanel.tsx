@@ -34,9 +34,8 @@ import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { CustomerPicker } from "@/src/modules/customer/customers";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import type { Sale } from "@shared/core/types";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { formatMoney } from "@shared/core/utils/currency";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { saleUsd } from "@shared/modules/transaction/sales/utils/saleListPatch";
 import { SaleCard } from "../components/SaleCard";
 import { SaleFormSheet } from "../components/SaleFormSheet";
@@ -82,9 +81,7 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
 
   const products = useProductSlice((s) => s.items);
   const getProducts = useProductSlice((s) => s.getProducts);
-  const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
-  const displayCurrency = findCurrency(currencies, displayCurrencyId);
+  const displayCurrency = useDisplayCurrency();
 
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);

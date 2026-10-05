@@ -9,6 +9,16 @@ export function linePeriodLabel(durationMonths: number, t: TFunction): string {
     : t("subscriptions.per_month");
 }
 
+export function pricePerPeriod(price: string, durationMonths: number, t: TFunction): string {
+  return `${price} ${linePeriodLabel(durationMonths, t)}`;
+}
+
+export function planDurationLabel(durationMonths: number, t: TFunction): string {
+  return durationMonths > 1
+    ? t("plans.every_n_months", { count: durationMonths })
+    : t("plans.monthly");
+}
+
 // A plan-picker option's second line, priced in the display currency.
 export function planPriceSublabel(
   plan: Pick<Plan, "price" | "currencyId" | "durationMonths" | "isCustomPrice">,
@@ -18,9 +28,5 @@ export function planPriceSublabel(
 ): string {
   if (plan.isCustomPrice) return t("common.custom_pricing");
   const price = formatMoney(plan.price ?? 0, findCurrency(currencies, plan.currencyId), display);
-  const period =
-    plan.durationMonths === 1
-      ? t("plans.per_month")
-      : t("plans.n_months", { count: plan.durationMonths });
-  return `${price} / ${period}`;
+  return pricePerPeriod(price, plan.durationMonths, t);
 }

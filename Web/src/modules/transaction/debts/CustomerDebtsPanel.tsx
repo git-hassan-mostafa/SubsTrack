@@ -6,14 +6,14 @@ import Typography from "@mui/material/Typography";
 import NoteAddOutlined from "@mui/icons-material/NoteAddOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import type { Customer } from "@shared/core/types";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { formatMoney } from "@shared/core/utils/currency";
+import { customerRecipient } from "@shared/modules/invoicing/utils/invoiceRecipient";
 import { owedUsd } from "@shared/modules/ledger/utils/debtRule";
 import { useCustomerDebts } from "@shared/modules/transaction/debts/hooks/useCustomerDebts";
 import { useDebtScope } from "@shared/modules/transaction/debts/hooks/useDebtScope";
 import { debtorActions } from "@shared/modules/transaction/debts/utils/debtorView";
 import { sortDebts } from "@shared/modules/transaction/debts/utils/allDebtsFilter";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { PanelSection } from "@/shared/components/PanelSection";
 import { RowActionsMenu } from "@/shared/table/RowActionsMenu";
@@ -26,15 +26,11 @@ import { useDebtDoors } from "./useDebtDoors";
 // Plain unpaid months stay out: the months above already show them.
 export function CustomerDebtsPanel({ customer }: { customer: Customer }) {
   const { t } = useTranslation();
-  const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
   const debts = useCustomerDebts(customer.id, customer.name);
   const { scope, setScope, showingWrittenOff, writtenOff } = useDebtScope(customer.id, customer.name);
   const { refresh } = debts;
-  const recipientOf = useCallback(
-    () => ({ name: customer.name, phone: customer.phoneNumber }),
-    [customer.name, customer.phoneNumber],
-  );
+  const recipientOf = useCallback(() => customerRecipient(customer), [customer]);
   const doors = useDebtDoors({ recipientOf });
 
   useEffect(() => {

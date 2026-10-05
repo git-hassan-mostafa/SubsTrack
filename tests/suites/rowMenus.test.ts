@@ -98,13 +98,14 @@ describe("customer menus", () => {
     unpaidMonths: 1,
   };
   const paid: CustomerStatus = { ...unpaid, status: "paid", notDueLineIds: ["l-usd"], unpaidMonths: 0 };
-  const withPhone = { isAdmin: true, canSend: () => true };
-  const noPhone = { isAdmin: false, canSend: () => false };
+  const admin = { isAdmin: true };
+  const staff = { isAdmin: false };
   const ali = customer({ customerPlans: [line({ id: "l-usd", plan: usd, planId: usd.id })] });
+  const aliNoPhone = { ...ali, phoneNumber: "-" };
 
   it("TC-RM-08 an unpaid customer gets quick pay, pay-and-send, collect and write-off", () =>
     on(() => {
-      const keys = keysOf(customerMenuItems(ali, { status: unpaid, debtUsd: 0, currencies: [] }, withPhone));
+      const keys = keysOf(customerMenuItems(ali, { status: unpaid, debtUsd: 0, currencies: [] }, admin));
       expect(keys).toEqual([
         "quick_pay",
         "quick_pay_whatsapp",
@@ -122,13 +123,13 @@ describe("customer menus", () => {
 
   it("TC-RM-09 a paid customer with no debt owes nothing: no quick pay, collect or write-off", () =>
     on(() => {
-      const keys = keysOf(customerMenuItems(ali, { status: paid, debtUsd: 0, currencies: [] }, noPhone));
+      const keys = keysOf(customerMenuItems(aliNoPhone, { status: paid, debtUsd: 0, currencies: [] }, staff));
       expect(keys).toEqual(["record_sale", "add_custom_debt", "edit", "history"]);
     }));
 
   it("TC-RM-10 without a phone, pay-and-send stays visible but disabled with a reason", () =>
     on(() => {
-      const items = customerMenuItems(ali, { status: unpaid, debtUsd: 0, currencies: [] }, noPhone);
+      const items = customerMenuItems(aliNoPhone, { status: unpaid, debtUsd: 0, currencies: [] }, staff);
       expect(items.find((item) => item.key === "quick_pay_whatsapp")).toMatchObject({
         disabled: true,
         captionKey: "invoice.no_phone",
@@ -139,7 +140,7 @@ describe("customer menus", () => {
   it("TC-RM-11 a typed-price line has nothing priced to send, so no pay-and-send", () =>
     on(() => {
       const typedOnly = customer({ customerPlans: [line({ id: "l-typed", plan: typed, planId: typed.id })] });
-      const keys = keysOf(customerMenuItems(typedOnly, { status: unpaid, debtUsd: 0, currencies: [] }, withPhone));
+      const keys = keysOf(customerMenuItems(typedOnly, { status: unpaid, debtUsd: 0, currencies: [] }, admin));
       expect(keys).toContain("quick_pay");
       expect(keys).not.toContain("quick_pay_whatsapp");
     }));

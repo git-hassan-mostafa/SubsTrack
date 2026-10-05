@@ -13,6 +13,8 @@ import { findCurrency } from "@shared/core/utils/currency";
 import { formatDateTime } from "@shared/core/utils/date";
 import type { CollectionCorrection } from "@shared/modules/ledger/services/CollectionService";
 import { useCorrectPayment } from "@shared/modules/ledger/hooks/useCorrectPayment";
+import { correctionProblemKey } from "@shared/modules/ledger/utils/correction";
+import { useRefusedSave } from "@shared/shared/hooks/useRefusedSave";
 import { CurrencyCollectSection } from "./CurrencyCollectSection";
 
 const NO_SKIPS: ReadonlySet<string> = new Set();
@@ -33,10 +35,15 @@ export function CorrectCollectionSheet({
   const userName = useUserNames();
   const form = useCorrectPayment(collectionId);
   const [saving, setSaving] = useState(false);
+  const refused = useRefusedSave(form.canSave);
   const { draft, original, plan, money } = form;
 
   async function save() {
-    if (saving || !form.canSave) return;
+    if (saving) return;
+    if (form.problem) {
+      refused.refuse(correctionProblemKey(form.problem));
+      return;
+    }
     setSaving(true);
     try {
       const result = await form.save();
@@ -120,10 +127,17 @@ export function CorrectCollectionSheet({
               multiline
             />
 
+            {refused.reasonKey ? (
+              <ErrorBanner
+                message={t(refused.reasonKey)}
+                onDismiss={refused.clear}
+              />
+            ) : null}
+
             <Button
               label={t("ledger.save_correction")}
               onPress={() => void save()}
-              disabled={saving || !form.canSave}
+              disabled={saving}
               loading={saving}
             />
           </>

@@ -7,25 +7,18 @@ import type { GridColDef } from "@mui/x-data-grid";
 import type { Product } from "@shared/core/types";
 import { stockLevelLabel } from "@shared/modules/admin/products/utils/stockText";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
-import { confirm } from "@shared/shared/lib/confirm";
 import { useUiStore } from "@shared/shared/lib/uiStore";
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { MoneyText } from "@/shared/components/MoneyText";
 import { StatusChip } from "@/shared/components/StatusChip";
-import { useMoneyPair } from "@/shared/hooks/useMoneyPair";
+import { useMoneyPair } from "@shared/shared/hooks/useMoneyPair";
 import { ActiveFilterSelect } from "@/shared/table/ActiveFilterSelect";
 import { activeStatusColumn } from "@/shared/table/activeStatusColumn";
 import { DataTable } from "@/shared/table/DataTable";
+import { useCatalogRowActions } from "@/shared/table/useCatalogRowActions";
 import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
-import { toTableActions, type TableAction } from "@/shared/table/tableAction";
-import { CATALOG_ACTION_ICONS } from "@/shared/table/catalogActionIcons";
-import {
-  catalogRowActions,
-  catalogSelectionActions,
-  type CatalogActionKey,
-} from "@shared/shared/lib/catalogMenu";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
 import { readAllProducts, useProductsTable } from "@/state/productsTable";
 import { useHistoryDoor } from "@/modules/admin/audit/useHistoryDoor";
@@ -56,52 +49,21 @@ export function ProductsPage() {
   const liveRow = (product: Product) => rows.find((row) => row.id === product.id) ?? product;
   const dialogOpen = form !== null || stockFor !== null;
 
-  const confirmDelete = (products: Product[]) => {
-    const single = products.length === 1 ? products[0] : null;
-    return confirm({
-      title: single
-        ? t("products.delete_title")
-        : t("products.bulk_delete_title", { count: products.length }),
-      message: single
-        ? t("products.delete_message", { name: single.name })
-        : t("products.bulk_delete_message", { count: products.length }),
-      confirmLabel: t("common.delete"),
-      destructive: true,
-      onConfirm: async () => {
-        const done = single
-          ? (await deleteProduct(single.id)) !== null
-          : await bulkDeleteProducts(products.map((p) => p.id));
-        if (done) reload();
-      },
-    });
-  };
-
-  const reactivate = async (product: Product) => {
-    const updated = await reactivateProduct(product.id);
-    if (updated) patchRow(updated);
-  };
-
-  const runFor = (product: Product): Partial<Record<CatalogActionKey, () => void>> => ({
-    edit: () => setForm({ product }),
-    stock: () => setStockFor(product),
-    history: () => history.open(product.id, product.name),
-    reactivate: () => void reactivate(product),
+  const { rowActions, bulkActions } = useCatalogRowActions<Product>({
+    kind: "product",
+    textKeys: "products",
+    nameValues: (product) => ({ name: product.name }),
+    remove: deleteProduct,
+    removeMany: bulkDeleteProducts,
+    reactivate: reactivateProduct,
+    patchRow,
+    reload,
+    doors: (product) => ({
+      edit: () => setForm({ product }),
+      stock: () => setStockFor(product),
+      history: () => history.open(product.id, product.name),
+    }),
   });
-
-  const rowActions = (product: Product): TableAction[] =>
-    toTableActions(catalogRowActions("product", product), t, {
-      icons: CATALOG_ACTION_ICONS,
-      run: { ...runFor(product), delete: () => void confirmDelete([product]) },
-    });
-
-  const bulkActions = (selected: Product[]): TableAction[] =>
-    toTableActions(catalogSelectionActions("product", selected), t, {
-      icons: CATALOG_ACTION_ICONS,
-      run: {
-        ...(selected.length === 1 ? runFor(selected[0]) : {}),
-        delete: () => void confirmDelete(selected),
-      },
-    });
 
   const columns: GridColDef<Product>[] = [
     {

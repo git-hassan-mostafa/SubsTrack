@@ -2,8 +2,7 @@ import { useTranslation } from "react-i18next";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
-import { useIsMultiBranchActive } from "@shared/modules/admin/branches/hooks/useIsMultiBranchActive";
-import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
+import { useCanPickBranch } from "@shared/modules/admin/branches/hooks/useCanPickBranch";
 import { useBranchSlice } from "@shared/state/hooks/useBranchSlice";
 
 const NO_BRANCH = "";
@@ -25,12 +24,11 @@ export function BranchPicker({
   label,
 }: BranchPickerProps) {
   const { t } = useTranslation();
-  const user = useAuthSlice((s) => s.user);
   const activeBranches = useActiveBranches();
   const branches = useBranchSlice((s) => s.items);
-  const isMultiBranchActive = useIsMultiBranchActive();
+  const canPick = useCanPickBranch();
 
-  if (!user || user.branchId !== null || !isMultiBranchActive) return null;
+  if (!canPick) return null;
 
   const inactiveCurrent =
     value !== null && !activeBranches.some((branch) => branch.id === value)

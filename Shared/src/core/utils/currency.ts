@@ -37,6 +37,21 @@ export function findCurrency(
   return currencies.find((c) => c.id === id) ?? null;
 }
 
+// A picker keeps a deactivated currency only while a record still holds it.
+export function currencyChoices(
+  currencies: readonly Currency[],
+  currentId: string | null,
+): Currency[] {
+  return currencies.filter((c) => c.active || c.id === currentId);
+}
+
+export function activeCurrencyId(
+  id: string | null,
+  currencies: readonly Currency[],
+): string | null {
+  return id !== null && currencies.some((c) => c.id === id && c.active) ? id : null;
+}
+
 // Currency to use when displaying a historical payment amount.
 // Clones the current Currency but pins ratePerUsd to the row's frozen
 // snapshot, so USD equivalents don't drift when the live rate is later edited.

@@ -7,7 +7,7 @@ import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { COLORS } from "@/src/shared/constants";
 import {
-  partialOutcome,
+  amountCollectedView,
   type PaymentMode,
 } from "@shared/modules/ledger/utils/amountCollected";
 
@@ -17,11 +17,9 @@ interface Props {
   amountPaid: number | null;
   onAmountPaidChange: (amount: number | null) => void;
   currencyId: string | null;
-  amountDue: number | null;
+  due: number;
   formatAmount: (amount: number) => string;
   onFocusClearError?: () => void;
-  partialDisabled?: boolean;
-  allowDebt?: boolean;
 }
 
 // How much of a bill is handed over now; the rule is Shared `amountCollected`.
@@ -31,41 +29,26 @@ export function AmountCollectedSection({
   amountPaid,
   onAmountPaidChange,
   currencyId,
-  amountDue,
+  due,
   formatAmount,
   onFocusClearError,
-  partialDisabled = false,
-  allowDebt = false,
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const outcome = partialOutcome(amountDue, amountPaid);
-
-  const modes: PaymentMode[] = allowDebt
-    ? ["full", "partial", "debt"]
-    : ["full", "partial"];
-
-  const modeLabel: Record<PaymentMode, string> = {
-    full: t("payments.full_payment"),
-    partial: t("payments.partial_payment"),
-    debt: t("payments.no_payment"),
-  };
+  const view = amountCollectedView(paymentMode, due, amountPaid);
+  const outcome = view.outcome;
 
   return (
     <View className="mb-4">
       <View className="flex-row gap-6">
-        {modes.map((mode) => {
-          const isSelected = paymentMode === mode;
-          const isDisabled = mode === "partial" && partialDisabled;
+        {view.options.map((option) => {
+          const isSelected = paymentMode === option.mode;
           return (
             <PressableOpacity
-              key={mode}
-              onPress={() => {
-                if (isDisabled) return;
-                onPaymentModeChange(mode);
-              }}
-              disabled={isDisabled}
-              className={`flex-row items-center gap-2 ${isDisabled ? "opacity-40" : ""}`}
+              key={option.mode}
+              onPress={() => onPaymentModeChange(option.mode)}
+              disabled={option.disabled}
+              className={`flex-row items-center gap-2 ${option.disabled ? "opacity-40" : ""}`}
             >
               <View
                 className={`w-4 h-4 rounded-full border-2 items-center justify-center ${isSelected ? "border-primary" : "border-gray-400"}`}
@@ -74,12 +57,14 @@ export function AmountCollectedSection({
                   <View className="w-2 h-2 rounded-full bg-primary" />
                 ) : null}
               </View>
-              <Text className="text-sm text-gray-700">{modeLabel[mode]}</Text>
+              <Text className="text-sm text-gray-700">
+                {t(option.labelKey)}
+              </Text>
             </PressableOpacity>
           );
         })}
       </View>
-      {partialDisabled ? (
+      {view.partialLocked ? (
         <Text className="text-xs text-gray-400 mt-1">
           {t("payments.enter_amount_to_enable_partial")}
         </Text>

@@ -1,4 +1,5 @@
-import type { Sale } from "@shared/core/types";
+import type { Customer, Sale } from "@shared/core/types";
+import { canSendWhatsApp } from "@shared/core/utils/whatsappLink";
 
 export interface InvoiceRecipientRow {
   customerId: string | null;
@@ -16,10 +17,27 @@ export const INVOICE_UNREACHABLE_KEYS = {
   no_phone: "invoice.no_phone",
 } as const;
 
-// Same reduction openWhatsApp does, so a field holding "-" or "n/a" reads as
-// "cannot send" instead of producing a broken wa.me link.
-function hasDialableDigits(phone: string | null): boolean {
-  return (phone ?? "").replace(/\D/g, "").length > 0;
+export interface ContactRecipient {
+  name: string;
+  phone: string | null;
+}
+
+export function customerRecipient(
+  customer: Pick<Customer, "name" | "phoneNumber">,
+): ContactRecipient {
+  return { name: customer.name, phone: customer.phoneNumber };
+}
+
+export function saleRecipient(sale: Pick<Sale, "customer">): ContactRecipient | null {
+  return sale.customer ? customerRecipient(sale.customer) : null;
+}
+
+// A walk-in sale has nobody to send to; a customer may just lack a number.
+export function sendBlockedKey(
+  to: Pick<ContactRecipient, "phone"> | null | undefined,
+): string | null {
+  if (!to) return INVOICE_UNREACHABLE_KEYS.no_customer;
+  return canSendWhatsApp(to.phone) ? null : INVOICE_UNREACHABLE_KEYS.no_phone;
 }
 
 export function resolveInvoiceRecipient(
@@ -31,7 +49,7 @@ export function resolveInvoiceRecipient(
   if (rows.some((r) => r.customerId !== first.customerId)) {
     return { ok: false, reason: "mixed" };
   }
-  if (!hasDialableDigits(first.phone)) return { ok: false, reason: "no_phone" };
+  if (!canSendWhatsApp(first.phone)) return { ok: false, reason: "no_phone" };
   return { ok: true, name: first.customerName ?? "", phone: first.phone! };
 }
 

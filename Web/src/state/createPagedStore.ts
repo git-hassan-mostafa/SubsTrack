@@ -1,10 +1,12 @@
 import { create, type StoreApi, type UseBoundStore } from "zustand";
 import type { BranchFilter } from "@shared/core/constants";
 import type { Page, PageWindow } from "@shared/core/types";
+import { periodTotalUsd } from "@shared/modules/ledger/utils/monthTotals";
+import { readAllPages } from "@shared/shared/hooks/loadAllPages";
 import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
 
-export const DEFAULT_PAGE_SIZE = 25;
-export const PAGE_SIZE_OPTIONS = [25, 50, 100];
+export const DEFAULT_PAGE_SIZE = 10;
+export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 export const EXPORT_PAGE_SIZE = 500;
 
 export interface PagedQuery<F> {
@@ -46,7 +48,12 @@ export type PagedStore<T, F, M = undefined> = UseBoundStore<StoreApi<PagedState<
 // Live money in the whole filter, not the page; null while only voids are shown.
 export type PeriodTotal = number | null;
 
-export type PageFetcher<T, F, M> = (query: PagedQuery<F>) => Promise<PagedResult<T, M>>;
+export type PageReader<T, F> = (query: PagedQuery<F>, window: PageWindow) => Promise<Page<T>>;
+
+export type PageReaderWithMeta<T, F, M> = (
+  query: PagedQuery<F>,
+  window: PageWindow,
+) => Promise<PagedResult<T, M>>;
 
 export type RowPatch = "patched" | "added" | "stale" | "skipped";
 
@@ -59,18 +66,37 @@ export interface PagedStoreOptions<T, F> {
   fits?: RowFit<T, F>;
 }
 
-export function pageWindow(query: PagedQuery<unknown>): PageWindow {
+function pageWindow(query: PagedQuery<unknown>): PageWindow {
   return { offset: query.page * query.pageSize, limit: query.pageSize };
+}
+
+// The same reader serves the table page and an export over every page.
+export function readEveryPage<T, F>(
+  read: PageReader<T, F>,
+  query: PagedQuery<F>,
+  pageSize = EXPORT_PAGE_SIZE,
+): Promise<T[]> {
+  return readAllPages((window) => read(query, window), pageSize);
+}
+
+// Live money over the whole filter rides with the page; a voids-only view has none.
+export async function withPeriodTotal<T>(
+  page: Promise<Page<T>>,
+  readMonthly: () => Promise<Record<string, number>>,
+  onlyVoided: boolean,
+): Promise<PagedResult<T, PeriodTotal>> {
+  const [rows, monthly] = await Promise.all([page, onlyVoided ? {} : readMonthly()]);
+  return { ...rows, meta: periodTotalUsd(monthly, onlyVoided) };
 }
 
 // One web table's query and its rows; both survive leaving the page.
 export function createPagedStore<T extends { id: string }, F>(
-  fetchPage: (query: PagedQuery<F>) => Promise<Page<T>>,
+  read: PageReader<T, F>,
   filters: F,
   options: PagedStoreOptions<T, F> = {},
 ) {
   return createPagedStoreWithMeta<T, F, undefined>(
-    async (query) => ({ ...(await fetchPage(query)), meta: undefined }),
+    async (query, window) => ({ ...(await read(query, window)), meta: undefined }),
     filters,
     undefined,
     options,
@@ -79,7 +105,7 @@ export function createPagedStore<T extends { id: string }, F>(
 
 // `meta` rides with each page (the customer tab counts) and is reset with it.
 export function createPagedStoreWithMeta<T extends { id: string }, F, M>(
-  fetchPage: PageFetcher<T, F, M>,
+  read: PageReaderWithMeta<T, F, M>,
   filters: F,
   initialMeta: M,
   { rereadOnOpen = false, fits }: PagedStoreOptions<T, F> = {},
@@ -115,7 +141,7 @@ export function createPagedStoreWithMeta<T extends { id: string }, F, M>(
       const { query } = get();
       set({ loading: true, stale: false, error: null });
       try {
-        const page = await fetchPage(query);
+        const page = await read(query, pageWindow(query));
         if (request !== latestRequest || isStaleEpoch(epoch)) return;
         if (page.rows.length === 0 && page.total > 0 && query.page > 0) {
           const lastPage = Math.ceil(page.total / query.pageSize) - 1;

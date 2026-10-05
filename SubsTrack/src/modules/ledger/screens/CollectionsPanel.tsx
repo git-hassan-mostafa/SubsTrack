@@ -34,7 +34,7 @@ import {
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { CustomerPicker } from "@/src/modules/customer/customers";
 import { useSendInvoice } from "@/src/modules/invoicing";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { formatMoney } from "@shared/core/utils/currency";
 import type {
   CollectionItem,
   CollectionListItem,
@@ -55,8 +55,7 @@ import {
 import { useCollectionsListStore } from "@shared/modules/ledger/state/collectionsListStore";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useUserSlice } from "@shared/state/hooks/useUserSlice";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { CollectionCard } from "../components/CollectionCard";
 import { CollectionDetailSheet } from "../components/CollectionDetailSheet";
@@ -123,9 +122,7 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
 
   const users = useUserSlice((s) => s.items);
   const getUsers = useUserSlice((s) => s.getUsers);
-  const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
-  const displayCurrency = findCurrency(currencies, displayCurrencyId);
+  const displayCurrency = useDisplayCurrency();
   const branchFilter = useEffectiveBranchFilter();
   const { canSend, sendCollectionInvoice } = useSendInvoice();
 

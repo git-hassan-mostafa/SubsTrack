@@ -125,7 +125,6 @@ export function ExpenseFormSheet({ onDismiss, onCreated }: Props) {
         label={t("branches.branch_label")}
         value={branchId}
         onChange={setBranchId}
-        nullable={user?.branchId === null}
         nullLabel={t("expenses.company_wide")}
       />
 

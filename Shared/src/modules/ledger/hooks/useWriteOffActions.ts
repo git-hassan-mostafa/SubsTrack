@@ -4,7 +4,7 @@ import type { Charge, OpenItem } from "@shared/core/types";
 import { confirm } from "@shared/shared/lib/confirm";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { owedUsd } from "@shared/modules/ledger/utils/debtRule";
@@ -29,12 +29,11 @@ export function useWriteOffActions() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
   const writeOffCharge = useLedgerSlice((s) => s.writeOffCharge);
   const writeOffCharges = useLedgerSlice((s) => s.writeOffCharges);
   const revertWriteOff = useLedgerSlice((s) => s.revertWriteOff);
 
-  const target = findCurrency(currencies, displayCurrencyId);
+  const target = useDisplayCurrency();
 
   const writeOff = useCallback(
     async (item: WriteOffTarget) => {

@@ -1,34 +1,24 @@
 import type { ActiveFilter, PageWindow, Product } from "@shared/core/types";
 import productService from "@shared/modules/admin/products/services/ProductService";
-import type { ProductPageQuery } from "@shared/modules/admin/products/utils/types";
 import { matchesActiveFilter } from "@shared/core/utils/activeFilter";
-import { readAllPages } from "@shared/shared/hooks/loadAllPages";
 import { sharedRowMatchesFilter } from "@shared/shared/lib/branchFilter";
-import {
-  createPagedStore,
-  EXPORT_PAGE_SIZE,
-  pageWindow,
-  type PagedQuery,
-} from "./createPagedStore";
+import { createPagedStore, readEveryPage, type PagedQuery } from "./createPagedStore";
 
 export interface ProductFilters {
   status: ActiveFilter;
 }
 
-function toProductQuery(
-  query: PagedQuery<ProductFilters>,
-  window: PageWindow,
-): ProductPageQuery {
-  return {
+function readProductPage(query: PagedQuery<ProductFilters>, window: PageWindow) {
+  return productService.getProductPage({
     ...window,
     search: query.search,
     status: query.filters.status,
     branch: query.branch,
-  };
+  });
 }
 
 export const useProductsTable = createPagedStore<Product, ProductFilters>(
-  (query) => productService.getProductPage(toProductQuery(query, pageWindow(query))),
+  readProductPage,
   { status: "all" },
   {
     fits: (product, query) =>
@@ -38,10 +28,7 @@ export const useProductsTable = createPagedStore<Product, ProductFilters>(
 );
 
 export function readAllProducts(query: PagedQuery<ProductFilters>): Promise<Product[]> {
-  return readAllPages(
-    (window) => productService.getProductPage(toProductQuery(query, window)),
-    EXPORT_PAGE_SIZE,
-  );
+  return readEveryPage(readProductPage, query);
 }
 
 // A stock write from outside the page dates it; it re-reads once shown.

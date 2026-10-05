@@ -7,16 +7,16 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { CollectionListItem } from "@shared/core/types";
-import { findCurrency, formatMoney, formatMoneyPair, snapshotCurrency } from "@shared/core/utils/currency";
+import { formatMoney, formatMoneyPair, snapshotCurrency } from "@shared/core/utils/currency";
 import { formatDateTime } from "@shared/core/utils/date";
-import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
+import { canSendWhatsApp } from "@shared/core/utils/whatsappLink";
 import { collectionService } from "@shared/modules/ledger/services/CollectionService";
 import { collectionItemLabel, collectionLabel } from "@shared/modules/ledger/utils/collectionLabel";
 import { hasCollectionFilter } from "@shared/modules/ledger/utils/collectionFilters";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { MoneyText } from "@/shared/components/MoneyText";
 import { StatusChip } from "@/shared/components/StatusChip";
@@ -60,9 +60,9 @@ export function MoneyReceivedPage() {
   const setFilters = paged.setFilters;
   const reload = paged.reload;
   const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
   const userName = useUserNames();
-  const branchColumn = useBranchColumn<CollectionListItem>(t("web.money_received.no_branch"));
+  const branchColumn = useBranchColumn<CollectionListItem>(t("branches.unassigned"));
   const sendReceipt = useSendCollectionReceipt();
   const sale = useSaleDoors({ onChanged: reload });
   const bill = useBillDialog({ onChanged: reload, onOpenSale: sale.openSale });
@@ -88,7 +88,7 @@ export function MoneyReceivedPage() {
   }, [sendReceipt]);
 
   const rowActions = useCallback((row: CollectionListItem): TableAction[] =>
-    toTableActions(paymentMenuItems(row, { sendable: whatsAppChatUrl(row.customerPhone) !== null }), t, {
+    toTableActions(paymentMenuItems(row, { sendable: canSendWhatsApp(row.customerPhone) }), t, {
       icons: PAYMENT_ACTION_ICONS,
       run: {
         details: () => setDetail(row),

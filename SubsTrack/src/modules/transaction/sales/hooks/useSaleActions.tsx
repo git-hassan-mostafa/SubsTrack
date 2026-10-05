@@ -11,7 +11,6 @@ import {
   toSelectionActions,
 } from "@/src/shared/lib/menuActions";
 import { SALE_ACTION_ICONS, SALE_RENDER_ICONS } from "./saleActionIcons";
-import { useSaleInvoiceSend } from "./useSaleInvoiceSend";
 import { BillHistorySheet, useCollectSheet } from "@/src/modules/ledger";
 import { saleTitle } from "@shared/core/utils/receiptId";
 import {
@@ -51,9 +50,8 @@ export function useSaleActions({
   onSelectionDone,
 }: Options): SaleActions {
   const { t } = useTranslation();
-  const { canSend, sendSaleInvoice } = useSendInvoice();
+  const { sendSales } = useSendInvoice();
   const { isAdmin } = useAuth();
-  const sendInvoices = useSaleInvoiceSend();
   const collectSheet = useCollectSheet({ onCollected });
   const [menuSale, setMenuSale] = useState<Sale | null>(null);
   const [historySale, setHistorySale] = useState<Sale | null>(null);
@@ -71,16 +69,11 @@ export function useSaleActions({
       view: () => onView(sale),
       edit: () => onEdit(sale),
       collect: () => handleCollect(sale),
-      invoice: () =>
-        void sendSaleInvoice({
-          phone: sale.customer?.phoneNumber ?? null,
-          customerName: sale.customer?.name ?? null,
-          sale,
-        }),
+      invoice: () => void sendSales([sale]),
       history: () => setHistorySale(sale),
       void: () => setVoidTarget(saleVoidTarget([sale])),
     };
-    return toActionMenuItems(saleMenuItems(sale, { isAdmin, canSend }), t, {
+    return toActionMenuItems(saleMenuItems(sale, { isAdmin }), t, {
       icons: SALE_ACTION_ICONS,
       renderIcons: SALE_RENDER_ICONS,
       labelValues: { amount: "" },
@@ -102,7 +95,7 @@ export function useSaleActions({
         renderIcons: SALE_RENDER_ICONS,
         run: {
           invoice: () =>
-            void sendInvoices(selected).then((sent) => {
+            void sendSales(selected).then((sent) => {
               if (sent) onSelectionDone?.();
             }),
           void: () => requestVoid(selected),

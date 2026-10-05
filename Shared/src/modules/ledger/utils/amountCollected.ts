@@ -18,6 +18,45 @@ export function collectedFor(
   return due;
 }
 
+export interface PaymentModeOption {
+  mode: PaymentMode;
+  labelKey: string;
+  disabled: boolean;
+}
+
+export interface AmountCollectedView {
+  options: PaymentModeOption[];
+  partialLocked: boolean;
+  outcome: PartialOutcome | null;
+}
+
+const PAYMENT_MODES: PaymentMode[] = ["full", "partial", "debt"];
+
+const MODE_LABEL_KEYS: Record<PaymentMode, string> = {
+  full: "payments.full_payment",
+  partial: "payments.partial_payment",
+  debt: "payments.no_payment",
+};
+
+// A partial needs a positive total to be a part of; only partial reads an outcome.
+export function amountCollectedView(
+  mode: PaymentMode,
+  due: number,
+  typed: number | null,
+): AmountCollectedView {
+  const partialLocked = !(due > 0);
+  return {
+    options: PAYMENT_MODES.map((option) => ({
+      mode: option,
+      labelKey: MODE_LABEL_KEYS[option],
+      disabled: option === "partial" && partialLocked,
+    })),
+    partialLocked,
+    outcome:
+      mode === "partial" && !partialLocked ? partialOutcome(due, typed) : null,
+  };
+}
+
 // What a typed partial amount leaves on the bill; null until both are known.
 export function partialOutcome(
   due: number | null,

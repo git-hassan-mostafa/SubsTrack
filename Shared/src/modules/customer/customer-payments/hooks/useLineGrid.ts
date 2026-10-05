@@ -12,9 +12,10 @@ import type { LineGates } from "@shared/modules/customer/customer-payments/utils
 import { lastBillableMonth } from "@shared/modules/customer/customer-payments/utils/payWindow";
 import { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
+import { pricePerPeriod } from "@shared/modules/admin/plans/utils/planLabels";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { usePaymentSlice } from "@shared/state/hooks/usePaymentSlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 
 const EMPTY_GRID: MonthEntry[] = [];
 const EMPTY_MONTHS: string[] = [];
@@ -35,7 +36,7 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
   const buildGrids = usePaymentSlice((s) => s.buildGrids);
   const resetPayments = usePaymentSlice((s) => s.reset);
   const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrency = findCurrency(currencies, useDisplayCurrencyId());
+  const displayCurrency = useDisplayCurrency();
 
   const lines = useMemo(
     () => customer.customerPlans ?? [],
@@ -112,10 +113,7 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
       findCurrency(currencies, linePrice.currencyId),
       displayCurrency,
     );
-    const withPeriod =
-      linePrice.durationMonths > 1
-        ? `${amount} / ${t("plans.n_months", { count: linePrice.durationMonths })}`
-        : `${amount} ${t("plans.per_month_suffix")}`;
+    const withPeriod = pricePerPeriod(amount, linePrice.durationMonths, t);
     return linePrice.kind === "special"
       ? `${withPeriod} · ${t("subscriptions.special_badge")}`
       : withPeriod;

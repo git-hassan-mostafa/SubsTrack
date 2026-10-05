@@ -14,12 +14,11 @@ import Typography from "@mui/material/Typography";
 import NoteAddOutlined from "@mui/icons-material/NoteAddOutlined";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import type { DebtSummary } from "@shared/core/types";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { formatMoney } from "@shared/core/utils/currency";
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { AllDebtsTab } from "./AllDebtsTab";
 import { DebtHistoryTab } from "./DebtHistoryTab";
@@ -68,7 +67,7 @@ export function DebtsPage() {
             aria-label={t("web.debts.tabs")}
             sx={{ flexGrow: 1, minWidth: 0 }}
           >
-            <Tab value="debtors" label={t("web.debts.debtors_tab")} />
+            <Tab value="debtors" label={t("debts.tab_debtors")} />
             <Tab value="all" label={t("debts.all_debts_title")} />
             <Tab value="history" label={t("debts.history_title")} />
           </Tabs>
@@ -106,8 +105,7 @@ export function DebtsPage() {
 // Every figure is a bill still owed; the three parts add up to the total exactly.
 function DebtsSummary({ summary }: { summary: DebtSummary | null }) {
   const { t } = useTranslation();
-  const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
   const money = (usd: number) => formatMoney(usd, null, display);
   const parts = [
     { key: "months", label: t("ledger.kind_month"), usd: summary?.monthsUsd ?? 0 },

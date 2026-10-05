@@ -90,7 +90,6 @@ export function ServiceFormDialog({ service, onClose, onSaved }: ServiceFormDial
       <BranchPicker
         value={form.branchId}
         onChange={(branchId) => change({ branchId })}
-        nullable={user?.branchId === null}
         nullLabel={t("branches.shared_all_branches")}
       />
       <CurrencyInput

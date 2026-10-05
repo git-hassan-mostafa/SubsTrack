@@ -21,7 +21,7 @@ import {
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 
 export interface SingleCollectForm {
   item: OpenItem;
@@ -67,7 +67,7 @@ export interface CollectForm {
 // The collect sheet's state; canSubmit is validity only, never the saving flag.
 export function useCollectForm(owed: OpenItem[], singleItem: OpenItem | null): CollectForm {
   const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
 
   const groups = useMemo(
     () => (singleItem ? [] : groupOwedByCurrency(owed, currencies)),

@@ -277,9 +277,12 @@ export const useCollectionsListStore = create<CollectionsListState>()(
           state.loading = true;
           state.error = null;
         });
+        const targets = ids.map(
+          (id) => get().items.find((c) => c.id === id) ?? { id },
+        );
         const voided = await getStore()
           .getState()
-          .ledger.voidCollections(ids, voidedBy, reason);
+          .ledger.voidCollections(targets, voidedBy, reason);
         const global = getStore().getState();
         if (voided === null) {
           const message = global.ledger.error;

@@ -7,16 +7,11 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { OpenItem } from "@shared/core/types";
-import {
-  findCurrency,
-  formatMoneyPair,
-  formatPaidFraction,
-  snapshotCurrency,
-} from "@shared/core/utils/currency";
+import { formatMoneyPair, formatPaidFraction, snapshotCurrency } from "@shared/core/utils/currency";
 import { formatDate } from "@shared/core/utils/date";
 import { debtItemFacts } from "@shared/modules/transaction/debts/utils/debtItemView";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { MoneyText } from "@/shared/components/MoneyText";
 import { StatusChip } from "@/shared/components/StatusChip";
 import { LocalTable } from "@/shared/table/LocalTable";
@@ -55,7 +50,7 @@ export function DebtItemsTable({
 }: DebtItemsTableProps) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
   const { rowActions, openBill, loadingItemId } = doors;
   const rows = useMemo<DebtRow[]>(() => items.map((item) => ({ ...item, id: debtRowId(item) })), [items]);
 

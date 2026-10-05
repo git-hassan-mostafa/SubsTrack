@@ -13,9 +13,9 @@ import Tooltip from "@mui/material/Tooltip";
 import CloseIcon from "@mui/icons-material/Close";
 import WhatsApp from "@mui/icons-material/WhatsApp";
 import type { Collection, Sale } from "@shared/core/types";
-import { findCurrency, formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
+import { formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
 import { receiptId, saleTitle } from "@shared/core/utils/receiptId";
-import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
+import { saleRecipient, sendBlockedKey } from "@shared/modules/invoicing/utils/invoiceRecipient";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useBillPayments } from "@shared/modules/ledger/hooks/useBillPayments";
 import {
@@ -25,7 +25,7 @@ import {
 } from "@shared/modules/transaction/sales/utils/saleView";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { DialogHeading } from "@/shared/components/DialogHeading";
 import { InfoRows } from "@/shared/components/InfoRows";
 import { RowActionsMenu } from "@/shared/table/RowActionsMenu";
@@ -54,7 +54,7 @@ export function SaleReceiptDialog({ sale, onClose, onSend, onEdit, onCollect, on
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
   const userName = useUserNames();
   const bill = useBillPayments(sale.chargeId, true);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -64,10 +64,9 @@ export function SaleReceiptDialog({ sale, onClose, onSend, onEdit, onCollect, on
   const collected = sale.chargeId ? bill.collected : sale.amountPaid;
   const facts = saleReceiptFacts(sale, collected);
   const canCollect = facts.canCollect && !!onCollect;
-  const phone = sale.customer?.phoneNumber ?? null;
-  const sendable = whatsAppChatUrl(phone) !== null;
+  const recipient = saleRecipient(sale);
+  const blockedKey = sendBlockedKey(recipient);
   const name = sale.customer?.name ?? null;
-  const recipient = sale.customer ? { name: sale.customer.name, phone } : null;
   const title = `#${receiptId(sale.id)}`;
   const loading = !!sale.chargeId && bill.loading;
 
@@ -141,9 +140,9 @@ export function SaleReceiptDialog({ sale, onClose, onSend, onEdit, onCollect, on
       <DialogActions sx={{ px: 3, py: 2 }}>
         <Button onClick={onClose}>{t("common.close")}</Button>
         {facts.voided ? null : (
-          <Tooltip title={sendable ? "" : t(sale.customer ? "invoice.no_phone" : "invoice.no_customer")}>
+          <Tooltip title={blockedKey ? t(blockedKey) : ""}>
             <span>
-              <Button variant="outlined" startIcon={<WhatsApp />} disabled={!sendable} onClick={() => onSend(sale)}>
+              <Button variant="outlined" startIcon={<WhatsApp />} disabled={blockedKey !== null} onClick={() => onSend(sale)}>
                 {t("invoice.send_invoice_whatsapp")}
               </Button>
             </span>

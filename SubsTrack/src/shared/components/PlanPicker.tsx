@@ -1,11 +1,10 @@
 import { useTranslation } from "react-i18next";
 import { Dropdown, type DropdownOption } from "./Dropdown";
 import type { Plan } from "@shared/core/types";
-import { findCurrency } from "@shared/core/utils/currency";
 import { planPriceSublabel } from "@shared/modules/admin/plans/utils/planLabels";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 
 interface PlanPickerProps {
   value: string | null;
@@ -38,8 +37,7 @@ export function PlanPicker({
   const { t } = useTranslation();
   const plans = usePlanSlice((s) => s.items);
   const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
-  const displayCurrency = findCurrency(currencies, displayCurrencyId);
+  const displayCurrency = useDisplayCurrency();
 
   const options: DropdownOption<string>[] = plans
     .filter((p: Plan) => p.branchId === null || p.branchId === branchId)

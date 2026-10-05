@@ -7,16 +7,19 @@ import { Button } from "@/src/shared/components/Button";
 import { InfoRows } from "@/src/shared/components/InfoRows";
 import type { Charge, Collection } from "@shared/core/types";
 import {
-  findCurrency,
   formatMoney,
   formatMoneyPair,
   snapshotCurrency,
 } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
+import {
+  sendBlockedKey,
+  type ContactRecipient,
+} from "@shared/modules/invoicing/utils/invoiceRecipient";
 import { COLORS } from "@/src/shared/constants";
 import { billLook } from "@shared/modules/ledger/utils/billState";
 import {
@@ -43,7 +46,7 @@ interface Props {
   charge: Charge | null;
   label: string;
   customerName?: string | null;
-  recipient?: { name: string; phone: string | null } | null;
+  recipient?: ContactRecipient | null;
   onCollect?: (charge: Charge) => void;
   onVoidBill?: (charge: Charge) => Promise<boolean>;
   onWriteOff?: (charge: Charge, balance: number) => void;
@@ -67,7 +70,6 @@ export function BillSheet({
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const userName = useUserNames();
-  const displayCurrencyId = useDisplayCurrencyId();
   const { isAdmin } = useAuth();
   const { sendBillInvoice } = useSendInvoice();
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -90,7 +92,7 @@ export function BillSheet({
   if (!charge) return null;
 
   const source = snapshotCurrency(charge, currencies);
-  const display = findCurrency(currencies, displayCurrencyId);
+  const display = useDisplayCurrency();
   const money = (v: number) => formatMoney(v, source, source);
 
   const facts = billFacts(charge, collected);
@@ -182,7 +184,7 @@ export function BillSheet({
 
           {!voided && recipient ? (
             <SendOnWhatsAppButton
-              phone={recipient.phone}
+              blockedKey={sendBlockedKey(recipient)}
               label={t("invoice.send_bill_whatsapp")}
               onPress={() =>
                 void sendBillInvoice({

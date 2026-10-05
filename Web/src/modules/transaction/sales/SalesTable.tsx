@@ -6,14 +6,14 @@ import Typography from "@mui/material/Typography";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { BranchFilter } from "@shared/core/constants";
 import type { Customer, Sale } from "@shared/core/types";
-import { findCurrency, formatMoney, formatMoneyPair, snapshotCurrency } from "@shared/core/utils/currency";
+import { formatMoney, formatMoneyPair, snapshotCurrency } from "@shared/core/utils/currency";
 import { formatDateTime } from "@shared/core/utils/date";
 import { receiptId, saleTitle } from "@shared/core/utils/receiptId";
 import { hasSaleFilter } from "@shared/modules/transaction/sales/utils/saleFilters";
 import { saleFacts } from "@shared/modules/transaction/sales/utils/saleView";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { MoneyText } from "@/shared/components/MoneyText";
 import { DataTable } from "@/shared/table/DataTable";
@@ -42,9 +42,9 @@ export function SalesTable({ table, branch, customerScoped = false, customer = n
   const query = paged.query;
   const setFilters = paged.setFilters;
   const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
   const userName = useUserNames();
-  const branchColumn = useBranchColumn<Sale>(t("web.money_received.no_branch"));
+  const branchColumn = useBranchColumn<Sale>(t("branches.unassigned"));
   const doors = useSaleDoors();
   const { openReceipt } = doors;
 

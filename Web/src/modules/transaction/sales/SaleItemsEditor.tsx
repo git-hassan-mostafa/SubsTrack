@@ -4,7 +4,6 @@ import type { SvgIconComponent } from "@mui/icons-material";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
-import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -21,10 +20,9 @@ import type { CartRow } from "@shared/modules/transaction/sales/utils/saleCart";
 import { ProductFormDialog } from "@/modules/admin/products/ProductFormDialog";
 import { ServiceFormDialog } from "@/modules/admin/services/ServiceFormDialog";
 import { CurrencyInput } from "@/shared/components/CurrencyInput";
+import { CurrencySelect } from "@/shared/components/CurrencySelect";
 import { CatalogPicker } from "./CatalogPicker";
 import { QuantityField } from "./QuantityField";
-
-const USD_OPTION = "";
 
 const KIND_ICON: Record<SaleLineType, SvgIconComponent> = {
   product: Inventory2Outlined,
@@ -37,7 +35,6 @@ type NewItemFor = { kind: SaleLineType; rowKey: string } | null;
 export function SaleItemsEditor({ cart }: { cart: SaleCart }) {
   const { t } = useTranslation();
   const [newItemFor, setNewItemFor] = useState<NewItemFor>(null);
-  const currencyOptions = cart.currencies.filter((c) => c.active || c.id === cart.currencyId);
 
   const productCreated = (product: Product) => {
     if (newItemFor) cart.selectProduct(newItemFor.rowKey, product);
@@ -60,21 +57,14 @@ export function SaleItemsEditor({ cart }: { cart: SaleCart }) {
             {t("sales.items_section_subtitle")}
           </Typography>
         </Box>
-        <TextField
-          select
+        <CurrencySelect
           size="small"
           label={t("sales.sale_currency_label")}
-          value={cart.currencyId ?? USD_OPTION}
-          onChange={(event) => cart.changeCurrency(event.target.value === USD_OPTION ? null : event.target.value)}
+          value={cart.currencyId}
+          onChange={cart.changeCurrency}
+          currencies={cart.currencies}
           sx={{ width: 180 }}
-        >
-          <MenuItem value={USD_OPTION}>USD</MenuItem>
-          {currencyOptions.map((currency) => (
-            <MenuItem key={currency.id} value={currency.id}>
-              {currency.code} · {currency.name}
-            </MenuItem>
-          ))}
-        </TextField>
+        />
       </Stack>
       {cart.rows.map((row) => (
         <SaleLineRow

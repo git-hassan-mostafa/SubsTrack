@@ -12,6 +12,10 @@ import {
 } from "@/src/modules/customer/customers";
 import { AmountCollectedSection } from "@/src/modules/ledger";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
+import {
+  customerRecipient,
+  sendBlockedKey,
+} from "@shared/modules/invoicing/utils/invoiceRecipient";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import type { Customer, Sale } from "@shared/core/types";
 import { formatMoney } from "@shared/core/utils/currency";
@@ -35,19 +39,13 @@ export function SaleFormSheet({
   onUpdated,
 }: Props) {
   const { t } = useTranslation();
-  const { sendSaleInvoice } = useSendInvoice();
+  const { sendSales } = useSendInvoice();
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
   const form = useSaleForm({
     sale,
     initialCustomer,
-    onSaved: async (saved, send, buyer) => {
-      if (send && buyer) {
-        await sendSaleInvoice({
-          phone: buyer.phoneNumber,
-          customerName: buyer.name,
-          sale: saved,
-        });
-      }
+    onSaved: async (saved, send) => {
+      if (send) await sendSales([saved]);
       if (sale) onUpdated?.(saved);
       else onCreated?.(saved);
       onDismiss();
@@ -131,11 +129,9 @@ export function SaleFormSheet({
               amountPaid={form.amountPaid}
               onAmountPaidChange={form.setAmountPaid}
               currencyId={cart.currencyId}
-              amountDue={saleTotal > 0 ? saleTotal : null}
+              due={saleTotal}
               formatAmount={form.money}
               onFocusClearError={clearError}
-              partialDisabled={saleTotal <= 0}
-              allowDebt
             />
           </>
         ) : null}
@@ -156,8 +152,9 @@ export function SaleFormSheet({
           fullWidth
         />
         <SendOnWhatsAppButton
-          phone={hasCustomer ? customer?.phoneNumber : null}
-          reason={hasCustomer ? undefined : t("invoice.no_customer")}
+          blockedKey={sendBlockedKey(
+            customer ? customerRecipient(customer) : null,
+          )}
           label={t("invoice.save_and_send_whatsapp")}
           onPress={() => void form.save(true)}
           loading={busyOn === "send"}

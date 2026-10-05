@@ -5,8 +5,7 @@ import AccountTreeOutlined from "@mui/icons-material/AccountTreeOutlined";
 import InputAdornment from "@mui/material/InputAdornment";
 import { BRANCH_FILTER_UNASSIGNED } from "@shared/core/constants";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
-import { useIsMultiBranchActive } from "@shared/modules/admin/branches/hooks/useIsMultiBranchActive";
-import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
+import { useCanPickBranch } from "@shared/modules/admin/branches/hooks/useCanPickBranch";
 import { useUiPrefStore } from "@shared/shared/lib/uiPrefStore";
 
 const ALL_BRANCHES = "";
@@ -14,13 +13,12 @@ const ALL_BRANCHES = "";
 // Tenant-wide users with 2+ active branches only; RLS pins everyone else.
 export function BranchSelector() {
   const { t } = useTranslation();
-  const user = useAuthSlice((s) => s.user);
   const activeBranches = useActiveBranches();
-  const isMultiBranchActive = useIsMultiBranchActive();
+  const canPick = useCanPickBranch();
   const currentBranchId = useUiPrefStore((s) => s.currentBranchId);
   const setCurrentBranchId = useUiPrefStore((s) => s.setCurrentBranchId);
 
-  if (!user || user.branchId !== null || !isMultiBranchActive) return null;
+  if (!canPick) return null;
 
   const filtered = currentBranchId !== null;
 

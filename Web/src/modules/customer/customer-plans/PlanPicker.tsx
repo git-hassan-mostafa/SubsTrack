@@ -3,11 +3,10 @@ import Divider from "@mui/material/Divider";
 import ListItemText from "@mui/material/ListItemText";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
-import { findCurrency } from "@shared/core/utils/currency";
 import { planPriceSublabel } from "@shared/modules/admin/plans/utils/planLabels";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 
 const NO_PLAN = "";
 const ADD_NEW = "__add_new_plan";
@@ -31,7 +30,7 @@ export function PlanPicker({
   const { t } = useTranslation();
   const plans = usePlanSlice((s) => s.items);
   const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
   const options = plans.filter((plan) => plan.branchId === null || plan.branchId === branchId);
 
   return (

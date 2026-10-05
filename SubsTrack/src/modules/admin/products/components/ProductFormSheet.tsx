@@ -54,7 +54,6 @@ export function ProductFormSheet({
   const currencies = useCurrencySlice((s) => s.items);
   const activeBranches = useActiveBranches();
 
-  const branchPickerNullable = user?.branchId === null;
 
   const [form, setForm] = useState(() =>
     productDraftOf(product ?? null, defaultNewBranchId(user, activeBranches)),
@@ -106,10 +105,8 @@ export function ProductFormSheet({
       />
 
       <BranchPicker
-        label={t("branches.branch_label") + (branchPickerNullable ? "" : " *")}
         value={form.branchId}
         onChange={(v) => setForm((p) => ({ ...p, branchId: v }))}
-        nullable={branchPickerNullable}
         nullLabel={t("branches.shared_all_branches")}
       />
 

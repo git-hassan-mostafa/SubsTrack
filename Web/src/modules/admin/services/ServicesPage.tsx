@@ -3,24 +3,17 @@ import { useTranslation } from "react-i18next";
 import Stack from "@mui/material/Stack";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Service } from "@shared/core/types";
-import { confirm } from "@shared/shared/lib/confirm";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { useServiceSlice } from "@shared/state/hooks/useServiceSlice";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { MoneyText } from "@/shared/components/MoneyText";
-import { useMoneyPair } from "@/shared/hooks/useMoneyPair";
+import { useMoneyPair } from "@shared/shared/hooks/useMoneyPair";
 import { ActiveFilterSelect } from "@/shared/table/ActiveFilterSelect";
 import { activeStatusColumn } from "@/shared/table/activeStatusColumn";
 import { DataTable } from "@/shared/table/DataTable";
+import { useCatalogRowActions } from "@/shared/table/useCatalogRowActions";
 import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
-import { toTableActions, type TableAction } from "@/shared/table/tableAction";
-import { CATALOG_ACTION_ICONS } from "@/shared/table/catalogActionIcons";
-import {
-  catalogRowActions,
-  catalogSelectionActions,
-  type CatalogActionKey,
-} from "@shared/shared/lib/catalogMenu";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
 import { readAllServices, useServicesTable } from "@/state/servicesTable";
 import { useHistoryDoor } from "@/modules/admin/audit/useHistoryDoor";
@@ -44,51 +37,20 @@ export function ServicesPage() {
   const history = useHistoryDoor("services");
   const [form, setForm] = useState<{ service: Service | null } | null>(null);
 
-  const confirmDelete = (services: Service[]) => {
-    const single = services.length === 1 ? services[0] : null;
-    return confirm({
-      title: single
-        ? t("services.delete_title")
-        : t("services.bulk_delete_title", { count: services.length }),
-      message: single
-        ? t("services.delete_message", { name: single.name })
-        : t("services.bulk_delete_message", { count: services.length }),
-      confirmLabel: t("common.delete"),
-      destructive: true,
-      onConfirm: async () => {
-        const done = single
-          ? (await deleteService(single.id)) !== null
-          : await bulkDeleteServices(services.map((s) => s.id));
-        if (done) reload();
-      },
-    });
-  };
-
-  const reactivate = async (service: Service) => {
-    const updated = await reactivateService(service.id);
-    if (updated) patchRow(updated);
-  };
-
-  const runFor = (service: Service): Partial<Record<CatalogActionKey, () => void>> => ({
-    edit: () => setForm({ service }),
-    history: () => history.open(service.id, service.name),
-    reactivate: () => void reactivate(service),
+  const { rowActions, bulkActions } = useCatalogRowActions<Service>({
+    kind: "service",
+    textKeys: "services",
+    nameValues: (service) => ({ name: service.name }),
+    remove: deleteService,
+    removeMany: bulkDeleteServices,
+    reactivate: reactivateService,
+    patchRow,
+    reload,
+    doors: (service) => ({
+      edit: () => setForm({ service }),
+      history: () => history.open(service.id, service.name),
+    }),
   });
-
-  const rowActions = (service: Service): TableAction[] =>
-    toTableActions(catalogRowActions("service", service), t, {
-      icons: CATALOG_ACTION_ICONS,
-      run: { ...runFor(service), delete: () => void confirmDelete([service]) },
-    });
-
-  const bulkActions = (selected: Service[]): TableAction[] =>
-    toTableActions(catalogSelectionActions("service", selected), t, {
-      icons: CATALOG_ACTION_ICONS,
-      run: {
-        ...(selected.length === 1 ? runFor(selected[0]) : {}),
-        delete: () => void confirmDelete(selected),
-      },
-    });
 
   const columns: GridColDef<Service>[] = [
     {

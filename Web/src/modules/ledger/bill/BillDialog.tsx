@@ -13,19 +13,19 @@ import Tooltip from "@mui/material/Tooltip";
 import CloseIcon from "@mui/icons-material/Close";
 import WhatsApp from "@mui/icons-material/WhatsApp";
 import type { Charge, Collection } from "@shared/core/types";
-import { findCurrency, formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
-import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
+import { formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
+import { sendBlockedKey, type ContactRecipient } from "@shared/modules/invoicing/utils/invoiceRecipient";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useBillPayments } from "@shared/modules/ledger/hooks/useBillPayments";
 import { billFacts, billInfoRows, billMenuItems } from "@shared/modules/ledger/utils/billView";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { InfoRows } from "@/shared/components/InfoRows";
 import { toTableActions } from "@/shared/table/tableAction";
 import { RowActionsMenu } from "@/shared/table/RowActionsMenu";
 import { BillHistoryDialog } from "@/modules/admin/audit/RecordHistoryDialog";
-import { useSendBillReceipt, type BillRecipient } from "@/modules/invoicing/useSendBillReceipt";
+import { useSendBillReceipt } from "@/modules/invoicing/useSendBillReceipt";
 import { BillPaymentsList } from "./BillPaymentsList";
 import { DialogHeading } from "@/shared/components/DialogHeading";
 import { KIND_TONE } from "@shared/modules/ledger/utils/collectionKind";
@@ -38,7 +38,7 @@ interface BillDialogProps {
   charge: Charge;
   label: string;
   customerName?: string | null;
-  recipient?: BillRecipient | null;
+  recipient?: ContactRecipient | null;
   onClose: () => void;
   onCollect?: (charge: Charge, balance: number) => void;
   onVoidBill?: (charge: Charge) => boolean | Promise<boolean>;
@@ -63,7 +63,7 @@ export function BillDialog({
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
   const userName = useUserNames();
   const sendBill = useSendBillReceipt();
   const bill = useBillPayments(charge.id, true);
@@ -72,7 +72,7 @@ export function BillDialog({
 
   const source = snapshotCurrency(charge, currencies);
   const facts = billFacts(charge, bill.collected);
-  const sendable = !!recipient && whatsAppChatUrl(recipient.phone) !== null;
+  const blockedKey = recipient ? sendBlockedKey(recipient) : null;
   const subject = customerName ?? recipient?.name ?? null;
 
   const voidBill = async () => {
@@ -154,12 +154,12 @@ export function BillDialog({
       <DialogActions sx={{ px: 3, py: 2 }}>
         <Button onClick={onClose}>{t("common.close")}</Button>
         {!facts.voided && recipient ? (
-          <Tooltip title={sendable ? "" : t("invoice.no_phone")}>
+          <Tooltip title={blockedKey ? t(blockedKey) : ""}>
             <span>
               <Button
                 variant="outlined"
                 startIcon={<WhatsApp />}
-                disabled={!sendable || bill.loading}
+                disabled={blockedKey !== null || bill.loading}
                 onClick={() => void sendBill(recipient, charge, bill.payments)}
               >
                 {t("invoice.send_bill_whatsapp")}

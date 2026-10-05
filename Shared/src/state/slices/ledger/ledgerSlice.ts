@@ -14,6 +14,7 @@ import type { BranchFilter } from "@shared/core/constants";
 import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 import { collectionService } from "@shared/modules/ledger/services/CollectionService";
 import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
+import { withCallerItems } from "@shared/modules/ledger/utils/voidedRows";
 import type { CollectInput, CollectionCorrection, CorrectCollectionInput, MultiCollectResult } from "@shared/modules/ledger/services/CollectionService";
 import type { CreateManualChargeInput, UpdateManualChargeInput } from "@shared/modules/ledger/services/ChargeService";
 import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
@@ -72,7 +73,7 @@ export interface LedgerSlice {
     reason: string | null,
   ) => Promise<Collection | null>;
   voidCollections: (
-    ids: string[],
+    collections: Pick<Collection, "id" | "items">[],
     voidedBy: string,
     reason: string | null,
   ) => Promise<Collection[] | null>;
@@ -298,11 +299,16 @@ export const createLedgerSlice: StateCreator<
       };
     },
 
-    voidCollections: async (ids, voidedBy, reason) => {
-      const voided = await run("loading", () =>
-        collectionService.voidCollections(ids, voidedBy, reason),
+    voidCollections: async (collections, voidedBy, reason) => {
+      const result = await run("loading", () =>
+        collectionService.voidCollections(
+          collections.map((c) => c.id),
+          voidedBy,
+          reason,
+        ),
       );
-      if (voided === null) return null;
+      if (result === null) return null;
+      const voided = withCallerItems(result, collections);
       for (const collection of voided) {
         get().sales.applyCollection(collection, -1);
         get().payments.applyCollection(collection, -1);

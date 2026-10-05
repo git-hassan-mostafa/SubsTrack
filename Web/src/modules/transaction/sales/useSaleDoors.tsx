@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import type { Customer, Sale } from "@shared/core/types";
 import { formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
 import { saleTitle } from "@shared/core/utils/receiptId";
-import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import saleService from "@shared/modules/transaction/sales/services/SaleService";
 import {
@@ -47,7 +46,6 @@ export interface SaleDoors {
   dialogs: ReactNode;
 }
 
-const canSend = (phone: string | null) => whatsAppChatUrl(phone) !== null;
 
 // Every web door onto a sale; `onChanged` re-reads after any write.
 export function useSaleDoors({ onChanged, onSaved }: SaleDoorOptions = {}): SaleDoors {
@@ -109,7 +107,7 @@ export function useSaleDoors({ onChanged, onSaved }: SaleDoorOptions = {}): Sale
         history: () => setHistorySale(sale),
         void: () => setVoidTarget(saleVoidTarget([sale])),
       };
-      return toTableActions(saleMenuItems(sale, { isAdmin, canSend }), t, {
+      return toTableActions(saleMenuItems(sale, { isAdmin }), t, {
         icons: SALE_ACTION_ICONS,
         run,
         labelValues: { amount: formatMoney(owed, currency, currency) },

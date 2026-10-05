@@ -47,7 +47,7 @@ import { confirm } from "@shared/shared/lib/confirm";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { usePaymentSlice } from "@shared/state/hooks/usePaymentSlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 
 // The `?quickPay=1` door; `schedule` lets the phone wait for its screen push.
 export interface QuickPayLink {
@@ -99,7 +99,7 @@ export function useCustomerMonthGrid({
   const ledgerError = useLedgerSlice((s) => s.error);
   const clearLedgerError = useLedgerSlice((s) => s.clearError);
   const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrency = findCurrency(currencies, useDisplayCurrencyId());
+  const displayCurrency = useDisplayCurrency();
 
   const [busyMonth, setBusyMonth] = useState<string | null>(null);
   const [billEntry, setBillEntry] = useState<MonthEntry | null>(null);

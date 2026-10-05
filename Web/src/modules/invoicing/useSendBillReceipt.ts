@@ -1,17 +1,13 @@
 import { useCallback } from "react";
 import type { Charge, Collection } from "@shared/core/types";
 import { useInvoiceContext } from "@shared/modules/invoicing/hooks/useInvoiceContext";
+import type { ContactRecipient } from "@shared/modules/invoicing/utils/invoiceRecipient";
 import { buildBillInvoiceText } from "@shared/modules/invoicing/utils/invoiceText";
 import { openWhatsAppAfterSave } from "@/shared/lib/openWhatsAppAfterSave";
 
-export interface BillRecipient {
-  name: string;
-  phone: string | null;
-}
-
 // One bill with every payment on it, as a WhatsApp message to the customer.
 export function useSendBillReceipt(): (
-  recipient: BillRecipient,
+  recipient: ContactRecipient,
   charge: Charge,
   payments: Collection[],
 ) => Promise<void> {

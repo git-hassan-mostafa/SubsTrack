@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
@@ -13,7 +13,8 @@ import { formatMoney, formatMoneyPair } from "@shared/core/utils/currency";
 import { daysLate, formatDate } from "@shared/core/utils/date";
 import { useCollectForm, type CollectForm } from "@shared/modules/ledger/hooks/useCollectForm";
 import { useCollectSubmit } from "@shared/modules/ledger/hooks/useCollectSubmit";
-import { collectBlocker } from "@shared/modules/ledger/utils/allocationRows";
+import { collectBlockerKey } from "@shared/modules/ledger/utils/allocationRows";
+import { useRefusedSave } from "@shared/shared/hooks/useRefusedSave";
 import { groupKey, stillOwedAfter, type CurrencyPlan } from "@shared/modules/ledger/utils/currencyGroups";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { CurrencyInput } from "@/shared/components/CurrencyInput";
@@ -222,8 +223,7 @@ export function CollectDialog({ target, onClose, onCollected, header }: CollectD
   const clearError = useLedgerSlice((s) => s.clearError);
   const form = useCollectForm(target.items, target.single ? target.items[0] : null);
   const submit = useCollectSubmit();
-  const [blocker, setBlocker] = useState<string | null>(null);
-  if (blocker && form.canSubmit) setBlocker(null);
+  const refused = useRefusedSave(form.canSubmit);
 
   useEffect(() => {
     clearError();
@@ -232,7 +232,7 @@ export function CollectDialog({ target, onClose, onCollected, header }: CollectD
   const save = async () => {
     const submission = form.submission();
     if (!submission) {
-      setBlocker(t(`web.collect.${collectBlocker(form)}`));
+      refused.refuse(collectBlockerKey(form));
       return;
     }
     const collections = await submit(submission, target.customerId);
@@ -247,9 +247,9 @@ export function CollectDialog({ target, onClose, onCollected, header }: CollectD
       onClose={onClose}
       onSubmit={save}
       dirty={form.dirty}
-      error={blocker ?? error}
+      error={refused.reasonKey ? t(refused.reasonKey) : error}
       onDismissError={() => {
-        setBlocker(null);
+        refused.clear();
         clearError();
       }}
       maxWidth={form.single ? "sm" : "lg"}

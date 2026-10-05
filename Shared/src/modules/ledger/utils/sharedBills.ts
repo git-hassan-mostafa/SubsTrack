@@ -60,6 +60,39 @@ export function sharedBillsOf(
     }));
 }
 
+export interface VoidPaymentsNotice {
+  title: string;
+  message: string;
+  bills: SharedBill[];
+}
+
+type VoidablePayment = Pick<Collection, "items" | "currencyId" | "ratePerUsdSnapshot">;
+
+// The count is every bill the one hand-over paid, the bill on screen included (#125).
+export function voidPaymentsNotice(
+  payments: readonly VoidablePayment[],
+  exceptChargeId: string | null,
+  t: Translate,
+): VoidPaymentsNotice {
+  if (payments.length !== 1) {
+    return {
+      title: t("payments.bulk_void_title", { count: payments.length }),
+      message: t("payments.bulk_void_message", { count: payments.length }),
+      bills: [],
+    };
+  }
+  const [payment] = payments;
+  const billCount = new Set((payment.items ?? []).map((item) => item.chargeId)).size;
+  if (billCount < 2) {
+    return { title: t("ledger.void_payment"), message: t("ledger.void_warning"), bills: [] };
+  }
+  return {
+    title: t("ledger.void_payment"),
+    message: t("ledger.void_covers_many_warning", { count: billCount }),
+    bills: sharedBillsOf(payment, exceptChargeId, t),
+  };
+}
+
 /** The same across MANY hand-overs — a bill void undoes each one whole. */
 export function sharedBillsAcross(
   collections: Pick<

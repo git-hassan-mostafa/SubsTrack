@@ -9,14 +9,10 @@ import {
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { COLORS } from "@/src/shared/constants";
 import type { CollectionItem } from "@shared/core/types";
-import {
-  findCurrency,
-  formatMoney,
-  snapshotCurrency,
-} from "@shared/core/utils/currency";
+import { formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
 import { formatDate, formatDateTime } from "@shared/core/utils/date";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { KIND_STYLE } from "../utils/kindStyle";
 
 interface Props {
@@ -36,10 +32,9 @@ export function CollectionItemCard({
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
 
   const source = snapshotCurrency(snapshot, currencies);
-  const display = findCurrency(currencies, displayCurrencyId);
+  const display = useDisplayCurrency();
   const money = (v: number) => formatMoney(v, source, display);
   const charge = item.charge;
   const style = KIND_STYLE[charge?.kind ?? "manual"];

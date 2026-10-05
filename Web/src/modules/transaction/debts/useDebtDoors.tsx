@@ -8,7 +8,7 @@ import type { CustomDebtCustomer } from "@shared/modules/transaction/debts/utils
 import { debtItemActions, type DebtItemActionKey } from "@shared/modules/transaction/debts/utils/debtItemView";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { toTableActions, type TableAction } from "@/shared/table/tableAction";
-import type { BillRecipient } from "@/modules/invoicing/useSendBillReceipt";
+import type { ContactRecipient } from "@shared/modules/invoicing/utils/invoiceRecipient";
 import { useBillDialog } from "@/modules/ledger/bill/useBillDialog";
 import { useCollectDialog } from "@/modules/ledger/collect/useCollectDialog";
 import { useSaleDoors } from "@/modules/transaction/sales/useSaleDoors";
@@ -21,7 +21,7 @@ interface FormTarget {
 }
 
 interface DebtDoorsOptions {
-  recipientOf?: (item: OpenItem) => BillRecipient | null;
+  recipientOf?: (item: OpenItem) => ContactRecipient | null;
 }
 
 export interface DebtDoors {

@@ -573,7 +573,7 @@ Staff send the customer a **plain-text receipt over WhatsApp** — when money is
 
 - `utils/invoiceText.ts` — **pure** builders, no React/i18n singleton: `t` comes in `InvoiceContext { t, orgName, locale, currencies, displayCurrencyId }` (like `blockRangeLabel.ts`). `buildPaymentInvoiceText(ctx, customerName, rows)`, `buildSaleInvoiceText(ctx, sale, customerName)`, `buildSalesInvoiceText(ctx, sales, customerName)` (one row → single-sale layout, same document). **Not a Service** (decides/validates/throws nothing). Not in `src/core/` only b/c it reuses `getBlockRangeLabel` (Core may not import a module).
 - `utils/invoiceRecipient.ts` — pure: multi-row receipt → the ONE customer, or why not (`mixed` / `no_customer` / `no_phone`); callers map rows to `InvoiceRecipientRow { customerId, customerName, phone }`.
-- `hooks/useSendInvoice.ts` — only place a saved record becomes a message: context from `useAuthSlice` (tenant name), `useCurrencySlice`, `useDisplayCurrencyId`, `useLanguageStore`, `useTranslation`; calls `openWhatsApp`, on `false` shows `confirm({ hideCancel: true })`. Returns `{ canSend, resolveRecipient, sendPaymentInvoice, sendSaleInvoice, sendSalesInvoice }` (`resolveRecipient` = util + refusal dialog).
+- `hooks/useSendInvoice.ts` — only place a saved record becomes a message: context from `useAuthSlice` (tenant name), `useCurrencySlice`, `useDisplayCurrencyId`, `useLanguageStore`, `useTranslation`; calls `openWhatsApp`, on `false` shows `confirm({ hideCancel: true })`. Returns `{ canSend, sendBillInvoice, sendCollectionInvoice, sendSales }`; `sendSales` = Shared `useSalesInvoiceSend(openChat)` (drops voided, `resolveInvoiceRecipient` + refusal dialog), web runs the same hook with `openWhatsAppAfterSave`.
 - `components/SendOnWhatsAppButton.tsx` — the single green (`bg-[#25D366]` + `logo-whatsapp`) action row; `Button`'s geometry, own component b/c `Button` takes no icon/`className`; `ContactToUpgradeButton` uses it.
 
 **Entry points.**
@@ -589,7 +589,7 @@ Stacked, not side-by-side: `Button` takes no `className`; long label (+ Arabic) 
 
 **Busy = one marker, not two flags.** Each form's `busyOn: "save" | "send" | null` is set **before** the write, cleared in `finally` → spinner stays on the pressed button through store write + awaited deep link. So `canSubmit` / `submitDisabled` are **validity-only** (adding the slice loading flag greys both buttons; a disabled `SendOnWhatsAppButton` shows no spinner).
 
-**No phone → visible but disabled w/ caption.** `canSend` digit-strips like `openWhatsApp` (`"-"`/`"n/a"` disables, no broken link). Caption `invoice.no_phone`, or `invoice.no_customer` for walk-in sale; menu rows use `ActionMenuItem.caption`. **Voided hand-over or sale never shows the button.**
+**No phone → visible but disabled w/ caption.** Shared `canSendWhatsApp` (`core/utils/whatsappLink.ts`) digit-strips like `whatsAppChatUrl` (`"-"`/`"n/a"` disables, no broken link) — every app check + `WhatsAppService.buildRecipients` use it. Caption = Shared `sendBlockedKey(recipient)`: `invoice.no_customer` (walk-in) else `invoice.no_phone`; recipient = `ContactRecipient` via `customerRecipient`/`saleRecipient`; menu rows use `ActionMenuItem.caption`. **Voided hand-over or sale never shows the button.**
 
 **A receipt is ONE hand-over** (`buildCollectionInvoiceText`, replaced the multi-row payment builder): one currency → one amount, one date, one customer (no mixed refusal). One settled bill is named above the amount; several = bullets under **"This pays"**, oldest bill first.
 
@@ -778,7 +778,7 @@ One hand-over can settle three months + a sale, so "void this month's payment" i
 
 **A MONTH bill is voided NEWEST-FIRST** (voiding July under paid August = "✓ Paid on top of Overdue", #79/#81): both month entry points go through `payments.voidMonthBill` → `PaymentService.billVoidOrderBlocker`, popup names the month to void first ("August 2026 is paid on this plan. Newer months must be voided first."). Lives in the **payment** slice (a sale has no month order). Whole bill = the write → multi-month block judged by every month it covers; a **partially**-paid later month still blocks. **Payment** void: no gate (bill stays owed). `voidSale` voids only the **payments**; `repository.voidSale` voids the sale's charge in its own transaction (one owner).
 
-**One write, never a loop (performance).** `CollectionRepository.voidMany` = one UPDATE (offline one transaction). A `void()` loop = read + write + audit insert per row online, offline a transaction per row queued behind `withDbLock` (expo-sqlite = one connection); `CollectionService.voidCollections` has no loop either. Returns only rows actually voided; offline **un-hydrated** (no caller reads joins; `hydrate` = 3 more queries).
+**One write, never a loop (performance).** `CollectionRepository.voidMany` = one UPDATE (offline one transaction). A `void()` loop = read + write + audit insert per row online, offline a transaction per row queued behind `withDbLock` (expo-sqlite = one connection); `CollectionService.voidCollections` has no loop either. Returns only rows actually voided; offline **un-hydrated** (`hydrate` = 3 more queries) — slice stamps the caller's `items` back (#119a).
 
 **Never count payments to warn** ("{{count}} payments"): confirms state it unconditionally, so a void dialog costs zero reads; a count re-reads rows `voidChargeWithPayments` reads anyway (needs their ids).
 
@@ -817,7 +817,7 @@ Shared (both apps): hooks/useCollectForm (the sheet's state) · useCollectSubmit
 Web:           Web/src/modules/ledger/collect/ — CollectDialog · useCollectDialog · CollectQuickActionDialog
                Web/src/modules/ledger/bill/ — BillDialog · BillPaymentsList · BillSummary
                Web/src/modules/ledger/payment/ — PaymentDetailDialog · CorrectPaymentDialog · paymentActionIcons
-               Web/src/modules/ledger/void/ — VoidPaymentDialog · VoidBillDialog · SharedBillsWarning
+               Web/src/modules/ledger/void/ — VoidPaymentsDialog · VoidBillDialog · SharedBillsWarning
   screens/      CollectionsPanel
 ```
 

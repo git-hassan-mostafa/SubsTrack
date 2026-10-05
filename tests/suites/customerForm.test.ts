@@ -182,7 +182,7 @@ describe("labels", () => {
   it("TC-CF-18 a custom-priced plan shows no price in the picker", () => {
     expect(planPriceSublabel(plan({ isCustomPrice: true }), [], null, t)).toBe("common.custom_pricing");
     expect(planPriceSublabel(plan({ price: 20, durationMonths: 1 }), [], null, t)).toBe(
-      "$20.00 / plans.per_month",
+      "$20.00 subscriptions.per_month",
     );
   });
 });

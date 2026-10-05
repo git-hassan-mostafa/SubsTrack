@@ -1,6 +1,5 @@
-import type { CollectionListItem } from "@shared/core/types";
+import type { CollectionListItem, PageWindow } from "@shared/core/types";
 import { collectionService } from "@shared/modules/ledger/services/CollectionService";
-import { periodTotalUsd } from "@shared/modules/ledger/utils/monthTotals";
 import {
   collectionFindOptions,
   defaultCollectionFilters,
@@ -8,22 +7,18 @@ import {
 } from "@shared/modules/ledger/utils/collectionFilters";
 import {
   createPagedStoreWithMeta,
-  pageWindow,
+  withPeriodTotal,
   type PagedQuery,
-  type PagedResult,
   type PeriodTotal,
 } from "./createPagedStore";
 
-async function readCollectionPage(
-  query: PagedQuery<CollectionFilterChoice>,
-): Promise<PagedResult<CollectionListItem, PeriodTotal>> {
+function readCollectionPage(query: PagedQuery<CollectionFilterChoice>, window: PageWindow) {
   const options = collectionFindOptions(query.filters, query.branch, query.search);
-  const onlyVoided = query.filters.status === "voided";
-  const [page, monthly] = await Promise.all([
-    collectionService.getHistoryPage({ ...options, ...pageWindow(query) }),
-    onlyVoided ? {} : collectionService.getMonthlyTotals(options),
-  ]);
-  return { ...page, meta: periodTotalUsd(monthly, onlyVoided) };
+  return withPeriodTotal(
+    collectionService.getHistoryPage({ ...options, ...window }),
+    () => collectionService.getMonthlyTotals(options),
+    query.filters.status === "voided",
+  );
 }
 
 export const useCollectionsTable = createPagedStoreWithMeta<

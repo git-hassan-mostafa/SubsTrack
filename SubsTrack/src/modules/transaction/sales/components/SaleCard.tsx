@@ -3,13 +3,12 @@ import { useTranslation } from "react-i18next";
 import { COLORS } from "@/src/shared/constants";
 import type { Sale } from "@shared/core/types";
 import {
-  findCurrency,
   formatMoney,
   formatPaidFraction,
   snapshotCurrency,
 } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { formatDate } from "@shared/core/utils/date";
 import { receiptId } from "@shared/core/utils/receiptId";
 import { saleFacts } from "@shared/modules/transaction/sales/utils/saleView";
@@ -44,10 +43,9 @@ export function SaleCard({
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
 
   const source = snapshotCurrency(sale, currencies);
-  const target = findCurrency(currencies, displayCurrencyId);
+  const target = useDisplayCurrency();
   const { voided, writtenOff, fullyPaid } = saleFacts(sale);
   const totalLabel = fullyPaid
     ? formatMoney(sale.totalAmount, source, target)

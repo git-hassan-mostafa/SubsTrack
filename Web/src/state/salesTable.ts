@@ -1,4 +1,4 @@
-import type { Sale } from "@shared/core/types";
+import type { PageWindow, Sale } from "@shared/core/types";
 import saleService from "@shared/modules/transaction/sales/services/SaleService";
 import {
   defaultSaleFilters,
@@ -7,14 +7,12 @@ import {
   type SaleFilterChoice,
 } from "@shared/modules/transaction/sales/utils/saleFilters";
 import { saleUsd } from "@shared/modules/transaction/sales/utils/saleListPatch";
-import { periodTotalUsd } from "@shared/modules/ledger/utils/monthTotals";
 import { ownedRowMatchesFilter } from "@shared/shared/lib/branchFilter";
 import { getStore } from "@shared/state/globalStore";
 import {
   createPagedStoreWithMeta,
-  pageWindow,
+  withPeriodTotal,
   type PagedQuery,
-  type PagedResult,
   type PagedStore,
   type PeriodTotal,
   type RowFit,
@@ -23,15 +21,14 @@ import {
 export type SalesTable = PagedStore<Sale, SaleFilterChoice, PeriodTotal>;
 
 function salePageReader(customerId: string | null) {
-  return async (query: PagedQuery<SaleFilterChoice>): Promise<PagedResult<Sale, PeriodTotal>> => {
+  return (query: PagedQuery<SaleFilterChoice>, window: PageWindow) => {
     const scoped = customerId ? { ...query.filters, customerId } : query.filters;
     const options = saleFindOptions(scoped, query.branch, query.search);
-    const onlyVoided = query.filters.status === "voided";
-    const [page, monthly] = await Promise.all([
-      saleService.getSalePage({ ...options, ...pageWindow(query) }),
-      onlyVoided ? {} : saleService.getMonthlyTotals(options),
-    ]);
-    return { ...page, meta: periodTotalUsd(monthly, onlyVoided) };
+    return withPeriodTotal(
+      saleService.getSalePage({ ...options, ...window }),
+      () => saleService.getMonthlyTotals(options),
+      query.filters.status === "voided",
+    );
   };
 }
 

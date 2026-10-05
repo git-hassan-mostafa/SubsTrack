@@ -18,7 +18,7 @@ Web/src/
   app/theme/
   shared/components/  ErrorBanner, FormDialog, ConfirmDialogHost, ReasonConfirmDialog, BranchSelector, BranchPicker, inputs, MoneyText, EmptyState, StatusChip, InfoRows, PanelSection…
   shared/table/       DataTable, RowActionsMenu, BulkActionBar, useTableExport, TableAction, RowLink, ActiveFilterSelect, activeStatusColumn, useBranchColumn
-  shared/hooks/       useMoneyPair, useCopyText
+  shared/hooks/       useCopyText (useMoneyPair moved to Shared/src/shared/hooks)
   shared/lib/         downloadCsv, openWhatsApp (+ openWhatsAppAfterSave), copyText
   state/              web-only: createPagedStore + one table store per list (salesTable also exports createSalesTable(customerId), page-owned store), webSession.ts
   modules/<group>/<module>/  pages + dialogs:

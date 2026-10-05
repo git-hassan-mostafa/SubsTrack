@@ -12,9 +12,8 @@ import {
   type Segment,
 } from "@/src/shared/components/SegmentedTabs";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
-import { findCurrency } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useReportsStore } from "@shared/modules/reports/state/reportsStore";
 import type { ReportSection as SectionKey } from "@shared/modules/reports/state/reportsStore";
 import { ReportSection } from "../components/ReportSection";
@@ -31,7 +30,6 @@ export function ReportsScreen() {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const getCurrencies = useCurrencySlice((s) => s.getCurrencies);
-  const displayCurrencyId = useDisplayCurrencyId();
 
   const period = useReportsStore((s) => s.period);
   const section = useReportsStore((s) => s.section);
@@ -57,7 +55,7 @@ export function ReportsScreen() {
     void getCurrencies();
   }, [getCurrencies]);
 
-  const displayCurrency = findCurrency(currencies, displayCurrencyId);
+  const displayCurrency = useDisplayCurrency();
 
   const segments: Segment<SectionKey>[] = useMemo(
     () => [

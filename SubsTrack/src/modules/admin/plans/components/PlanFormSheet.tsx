@@ -13,6 +13,7 @@ import type { Plan } from "@shared/core/types";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
+import { planDurationLabel } from "@shared/modules/admin/plans/utils/planLabels";
 import { COLORS } from "@/src/shared/constants";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
@@ -44,7 +45,6 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
   const currencies = useCurrencySlice((s) => s.items);
   const activeBranches = useActiveBranches();
 
-  const branchPickerNullable = user?.branchId === null;
 
   const [form, setForm] = useState(() =>
     planDraftOf(plan ?? null, defaultNewBranchId(user, activeBranches)),
@@ -90,11 +90,9 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
       />
 
       <BranchPicker
-        label={t("branches.branch_label") + (branchPickerNullable ? "" : " *")}
         value={form.branchId}
         onChange={(v) => setForm((prev) => ({ ...prev, branchId: v }))}
         nullLabel={t("branches.shared_all_branches")}
-        nullable={branchPickerNullable}
       />
 
       <View className="mb-4">
@@ -124,9 +122,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
                     selected ? "text-white" : "text-gray-700"
                   }`}
                 >
-                  {d === 1
-                    ? t("plans.monthly")
-                    : t("plans.n_months", { count: d })}
+                  {planDurationLabel(d, t)}
                 </Text>
               </PressableOpacity>
             );
@@ -135,9 +131,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
 
         <View className="flex-row items-center justify-between mt-3 px-4 py-2 border border-gray-200 rounded-xl">
           <Text className="text-sm text-gray-700">
-            {form.durationMonths === 1
-              ? t("plans.monthly")
-              : t("plans.n_months", { count: form.durationMonths })}
+            {planDurationLabel(form.durationMonths, t)}
           </Text>
           <View className="flex-row items-center">
             <PressableOpacity

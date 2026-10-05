@@ -1,12 +1,13 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import InputAdornment from "@mui/material/InputAdornment";
 import MenuItem from "@mui/material/MenuItem";
 import Select from "@mui/material/Select";
 import TextField from "@mui/material/TextField";
 import { useTranslation } from "react-i18next";
 import type { Currency } from "@shared/core/types";
+import { currencyChoices } from "@shared/core/utils/currency";
 import { amountText, decimalDigitsOnly, parseAmount } from "@shared/core/utils/inputText";
-import { useUiPrefStore } from "@shared/shared/lib/uiPrefStore";
+import { useLastUsedCurrency } from "@shared/shared/hooks/useLastUsedCurrency";
 
 const USD_OPTION = "";
 
@@ -46,28 +47,19 @@ export function CurrencyInput({
   size = "medium",
 }: CurrencyInputProps) {
   const { t } = useTranslation();
-  const lastUsedCurrencyId = useUiPrefStore((s) => s.lastUsedCurrencyId);
-  const setLastUsedCurrencyId = useUiPrefStore((s) => s.setLastUsedCurrencyId);
   const [text, setText] = useState(amountText(amount));
-  const defaultApplied = useRef(false);
   const currencyLabelId = useId();
+  const rememberCurrency = useLastUsedCurrency({ amount, currencyId }, currencies, (lastId) =>
+    onChange({ amount: null, currencyId: lastId }),
+  );
 
   if (parseAmount(text) !== amount) setText(amountText(amount));
 
-  useEffect(() => {
-    if (defaultApplied.current) return;
-    defaultApplied.current = true;
-    if (currencyId !== null || amount !== null || !lastUsedCurrencyId) return;
-    if (currencies.some((c) => c.id === lastUsedCurrencyId && c.active)) {
-      onChange({ amount: null, currencyId: lastUsedCurrencyId });
-    }
-  }, [amount, currencyId, currencies, lastUsedCurrencyId, onChange]);
-
-  const options = currencies.filter((c) => c.active || c.id === currencyId);
+  const options = currencyChoices(currencies, currencyId);
 
   const pickCurrency = (value: string) => {
     const nextId = value === USD_OPTION ? null : value;
-    setLastUsedCurrencyId(nextId);
+    rememberCurrency(nextId);
     onChange({ amount, currencyId: nextId });
   };
 

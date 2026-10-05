@@ -4,12 +4,7 @@ import Stack from "@mui/material/Stack";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { BranchFilter } from "@shared/core/constants";
 import type { ChargeKind, DebtHistoryItem } from "@shared/core/types";
-import {
-  findCurrency,
-  formatMoney,
-  formatMoneyPair,
-  snapshotCurrency,
-} from "@shared/core/utils/currency";
+import { formatMoney, formatMoneyPair, snapshotCurrency } from "@shared/core/utils/currency";
 import { formatDate } from "@shared/core/utils/date";
 import { DEBT_KINDS } from "@shared/modules/transaction/debts/utils/allDebtsFilter";
 import {
@@ -29,7 +24,7 @@ import {
   type HistorySort,
 } from "@shared/modules/transaction/debts/utils/debtHistory";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { MoneyText } from "@/shared/components/MoneyText";
 import { StatusChip } from "@/shared/components/StatusChip";
 import { DataTable } from "@/shared/table/DataTable";
@@ -58,7 +53,7 @@ export function DebtHistoryTab({ branch, doors }: DebtHistoryTabProps) {
   const query = paged.query;
   const setFilters = paged.setFilters;
   const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
   const { openBill } = doors;
   const filters = query.filters;
 

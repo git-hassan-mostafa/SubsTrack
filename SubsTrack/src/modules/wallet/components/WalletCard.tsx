@@ -10,9 +10,8 @@ import {
   CardTitle,
 } from "@/src/shared/components/CardText";
 import { Chip } from "@/src/shared/components/Chip";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { formatMoney } from "@shared/core/utils/currency";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import type { UserWallet } from "@shared/core/types";
 
 interface Props {
@@ -30,9 +29,7 @@ interface Props {
 // Deactivated holders are dimmed but still shown.
 export function WalletCard({ wallet, onPress, onMenu, menuLoading }: Props) {
   const { t } = useTranslation();
-  const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
-  const target = findCurrency(currencies, displayCurrencyId);
+  const target = useDisplayCurrency();
 
   return (
     <EntityCard

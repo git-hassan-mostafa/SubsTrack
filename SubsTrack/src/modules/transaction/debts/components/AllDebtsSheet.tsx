@@ -18,9 +18,8 @@ import {
 import { COLORS } from "@/src/shared/constants";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 import type { ChargeKind, DebtsView, OpenItem } from "@shared/core/types";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { formatMoney } from "@shared/core/utils/currency";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import {
@@ -60,9 +59,7 @@ export function AllDebtsSheet({
   openingItemKey,
 }: Props) {
   const { t } = useTranslation();
-  const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
-  const target = findCurrency(currencies, displayCurrencyId);
+  const target = useDisplayCurrency();
   const branchFilter = useEffectiveBranchFilter();
   const bodyReady = useAfterFirstFrame();
 

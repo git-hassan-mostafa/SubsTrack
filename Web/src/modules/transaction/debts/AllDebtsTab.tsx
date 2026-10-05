@@ -6,7 +6,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { BranchFilter } from "@shared/core/constants";
 import type { ChargeKind, DebtsView } from "@shared/core/types";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { formatMoney } from "@shared/core/utils/currency";
 import { useAllDebtsList } from "@shared/modules/transaction/debts/hooks/useAllDebtsList";
 import type { DebtScope } from "@shared/modules/transaction/debts/hooks/useWrittenOffDebts";
 import {
@@ -16,8 +16,7 @@ import {
   type AllDebtsSort,
   type AllDebtsStatus,
 } from "@shared/modules/transaction/debts/utils/allDebtsFilter";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { SearchField } from "@/shared/components/SearchField";
 import { FilterBar } from "@/shared/table/FilterBar";
@@ -34,8 +33,7 @@ interface AllDebtsTabProps {
 // Reads the view the page holds, so this total and the page's always agree.
 export function AllDebtsTab({ view, branch, doors }: AllDebtsTabProps) {
   const { t } = useTranslation();
-  const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
   const { filters, patch, setSearch, scope, setScope, showingWrittenOff, writtenOff, rows, totalUsd, dirty, clearAll } =
     useAllDebtsList(view, branch);
 

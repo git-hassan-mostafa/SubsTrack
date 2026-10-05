@@ -6,30 +6,27 @@ import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 
 interface Props {
-  phone?: string | null;
+  blockedKey: string | null;
   label: string;
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
-  reason?: string;
   className?: string;
 }
 
 // The app's single green WhatsApp action. Matches Button's geometry; it is its
 // own component because Button takes no icon and no className.
 export function SendOnWhatsAppButton({
-  phone,
+  blockedKey,
   label,
   onPress,
   loading,
   disabled,
-  reason,
   className,
 }: Props) {
   const { t } = useTranslation();
-  const noPhone = (phone ?? "").replace(/\D/g, "").length === 0;
-  const isDisabled = disabled || loading || noPhone;
-  const caption = noPhone ? (reason ?? t("invoice.no_phone")) : null;
+  const isDisabled = disabled || loading || blockedKey !== null;
+  const caption = blockedKey ? t(blockedKey) : null;
 
   return (
     <View className={className}>

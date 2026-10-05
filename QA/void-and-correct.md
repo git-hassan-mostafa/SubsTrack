@@ -35,3 +35,5 @@ Use the 55 payment from collect-money.md #22 (Jan 20, Feb 20, sale 15).
 18. Select 2 payments and void them with a reason → both stay listed, greyed; "Collected in this view" drops by both; the customers' debts go up.
 19. Filter Voided only → "Collected in this view" is hidden; voided payments never count in any total.
 20. (web) Choose a period with more than 1000 payments → "Collected in this view" equals the sum of all of them, not the first 1000.
+21. Select 2 payments and void them, then open those customers' months and sales without refreshing → the voided money is already gone from them.
+22. Void a payment that paid 3 bills, once from Money received and once from one of its bills → both warnings say it paid 3 bills.

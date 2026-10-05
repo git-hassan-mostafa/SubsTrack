@@ -9,9 +9,8 @@ import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer } from "@shared/core/types";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { formatMoney } from "@shared/core/utils/currency";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useCollectSheet, useOpenBill } from "@/src/modules/ledger";
 import { owedUsd } from "@shared/modules/ledger/utils/debtRule";
 import { useCustomerDebts } from "@shared/modules/transaction/debts/hooks/useCustomerDebts";
@@ -32,8 +31,6 @@ interface Props {
 // Plain unpaid months stay out: the month grid above already shows them.
 export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
   const { t } = useTranslation();
-  const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
 
   const { items, loading, refresh } = useCustomerDebts(
     customer.id,
@@ -63,7 +60,7 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
     }, [refresh]),
   );
 
-  const target = findCurrency(currencies, displayCurrencyId);
+  const target = useDisplayCurrency();
   const totalUsd = owedUsd(items);
 
   return (

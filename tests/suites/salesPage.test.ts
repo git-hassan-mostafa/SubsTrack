@@ -28,8 +28,8 @@ import { charge, customer, sale } from "../helpers/factories";
 // TC-SG-* — the Sales page rules both apps run: filters, menus, void target, receipt.
 const AT = "2026-02-01T10:00:00.000Z";
 const t = (key: string) => key;
-const ADMIN: SaleMenuViewer = { isAdmin: true, canSend: (phone) => !!phone };
-const STAFF: SaleMenuViewer = { isAdmin: false, canSend: (phone) => !!phone };
+const ADMIN: SaleMenuViewer = { isAdmin: true };
+const STAFF: SaleMenuViewer = { isAdmin: false };
 const ali = customer({ id: "cust-1", name: "Ali", phoneNumber: "+96170000000" });
 const keysOf = (items: ReturnType<typeof saleMenuItems>) => items.map((item) => item.key);
 

@@ -3,28 +3,21 @@ import { useTranslation } from "react-i18next";
 import Stack from "@mui/material/Stack";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Plan } from "@shared/core/types";
-import { confirm } from "@shared/shared/lib/confirm";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { MoneyText } from "@/shared/components/MoneyText";
 import { StatusChip } from "@/shared/components/StatusChip";
-import { useMoneyPair } from "@/shared/hooks/useMoneyPair";
+import { useMoneyPair } from "@shared/shared/hooks/useMoneyPair";
 import { DataTable } from "@/shared/table/DataTable";
+import { useCatalogRowActions } from "@/shared/table/useCatalogRowActions";
 import { usePagedTable } from "@/shared/table/usePagedTable";
 import { RowLink } from "@/shared/table/RowLink";
-import { toTableActions, type TableAction } from "@/shared/table/tableAction";
-import { CATALOG_ACTION_ICONS } from "@/shared/table/catalogActionIcons";
-import {
-  catalogRowActions,
-  catalogSelectionActions,
-  type CatalogActionKey,
-} from "@shared/shared/lib/catalogMenu";
 import { useBranchColumn } from "@/shared/table/useBranchColumn";
 import { readAllPlans, usePlansTable } from "@/state/plansTable";
 import { useHistoryDoor } from "@/modules/admin/audit/useHistoryDoor";
 import { PlanFormDialog } from "./PlanFormDialog";
-import { usePlanDurationLabel } from "./usePlanDurationLabel";
+import { planDurationLabel } from "@shared/modules/admin/plans/utils/planLabels";
 
 export function PlansPage() {
   const { t } = useTranslation();
@@ -38,48 +31,23 @@ export function PlansPage() {
   const deletePlan = usePlanSlice((s) => s.deletePlan);
   const bulkDeletePlans = usePlanSlice((s) => s.bulkDeletePlans);
   const moneyPair = useMoneyPair();
-  const durationLabel = usePlanDurationLabel();
   const branchColumn = useBranchColumn<Plan>(t("branches.shared_all_branches"));
   const history = useHistoryDoor("plans");
   const [form, setForm] = useState<{ plan: Plan | null } | null>(null);
 
-  const confirmDelete = (plans: Plan[]) => {
-    const single = plans.length === 1 ? plans[0] : null;
-    return confirm({
-      title: single ? t("plans.delete_title") : t("plans.bulk_delete_title", { count: plans.length }),
-      message: single
-        ? t("plans.delete_message", { name: single.name })
-        : t("plans.bulk_delete_message", { count: plans.length }),
-      confirmLabel: t("common.delete"),
-      destructive: true,
-      onConfirm: async () => {
-        const done = single
-          ? await deletePlan(single.id)
-          : await bulkDeletePlans(plans.map((p) => p.id));
-        if (done) reload();
-      },
-    });
-  };
-
-  const runFor = (plan: Plan): Partial<Record<CatalogActionKey, () => void>> => ({
-    edit: () => setForm({ plan }),
-    history: () => history.open(plan.id, plan.name),
+  const { rowActions, bulkActions } = useCatalogRowActions<Plan>({
+    kind: "plan",
+    textKeys: "plans",
+    nameValues: (plan) => ({ name: plan.name }),
+    remove: deletePlan,
+    removeMany: bulkDeletePlans,
+    patchRow,
+    reload,
+    doors: (plan) => ({
+      edit: () => setForm({ plan }),
+      history: () => history.open(plan.id, plan.name),
+    }),
   });
-
-  const rowActions = (plan: Plan): TableAction[] =>
-    toTableActions(catalogRowActions("plan", plan), t, {
-      icons: CATALOG_ACTION_ICONS,
-      run: { ...runFor(plan), delete: () => void confirmDelete([plan]) },
-    });
-
-  const bulkActions = (selected: Plan[]): TableAction[] =>
-    toTableActions(catalogSelectionActions("plan", selected), t, {
-      icons: CATALOG_ACTION_ICONS,
-      run: {
-        ...(selected.length === 1 ? runFor(selected[0]) : {}),
-        delete: () => void confirmDelete(selected),
-      },
-    });
 
   const columns: GridColDef<Plan>[] = [
     {
@@ -114,7 +82,7 @@ export function PlansPage() {
       field: "durationMonths",
       headerName: t("web.plans.billing"),
       width: 160,
-      valueGetter: (_value, row) => durationLabel(row.durationMonths),
+      valueGetter: (_value, row) => planDurationLabel(row.durationMonths, t),
     },
   ];
 

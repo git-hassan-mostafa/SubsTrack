@@ -18,9 +18,8 @@ import {
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
 import { confirm } from "@shared/shared/lib/confirm";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { formatMoney } from "@shared/core/utils/currency";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 import { useWalletStore } from "@shared/modules/wallet/state/walletStore";
@@ -67,9 +66,7 @@ export function WalletsScreen() {
   const closeOutAll = useWalletStore((s) => s.closeOutAll);
   const clearError = useWalletStore((s) => s.clearError);
 
-  const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
-  const target = findCurrency(currencies, displayCurrencyId);
+  const target = useDisplayCurrency();
 
   const branchFilter = useEffectiveBranchFilter();
   const [openWallet, setOpenWallet] = useState<UserWallet | null>(null);

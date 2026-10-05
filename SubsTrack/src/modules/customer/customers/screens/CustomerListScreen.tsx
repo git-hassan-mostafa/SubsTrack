@@ -59,9 +59,9 @@ import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 import { usePaymentSlice } from "@shared/state/hooks/usePaymentSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { formatMoney } from "@shared/core/utils/currency";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
   PageHeader,
@@ -104,12 +104,11 @@ export function CustomerListScreen() {
   const fetchLastPaid = useLastPaidStore((s) => s.fetchLastPaid);
   const loadOwed = useLoadOwed();
   const { sendCollectionInvoice } = useSendInvoice();
-  const { canSend, openChat } = useWhatsApp();
+  const { openChat } = useWhatsApp();
   const whatsappActions = useWhatsAppActions();
   const { writeOffAll } = useDebtRowActions();
   const customerStatus = useCustomerStatusActions();
-  const displayCurrencyId = useDisplayCurrencyId();
-  const displayCurrency = findCurrency(currencies, displayCurrencyId);
+  const displayCurrency = useDisplayCurrency();
   const [formVisible, setFormVisible] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [filters, setFilters] = useState<CustomerFilters>(
@@ -407,7 +406,7 @@ export function CustomerListScreen() {
           debtUsd: netDebtByCustomer[customer.id],
           currencies,
         },
-        { isAdmin, canSend },
+        { isAdmin },
       ),
       t,
       {

@@ -21,7 +21,7 @@ import { useHoldRepeat } from "@shared/shared/hooks/useHoldRepeat";
 import { decimalDigitsOnly, digitsOnly } from "@shared/core/utils/inputText";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency, Product } from "@shared/core/types";
-import { formatMoney } from "@shared/core/utils/currency";
+import { currencyChoices, formatMoney } from "@shared/core/utils/currency";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useBatchRestockForm } from "@shared/modules/admin/products/hooks/useBatchRestockForm";
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
@@ -108,9 +108,11 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
     <View className="pt-4">
       <Dropdown<string>
         label={t("products.delivery_currency_label")}
-        options={currencies
-          .filter((c) => c.active)
-          .map((c) => ({ label: `${c.code} — ${c.name}`, value: c.id }))}
+        options={currencyChoices(currencies, form.currencyId).map((c) => ({
+          label: c.code,
+          sublabel: c.name,
+          value: c.id,
+        }))}
         value={form.currencyId}
         onChange={form.changeCurrency}
         nullable

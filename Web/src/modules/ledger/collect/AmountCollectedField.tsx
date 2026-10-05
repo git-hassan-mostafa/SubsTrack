@@ -11,18 +11,10 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { Currency } from "@shared/core/types";
 import {
-  partialOutcome,
+  amountCollectedView,
   type PaymentMode,
 } from "@shared/modules/ledger/utils/amountCollected";
 import { CurrencyInput } from "@/shared/components/CurrencyInput";
-
-const MODES: PaymentMode[] = ["full", "partial", "debt"];
-
-const MODE_LABEL_KEYS: Record<PaymentMode, string> = {
-  full: "payments.full_payment",
-  partial: "payments.partial_payment",
-  debt: "payments.no_payment",
-};
 
 interface AmountCollectedFieldProps {
   mode: PaymentMode;
@@ -50,8 +42,8 @@ export function AmountCollectedField({
 }: AmountCollectedFieldProps) {
   const { t } = useTranslation();
   const labelId = useId();
-  const partialDisabled = !(due > 0);
-  const outcome = mode === "partial" ? partialOutcome(due > 0 ? due : null, amount) : null;
+  const view = amountCollectedView(mode, due, amount);
+  const outcome = view.outcome;
 
   return (
     <FormControl component="fieldset">
@@ -69,17 +61,17 @@ export function AmountCollectedField({
         value={mode}
         onChange={(event) => onModeChange(event.target.value as PaymentMode)}
       >
-        {MODES.map((value) => (
+        {view.options.map((option) => (
           <FormControlLabel
-            key={value}
-            value={value}
+            key={option.mode}
+            value={option.mode}
             control={<Radio />}
-            label={t(MODE_LABEL_KEYS[value])}
-            disabled={value === "partial" && partialDisabled}
+            label={t(option.labelKey)}
+            disabled={option.disabled}
           />
         ))}
       </RadioGroup>
-      {partialDisabled ? (
+      {view.partialLocked ? (
         <FormHelperText sx={{ mx: 0 }}>{t("payments.enter_amount_to_enable_partial")}</FormHelperText>
       ) : null}
       {mode === "partial" ? (

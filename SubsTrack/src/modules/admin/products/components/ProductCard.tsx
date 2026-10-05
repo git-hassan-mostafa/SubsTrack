@@ -10,9 +10,7 @@ import {
 } from "@/src/shared/components/CardText";
 import { Chip } from "@/src/shared/components/Chip";
 import { COLORS } from "@/src/shared/constants";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useMoneyPair } from "@shared/shared/hooks/useMoneyPair";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { stockLevelLabel } from "@shared/modules/admin/products/utils/stockText";
 
@@ -36,11 +34,7 @@ export function ProductCard({
   onEnterSelection,
 }: Props) {
   const { t } = useTranslation();
-  const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
-  const source = findCurrency(currencies, product.currencyId);
-  const target = findCurrency(currencies, displayCurrencyId);
-  const priceLabel = formatMoney(product.price, source, target);
+  const price = useMoneyPair()(product.price, product.currencyId);
   const inStock = product.stockOnHand > 0;
   const stockLabel = stockLevelLabel(t, product.stockOnHand);
 
@@ -75,7 +69,8 @@ export function ProductCard({
       </View>
 
       <View className="items-end me-2">
-        <CardAmount>{priceLabel}</CardAmount>
+        <CardAmount>{price.primary}</CardAmount>
+        {price.approx ? <CardMeta>{price.approx}</CardMeta> : null}
         <CardMeta>{t("products.per_unit")}</CardMeta>
       </View>
     </EntityCard>

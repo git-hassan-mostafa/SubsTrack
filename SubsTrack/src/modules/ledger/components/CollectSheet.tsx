@@ -16,6 +16,8 @@ import type { OpenItem } from "@shared/core/types";
 import { useCollectForm } from "@shared/modules/ledger/hooks/useCollectForm";
 import type { CollectSubmission } from "@shared/modules/ledger/utils/collectForm";
 import { groupKey } from "@shared/modules/ledger/utils/currencyGroups";
+import { collectBlockerKey } from "@shared/modules/ledger/utils/allocationRows";
+import { useRefusedSave } from "@shared/shared/hooks/useRefusedSave";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { CollectAllButton } from "./CollectAllButton";
 import { CollectHero } from "./CollectHero";
@@ -46,6 +48,7 @@ export function CollectSheet({
   const clearError = useLedgerSlice((s) => s.clearError);
   const form = useCollectForm(owed, singleItem);
   const { single, pool, currencies, display } = form;
+  const refused = useRefusedSave(form.canSubmit);
 
   useEffect(() => {
     if (visible) clearError();
@@ -57,11 +60,14 @@ export function CollectSheet({
   }, [error]);
 
   const openItem = single?.item.openAmount ? single : null;
-  const canSubmit = !loading && form.canSubmit;
-
   const submit = () => {
-    const submission = loading ? null : form.submission();
-    if (submission) onSubmit(submission);
+    if (loading) return;
+    const submission = form.submission();
+    if (!submission) {
+      refused.refuse(collectBlockerKey(form));
+      return;
+    }
+    onSubmit(submission);
   };
 
   return (
@@ -185,10 +191,14 @@ export function CollectSheet({
           multiline
         />
 
+        {refused.reasonKey ? (
+          <ErrorBanner message={t(refused.reasonKey)} onDismiss={refused.clear} />
+        ) : null}
+
         <Button
           label={t("common.save")}
           onPress={submit}
-          disabled={!canSubmit}
+          disabled={loading}
           loading={loading}
         />
       </View>

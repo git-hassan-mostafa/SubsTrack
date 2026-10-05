@@ -12,14 +12,10 @@ import { EntityCard } from "@/src/shared/components/EntityCard";
 import { Chip } from "@/src/shared/components/Chip";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import type { CollectionListItem } from "@shared/core/types";
-import {
-  findCurrency,
-  formatMoneyPair,
-  snapshotCurrency,
-} from "@shared/core/utils/currency";
+import { formatMoneyPair, snapshotCurrency } from "@shared/core/utils/currency";
 import { formatDateTime } from "@shared/core/utils/date";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { KIND_STYLE } from "../utils/kindStyle";
 import { KIND_TONE } from "@shared/modules/ledger/utils/collectionKind";
@@ -62,11 +58,10 @@ export function CollectionCard({
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const userName = useUserNames();
-  const displayCurrencyId = useDisplayCurrencyId();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const source = snapshotCurrency(item, currencies);
-  const display = findCurrency(currencies, displayCurrencyId);
+  const display = useDisplayCurrency();
   const money = formatMoneyPair(item.amount, source, display);
 
   const voided = item.voidedAt !== null;

@@ -60,6 +60,16 @@ export function correctionProblem(
   return null;
 }
 
+const CORRECTION_PROBLEM_KEYS: Record<CorrectionProblem, string> = {
+  zero: "ledger.correct_zero_hint",
+  unchanged: "ledger.correct_unchanged_hint",
+  too_much: "ledger.collect_blocker.lower_amount",
+};
+
+export function correctionProblemKey(problem: CorrectionProblem): string {
+  return CORRECTION_PROBLEM_KEYS[problem];
+}
+
 // The void reason the replaced hand-over keeps, so the trail says what changed.
 export function correctionReason(from: string, to: string, note: string, t: Translate): string {
   return [t("ledger.corrected_reason", { from, to }), note.trim()].filter(Boolean).join(" · ");

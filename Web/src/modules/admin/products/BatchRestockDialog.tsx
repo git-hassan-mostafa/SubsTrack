@@ -4,7 +4,6 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import InputAdornment from "@mui/material/InputAdornment";
-import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -22,9 +21,8 @@ import { useBatchRestockForm } from "@shared/modules/admin/products/hooks/useBat
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
+import { CurrencySelect } from "@/shared/components/CurrencySelect";
 import { FormDialog } from "@/shared/components/FormDialog";
-
-const USD_OPTION = "";
 
 interface BatchRestockDialogProps {
   onClose: () => void;
@@ -121,24 +119,13 @@ export function BatchRestockDialog({ onClose, onSaved }: BatchRestockDialogProps
             onCost={form.setCost}
           />
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-            <TextField
-              select
+            <CurrencySelect
               label={t("products.delivery_currency_label")}
-              value={form.currencyId ?? USD_OPTION}
-              onChange={(event) =>
-                form.changeCurrency(event.target.value === USD_OPTION ? null : event.target.value)
-              }
+              value={form.currencyId}
+              onChange={form.changeCurrency}
+              currencies={currencies}
               sx={{ minWidth: 200 }}
-            >
-              <MenuItem value={USD_OPTION}>USD</MenuItem>
-              {currencies
-                .filter((c) => c.active)
-                .map((c) => (
-                  <MenuItem key={c.id} value={c.id}>
-                    {c.code} · {c.name}
-                  </MenuItem>
-                ))}
-            </TextField>
+            />
             <TextField
               label={t("products.batch_restock_note_label")}
               value={form.note}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -15,7 +15,7 @@ import { formatMoney } from "@shared/core/utils/currency";
 import { formatDateTime } from "@shared/core/utils/date";
 import { digitsOnly } from "@shared/core/utils/inputText";
 import { useStockEntryForm } from "@shared/modules/admin/products/hooks/useStockEntryForm";
-import productService from "@shared/modules/admin/products/services/ProductService";
+import { useStockMovements } from "@shared/modules/admin/products/hooks/useStockMovements";
 import {
   signedQuantity,
   stockEntryActions,
@@ -61,20 +61,13 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
   const form = useStockEntryForm(product, currencies);
   const { editing, adding, costEffect, costCurrency } = form;
   const [onHand, setOnHand] = useState(product.stockOnHand);
-  const [history, setHistory] = useState<StockMovement[]>([]);
+  const { history, reload: loadHistory } = useStockMovements(product.id);
   const recordHistory = useHistoryDoor("stock_movements");
-
-  const loadHistory = useCallback(
-    () =>
-      productService.getMovements(product.id).then(setHistory, () => setHistory([])),
-    [product.id],
-  );
 
   useEffect(() => {
     clearError();
-    void loadHistory();
     return clearError;
-  }, [clearError, loadHistory]);
+  }, [clearError]);
 
   const projected = form.projectedStock(onHand);
 

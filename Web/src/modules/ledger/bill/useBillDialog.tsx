@@ -1,14 +1,14 @@
 import { useCallback, useState, type ReactNode } from "react";
 import type { Charge, Collection, CollectionItem, OpenItem } from "@shared/core/types";
 import { chargeService } from "@shared/modules/ledger/services/ChargeService";
-import type { BillRecipient } from "@/modules/invoicing/useSendBillReceipt";
+import type { ContactRecipient } from "@shared/modules/invoicing/utils/invoiceRecipient";
 import { BillDialog } from "./BillDialog";
 
 interface OpenedBill {
   charge: Charge;
   label: string;
   customerName: string | null;
-  recipient: BillRecipient | null;
+  recipient: ContactRecipient | null;
 }
 
 type Shown = Omit<OpenedBill, "charge">;
@@ -30,10 +30,10 @@ export interface BillDialogDoor {
     item: CollectionItem,
     label: string,
     customerName: string | null,
-    recipient?: BillRecipient | null,
+    recipient?: ContactRecipient | null,
   ) => Promise<void>;
-  openOwed: (item: OpenItem, recipient?: BillRecipient | null) => Promise<void>;
-  openCharge: (charge: Charge, label: string, customerName: string | null, recipient?: BillRecipient | null) => void;
+  openOwed: (item: OpenItem, recipient?: ContactRecipient | null) => Promise<void>;
+  openCharge: (charge: Charge, label: string, customerName: string | null, recipient?: ContactRecipient | null) => void;
   loadingItemId: string | null;
   error: string | null;
   clearError: () => void;

@@ -1,4 +1,5 @@
 import type { Currency, Customer, CustomerStatus } from "@shared/core/types";
+import { canSendWhatsApp } from "@shared/core/utils/whatsappLink";
 import { pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
 import { hasAnythingOwed } from "./customerFlags";
 import { canQuickPay, fixedMonthItems, isMultiPlan } from "./quickPay";
@@ -21,7 +22,6 @@ export type CustomerMenuItem = MenuItem<CustomerActionKey>;
 
 export interface CustomerMenuViewer {
   isAdmin: boolean;
-  canSend: (phone: string | null) => boolean;
 }
 
 export interface CustomerMoneyFacts {
@@ -56,7 +56,7 @@ export function customerMenuItems(
   money: CustomerMoneyFacts,
   viewer: CustomerMenuViewer,
 ): CustomerMenuItem[] {
-  const sendable = viewer.canSend(customer.phoneNumber);
+  const sendable = canSendWhatsApp(customer.phoneNumber);
   const keys: CustomerActionKey[] = [];
   if (canQuickPay(customer, money.status)) {
     keys.push("quick_pay");

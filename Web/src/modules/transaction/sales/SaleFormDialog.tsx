@@ -8,7 +8,7 @@ import Tooltip from "@mui/material/Tooltip";
 import PersonAddOutlined from "@mui/icons-material/PersonAddOutlined";
 import type { Customer, Sale } from "@shared/core/types";
 import { formatMoney } from "@shared/core/utils/currency";
-import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
+import { canSendWhatsApp } from "@shared/core/utils/whatsappLink";
 import { useSaleForm } from "@shared/modules/transaction/sales/hooks/useSaleForm";
 import { FormDialog } from "@/shared/components/FormDialog";
 import { CustomerFormDialog } from "@/modules/customer/customers/CustomerFormDialog";
@@ -45,7 +45,7 @@ export function SaleFormDialog({ sale, initialCustomer = null, onClose, onSaved 
   const save = (send: boolean) => runSaleSave(() => form.save(send));
   const { cart, customer, editing } = form;
   const saleTotal = form.total ?? 0;
-  const sendable = whatsAppChatUrl(customer?.phoneNumber ?? null) !== null;
+  const sendable = canSendWhatsApp(customer?.phoneNumber);
   const newCustomerLabel = t("web.sales.new_customer");
 
   return (

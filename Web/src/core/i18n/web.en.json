@@ -43,7 +43,6 @@
     "add": "Add plan",
     "search": "Search plans",
     "empty_hint": "Add the plans your customers pay for.",
-    "every_n_months": "Every {{count}} months",
     "billing": "Billing"
   },
   "products": {
@@ -98,9 +97,6 @@
     "paying_column": "Paying now",
     "bills_title": "Bills",
     "pay_this_bill": "Pay {{name}}",
-    "type_amount": "Type the amount you received.",
-    "type_month_amount": "Type what this month costs first.",
-    "lower_amount": "Lower the amount — it is more than what is owed.",
     "pick_customer": "Pick the customer who is paying."
   },
   "whatsapp": {
@@ -109,7 +105,6 @@
     "open": "Open WhatsApp"
   },
   "bill": {
-    "payments_table": "Payments on this bill",
     "paid_here": "Paid to this bill",
     "kind_month": "Monthly bill",
     "kind_sale": "Sale bill",
@@ -127,16 +122,7 @@
     "status_settled": "This bill is fully paid. Nothing is owed.",
     "status_written_off": "This bill was written off: the last {{amount}} will not be collected.",
     "status_void": "This bill was voided. It does not count, and nothing is owed on it.",
-    "payments_title": "Payments on this bill",
-    "counted": "Counted",
-    "counted_count_one": "{{count}} counted",
-    "counted_count_other": "{{count}} counted",
-    "voided_count_one": "{{count}} voided",
-    "voided_count_other": "{{count}} voided",
-    "payments_hint": "Each row is one payment of cash. Crossed-out rows were voided and do not count."
-  },
-  "correct": {
-    "type_new_amount": "Type the amount that was really received. It is the same as the amount already recorded."
+    "counted": "Counted"
   },
   "void": {
     "reason": "Reason (optional)"
@@ -145,8 +131,7 @@
     "customer": "Customer",
     "paid_for": "Paid for",
     "search": "Search by customer name",
-    "empty_hint": "Payments show here as soon as money is collected.",
-    "no_branch": "Unassigned"
+    "empty_hint": "Payments show here as soon as money is collected."
   },
   "payment": {
     "kind_received": "Payment received",
@@ -221,7 +206,6 @@
   },
   "debts": {
     "tabs": "Debts views",
-    "debtors_tab": "Debtors",
     "debtor": "Debtor",
     "how_late": "How late",
     "bills_column": "Bills",

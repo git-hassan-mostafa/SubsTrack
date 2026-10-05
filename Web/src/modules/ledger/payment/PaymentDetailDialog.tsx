@@ -16,7 +16,7 @@ import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import ReceiptLongOutlined from "@mui/icons-material/ReceiptLongOutlined";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { CollectionItem, CollectionListItem } from "@shared/core/types";
-import { findCurrency, formatMoney, formatMoneyPair, snapshotCurrency } from "@shared/core/utils/currency";
+import { formatMoney, formatMoneyPair, snapshotCurrency } from "@shared/core/utils/currency";
 import { formatDate, formatDateTime } from "@shared/core/utils/date";
 import { useCollectionDetail } from "@shared/modules/ledger/hooks/useCollectionDetail";
 import type { InfoKey } from "@shared/modules/ledger/utils/billView";
@@ -24,7 +24,7 @@ import { collectionInfoRows } from "@shared/modules/ledger/utils/collectionView"
 import { collectionItemLabel } from "@shared/modules/ledger/utils/collectionLabel";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { DialogHeading } from "@/shared/components/DialogHeading";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { InfoRows } from "@/shared/components/InfoRows";
@@ -104,7 +104,7 @@ type PaidRow = CollectionItem & { label: string };
 function PaymentBody({ collection, onOpenItem, loadingItemId }: PaymentBodyProps) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
   const userName = useUserNames();
   const source = snapshotCurrency(collection, currencies);
   const total = formatMoneyPair(collection.amount, source, display);

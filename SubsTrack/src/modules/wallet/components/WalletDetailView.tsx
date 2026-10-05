@@ -36,7 +36,7 @@ import { COLORS } from "@/src/shared/constants";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { formatDate } from "@shared/core/utils/date";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { CollectionDetailSheet } from "@/src/modules/ledger/components/CollectionDetailSheet";
 import type {
   UserWalletDetail,
@@ -128,8 +128,7 @@ export function WalletDetailView({
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
-  const target = findCurrency(currencies, displayCurrencyId);
+  const target = useDisplayCurrency();
 
   const canAct = mode !== "view";
   const actionLabel =

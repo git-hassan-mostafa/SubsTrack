@@ -2,16 +2,16 @@ import { useTranslation } from "react-i18next";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { findCurrency, formatMoneyPair, snapshotCurrency } from "@shared/core/utils/currency";
+import { formatMoneyPair, snapshotCurrency } from "@shared/core/utils/currency";
 import type { SharedBill } from "@shared/modules/ledger/utils/sharedBills";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 
 // Names the other bills a whole-hand-over void un-pays (#125).
 export function SharedBillsWarning({ bills }: { bills: SharedBill[] }) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
   if (bills.length === 0) return null;
 
   return (

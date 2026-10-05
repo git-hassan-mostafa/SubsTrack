@@ -10,10 +10,9 @@ import OpenInNewOutlined from "@mui/icons-material/OpenInNewOutlined";
 import ReceiptLongOutlined from "@mui/icons-material/ReceiptLongOutlined";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { CustomerDebts } from "@shared/core/types";
-import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { formatMoney } from "@shared/core/utils/currency";
 import { debtorActions, debtorOwedItems, filterDebtors } from "@shared/modules/transaction/debts/utils/debtorView";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { MoneyText } from "@/shared/components/MoneyText";
 import { SearchField } from "@/shared/components/SearchField";
@@ -38,8 +37,7 @@ const rowLabel = (row: DebtorRow) => row.customerName;
 export function DebtorsTab({ debtors, loaded, doors }: DebtorsTabProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
   const [search, setSearch] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const openDebtor = debtors.find((d) => d.customerId === openId) ?? null;
@@ -129,7 +127,7 @@ export function DebtorsTab({ debtors, loaded, doors }: DebtorsTabProps) {
         </Paper>
       ) : (
         <LocalTable<DebtorRow>
-          label={t("web.debts.debtors_tab")}
+          label={t("debts.tab_debtors")}
           columns={columns}
           rows={rows}
           rowLabel={rowLabel}
@@ -145,8 +143,7 @@ export function DebtorsTab({ debtors, loaded, doors }: DebtorsTabProps) {
 // Unpaid months belong to the month grid, so they ride as a muted hint only.
 function LateText({ debtor }: { debtor: CustomerDebts }) {
   const { t } = useTranslation();
-  const currencies = useCurrencySlice((s) => s.items);
-  const display = findCurrency(currencies, useDisplayCurrencyId());
+  const display = useDisplayCurrency();
   const unpaid = debtor.unpaidMonths.length;
   return (
     <Stack sx={{ justifyContent: "center", height: "100%", lineHeight: 1.3 }}>

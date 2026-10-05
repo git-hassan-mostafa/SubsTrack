@@ -12,13 +12,12 @@ import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import type { Collection, Sale, SaleItem } from "@shared/core/types";
 import {
-  findCurrency,
   formatMoney,
   formatPaidFraction,
   snapshotCurrency,
 } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@shared/state/hooks/useTenantSettingSlice";
+import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { saleTitle } from "@shared/core/utils/receiptId";
 import {
   saleInfoRows,
@@ -28,6 +27,10 @@ import {
 } from "@shared/modules/transaction/sales/utils/saleView";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
+import {
+  saleRecipient,
+  sendBlockedKey,
+} from "@shared/modules/invoicing/utils/invoiceRecipient";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { BillHero, BillHistorySheet, BillPaymentsList } from "@/src/modules/ledger";
 import { billLook } from "@shared/modules/ledger/utils/billState";
@@ -51,8 +54,7 @@ export function SaleDetailSheet({
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
-  const { sendSaleInvoice } = useSendInvoice();
+  const { sendSales } = useSendInvoice();
   const { isAdmin } = useAuth();
   const userName = useUserNames();
 
@@ -63,7 +65,7 @@ export function SaleDetailSheet({
   if (!sale) return null;
 
   const source = snapshotCurrency(sale, currencies);
-  const target = findCurrency(currencies, displayCurrencyId);
+  const target = useDisplayCurrency();
   const fmtSource = (v: number) => formatMoney(v, source, source);
   const fmtTarget = (v: number) => formatMoney(v, source, target);
   const showEquivalent = (source?.id ?? null) !== (target?.id ?? null);
@@ -200,11 +202,7 @@ export function SaleDetailSheet({
             snapshot={sale}
             visible
             billVoided={voided}
-            recipient={
-              sale.customer
-                ? { name: sale.customer.name, phone: sale.customer.phoneNumber }
-                : null
-            }
+            recipient={saleRecipient(sale)}
             onChanged={onChanged}
           />
         </View>
@@ -226,16 +224,9 @@ export function SaleDetailSheet({
 
       {!voided && !voidMode ? (
         <SendOnWhatsAppButton
-          phone={sale.customer?.phoneNumber}
-          reason={sale.customer ? undefined : t("invoice.no_customer")}
+          blockedKey={sendBlockedKey(saleRecipient(sale))}
           label={t("invoice.send_whatsapp")}
-          onPress={() =>
-            void sendSaleInvoice({
-              phone: sale.customer?.phoneNumber ?? null,
-              customerName: sale.customer?.name ?? null,
-              sale,
-            })
-          }
+          onPress={() => void sendSales([sale])}
           className="mb-4"
         />
       ) : null}

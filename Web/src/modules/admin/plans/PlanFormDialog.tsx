@@ -19,13 +19,13 @@ import {
 } from "@shared/modules/admin/plans/utils/planForm";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
+import { planDurationLabel } from "@shared/modules/admin/plans/utils/planLabels";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { BranchPicker } from "@/shared/components/BranchPicker";
 import { CurrencyInput } from "@/shared/components/CurrencyInput";
 import { FormDialog } from "@/shared/components/FormDialog";
 import { markCustomersTableStale } from "@/state/customersTable";
-import { usePlanDurationLabel } from "./usePlanDurationLabel";
 
 const DURATIONS = Array.from({ length: MAX_PLAN_DURATION }, (_, i) => i + 1);
 
@@ -44,7 +44,6 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
   const clearError = usePlanSlice((s) => s.clearError);
   const currencies = useCurrencySlice((s) => s.items);
   const activeBranches = useActiveBranches();
-  const durationLabel = usePlanDurationLabel();
   const [form, setForm] = useState(() =>
     planDraftOf(plan, defaultNewBranchId(user, activeBranches)),
   );
@@ -101,7 +100,6 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
       <BranchPicker
         value={form.branchId}
         onChange={(branchId) => change({ branchId })}
-        nullable={user?.branchId === null}
         nullLabel={t("branches.shared_all_branches")}
       />
       <TextField
@@ -114,7 +112,7 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
       >
         {DURATIONS.map((months) => (
           <MenuItem key={months} value={months}>
-            {durationLabel(months)}
+            {planDurationLabel(months, t)}
           </MenuItem>
         ))}
       </TextField>
