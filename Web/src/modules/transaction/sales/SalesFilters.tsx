@@ -39,6 +39,7 @@ export function SalesFilters({ value, onChange }: SalesFiltersProps) {
         options={products
           .filter((product) => product.active)
           .map((product) => ({ value: product.id, label: product.name }))}
+        searchable
       />
       <Box sx={{ width: DATE_WIDTH }}>
         <DateField

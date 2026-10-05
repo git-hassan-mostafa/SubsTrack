@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import ListItemText from "@mui/material/ListItemText";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
+import { currencyPickOptions } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import {
   useDisplayCurrencyId,
@@ -18,8 +19,8 @@ export function DisplayCurrencySection() {
   const displayCurrencyId = useDisplayCurrencyId();
   const saving = useTenantSettingSlice((s) => s.saving);
   const setDisplayCurrencyId = useTenantSettingSlice((s) => s.setDisplayCurrencyId);
-  const choices = currencies.filter((c) => c.active);
-  const value = choices.some((c) => c.id === displayCurrencyId) ? displayCurrencyId : null;
+  const choices = currencyPickOptions(currencies.filter((c) => c.active));
+  const value = choices.some((c) => c.value === displayCurrencyId) ? displayCurrencyId : null;
 
   return (
     <SettingsSection
@@ -37,7 +38,7 @@ export function DisplayCurrencySection() {
         slotProps={{
           select: {
             renderValue: (selected) =>
-              choices.find((c) => c.id === selected)?.code ?? "USD",
+              choices.find((c) => c.value === selected)?.label ?? "USD",
           },
         }}
         sx={{ maxWidth: 360 }}
@@ -45,9 +46,9 @@ export function DisplayCurrencySection() {
         <MenuItem value={USD_OPTION}>
           <ListItemText primary="USD" secondary={t("tenant_settings.usd_base_note")} />
         </MenuItem>
-        {choices.map((currency) => (
-          <MenuItem key={currency.id} value={currency.id}>
-            <ListItemText primary={currency.code} secondary={currency.name} />
+        {choices.map((option) => (
+          <MenuItem key={option.value} value={option.value}>
+            <ListItemText primary={option.label} secondary={option.sublabel} />
           </MenuItem>
         ))}
       </TextField>

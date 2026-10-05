@@ -186,6 +186,7 @@ export function SendWhatsAppSheet({
               options={templateOptions}
               value={templateId}
               onChange={pickTemplate}
+              searchable
             />
           </View>
 

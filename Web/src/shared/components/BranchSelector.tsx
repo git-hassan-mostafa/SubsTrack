@@ -1,14 +1,11 @@
 import { useTranslation } from "react-i18next";
-import MenuItem from "@mui/material/MenuItem";
-import Select from "@mui/material/Select";
 import AccountTreeOutlined from "@mui/icons-material/AccountTreeOutlined";
 import InputAdornment from "@mui/material/InputAdornment";
 import { BRANCH_FILTER_UNASSIGNED } from "@shared/core/constants";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { useCanPickBranch } from "@shared/modules/admin/branches/hooks/useCanPickBranch";
 import { useUiPrefStore } from "@shared/shared/lib/uiPrefStore";
-
-const ALL_BRANCHES = "";
+import { SearchableSelect, type SelectOption } from "./SearchableSelect";
 
 // Tenant-wide users with 2+ active branches only; RLS pins everyone else.
 export function BranchSelector() {
@@ -21,33 +18,29 @@ export function BranchSelector() {
   if (!canPick) return null;
 
   const filtered = currentBranchId !== null;
+  const options: SelectOption<string>[] = [
+    ...activeBranches.map((branch) => ({ value: branch.id, label: branch.name })),
+    { value: BRANCH_FILTER_UNASSIGNED, label: t("branches.unassigned") },
+  ];
 
   return (
-    <Select
+    <SearchableSelect<string>
       size="small"
-      value={currentBranchId ?? ALL_BRANCHES}
-      onChange={(event) =>
-        setCurrentBranchId(event.target.value === ALL_BRANCHES ? null : event.target.value)
-      }
-      inputProps={{ "aria-label": t("branches.branch_label") }}
+      ariaLabel={t("branches.branch_label")}
+      value={currentBranchId}
+      onChange={setCurrentBranchId}
+      options={options}
+      nullOption={{ label: t("branches.all_branches") }}
       startAdornment={
         <InputAdornment position="start">
           <AccountTreeOutlined fontSize="small" color={filtered ? "primary" : "action"} />
         </InputAdornment>
       }
       sx={{
-        minWidth: { xs: 120, sm: 180 },
-        bgcolor: filtered ? "primary.light" : "background.paper",
-        fontWeight: filtered ? 600 : 400,
+        width: { xs: 160, sm: 220 },
+        "& .MuiInputBase-root": { bgcolor: filtered ? "primary.light" : "background.paper" },
+        "& .MuiInputBase-input": { fontWeight: filtered ? 600 : 400 },
       }}
-    >
-      <MenuItem value={ALL_BRANCHES}>{t("branches.all_branches")}</MenuItem>
-      {activeBranches.map((branch) => (
-        <MenuItem key={branch.id} value={branch.id}>
-          {branch.name}
-        </MenuItem>
-      ))}
-      <MenuItem value={BRANCH_FILTER_UNASSIGNED}>{t("branches.unassigned")}</MenuItem>
-    </Select>
+    />
   );
 }

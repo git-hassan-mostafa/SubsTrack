@@ -211,6 +211,7 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
                   nullable
                   nullLabel={t("sales.all_products")}
                   triggerStyle="chip"
+                  searchable
                 />
                 <DatePickerInput
                   placeholder={t("sales.date_from")}

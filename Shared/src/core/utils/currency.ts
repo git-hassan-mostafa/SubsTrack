@@ -45,6 +45,13 @@ export function currencyChoices(
   return currencies.filter((c) => c.active || c.id === currentId);
 }
 
+// A picker row searchable by code or name; USD (null) is the caller's own row.
+export function currencyPickOptions(
+  currencies: readonly Currency[],
+): { value: string; label: string; sublabel: string }[] {
+  return currencies.map((c) => ({ value: c.id, label: c.code, sublabel: c.name }));
+}
+
 export function activeCurrencyId(
   id: string | null,
   currencies: readonly Currency[],

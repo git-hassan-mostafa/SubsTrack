@@ -313,6 +313,7 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
                 nullable
                 nullLabel={t("payments.all_users")}
                 triggerStyle="chip"
+                searchable
               />
               <Dropdown<WalletSource>
                 placeholder={t("ledger.filter_by_type")}

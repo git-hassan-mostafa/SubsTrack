@@ -48,6 +48,7 @@ export function MoneyReceivedFilters({ value, onChange }: MoneyReceivedFiltersPr
         value={value.receivedByUserId}
         onChange={(receivedByUserId) => onChange({ receivedByUserId })}
         options={users.map((user) => ({ value: user.id, label: user.fullName }))}
+        searchable
       />
       <FilterSelect<WalletSource | null>
         label={t("ledger.filter_by_type")}

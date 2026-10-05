@@ -87,6 +87,7 @@ export function CustomerFiltersBar({ value, onChange, onClear }: CustomerFilters
           value={value.planId}
           onChange={(planId) => onChange({ planId })}
           options={plans.map((plan) => ({ value: plan.id, label: plan.name }))}
+          searchable
         />
         <FilterSelect<CustomerTypeFilter | null>
           label={t("customers.filters.type")}

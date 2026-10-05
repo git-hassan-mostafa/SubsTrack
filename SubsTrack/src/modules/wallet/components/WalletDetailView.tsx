@@ -335,6 +335,7 @@ export function WalletDetailView({
                     nullable
                     nullLabel={t("wallet.all_customers")}
                     triggerStyle="chip"
+                    searchable
                   />
                 ) : null}
                 <Dropdown<WalletSource>

@@ -147,7 +147,7 @@ function SaleLineRow({ row, cart, onNewItem }: SaleLineRowProps) {
                 onChange={(service) => cart.selectService(row.key, service)}
                 sublabel={catalogPrice}
                 optionDisabled={(service) => !service.active}
-                placeholder={t("sales.service_other")}
+                nullOption={{ label: t("sales.service_other"), sublabel: t("sales.service_other_hint") }}
               />
             )}
             <Tooltip title={newLabel}>

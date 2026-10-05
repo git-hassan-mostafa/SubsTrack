@@ -1,15 +1,9 @@
 import { useTranslation } from "react-i18next";
-import Divider from "@mui/material/Divider";
-import ListItemText from "@mui/material/ListItemText";
-import MenuItem from "@mui/material/MenuItem";
-import TextField from "@mui/material/TextField";
 import { planPriceSublabel } from "@shared/modules/admin/plans/utils/planLabels";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
-
-const NO_PLAN = "";
-const ADD_NEW = "__add_new_plan";
+import { SearchableSelect } from "@/shared/components/SearchableSelect";
 
 interface PlanPickerProps {
   value: string | null;
@@ -31,45 +25,25 @@ export function PlanPicker({
   const plans = usePlanSlice((s) => s.items);
   const currencies = useCurrencySlice((s) => s.items);
   const display = useDisplayCurrency();
-  const options = plans.filter((plan) => plan.branchId === null || plan.branchId === branchId);
+  const options = plans
+    .filter((plan) => plan.branchId === null || plan.branchId === branchId)
+    .map((plan) => ({
+      value: plan.id,
+      label: plan.name,
+      sublabel: planPriceSublabel(plan, currencies, display, t),
+    }));
 
   return (
-    <TextField
-      select
+    <SearchableSelect<string>
       size="small"
-      value={value ?? NO_PLAN}
-      onChange={(event) => {
-        if (event.target.value === ADD_NEW) onAddNew?.();
-        else onChange(event.target.value === NO_PLAN ? null : event.target.value);
-      }}
+      ariaLabel={t("customers.plan_label")}
+      value={value}
+      onChange={onChange}
+      options={options}
+      nullOption={{ label: t("common.no_plan"), sublabel: t("customers.custom_plan_sublabel") }}
+      addNew={onAddNew ? { label: t("web.customers.new_plan"), onPick: onAddNew } : undefined}
       disabled={disabled}
       fullWidth
-      slotProps={{
-        htmlInput: { "aria-label": t("customers.plan_label") },
-        select: {
-          displayEmpty: true,
-          renderValue: (selected) =>
-            options.find((plan) => plan.id === selected)?.name ?? t("common.no_plan"),
-        },
-      }}
-    >
-      <MenuItem value={NO_PLAN}>
-        <ListItemText primary={t("common.no_plan")} secondary={t("customers.custom_plan_sublabel")} />
-      </MenuItem>
-      {options.map((plan) => (
-        <MenuItem key={plan.id} value={plan.id}>
-          <ListItemText
-            primary={plan.name}
-            secondary={planPriceSublabel(plan, currencies, display, t)}
-          />
-        </MenuItem>
-      ))}
-      {onAddNew ? <Divider /> : null}
-      {onAddNew ? (
-        <MenuItem value={ADD_NEW}>
-          <ListItemText primary={t("web.customers.new_plan")} slotProps={{ primary: { color: "primary" } }} />
-        </MenuItem>
-      ) : null}
-    </TextField>
+    />
   );
 }

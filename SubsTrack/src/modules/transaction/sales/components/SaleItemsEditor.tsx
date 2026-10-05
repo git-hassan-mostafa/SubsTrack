@@ -14,6 +14,7 @@ import { COLORS } from "@/src/shared/constants";
 import type { Service } from "@shared/core/types";
 import {
   currencyChoices,
+  currencyPickOptions,
   findCurrency,
   formatMoney,
 } from "@shared/core/utils/currency";
@@ -33,10 +34,9 @@ export function SaleItemsEditor({ cart, onFocusClearError }: Props) {
   const [addProductOpen, setAddProductOpen] = useState(false);
   const [addServiceFor, setAddServiceFor] = useState<string | null>(null);
 
-  const currencyOptions: DropdownOption<string>[] = currencyChoices(
-    currencies,
-    currencyId,
-  ).map((c) => ({ label: c.code, sublabel: c.name, value: c.id }));
+  const currencyOptions = currencyPickOptions(
+    currencyChoices(currencies, currencyId),
+  );
 
   const productOptions: DropdownOption<string>[] = cart.products.map((p) => {
     const pool = cart.poolOf(p);
@@ -173,6 +173,7 @@ export function SaleItemsEditor({ cart, onFocusClearError }: Props) {
               value={row.productId}
               onChange={(v) => selectProduct(row.key, v)}
               onAddNew={() => setAddProductOpen(true)}
+              searchable
             />
           ) : (
             <>
@@ -186,6 +187,7 @@ export function SaleItemsEditor({ cart, onFocusClearError }: Props) {
                 nullLabel={t("sales.service_other")}
                 nullSublabel={t("sales.service_other_hint")}
                 onAddNew={() => setAddServiceFor(row.key)}
+                searchable
               />
               {row.serviceId === null ? (
                 <Input

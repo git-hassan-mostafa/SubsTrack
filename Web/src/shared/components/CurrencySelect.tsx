@@ -2,7 +2,7 @@ import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import type { SxProps, Theme } from "@mui/material/styles";
 import type { Currency } from "@shared/core/types";
-import { currencyChoices } from "@shared/core/utils/currency";
+import { currencyChoices, currencyPickOptions } from "@shared/core/utils/currency";
 
 const USD_OPTION = "";
 
@@ -27,9 +27,9 @@ export function CurrencySelect({ label, value, onChange, currencies, size, sx }:
       sx={sx}
     >
       <MenuItem value={USD_OPTION}>USD</MenuItem>
-      {currencyChoices(currencies, value).map((currency) => (
-        <MenuItem key={currency.id} value={currency.id}>
-          {currency.code} · {currency.name}
+      {currencyPickOptions(currencyChoices(currencies, value)).map((option) => (
+        <MenuItem key={option.value} value={option.value}>
+          {option.label} · {option.sublabel}
         </MenuItem>
       ))}
     </TextField>

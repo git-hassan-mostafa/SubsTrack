@@ -342,7 +342,6 @@ export function SettingsScreen() {
         title={t("settings.language_section")}
         options={languageOptions}
         value={language}
-        hideSearch
         onChange={(val) => void handleLanguageSelect(val)}
       />
     </SafeAreaView>

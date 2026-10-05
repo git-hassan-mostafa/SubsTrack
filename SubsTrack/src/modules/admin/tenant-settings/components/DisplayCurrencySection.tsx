@@ -3,10 +3,8 @@ import { CARD_SURFACE } from "@/src/shared/constants";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
-import {
-  Dropdown,
-  type DropdownOption,
-} from "@/src/shared/components/Dropdown";
+import { Dropdown } from "@/src/shared/components/Dropdown";
+import { currencyPickOptions } from "@shared/core/utils/currency";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import {
   useDisplayCurrencyId,
@@ -22,11 +20,8 @@ export function DisplayCurrencySection() {
     (s) => s.setDisplayCurrencyId,
   );
 
-  const displayCurrencyOptions: DropdownOption<string>[] = useMemo(
-    () =>
-      currencies
-        .filter((c) => c.active)
-        .map((c) => ({ label: c.code, sublabel: c.name, value: c.id })),
+  const displayCurrencyOptions = useMemo(
+    () => currencyPickOptions(currencies.filter((c) => c.active)),
     [currencies],
   );
 

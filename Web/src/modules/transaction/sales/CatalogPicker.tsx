@@ -1,8 +1,4 @@
-import Autocomplete from "@mui/material/Autocomplete";
-import Box from "@mui/material/Box";
-import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
-import { useTranslation } from "react-i18next";
+import { type NullOption, SearchableSelect } from "@/shared/components/SearchableSelect";
 
 interface CatalogPickerProps<T extends { id: string; name: string }> {
   label: string;
@@ -11,6 +7,7 @@ interface CatalogPickerProps<T extends { id: string; name: string }> {
   onChange: (item: T | null) => void;
   sublabel: (item: T) => string;
   optionDisabled?: (item: T) => boolean;
+  nullOption?: NullOption;
   placeholder?: string;
   required?: boolean;
 }
@@ -23,35 +20,26 @@ export function CatalogPicker<T extends { id: string; name: string }>({
   onChange,
   sublabel,
   optionDisabled,
+  nullOption,
   placeholder,
   required = false,
 }: CatalogPickerProps<T>) {
-  const { t } = useTranslation();
   return (
-    <Autocomplete<T>
-      value={value}
-      options={options}
-      onChange={(_event, next) => onChange(next)}
-      getOptionLabel={(item) => item.name}
-      getOptionKey={(item) => item.id}
-      isOptionEqualToValue={(a, b) => a.id === b.id}
-      getOptionDisabled={optionDisabled}
-      noOptionsText={t("common.no_results")}
+    <SearchableSelect<string>
       size="small"
+      label={label}
+      value={value?.id ?? null}
+      onChange={(id) => onChange(options.find((item) => item.id === id) ?? null)}
+      options={options.map((item) => ({
+        value: item.id,
+        label: item.name,
+        sublabel: sublabel(item),
+        disabled: optionDisabled?.(item),
+      }))}
+      nullOption={nullOption}
+      placeholder={placeholder}
+      required={required}
       fullWidth
-      renderOption={({ key, ...props }, item) => (
-        <Box component="li" key={key} {...props}>
-          <Box>
-            <Typography variant="body2">{item.name}</Typography>
-            <Typography variant="caption" color="text.secondary">
-              {sublabel(item)}
-            </Typography>
-          </Box>
-        </Box>
-      )}
-      renderInput={(params) => (
-        <TextField {...params} label={label} placeholder={placeholder} required={required} />
-      )}
     />
   );
 }

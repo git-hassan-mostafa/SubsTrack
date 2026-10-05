@@ -137,6 +137,7 @@ export function AuditLogPage() {
               value={filters.actor}
               onChange={(actor) => pick({ actor })}
               options={users.map((user) => ({ value: user.id, label: user.fullName }))}
+              searchable
             />
             <Box sx={{ width: 170 }}>
               <DateField

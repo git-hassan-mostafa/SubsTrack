@@ -1,11 +1,8 @@
 import { useTranslation } from "react-i18next";
-import MenuItem from "@mui/material/MenuItem";
-import TextField from "@mui/material/TextField";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { useCanPickBranch } from "@shared/modules/admin/branches/hooks/useCanPickBranch";
 import { useBranchSlice } from "@shared/state/hooks/useBranchSlice";
-
-const NO_BRANCH = "";
+import { SearchableSelect, type SelectOption } from "./SearchableSelect";
 
 interface BranchPickerProps {
   value: string | null;
@@ -35,32 +32,29 @@ export function BranchPicker({
       ? branches.find((branch) => branch.id === value)
       : undefined;
 
+  const options: SelectOption<string>[] = activeBranches.map((branch) => ({
+    value: branch.id,
+    label: branch.name,
+  }));
+  if (inactiveCurrent) {
+    options.push({
+      value: inactiveCurrent.id,
+      label: `${inactiveCurrent.name} · ${t("common.inactive")}`,
+      disabled: true,
+    });
+  }
+
   return (
-    <TextField
-      select
+    <SearchableSelect<string>
       label={label ?? t("branches.branch_label")}
-      value={value ?? NO_BRANCH}
-      onChange={(event) =>
-        onChange(event.target.value === NO_BRANCH ? null : event.target.value)
+      value={value}
+      onChange={onChange}
+      options={options}
+      nullOption={
+        nullable || value === null ? { label: nullLabel, disabled: !nullable } : undefined
       }
       required={!nullable}
       fullWidth
-    >
-      {nullable || value === null ? (
-        <MenuItem value={NO_BRANCH} disabled={!nullable}>
-          {nullLabel}
-        </MenuItem>
-      ) : null}
-      {activeBranches.map((branch) => (
-        <MenuItem key={branch.id} value={branch.id}>
-          {branch.name}
-        </MenuItem>
-      ))}
-      {inactiveCurrent ? (
-        <MenuItem value={inactiveCurrent.id} disabled>
-          {inactiveCurrent.name} · {t("common.inactive")}
-        </MenuItem>
-      ) : null}
-    </TextField>
+    />
   );
 }

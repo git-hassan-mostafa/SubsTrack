@@ -159,6 +159,7 @@ export function AuditLogScreen() {
           nullable
           nullLabel={t("audit.all_actors")}
           triggerStyle="chip"
+          searchable
         />
         <DatePickerInput
           placeholder={t("audit.date_from")}

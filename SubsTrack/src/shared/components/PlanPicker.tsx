@@ -64,6 +64,7 @@ export function PlanPicker({
       onAddNew={onAddNew}
       disabled={disabled}
       disabledHint={disabledHint}
+      searchable
     />
   );
 }

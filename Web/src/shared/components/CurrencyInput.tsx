@@ -5,7 +5,7 @@ import Select from "@mui/material/Select";
 import TextField from "@mui/material/TextField";
 import { useTranslation } from "react-i18next";
 import type { Currency } from "@shared/core/types";
-import { currencyChoices } from "@shared/core/utils/currency";
+import { currencyChoices, currencyPickOptions } from "@shared/core/utils/currency";
 import { amountText, decimalDigitsOnly, parseAmount } from "@shared/core/utils/inputText";
 import { useLastUsedCurrency } from "@shared/shared/hooks/useLastUsedCurrency";
 
@@ -55,7 +55,7 @@ export function CurrencyInput({
 
   if (parseAmount(text) !== amount) setText(amountText(amount));
 
-  const options = currencyChoices(currencies, currencyId);
+  const options = currencyPickOptions(currencyChoices(currencies, currencyId));
 
   const pickCurrency = (value: string) => {
     const nextId = value === USD_OPTION ? null : value;
@@ -94,15 +94,15 @@ export function CurrencyInput({
                 onChange={(event) => pickCurrency(event.target.value)}
                 disabled={disabled || lockCurrency}
                 renderValue={(value) =>
-                  options.find((c) => c.id === value)?.code ?? "USD"
+                  options.find((option) => option.value === value)?.label ?? "USD"
                 }
                 slotProps={{ input: { "aria-labelledby": currencyLabelId } }}
                 sx={{ fontWeight: 600, minWidth: 64 }}
               >
                 <MenuItem value={USD_OPTION}>USD</MenuItem>
-                {options.map((currency) => (
-                  <MenuItem key={currency.id} value={currency.id}>
-                    {currency.code} · {currency.name}
+                {options.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label} · {option.sublabel}
                   </MenuItem>
                 ))}
               </Select>

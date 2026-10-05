@@ -44,6 +44,7 @@ export function BranchPicker({
       nullable={nullable}
       nullLabel={nullable ? nullLabel : undefined}
       nullSublabel={nullable ? nullSublabel : undefined}
+      searchable
     />
   );
 }

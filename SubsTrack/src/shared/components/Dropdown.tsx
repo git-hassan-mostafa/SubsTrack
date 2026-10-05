@@ -8,6 +8,7 @@ import { COLORS } from "@/src/shared/constants";
 import { Input } from "@/src/shared/components/Input";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
 import { SheetDragArea } from "./SheetDragArea";
+import { matchesOptionSearch } from "@shared/shared/lib/optionSearch";
 
 export interface DropdownOption<T = string> {
   label: string;
@@ -16,8 +17,7 @@ export interface DropdownOption<T = string> {
   disabled?: boolean;
 }
 
-// "default" — full-width form field with label, used inside form sheets.
-// "chip"    — compact fit-content pill, used in filter bars alongside other chips.
+// "default" = labelled form field in a sheet; "chip" = compact filter-bar pill.
 export type DropdownTriggerStyle = "default" | "chip";
 
 interface DropdownProps<T = string> {
@@ -33,6 +33,7 @@ interface DropdownProps<T = string> {
   onAddNew?: () => void;
   disabled?: boolean;
   disabledHint?: string;
+  searchable?: boolean;
 }
 
 export function Dropdown<T extends string | number | null = string>({
@@ -48,6 +49,7 @@ export function Dropdown<T extends string | number | null = string>({
   onAddNew,
   disabled = false,
   disabledHint,
+  searchable = false,
 }: DropdownProps<T>) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -96,6 +98,7 @@ export function Dropdown<T extends string | number | null = string>({
           nullable={nullable}
           nullLabel={nullLabel}
           nullSublabel={nullSublabel}
+          searchable={searchable}
         />
       </>
     );
@@ -161,6 +164,7 @@ export function Dropdown<T extends string | number | null = string>({
         nullable={nullable}
         nullLabel={nullLabel}
         nullSublabel={nullSublabel}
+        searchable={searchable}
       />
     </View>
   );
@@ -176,7 +180,7 @@ interface DropdownModalProps<T> {
   nullable?: boolean;
   nullLabel?: string;
   nullSublabel?: string;
-  hideSearch?: boolean;
+  searchable?: boolean;
 }
 
 export function DropdownModal<T extends string | number | null = string>({
@@ -189,7 +193,7 @@ export function DropdownModal<T extends string | number | null = string>({
   nullable = false,
   nullLabel,
   nullSublabel,
-  hideSearch,
+  searchable = false,
 }: DropdownModalProps<T>) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
@@ -230,9 +234,9 @@ export function DropdownModal<T extends string | number | null = string>({
     })),
   ];
 
-  const listItems = search.trim()
+  const listItems = searchable
     ? allItems.filter((item) =>
-        item.label.toLowerCase().includes(search.toLowerCase()),
+        matchesOptionSearch(search, item.label, item.sublabel),
       )
     : allItems;
 
@@ -249,7 +253,7 @@ export function DropdownModal<T extends string | number | null = string>({
         </PressableOpacity>
       </SheetDragArea>
 
-      {hideSearch == false && (
+      {searchable && (
         <View className="px-4 py-2 border-b border-gray-100">
           <Input
             value={search}

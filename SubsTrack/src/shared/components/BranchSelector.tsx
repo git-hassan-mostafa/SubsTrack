@@ -76,6 +76,7 @@ export function BranchSelector({
         onChange={setCurrentBranchId}
         nullable
         nullLabel={allBranchesLabel}
+        searchable
       />
     </View>
   );

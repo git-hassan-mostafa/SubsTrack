@@ -1,5 +1,6 @@
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
+import { SearchableSelect } from "@/shared/components/SearchableSelect";
 
 const ANY = "";
 
@@ -15,6 +16,7 @@ interface FilterSelectProps<T extends string | number | null> {
   options: FilterOption<NonNullable<T>>[];
   anyLabel?: string;
   minWidth?: number;
+  searchable?: boolean;
 }
 
 // `anyLabel` adds a first row that sets the value back to null — T must allow it.
@@ -25,11 +27,26 @@ export function FilterSelect<T extends string | number | null>({
   options,
   anyLabel,
   minWidth = 160,
+  searchable = false,
 }: FilterSelectProps<T>) {
   const pick = (raw: unknown) => {
     const picked = options.find((option) => String(option.value) === String(raw));
     onChange((picked ? picked.value : null) as T);
   };
+
+  if (searchable) {
+    return (
+      <SearchableSelect<NonNullable<T>>
+        size="small"
+        label={label}
+        value={value as NonNullable<T> | null}
+        onChange={(next) => onChange(next as T)}
+        options={options}
+        nullOption={anyLabel !== undefined ? { label: anyLabel } : undefined}
+        sx={{ minWidth }}
+      />
+    );
+  }
 
   return (
     <TextField

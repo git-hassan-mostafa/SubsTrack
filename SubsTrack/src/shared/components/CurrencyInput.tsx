@@ -1,15 +1,17 @@
 import { useMemo, useState, type ReactNode } from "react";
-import { FlatList, View } from "react-native";
+import { View } from "react-native";
 import { PressableOpacity } from "./PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "./Text";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency } from "@shared/core/types";
-import { currencyChoices } from "@shared/core/utils/currency";
+import {
+  currencyChoices,
+  currencyPickOptions,
+} from "@shared/core/utils/currency";
 import { useLastUsedCurrency } from "@shared/shared/hooks/useLastUsedCurrency";
-import { BottomSheetScaffold } from "./BottomSheetScaffold";
-import { SheetDragArea } from "./SheetDragArea";
+import { DropdownModal } from "./Dropdown";
 import { AppTextInput } from "./AppTextInput";
 import { useTextField } from "@/src/shared/hooks/useTextField";
 import {
@@ -138,73 +140,16 @@ export function CurrencyInput({
 
       {error ? <Text className="text-sm text-danger mt-1">{error}</Text> : null}
 
-      <BottomSheetScaffold
+      <DropdownModal<string>
         visible={pickerOpen}
-        onDismiss={() => setPickerOpen(false)}
-      >
-        <SheetDragArea className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
-          <Text fontWeight="SemiBold" className="text-base text-gray-900">
-            {t("tenant_settings.currencies_section_title")}
-          </Text>
-          <PressableOpacity onPress={() => setPickerOpen(false)}>
-            <Text fontWeight="Medium" className="text-base text-primary">
-              {t("common.close")}
-            </Text>
-          </PressableOpacity>
-        </SheetDragArea>
-
-        <FlatList
-          data={[
-            {
-              id: null as string | null,
-              code: "USD",
-              label: "USD",
-              sublabel: null as string | null,
-            },
-            ...activeCurrencies.map((c) => ({
-              id: c.id as string | null,
-              code: c.code,
-              label: c.code,
-              sublabel: c.name,
-            })),
-          ]}
-          keyExtractor={(item) => item.id ?? "__usd__"}
-          style={{ maxHeight: 360 }}
-          renderItem={({ item }) => {
-            const isSelected = item.id === currencyId;
-            return (
-              <PressableOpacity
-                onPress={() => {
-                  handleCurrencyChange(item.id);
-                  setPickerOpen(false);
-                }}
-                className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${
-                  isSelected ? "bg-indigo-50" : "bg-white"
-                }`}
-              >
-                <View className="flex-1">
-                  <Text
-                    fontWeight="SemiBold"
-                    className={`text-base ${
-                      isSelected ? "text-primary" : "text-gray-900"
-                    }`}
-                  >
-                    {item.label}
-                  </Text>
-                  {item.sublabel ? (
-                    <Text className="text-xs text-gray-400 mt-0.5">
-                      {item.sublabel}
-                    </Text>
-                  ) : null}
-                </View>
-                {isSelected ? (
-                  <Ionicons name="checkmark" size={18} color={COLORS.primary} />
-                ) : null}
-              </PressableOpacity>
-            );
-          }}
-        />
-      </BottomSheetScaffold>
+        onClose={() => setPickerOpen(false)}
+        title={t("tenant_settings.currencies_section_title")}
+        options={currencyPickOptions(activeCurrencies)}
+        value={currencyId}
+        onChange={handleCurrencyChange}
+        nullable
+        nullLabel="USD"
+      />
     </View>
   );
 }

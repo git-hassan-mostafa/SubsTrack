@@ -92,6 +92,7 @@ export function CustomerFilterChips({ value, onChange, className }: Props) {
         nullable
         nullLabel={t("customers.filters.plan_any")}
         triggerStyle="chip"
+        searchable
       />
       <Dropdown<CustomerTypeFilter>
         label={t("customers.filters.type")}
