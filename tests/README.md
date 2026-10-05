@@ -1,6 +1,6 @@
 # tests/ — money unit tests
 
-Jest + Babel. Its **own** npm package on purpose: `SubsTrack/package.json` (its `scripts` and its dependency tree) feeds the OTA fingerprint, so adding a devDependency or a `"test"` script there would silently cut every installed app off from OTA updates until a new native build shipped — gotcha #53. Nothing here is imported by the app.
+Jest + Babel. **Own** npm package on purpose: `SubsTrack/package.json` (`scripts` + dependency tree) feeds the OTA fingerprint, so a devDependency or `"test"` script there silently cuts every installed app off from OTA updates until a new native build ships (gotcha #53). App imports nothing from here.
 
 ```bash
 cd tests
@@ -12,27 +12,27 @@ npm run test:coverage
 npm run typecheck                # tsc over the tests AND the app code they reach
 ```
 
-If `npm test` reports **Access is denied**, the machine's AV script control is blocking the `.cmd` shim — run `node node_modules/jest/bin/jest.js` instead. (The same block is why this is Jest + Babel and not Vitest: esbuild's binary cannot be spawned here.)
+`npm test` → **Access is denied** = AV script control blocking the `.cmd` shim → run `node node_modules/jest/bin/jest.js`. (Same block is why Jest + Babel, not Vitest: esbuild's binary can't be spawned.)
 
 ## Layout
 
-| Path                    | What it is                                                                                                                                                                                                |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `suites/*.test.ts`      | One file per area. Every case is numbered `TC-XX-nn` and cross-referenced from [QA/money-unit-tests.md](../QA/money-unit-tests.md)                                                                        |
-| `suites/sharedBoundary.test.ts` | The guard for `Shared/src`: it fails when a Shared file imports `react-native`, `expo-*`, `@react-native*` or app code (`@/…`, or a relative path leaving `Shared/src`), or when an `@edge/*` file it reaches has an import of its own |
-| `helpers/factories.ts`  | Builders for the domain shapes. Every default is the boring case: USD, one month, nothing voided, nothing collected                                                                                       |
-| `helpers/fakeLedger.ts` | An in-memory `charges` / `collections` / `collection_items` store following the SAME rules the two real repositories document. It implements no money rule — no waterfall, no month status, no validation |
-| `helpers/fakeSales.ts`  | The same for `sales` / `sale_items` / stock movements                                                                                                                                                     |
-| `helpers/fakeSqlite.ts` | An in-memory stand-in for the ONE SQLite connection, parsing only the statement shapes `db/dml.ts` and the sync engine emit. It enforces the PRIMARY KEY and the natural-key UNIQUE index, and no money rule |
-| `helpers/fakeSupabase.ts` | A RECORDING PostgREST stand-in, used only by the four sync suites, which must see the requests the engine makes. Every other suite keeps `stubs/supabase-client.ts`, which throws on any access |
-| `helpers/clock.ts`      | Freezes "today". A month test that does not pin the clock passes in June and fails in July                                                                                                                |
-| `tsconfig.json`         | The editor and `npm run typecheck` read this. There is no tsconfig at the repo root, so without it every `@/…` import and every `describe`/`expect` is an error in the IDE                                |
-| `stubs/`                | One tiny file per native module the app graph reaches (react-native, expo-crypto, the Supabase client, NetInfo…). A stub may fake a **platform**, never a rule                                            |
+|Path|What|
+|-|-|
+|`suites/*.test.ts`|one file per area; every case numbered `TC-XX-nn`, cross-referenced from `QA/money-unit-tests.md`|
+|`suites/sharedBoundary.test.ts`|guard for `Shared/src`: fails when a Shared file imports `react-native`, `expo-*`, `@react-native*` or app code (`@/…`, or a relative path leaving `Shared/src`), or when an `@edge/*` file it reaches has an import of its own|
+|`helpers/factories.ts`|builders for domain shapes; every default = boring case: USD, one month, nothing voided, nothing collected|
+|`helpers/fakeLedger.ts`|in-memory `charges` / `collections` / `collection_items` store following the SAME rules the two real repositories document. Implements no money rule — no waterfall, no month status, no validation|
+|`helpers/fakeSales.ts`|same for `sales` / `sale_items` / stock movements|
+|`helpers/fakeSqlite.ts`|in-memory stand-in for the ONE SQLite connection, parsing only statement shapes `db/dml.ts` + sync engine emit. Enforces PRIMARY KEY + natural-key UNIQUE index, no money rule|
+|`helpers/fakeSupabase.ts`|RECORDING PostgREST stand-in, only for the four sync suites (must see the engine's requests). Every other suite keeps `stubs/supabase-client.ts`, which throws on any access|
+|`helpers/clock.ts`|freezes "today". A month test not pinning the clock passes in June, fails in July|
+|`tsconfig.json`|read by editor + `npm run typecheck`. No tsconfig at repo root → without it every `@/…` import and `describe`/`expect` errors in IDE|
+|`stubs/`|one tiny file per native module the app graph reaches (react-native, expo-crypto, Supabase client, NetInfo…). A stub may fake a **platform**, never a rule|
 
-Jest and tsc see the app differently on purpose: `moduleNameMapper` swaps the native modules for stubs, while **tsc follows the real files** so the tests are checked against the app's real types.
+Jest vs tsc see the app differently on purpose: `moduleNameMapper` swaps native modules for stubs, **tsc follows the real files** → tests checked against the app's real types.
 
 ## Adding a test
 
-Put it in the suite that owns the rule, give it the next `TC-XX-nn` number, and name it after the rule rather than the function. A test that reproduces a bug goes in section 4 of [QA/money-unit-tests.md](../QA/money-unit-tests.md) so it is never deleted as redundant.
+Put it in the suite owning the rule, next `TC-XX-nn` number, name it after the rule not the function. A bug-reproducing test goes in section 4 of `QA/money-unit-tests.md` so it's never deleted as redundant.
 
-New native import in the app → add a stub here and a `moduleNameMapper` line in `jest.config.js`. Never work around it by changing app code to suit the test.
+New native import in app → add a stub here + a `moduleNameMapper` line in `jest.config.js`. Never change app code to suit the test.

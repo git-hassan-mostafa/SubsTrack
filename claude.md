@@ -1,625 +1,192 @@
 # SubsTrack — Core Context
 
-Read this file first, every session. **Do not re-explore the codebase at start** —
-this is the source of truth. Deeper detail lives in `docs/`, read **on demand only**
-(see Doc Map §2). When architecture/context changes, update this file **and** the
-matching `docs/` file. Dev phase: architecture + DB schema are open to change.
+Read first, every session. **Don't re-explore the codebase at start** — this is the source of truth; `docs/` detail read **on demand only** (§2). Architecture/context changes → update this file **and** the matching `docs/` file. Dev phase: architecture + DB schema open to change.
 
----
-
-## 1. HARD RULES (never violate)
+## 1. HARD RULES
 
 ### 1.1 Comments — ZERO tolerance
+- **NEVER a comment on a changed/added line.** No trailing `//`, no `//` above a statement, no inline `/* */`, nothing inside a function body — not one word, not for "tricky" lines. Needs explaining → rename the variable or extract a named helper.
+- **ONLY allowed: ONE line directly above a function/component/method/class/type/interface declaration**, still one line after Prettier (~80 chars). No JSDoc, `@param`/`@returns`, `*` spacer lines, paragraphs, examples.
+- It says **why** / the non-obvious gotcha, never what the signature says. **One fact**; two → `docs/`, inline copy **DELETED**, replaced by a pointer above a declaration: `// oldest-first — see gotcha #81`.
+- **OVERRIDES Consistency (§3).** ~2,783 existing inline comments in `SubsTrack/src` (239 files) are ALL wrong — **don't match them**. In any block you touch: delete every inline comment, trim every over-long declaration comment.
+- Never `// eslint-disable … react-hooks/*` — `experiments.reactCompiler` is on; one kills React Compiler for the whole file (gotcha #52).
 
-- **NEVER a comment on a changed/added line of code.** No trailing `//`, no `//`
-  above a statement, no `/* */` inline, no comment inside a function body. Not one
-  word. Not for "tricky" lines. An edit of any size adds **zero** inline comments.
-  If a line needs explaining → rename the variable or extract a named helper.
-- **The ONLY allowed comment: ONE line directly above a function / component /
-  method / class / type / interface declaration.** Must still be one line after
-  Prettier (~80 chars). No JSDoc blocks, no `@param`/`@returns`, no `*` spacer
-  lines, no paragraphs, no examples.
-- That line says **why** it exists or the non-obvious gotcha — never what the
-  signature already says. **One fact.** Two facts → it belongs in `docs/`.
-- A long rule is a `docs/` job and the inline copy is **DELETED**, replaced by a
-  pointer only: `// oldest-first — see gotcha #81`, and only above a declaration.
-- **This OVERRIDES the Consistency rule (§3).** ~2,783 inline comments already
-  exist in `SubsTrack/src` across 239 files — they are ALL wrong. **Do not match
-  them.** In any block you touch: delete every inline comment, trim every
-  over-long declaration comment.
-- Never `// eslint-disable … react-hooks/*` — `experiments.reactCompiler` is on;
-  one such comment kills React Compiler for the whole file. See gotcha #52.
-
-### 1.2 Non-negotiable architecture rules
-
-1. Month status logic lives ONLY in
-   `Shared/src/modules/customer/customer-payments/utils/monthStatus.ts`
-   (`buildMonthGrid()`, pure, no i18n — the portal and edge functions run it).
-   `PaymentService` keeps only the pay/void/unskip ORDER gates.
-2. `tenant_id` always from the Supabase JWT — never client input.
+### 1.2 Architecture rules
+1. Month status lives ONLY in `Shared/src/modules/customer/customer-payments/utils/monthStatus.ts` (`buildMonthGrid()`, pure, no i18n — portal + edge functions run it). `PaymentService` keeps only the pay/void/unskip ORDER gates.
+2. `tenant_id` always from the Supabase JWT, never client input.
 3. DB row types (snake_case) never escape the repository layer.
 4. No business logic in components or stores.
-5. No Supabase calls outside the repository layer. Sole exception: the sync engine
-   `SubsTrack/src/core/offline/sync/`.
-   5b. Services reach a repository ONLY through `repositories().x`
-   (`Shared/src/core/runtime/repositories.ts`), called inside a method, never at
-   module load. Each app hands its set to `configureShared()` at startup: the
-   Supabase classes live in `Shared/` (`createSupabaseRepositories()`), the phone
-   passes its offline twins (`SubsTrack/src/platform/offlineRepositories.ts`).
-   Never `new XxxRepository()` in a service/slice.
-   Both impls `implements IXxxRepository`; changing one's method surface must
-   change the interface, and therefore the other.
-6. RLS enforces multi-tenancy; app-level filtering is secondary.
-7. **No hard deletes** — `voided_at` (charges, collections), `active=false` /
-   `cancelled_at` (customers), `active=false` (branches, currencies, products).
-8. A bill's amount is a **snapshot** — never recompute from `plan.price` after it
-   is raised.
-   8b. **Money is a hand-over, never a number on the thing it paid for.** Balance
-   = `charge.amount − SUM(collection_items)`, computed. Nothing anywhere stores a
-   `paid` counter. Correcting cash = void the collection, never edit an amount
-   (Correct amount = void + re-record, gotcha #171).
+5. No Supabase calls outside repositories. Sole exception: sync engine `SubsTrack/src/core/offline/sync/`.
+   5b. Services reach a repository ONLY via `repositories().x` (`Shared/src/core/runtime/repositories.ts`), inside a method, never at module load. Each app hands its set to `configureShared()` at startup: Supabase classes in `Shared/` (`createSupabaseRepositories()`), phone passes offline twins (`SubsTrack/src/platform/offlineRepositories.ts`). Never `new XxxRepository()` in a service/slice. Both impls `implements IXxxRepository`; changing one's method surface changes the interface and so the other.
+6. RLS enforces multi-tenancy; app-level filtering secondary.
+7. **No hard deletes** — `voided_at` (charges, collections), `active=false`/`cancelled_at` (customers), `active=false` (branches, currencies, products).
+8. A bill's amount is a **snapshot** — never recompute from `plan.price` after a raise.
+   8b. **Money is a hand-over, never a number on what it paid for.** Balance = `charge.amount − SUM(collection_items)`, computed; no `paid` counter anywhere. Correcting cash = void the collection, never edit an amount (Correct amount = void + re-record, gotcha #171).
    8c. **Everything keys off MONEY, never off a row existing** (gotcha #106).
-9. Cross-module state → global Zustand store (`Shared/src/state/slices/`). Slices import
-   peer-slice **types** only, never their creators/hooks; cross-slice reads via
-   `get().<otherSlice>` inside actions. Caller-supplied data (allowance, counts,
-   currency) flows in as parameters from the component. Single-module state →
-   **module store** under `Shared/src/modules/<module>/state/`, kept out of `GlobalState`.
+9. Cross-module state → global Zustand store (`Shared/src/state/slices/`). Slices import peer-slice **types** only, never creators/hooks; cross-slice reads via `get().<otherSlice>` inside actions. Caller data (allowance, counts, currency) = params from the component. Single-module state → **module store** in `Shared/src/modules/<module>/state/`, outside `GlobalState`.
 10. All errors caught and stored in state — never surface raw Supabase messages.
-11. There are exactly **two quantity limits**, both on `tenants`:
-    `customer_allowance` (active customers) and `plan_allowance` (active service
-    lines — the number the **bill** is counted on, at `price_per_plan_usd`).
-    `plan_allowance >= customer_allowance` always. Both are enforced at the
-    **service** layer through ONE gate,
-    `billingService.assertQuotas(limits, before, after)`, which refuses a write
-    only on a quota that write **grows**. `CustomerService.createCustomer()`
-    counts the drafted lines too, before the first write;
-    `CustomerPlanService.syncLines()` nets removals against additions.
-    `QuotaExceededError` flows through the billing slice as a structured
-    `quotaError` field; never parse error strings. Branches, users, plans,
-    products and currencies are uncapped. See gotcha #149.
+11. Exactly **two quantity limits**, both on `tenants`: `customer_allowance` (active customers), `plan_allowance` (active service lines — the **bill** count, at `price_per_plan_usd`); `plan_allowance >= customer_allowance` always. Enforced at the **service** layer by ONE gate, `billingService.assertQuotas(limits, before, after)`, refusing only a quota the write **grows**. `CustomerService.createCustomer()` counts drafted lines before the first write; `CustomerPlanService.syncLines()` nets removals vs additions. `QuotaExceededError` → billing slice structured `quotaError`; never parse error strings. Branches, users, plans, products, currencies uncapped. Gotcha #149.
 
 ### 1.3 QA / tests
-
-- New scenario → add test-plan scenarios under `QA/`.
-- **Anything touching money → a unit test in `tests/`.** Run `npm test` there
-  before claiming a money change works. (`cd tests && npm install --ignore-scripts`;
-  if it says _Access is denied_: `node node_modules/jest/bin/jest.js`.)
-- `tests/` is a separate npm package **and must never move into `SubsTrack/`** —
-  its `package.json` would feed the OTA fingerprint and silently cut every
-  installed app off from updates (gotcha #53).
+- New scenario → test-plan scenarios under `QA/`.
+- **Anything touching money → unit test in `tests/`**; run `npm test` there before claiming it works (`cd tests && npm install --ignore-scripts`; _Access is denied_ → `node node_modules/jest/bin/jest.js`).
+- `tests/` is a separate npm package, **never move into `SubsTrack/`** — its `package.json` would feed the OTA fingerprint and cut every installed app off updates (gotcha #53).
 - A stub may fake a platform, never a rule.
-- `tests/suites/sharedBoundary.test.ts` fails the run when a `Shared/src` file
-  imports `react-native`, `expo-*`, `@react-native*` or app code — fix the
-  import, never the guard.
+- `tests/suites/sharedBoundary.test.ts` fails when a `Shared/src` file imports `react-native`, `expo-*`, `@react-native*` or app code — fix the import, never the guard.
 
-### 1.4 Reporting completed work
+### 1.4 Reporting
+End every task with `## Changes Made`: **3–5 bullets**, one short sentence each, results only. No "I updated/changed/completed", process, reasoning, progress, intro, conclusion, filler, self-reference. No implementation detail unless asked.
 
-End every task with a `## Changes Made` section: **3–5 bullets max**, one short
-sentence each, results only. No "I updated/changed/completed", no process,
-reasoning, progress updates, intros, conclusions, filler, or self-reference. No
-implementation detail unless explicitly requested.
-
----
+### 1.5 Docs are Claude-only
+`claude.md` + `docs/*.md` (except `docs/whatsapp-setup-guide.md`) + `tests/README.md` + `Portal/README.md` are read only by Claude: write them terse/telegraphic — no filler, history, link markup (`` `path` `` not `[x](../path)`), table padding or hard wrapping; keep every rule, reason, identifier, path, number, gotcha #. Human-facing, keep plain readable English: `QA/`, `fix-prompts.md`, `prerequisites.md`, `docs/whatsapp-setup-guide.md`.
 
 ## 2. Doc Map — read ON DEMAND, never all up front
-
-| File                               | Read before…                                                                                                                                            |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `docs/domain-notes.md`             | any feature work — ledger, sales/services, stock, expenses, reports, wallet, invoices, audit trail, money-in history, dashboard revenue                 |
-| `docs/gotchas.md`                  | ledger / payments / currency / branches / sales / revenue / expenses / reports / signup / audit / invoice code (130+ numbered traps, area index at top) |
-| `docs/features.md`                 | editing a feature's behavior (exhaustive)                                                                                                               |
-| `docs/db-schema.md`                | any DB column or constraint question                                                                                                                    |
-| `docs/month-grid.md`               | month grid, customer badges, pay/void order, skipped months                                                                                             |
-| `docs/architecture.md`             | slice vs module-store decisions, offline seam detail, write-patch rules                                                                                 |
-| `docs/ui-patterns.md`              | bottom sheets, list cards, `PageHeader`, `ActionMenu`, styling, navigation                                                                              |
-| `docs/offline.md`                  | touching ANY repository or the sync engine                                                                                                              |
-| `docs/build-and-release.md`        | running the apps, `tests/`, OTA/EAS publishing                                                                                                          |
-| `docs/ota-fingerprint-mismatch.md` | an OTA update never reaches the installed app                                                                                                           |
-| `docs/edge-functions.md`           | auth / user / tenant creation                                                                                                                           |
-| `docs/whatsapp.md`                 | WhatsApp Cloud API: per-tenant Embedded Signup, `whatsapp_*` tables, send queue, webhooks, Meta setup (gotchas #161–170)                                |
-| `docs/project-structure.md`        | directory trees (can go stale — prefer a file search)                                                                                                   |
-
----
+|File|Read before…|
+|-|-|
+|`docs/domain-notes.md`|any feature work — ledger, sales/services, stock, expenses, reports, wallet, invoices, audit trail, money-in history, dashboard revenue|
+|`docs/gotchas.md`|ledger/payments/currency/branches/sales/revenue/expenses/reports/signup/audit/invoice code (numbered traps, area index at top)|
+|`docs/features.md`|editing a feature's behavior (exhaustive)|
+|`docs/db-schema.md`|any DB column/constraint question|
+|`docs/month-grid.md`|month grid, customer badges, pay/void order, skipped months|
+|`docs/architecture.md`|slice vs module-store, offline seam detail, write-patch rules|
+|`docs/ui-patterns.md`|bottom sheets, list cards, `PageHeader`, `ActionMenu`, styling, navigation|
+|`docs/offline.md`|touching ANY repository or the sync engine|
+|`docs/build-and-release.md`|running the apps, `tests/`, OTA/EAS publishing|
+|`docs/ota-fingerprint-mismatch.md`|an OTA update never reaches the installed app|
+|`docs/edge-functions.md`|auth / user / tenant creation|
+|`docs/whatsapp.md`|WhatsApp Cloud API: per-tenant Embedded Signup, `whatsapp_*` tables, send queue, webhooks, Meta setup (gotchas #161–170)|
+|`docs/project-structure.md`|directory trees (can go stale — prefer a file search)|
 
 ## 3. Code Quality
-
-- Clean, readable, maintainable — clarity beats cleverness. Prefer the clean
-  scalable change over a band-aid fix, even if it is big.
-- **SOLID strictly**: S one responsibility per file/class/function · O extend
-  without modifying working code · L subtypes substitutable for base types ·
-  I small focused interfaces · D depend on abstractions, not concretions.
-- **Simplicity**: simplest solution that correctly solves the problem; no
-  over-engineering, no premature abstraction. If logic feels complex, stop and
-  rethink — there is almost always a simpler path.
-- **Dependencies**: add a library only when it meaningfully reduces complexity or
-  risk; well-maintained, widely adopted, good TS support. **Check what is already
-  installed first.**
-- **Consistency**: scan the surrounding codebase for patterns, naming and
-  structure and match them. Prefer consistency over personal preference. If an
-  existing pattern is an anti-pattern, flag it rather than silently diverging.
-  **Except comments — §1.1 overrides this.**
-- **Reuse — look both ways before writing.** Before adding anything, search for an
-  existing function / component / hook / util that already does it and use that
-  instead. After adding or changing one, search for existing code that should now
-  use it — duplicated logic, a hand-rolled copy, a near-identical component — and
-  refactor those call sites onto it in the same change. Do not leave two ways to
-  do one thing. **Then say so**: list every file you refactored in the
-  `## Changes Made` bullets (§1.4). If a call site is too risky to touch in this
-  change, name it and say why instead of silently skipping it.
-- **Design philosophy**: minimal, clean, professional. Used daily by
-  non-technical staff on phones; every screen immediately understandable. No
-  animations, no decorative elements, no unnecessary complexity.
-  Priority: clarity → speed → correctness → completeness.
-  **Project rules win over the `ux-designer` skill**: no animations or
-  transitions, errors inline via `ErrorBanner` (never toast/alert), plainest
-  option wins for non-technical staff — ignore its toast, 150–300 ms
-  transition, shimmer-skeleton and "delight" defaults.
-- **Text fields**: a field owns the text being typed. `Input` / `SearchTextBox` /
-  `CurrencyInput` route it through `useTextField`; a controlled `TextInput` wired
-  straight to form or store state is banned — a `value` one render late loses
-  letters and throws the caret to the end (gotcha #134). The COMPONENT is always
-  `AppTextInput`, never `TextInput` from `react-native`: a plain RN input grabs
-  the Android touch lock, so the page will not scroll under a finger resting on
-  a field. Layout (`flex-1`, `w-10`) goes on its `containerClassName`, the
-  border / padding / text on `className`. Its unfocused tap shield must stay a
-  gesture-handler `Gesture.Tap()` — an RN `Pressable` loses to the field's own
-  GH handler inside a sheet (gotchas #78, #140).
-- **Error handling**: async store actions wrap try/catch → `error: string | null`.
-  Screens show `<ErrorBanner>` inline, **never** toast/alert. `clearError()` on
-  user input or form unmount. Repositories convert raw Supabase errors to friendly
-  messages. `"account_not_configured"` from AuthService triggers specific UI.
-  Edge-function errors go through `BaseRepository.handleFunctionsError`, never raw
-  `handleError` (gotcha #40).
-
----
+- Clean, readable, maintainable; clarity > cleverness. Clean scalable change over a band-aid, even if big.
+- **SOLID strictly**: S one responsibility per file/class/function · O extend without modifying working code · L subtypes substitutable · I small focused interfaces · D depend on abstractions.
+- **Simplicity**: simplest correct solution; no over-engineering/premature abstraction. Feels complex → stop, rethink; there's almost always a simpler path.
+- **Dependencies**: only when it meaningfully cuts complexity/risk; well-maintained, widely adopted, good TS. **Check what's installed first.**
+- **Consistency**: match surrounding patterns, naming, structure over personal preference; flag an anti-pattern rather than silently diverging. **Except comments — §1.1.**
+- **Reuse — look both ways.** Before adding, search for an existing function/component/hook/util and use it. After adding/changing one, search for code that should now use it (duplicated logic, hand-rolled copy, near-identical component) and refactor those call sites in the same change — never two ways to do one thing. **List every refactored file in `## Changes Made`**; a call site too risky to touch → name it and say why.
+- **Design**: minimal, clean, professional; non-technical staff on phones daily; every screen immediately understandable. No animations, decoration, needless complexity. Priority: clarity → speed → correctness → completeness. **Project rules beat the `ux-designer` skill**: no animations/transitions, errors inline via `ErrorBanner` (never toast/alert), plainest option wins — ignore its toast, 150–300 ms transition, shimmer-skeleton, "delight" defaults.
+- **Text fields**: the field owns the typed text. `Input`/`SearchTextBox`/`CurrencyInput` route it through `useTextField`; a controlled `TextInput` wired straight to form/store state is banned — a `value` one render late loses letters and throws the caret to the end (gotcha #134). The COMPONENT is always `AppTextInput`, never RN `TextInput` (it grabs the Android touch lock → page won't scroll under a finger on a field). Layout (`flex-1`, `w-10`) on `containerClassName`; border/padding/text on `className`. Its unfocused tap shield stays a gesture-handler `Gesture.Tap()` — an RN `Pressable` loses to the field's GH handler inside a sheet (gotchas #78, #140).
+- **Errors**: async store actions try/catch → `error: string | null`. Screens show `<ErrorBanner>` inline, **never** toast/alert. `clearError()` on user input or form unmount. Repositories map raw Supabase errors to friendly messages. `"account_not_configured"` from AuthService → specific UI. Edge-function errors via `BaseRepository.handleFunctionsError`, never raw `handleError` (gotcha #40).
 
 ## 4. Project Shape
+**SubsTrack** — multi-tenant subscription management for small businesses (ISPs, gyms, delivery) collecting monthly fees. Staff manage customers, assign plans, record monthly payments. Paid vs overdue = **dynamically generated month grid — months never stored, only payments.**
 
-**SubsTrack** — multi-tenant subscription management for small businesses (ISPs,
-gyms, delivery services) that collect monthly fees. Staff log in, manage customer
-lists, assign plans, record monthly payments. Paid vs overdue is shown through a
-**dynamically generated month grid — months are never stored in the DB, only
-payments are.**
+- `SubsTrack/` Expo, tenant-facing (admin + user roles). `SuperAdmin/` Expo, internal for the SaaS owner (tenants + global options).
+- `Portal/` — READ-ONLY customer portal, plain React + Vite + Tailwind (NOT Expo). Customer opens `{CustomerPortalUrl}/{customer id}`, types the password staff set on the customer form, sees own months, bills, payments, purchases. Writes nothing, no Supabase client; **imports the same pure logic from `Shared/`** (`buildMonthGrid`, `mergeOwed`, `resolveLinePrice`, waterfall, mappers, `currency.ts`) via `@shared/*` — no stubs. One read: public `customer-portal` edge function, the ONLY thing that can scope a read to one customer.
+- `Web/` — staff desktop web app (React + Vite + React Router + MUI v9 + MUI X), own package, built phase by phase; uses Shared services, stores, `createSupabaseRepositories()` (no offline layer); takes over Expo web's address in the final phase.
+  - Pages + role rules = ONE list `Web/src/app/routes/appPages.ts` (nav + header title read it). Logout only via `endWebSession()` (`Web/src/state/webSession.ts`); every web-only store in `Web/src/state/` registers its reset there.
+  - Every list = `DataTable` over a `createPagedStore()` store reading `I*Repository.findPage()` (both impls). Customers reads the `customer-status` edge function (filters + sort on the server over every customer).
+  - Writes go through the Shared slice, then the page patches the returned row (edit, status) or re-reads (add, delete). `patchRow`/`addRow` first ask the store's `fits(row, query)`: row left the filter, or search/filter only the server can judge → mark stale instead of patching. Customers patches an add too (`patchCustomerRow`); a sale save patches every Sales table (`patchSaleTables`, its own owed bump skipped via `runSaleSave`).
+  - Reopening a page reads nothing — except Audit Log + Money received (`rereadOnOpen`) and a **stale** store: a write outside a table calls `markStale()` (every `ledger.owedVersion` bump marks Customers + Sales via `useMoneyTablesFreshness` in `AppFrame`); a shown table re-reads once. Every page reads its store via ONE hook `usePagedTable` (also gives `DataTable` its paging props), so a money door never reloads a list itself; toolbar Refresh reads on demand.
+  - Money in: ONE dialog `CollectDialog` (`Web/src/modules/ledger/collect/`) on Shared `useCollectForm` + `useCollectSubmit` (same as phone sheet); quick pay = Shared `useQuickPay` both apps. Bill: `BillDialog` (`Web/src/modules/ledger/bill/`) on Shared `billView.ts` + `useBillPayments` + `useCorrectPayment` (same as phone bill sheet). Every void taking a reason = `ReasonConfirmDialog`.
+  - Customer page (`/customers/:id`, `Web/src/modules/customer/customer-detail/`): year as **grid** (taller tiles, default) or **list** (months table), switch top right, over Shared `useCustomerMonthGrid` (same as phone panel); every month door (tap, ⋮ rows, selection, `?quickPay=1`) decided in `customer-payments/utils/monthActions.ts`. Below: Details, Debts, Sales panels; debt row ⋮ = Shared `debtItemActions`, sale ⋮ = Shared `saleMenuItems`, both via Shared hooks the phone panels run.
+  - Every sale door (receipt, record, edit, collect, send, history, void, bulk) = ONE hook `useSaleDoors` (`Web/src/modules/transaction/sales/`); record/edit in `SaleFormDialog` on Shared `useSaleForm` + `useSaleCart`; a surface holding a charge opens the receipt via `useBillDialog({ onOpenSale })`.
+  - Every debt-row door (collect, bill, edit, write off, undo, remove, add) = ONE hook `useDebtDoors` (`Web/src/modules/transaction/debts/`), shared by Debts page, its debtor dialog, customer page Debts panel; custom debt add/edit in `CustomDebtFormDialog` on Shared `useCustomDebtForm`.
+  - `SalesTable` takes its store as a prop → `/customers/:id/sales` runs it on a per-page `createSalesTable(customerId)` store. `BranchesPage` is the reference (`docs/ui-patterns.md`).
+- Also: `sql scripts/` (`script.sql` schema+RLS, `reset.sql` teardown), `new-features.md` (backlog), `Design/`, `QA/`, `tests/` (Jest, money rules).
 
-Two Expo apps: `SubsTrack/` (tenant-facing; admin + user roles) and `SuperAdmin/`
-(internal, for the SaaS owner: tenants + global options). Plus `Portal/` — the
-READ-ONLY customer portal, a plain React + Vite + Tailwind web app (NOT Expo): a
-customer opens `{CustomerPortalUrl}/{customer id}`, types the password staff set
-on the customer form, and sees their own months, bills, payments and purchases.
-It writes nothing, holds no Supabase client, and **imports the same pure logic
-from `Shared/`** (`buildMonthGrid`, `mergeOwed`, `resolveLinePrice`, the
-waterfall, the mappers, `currency.ts`) across the `@shared/*` alias — no stubs.
-Its one read is the public `customer-portal` edge function, which is the ONLY
-thing that can scope a read to a single customer. And `Web/` — the staff web
-app for desktop (React + Vite + React Router + MUI v9 + MUI X), its own package,
-being built phase by phase; it uses Shared services, stores and
-`createSupabaseRepositories()` (no offline layer) and will take over Expo
-web's address in the final phase. Its pages and role rules are ONE list,
-`Web/src/app/routes/appPages.ts` (the nav and header title read it too). It
-logs out only through `endWebSession()` (`Web/src/state/webSession.ts`), and
-every web-only store under `Web/src/state/` registers its reset there. Every web
-list is a `DataTable` over a `createPagedStore()` store reading
-`I*Repository.findPage()` (both impls) — Customers reads the `customer-status`
-edge function (filters + sort decided on the server over every customer);
-writes still go through the Shared slice, then the page patches the row it got back (edit, status) or re-reads (add, delete) — and `patchRow` / `addRow` first ask the store's `fits(row, query)`: a row that left the filter, or a search / filter only the server can judge, marks the table stale instead of patching — Customers patches an add too (`patchCustomerRow`), and a sale save patches every Sales table (`patchSaleTables`, its own owed bump skipped via `runSaleSave`). Opening a page again reads nothing — except Audit Log and Money received (`rereadOnOpen`) and a **stale** store: a write outside a table marks it (`markStale()`; every `ledger.owedVersion` bump marks Customers and Sales via `useMoneyTablesFreshness` in `AppFrame`), and a shown table re-reads once (every page reads its store through ONE hook, `usePagedTable`, which also hands `DataTable` its paging props), so a money door never reloads a list itself; the toolbar Refresh icon reads on demand. Money comes in through ONE web dialog, `CollectDialog` (`Web/src/modules/ledger/collect/`), on the same Shared `useCollectForm` + `useCollectSubmit` the phone sheet runs; quick pay is Shared `useQuickPay` on both apps. A bill opens in `BillDialog` (`Web/src/modules/ledger/bill/`) on the same Shared `billView.ts` + `useBillPayments` + `useCorrectPayment` the phone bill sheet runs; every void that takes a reason is `ReasonConfirmDialog`. The customer page (`/customers/:id`, `Web/src/modules/customer/customer-detail/`) shows the year as a **grid** (taller tiles, the default) or a **list** (a months table), switched at the top right, over the same Shared `useCustomerMonthGrid` the phone panel runs — every month door (tap, ⋮ rows, selection, `?quickPay=1`) is decided in `customer-payments/utils/monthActions.ts`. Under the months sit the Details, Debts and Sales panels; a debt row's ⋮ is Shared `debtItemActions`, a sale's ⋮ Shared `saleMenuItems`, both read through Shared hooks the phone panels run too. Every web door onto a sale (receipt, record, edit, collect, send, history, void, bulk) is ONE hook, `useSaleDoors` (`Web/src/modules/transaction/sales/`); a sale is recorded and edited in `SaleFormDialog` on the same Shared `useSaleForm` + `useSaleCart` the phone sheet runs; a surface holding a charge opens the receipt through `useBillDialog({ onOpenSale })`. Every web door onto a debt row (collect, the bill, edit, write off, undo, remove, add) is ONE hook, `useDebtDoors` (`Web/src/modules/transaction/debts/`), shared by the Debts page, its debtor dialog and the customer page's Debts panel; a custom debt is added and edited in `CustomDebtFormDialog` on the same Shared `useCustomDebtForm` the phone sheet runs. `SalesTable` takes its store as a prop, so `/customers/:id/sales` runs it on a per-page `createSalesTable(customerId)` store. `BranchesPage` is the reference (`docs/ui-patterns.md`). Also in the workspace:
-`sql scripts/` (`script.sql` schema+RLS, `reset.sql` teardown),
-`new-features.md` (backlog), `Design/`, `QA/`, `tests/` (Jest, money rules).
+**`Shared/`** = every layer below screens (types, constants, utils, i18n instance + locales, services, Supabase repositories, global store, slices, module stores, React-only hooks), imported as `@shared/*` (`SubsTrack/src/X` moved to `Shared/src/X`). **Source-only folder, NOT an npm workspace** — a workspace hoists native packages and changes the OTA fingerprint (gotcha #53). Libraries are `peerDependencies`; each app resolves ONE copy (Metro `nodeModulesPaths` + `blockList`, Vite `resolve.dedupe`).
+- Shared **never imports** `react-native`, `expo-*`, `@react-native*`, `@/…` or any app file (guard test). Platform pieces arrive once at startup via `configureShared()` (`Shared/src/core/runtime/runtime.ts`): Supabase client, `repositories`, `ids`, `storage`, `authStorageKey`, `actor()`, `logException`. Read `runtime()` only inside a function, never at module load. Phone wiring: `SubsTrack/src/platform/configurePhone.ts`.
+- **No barrels in Shared** — deep imports only. SubsTrack module `index.ts` barrels export **UI only** (screens, components, UI hooks); logic always from its `@shared/…` file.
+- `@edge/*` → `SubsTrack/supabase/functions/_shared/*` is Shared's one way into edge-function code, **zero-import** files only.
+- SubsTrack keeps the UI + whole **offline layer** (`core/offline/**`, `*.offline.ts` twins, `platform/offlineRepositories.ts`, `errorLogger`).
 
-**`Shared/`** holds every layer below the screens — types, constants, utils,
-i18n (instance + locales), services, the Supabase repositories, the global
-store, slices, module stores and React-only hooks — imported as `@shared/*`
-(`SubsTrack/src/X` moved to `Shared/src/X`). It is a **source-only folder, NOT
-an npm workspace**: a workspace would hoist native packages and change the OTA
-fingerprint (gotcha #53). Its libraries are `peerDependencies`, and each app
-resolves ONE copy of them (Metro `nodeModulesPaths` + `blockList`, Vite
-`resolve.dedupe`). Rules:
+**Nothing may be added to `SubsTrack/package.json`** for the portal or `Web/` — its `scripts` + dependency tree feed the OTA fingerprint (gotcha #53). Portal is its own root-level package; the edge-function deploy script lives in `Portal/package.json`.
 
-- Shared **never imports** `react-native`, `expo-*`, `@react-native*`, `@/…`
-  or any app file — the guard test enforces it. Platform pieces come in once at
-  startup through `configureShared()` (`Shared/src/core/runtime/runtime.ts`):
-  the Supabase client, `repositories`, `ids`, `storage`, `authStorageKey`,
-  `actor()`, `logException`. Read `runtime()` only inside a function, never at
-  module load. Phone wiring: `SubsTrack/src/platform/configurePhone.ts`.
-- **No barrels in Shared** — deep imports only. SubsTrack's module `index.ts`
-  barrels export **UI only** (screens, components, UI hooks); logic is always
-  imported from its `@shared/…` file.
-- `@edge/*` → `SubsTrack/supabase/functions/_shared/*` is the one way Shared
-  reaches edge-function code, and only for **zero-import** files.
-- SubsTrack keeps the UI and the whole **offline layer** (`core/offline/**`,
-  the `*.offline.ts` twins, `platform/offlineRepositories.ts`, `errorLogger`).
+**Stack**: RN 0.81.5 + Expo SDK 54 · Expo Router 6 (file-based, typed routes) · Zustand 5.0.12 + immer · NativeWind 4.2.3 · Supabase (PostgreSQL + RLS + Auth) · TS strict · i18next (en/ar, RTL) · @gorhom/bottom-sheet · alias `@/*` → repo root. `react-native-gesture-handler` intentionally **3.x**, ahead of the SDK 54 pin, guarded by `expo.install.exclude` (gotcha #140).
 
-**Nothing may be added to `SubsTrack/package.json`** for the portal or `Web/` — its
-`scripts` and dependency tree feed the OTA fingerprint (gotcha #53). The portal
-is its own root-level package, and the edge-function deploy script lives in
-`Portal/package.json`.
-
-**Stack**: RN 0.81.5 + Expo SDK 54 · Expo Router 6 (file-based, typed routes) ·
-Zustand 5.0.12 + immer · NativeWind 4.2.3 · Supabase (PostgreSQL + RLS + Auth) ·
-TypeScript strict · i18next (en/ar, RTL) · @gorhom/bottom-sheet · import alias
-`@/*` → repo root. `react-native-gesture-handler` is intentionally **3.x**,
-ahead of the SDK 54 pin, and guarded by `expo.install.exclude` (gotcha #140).
-
-Quick commands (full detail in `docs/build-and-release.md`): `npm install` then
-`npx expo run:android` — **a dev client is required, Expo Go redboxes** (native
-keyboard-controller module). OTA publish: `npm run ota-prod`. Rebuild only when
-something **native** changed. Each app needs its own `.env` with
-`EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
-
----
+Commands (detail `docs/build-and-release.md`): `npm install` → `npx expo run:android` — **dev client required, Expo Go redboxes** (native keyboard-controller module). OTA: `npm run ota-prod`. Rebuild only when something **native** changed. Each app's `.env`: `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
 
 ## 5. Architecture (MANDATORY)
+Strict layers, dependencies **downward only**: Presentation → State → Business Logic → Repository → Database; Core (types/constants/utils) imported by all.
+- **L1 Presentation** — screens, UI components, UI-only hooks. Read store state, dispatch actions. Zero business logic, zero Supabase. Only layer living in the app (`SubsTrack/`, `Portal/`); L2–L5 in `Shared/src/`.
+- **L2 State** — Zustand slices (`Shared/src/state/slices/`) + immer. Data + `loading`/`error`/`quotaError`. Async actions call **services, never repositories**. Components read via per-slice hooks **always with a selector**.
+- **L3 Services** — pure TS classes, no React/Supabase. All validation, transformation, decision/algorithm logic. Domain models in → domain models or typed errors out.
+- **L4 Repository** — **only** layer importing Supabase. All DB calls + snake_case ↔ camelCase mapping, ~one per table. Extends `BaseRepository` (client + `handleError()`/`handleFunctionsError()`).
+- **L5 Core** — shared types, interfaces, constants, utils; imports from none.
 
-Strict layered clean architecture. Dependencies flow **downward only**:
+**Offline-first (native only; web talks to Supabase directly).** All in SubsTrack: `*.offline.ts` repository twins + `SubsTrack/src/core/offline/`; services, slices, UI untouched. Platform switch = ONE place, the repository set the phone hands `configureShared()` (`configurePhone.ts`; Expo web still gets `createSupabaseRepositories()` until the new web app takes over). SQLite mirror returns the **same `Db*` row shapes** (incl. nested joins) mappers consume. Writes mutate the mirror + set `_dirty = 1`; hard deletes logged in `pending_deletes`. Sync pushes dirty rows + logged deletes, then pulls rows changed since one `last_pulled_at` — **latest `updated_at` wins**. Bidirectional, multi-device, no outbox/cursors/tombstones. A cycle runs **at most once per 24h** via `runSyncIfDue()` (only manual sync ignores it); "not due" still pushes (`flushPendingWrites`) — an un-pushed row is the only copy of that money. **Network-parallel, DB-sequential**: pull fetches every table at once, push climbs the `PUSH_WAVES` dependency waves, every SQLite write queues behind `withDbLock` (expo-sqlite = one connection). **Online-only** (throw `RequiresConnectionError` offline, delegate online): auth `signIn`/`getTenantByCode`, `User.create`/`delete`/`updatePassword`, `Signup.*`, `CustomerRequest.*`, `CustomerStatus.findPage` (`customer-status` edge function), `WhatsApp.*` (not mirrored — `whatsapp_*` tables server-only; tenants pay Meta directly, `docs/whatsapp.md`). Auth `getSession`/`getUserProfile`/`getTenant` = read-through cache so the app boots offline after the first online login. **Read `docs/offline.md` before touching any repository or the sync engine.**
 
-```
-Presentation → State → Business Logic → Repository → Database
-                                          ↑
-                        Core (types/constants/utils — imported by all)
-```
-
-- **L1 Presentation** — screens, UI components, UI-only hooks. Read store state,
-  dispatch store actions. Zero business logic, zero direct Supabase calls. The
-  only layer that lives in the app (`SubsTrack/`, `Portal/`); L2–L5 live in
-  `Shared/src/`.
-- **L2 State** — Zustand slices (`Shared/src/state/slices/`) + immer. Hold data +
-  `loading`/`error`/`quotaError`. Async actions call **services, never
-  repositories**. Components read via per-slice hooks **always with a selector**.
-- **L3 Services** — pure TS classes. No React, no Supabase. All validation,
-  transformation, decision/algorithm logic. Domain models in, domain models or
-  typed errors out.
-- **L4 Repository** — the **only** layer importing Supabase. All DB calls +
-  bidirectional snake_case ↔ camelCase mapping. ~one repository per table.
-  Extends `BaseRepository` (supabase client + `handleError()` /
-  `handleFunctionsError()`).
-- **L5 Core** — shared types, interfaces, constants, utils. Imported by all layers,
-  imports from none.
-
-**Offline-first (native only; web unchanged, talks to Supabase directly).**
-Contained entirely in SubsTrack: the `*.offline.ts` repository twins +
-`SubsTrack/src/core/offline/`; services, slices and UI are untouched. The platform
-switch is ONE place, the repository set the phone hands to `configureShared()`
-(`configurePhone.ts`; Expo web still gets `createSupabaseRepositories()` until
-the new web app takes over). The SQLite mirror
-returns the **same `Db*` row shapes** (incl. nested joins) the mappers consume.
-Writes mutate the mirror and set `_dirty = 1`; hard deletes are logged in
-`pending_deletes`. Sync pushes dirty rows + logged deletes, then pulls rows changed
-since one `last_pulled_at` — **latest `updated_at` wins**. Bidirectional,
-multi-device, no outbox/cursors/tombstones. A cycle runs **at most once every 24h**
-via `runSyncIfDue()` (only manual sync ignores it); "not due" still pushes
-(`flushPendingWrites`) because an un-pushed row is the only copy of that money.
-**Network-parallel, DB-sequential**: the pull fetches every table at once, the push
-goes up the dependency waves of `PUSH_WAVES`, and every SQLite write queues behind
-`withDbLock` (expo-sqlite gives the app one connection). **Online-only** (throw
-`RequiresConnectionError` offline, delegate online): auth `signIn` /
-`getTenantByCode`, `User.create`/`delete`/`updatePassword`, `Signup.*`,
-`CustomerRequest.*`, `CustomerStatus.findPage` (the `customer-status` edge
-function) and `WhatsApp.*` (not mirrored at all — the `whatsapp_*`
-tables are server-only; tenants pay Meta directly, see `docs/whatsapp.md`). Auth `getSession`/`getUserProfile`/`getTenant` are a
-read-through cache so the app boots offline after the first online login.
-**Read `docs/offline.md` before touching any repository or the sync engine.**
-
-**State key rules** (full detail `docs/architecture.md`):
-
-- Slice arrays are named `items`; other fields keep semantic names.
+**State rules** (detail `docs/architecture.md`):
+- Slice arrays named `items`; other fields semantic names.
 - **Always pass a selector**; subscribing to a whole slice is **banned**.
-- The global store is stashed on `globalThis` via `getStore()` (survives Fast
-  Refresh).
-- **Global only if something OUTSIDE the module reads it** — either (a) another
-  slice reads it via `get().<slice>`, or (b) 2+ modules' screens/components use it.
-  Otherwise it is a module store. **The dependency is ONE-WAY**: a module store may
-  read the global store, the global store may never read a module store. Module
-  stores read across via `getStore().getState()`.
-- A module store MUST register in **both** `storeReset.ts`
-  (`resetAllDomainStores`) and `refreshActiveData.ts`. Missing the first leaks the
-  previous tenant's data to the next login on the same device; missing the second
-  leaves stale pre-sync rows on screen.
-- A module store is imported by its own path, **never** re-exported through a
-  barrel (Shared has none; SubsTrack's barrels are UI-only).
-- **A write PATCHES the store from what it returned — it never re-fetches.**
-  Create/edit/delete/collect hand back the saved row; `onCreated`/`onUpdated`
-  carry the row, not a `fetchX`. Keep a full `fetchX` for arrival paths only
-  (mount, focus, pull-to-refresh, post-sync). **Changing a VIEW over data already
-  held is not an arrival** (gotcha #121). Two deliberate re-read exceptions:
-  voiding a **month bill** and voiding a **sale**; plus any filtered/searched list.
-  What a write cannot patch it **announces** — bump `ledger.owedVersion`, watched
-  via `useOwedChanged(reload)`. Never subscribe a screen that writes in a loop.
-- **"Ensure loaded" actions guard on a `loaded` flag, never `items.length`.**
-- Two intentional persist-middleware exceptions kept out of the global store:
-  `Shared/src/shared/lib/uiPrefStore.ts` (last-used currency, `currentBranchId`) and
-  `SubsTrack/src/core/i18n/languageStore.ts` (en/ar). The **display currency is NOT here** — it
-  belongs to the organization, so it lives in `tenant_settings`
-  (`useDisplayCurrencyId`). `confirm` and `ui` are app-wide seams with no owning
-  module and live in `Shared/src/shared/lib/`.
-
----
+- Global store stashed on `globalThis` via `getStore()` (survives Fast Refresh).
+- **Global only if something OUTSIDE the module reads it** — (a) another slice via `get().<slice>`, or (b) 2+ modules' screens/components. Else module store. **ONE-WAY**: module store may read global; global never reads a module store. Module stores read across via `getStore().getState()`.
+- A module store MUST register in **both** `storeReset.ts` (`resetAllDomainStores`) and `refreshActiveData.ts`. Missing the first leaks the previous tenant's data to the next login on the device; missing the second leaves stale pre-sync rows.
+- A module store is imported by its own path, **never** via a barrel.
+- **A write PATCHES the store from what it returned — never re-fetches.** Create/edit/delete/collect return the saved row; `onCreated`/`onUpdated` carry the row, not a `fetchX`. Full `fetchX` only on arrival (mount, focus, pull-to-refresh, post-sync). **Changing a VIEW over held data is not an arrival** (gotcha #121). Deliberate re-reads: voiding a **month bill**, voiding a **sale**, any filtered/searched list. What a write can't patch it **announces** — bump `ledger.owedVersion`, watched via `useOwedChanged(reload)`. Never subscribe a screen that writes in a loop.
+- **"Ensure loaded" guards on a `loaded` flag, never `items.length`.**
+- Two persist-middleware exceptions outside the global store: `Shared/src/shared/lib/uiPrefStore.ts` (last-used currency, `currentBranchId`), `SubsTrack/src/core/i18n/languageStore.ts` (en/ar). **Display currency is NOT here** — it's the organization's, in `tenant_settings` (`useDisplayCurrencyId`). `confirm` + `ui` = app-wide seams with no owning module, in `Shared/src/shared/lib/`.
 
 ## 6. Data Models
+Domain types (camelCase) `Shared/src/core/types/index.ts`; DB rows (snake_case) `Shared/src/core/types/db.ts`, **never leave repositories**. Source files authoritative for shapes. Meaning: `docs/domain-notes.md`; columns/constraints: `docs/db-schema.md`.
 
-Domain types (camelCase) → `Shared/src/core/types/index.ts`. DB row types (snake_case) →
-`Shared/src/core/types/db.ts`, **never leave the repository layer**. The source files are
-authoritative for exact shapes. Feature-level meaning of every model:
-`docs/domain-notes.md`. Columns + constraints: `docs/db-schema.md`.
-
-Core money model — **the Ledger** (replaced `payments` + `custom_debts` +
-`debt_payments` outright, because `amount_paid` held one number and one date so a
-second payment had nowhere to go):
-
-- **`charges`** = what is OWED (kind `month` | `sale` | `manual`). Amount frozen.
-  `paid` is never a column — it is `SUM(collection_items)`, exposed as the
-  `charge_balances` view (same GROUP BY offline). That is what makes collecting
-  offline-safe: a counter would be clobbered, additive item rows merge.
-- **`collections`** = ONE physical hand-over of cash. **One currency per
-  hand-over**, equal to every charge it pays — which is why `collection_items` has
-  no currency of its own, and why "collect all due" can be two writes for one
-  customer (gotcha #108). The collect sheet still shows **every** currency owed
-  at once — one amount box per currency, typed in that currency's OWN units and
-  **never converted** — and `collectMulti` turns one Save into one row per
-  currency (gotcha #108b). Carries the only custody in the schema
-  (`held_by_user_id`, `remitted_at`/`remitted_by`).
+**The Ledger** (replaced `payments` + `custom_debts` + `debt_payments` outright — `amount_paid` held one number + one date, so a second payment had nowhere to go):
+- **`charges`** = what is OWED (kind `month`|`sale`|`manual`), amount frozen. `paid` never a column — `SUM(collection_items)`, the `charge_balances` view (same GROUP BY offline). Makes collecting offline-safe: a counter gets clobbered, additive item rows merge.
+- **`collections`** = ONE physical cash hand-over. **One currency per hand-over**, = every charge it pays → `collection_items` has no currency; "collect all due" can be two writes for one customer (gotcha #108). Collect sheet still shows **every** currency owed at once — one box per currency, typed in its OWN units, **never converted**; `collectMulti` turns one Save into one row per currency (gotcha #108b). Holds the only custody in the schema (`held_by_user_id`, `remitted_at`/`remitted_by`).
 - **`collection_items`** = which bill each slice of a hand-over paid.
-- **Waterfall** (`ledger/utils/waterfall.ts`, pure): fills bills **oldest
-  `due_date` first, each one completely** — never proportionally. Sorted on four
-  levels (`dueDate → issuedAt → createdAt → key`) so preview and save can never
-  disagree and two devices split identically. Leftover money = overpay → refused.
-  That order is **shown**, not just applied.
-- **A month has no bill until money reaches it.** `LedgerService.getOwed` merges
-  stored charges with virtual unpaid months, deduped on
-  `(customer_plan_id, billing_month)`: a PAID stored bill wins, an EMPTY bill loses
-  to the virtual month and is re-priced from the line (gotcha #106b). Collecting
-  materializes the bill with `deterministicId(line, month)` so two offline devices
-  converge on ONE row.
-- **OWED vs DEBT**: owed = everything with a balance (waterfall input, unpaid
-  months included); debt = the Debts-screen subset,
-  `isDebtItem(kind, paid) = kind !== 'month' || paid > 0`. **A fully unpaid month
-  is OWED but is NOT a debt.** The Debts screen reads **stored bills only** — it
-  runs no virtual-month pass and must not grow one (gotcha #106c).
-- **Void vs write-off** are different statements, kept exclusive by
-  `chk_charges_void_xor_write_off`: void = the bill was a MISTAKE; write-off = REAL
-  but lost. **Either leaves a dead bill that still owns its month** (gotcha #115),
-  so a write **revives before it collects** — `reviveTargetBill(s)` clears all six
-  void/write-off columns unconditionally whenever money arrives.
-  **A written-off bill stays REACHABLE and the write-off is undoable** (gotcha
-  #152): reads take a `writeOffScope` (`'live'` default), written-off bills are a
-  SEPARATE per-customer read that never enters `DebtsView` or any total, and
-  `ChargeService.revertWriteOff` clears only the three write-off columns — not a
-  revive, so the trail says "undid the write-off", not "re-opened".
-- Reading what is owed is **ONE query**: `ChargeRepository.findOpenWithPaid`
-  (gotcha #118). A write **returns what it WROTE** (gotcha #119).
-- **Two void doors, saying different things** (gotcha #109): voiding a **payment**
-  says that hand-over was wrong and leaves the bill owed (lives in
-  `BillPaymentsList`, needs no order gate); voiding the **bill** says it should
-  never have existed, so its cash goes too —
-  `ChargeService.voidChargeWithPayments`. Payments are voided **first**. The
-  confirm always says the money goes, and names the other bills it un-pays
-  (gotcha #125). Plain `voidCharge` still refuses a paid bill. A **month** bill
-  void is gated NEWEST-FIRST through `payments.voidMonthBill`. Hand-overs are
-  voided in ONE write (`CollectionRepository.voidMany`), never a loop.
-- **Correct amount** (a mistyped payment) is a void + re-recorded hand-over in
-  ONE call, `CollectionService.correct` → `ICollectionRepository.replace`
-  (gotcha #171): same date, collector, currency, rate, notes and **custody**;
-  only the amount and its split over the SAME bills change. Any rebuilt
-  hand-over (`unpayCharge` too) goes through `replace` and keeps its custody —
-  a fresh `create` would put handed-over cash back in the collector's wallet.
-- A line with **no set price** is collected through an OPEN item (gotcha #112) —
-  the collect sheet's "Amount for this month" field IS the bill and picks the
-  currency; `OpenItem.openAmount` is the flag.
+- **Waterfall** (`ledger/utils/waterfall.ts`, pure): fills bills **oldest `due_date` first, each completely** — never proportionally. 4-level sort (`dueDate → issuedAt → createdAt → key`) so preview = save and two devices split identically. Leftover = overpay → refused. The order is **shown**, not just applied.
+- **A month has no bill until money reaches it.** `LedgerService.getOwed` merges stored charges with virtual unpaid months, deduped on `(customer_plan_id, billing_month)`: PAID stored bill wins; EMPTY bill loses to the virtual month, re-priced from the line (gotcha #106b). Collecting materializes the bill with `deterministicId(line, month)` → two offline devices converge on ONE row.
+- **OWED vs DEBT**: owed = everything with a balance (waterfall input, incl. unpaid months); debt = Debts-screen subset, `isDebtItem(kind, paid) = kind !== 'month' || paid > 0`. **A fully unpaid month is OWED, NOT a debt.** Debts screen reads **stored bills only** — no virtual-month pass, must not grow one (gotcha #106c).
+- **Void vs write-off**, exclusive via `chk_charges_void_xor_write_off`: void = bill was a MISTAKE; write-off = REAL but lost. **Either leaves a dead bill that still owns its month** (gotcha #115) → a write **revives before it collects**: `reviveTargetBill(s)` clears all six void/write-off columns unconditionally whenever money arrives. **Written-off bill stays REACHABLE, write-off undoable** (gotcha #152): reads take `writeOffScope` (`'live'` default); written-off bills = SEPARATE per-customer read, never in `DebtsView` or any total; `ChargeService.revertWriteOff` clears only the three write-off columns — not a revive, so the trail says "undid the write-off", not "re-opened".
+- Reading owed = **ONE query** `ChargeRepository.findOpenWithPaid` (gotcha #118). A write **returns what it WROTE** (gotcha #119).
+- **Two void doors** (gotcha #109): voiding a **payment** = that hand-over was wrong, bill stays owed (in `BillPaymentsList`, no order gate); voiding the **bill** = should never have existed, cash goes too — `ChargeService.voidChargeWithPayments`, payments voided **first**. Confirm always says the money goes and names other bills it un-pays (gotcha #125). Plain `voidCharge` still refuses a paid bill. A **month** bill void gated NEWEST-FIRST via `payments.voidMonthBill`. Hand-overs voided in ONE write (`CollectionRepository.voidMany`), never a loop.
+- **Correct amount** (mistyped payment) = void + re-recorded hand-over in ONE call, `CollectionService.correct` → `ICollectionRepository.replace` (gotcha #171): same date, collector, currency, rate, notes, **custody**; only amount + its split over the SAME bills change. Any rebuilt hand-over (`unpayCharge` too) goes through `replace` keeping custody — a fresh `create` would put handed-over cash back in the collector's wallet.
+- Line with **no set price** → collected through an OPEN item (gotcha #112): the collect sheet's "Amount for this month" field IS the bill and picks the currency; flag `OpenItem.openAmount`.
 
-Type names to know: `Charge`, `Collection`, `CollectionItem`, `ChargeBalance`,
-`MonthBill`, `OpenItem`, `AllocationLine`, `CustomerDebts`, `DebtSummary`,
-`CollectionListItem`, `CollectedRow`/`CashRow`, `ReportPeriod`, `DashboardMetrics`,
-`Customer`, `CustomerPlan`, `Plan`, `Product`, `Service`, `SaleItem`,
-`StockMovement`, `Expense`/`ExpenseItem`/`ExpenseSummary`, `SkippedMonth`,
-`MonthEntry`, `TenantSetting`, `UnpaidStartRule`, `Branch`, `Tenant`, `Currency`,
-`CustomerRequest`, `AuthUser`/`AppUser`, `UserRole`,
-`MonthStatus`, `ChargeKind`, `SaleLineType`, wallet types (`WalletItem`,
-`UserWallet`, `UserWalletDetail`, `WalletSource`, `ReceiveBlock`).
+Types to know: `Charge`, `Collection`, `CollectionItem`, `ChargeBalance`, `MonthBill`, `OpenItem`, `AllocationLine`, `CustomerDebts`, `DebtSummary`, `CollectionListItem`, `CollectedRow`/`CashRow`, `ReportPeriod`, `DashboardMetrics`, `Customer`, `CustomerPlan`, `Plan`, `Product`, `Service`, `SaleItem`, `StockMovement`, `Expense`/`ExpenseItem`/`ExpenseSummary`, `SkippedMonth`, `MonthEntry`, `TenantSetting`, `UnpaidStartRule`, `Branch`, `Tenant`, `Currency`, `CustomerRequest`, `AuthUser`/`AppUser`, `UserRole`, `MonthStatus`, `ChargeKind`, `SaleLineType`, wallet: `WalletItem`, `UserWallet`, `UserWalletDetail`, `WalletSource`, `ReceiveBlock`.
 
-Facts that change how you code and are easy to get wrong:
-
-- **Dashboard revenue is CASH COLLECTED, never billed value** — one source only:
-  `collection_items`, scoped by `collections.received_at`, summed in USD via the
-  collection's frozen rate. The read returns one row per **BILL SETTLED**, not per
-  hand-over (gotcha #107) — that is what makes the streams add up exactly. Never
-  switch a revenue query back to `sales.total_amount` or `charges.amount`; count
-  **distinct `collectionId`s** for `paymentsCollectedCount`.
-- **Product stock is computed at runtime** — `SUM(stock_movements.quantity_delta)`
-  over non-voided rows. Never a stored counter. A manual entry only ever ADDS;
-  mistakes are fixed on the entry itself (**Edit entry** / **Revert entry**,
-  gotchas #94/#96). A sale appends one negative `'sale'` movement per line inside
-  the sale's own write; voiding a sale **soft-voids** those rows rather than
-  inserting opposite ones. Oversell is blocked in `SaleService.createSale`
-  (advisory only — two offline devices can still each sell the last unit).
-- **A sale = header (`sales`) + lines (`sale_items`)** and holds **no money**: what
-  it owes is its `charges` row, what was collected is a `collections` row — which
-  is what lets one sale take installments. A line sells a **product OR a service**;
-  a service is labour with **no stock, no cost, and no quantity** (always 1, read
-  via `lineQuantity()`), and is **never a separate money stream**. Stock paths
-  narrow through `productLines()` / `savedProductLines()` — never a nullable-id
-  test (gotcha #97). Editing a sale touches three tables with three different rules
-  (gotcha #90). What it collected is an ABSOLUTE input on the edit form, and
-  lowering it **rebuilds** the cash — void every live hand-over, re-create the
-  slices that paid other bills, re-record the new figure at the ORIGINAL date
-  and collector. Never an edited payment, always a void plus a write (#111).
-- **A sale's total is TYPED; the lines only SUGGEST it** (gotcha #142).
-  `SaleService.totalOf(input)` = `input.totalAmount ?? lineSumOf(items)` is the one
-  place the money is decided — header, bill and every cap read it, and nothing that
-  writes money may call `lineSumOf`. Line prices are never rewritten to match, so a
-  receipt may legitimately not add up (that is the discount). A sale may hold
-  **ZERO** lines: `validate` guards a positive TOTAL, not a non-empty cart, and
-  `items_summary` falls back to `sales.no_items_summary`. Save always **confirms** a
-  total that is not the line sum — nothing is refused, because no rule can tell a
-  discount from a typo.
-- **A sale is identified by its RECEIPT NUMBER** — last 6 chars of `id`,
-  uppercased, via `receiptId()` in `Shared/src/core/utils/receiptId.ts`. There is **no
-  sequence column and must not be one** (an offline device raises a sale with no
-  server round trip). It is the sale card's **title** (items summary drops to a
-  subtitle), the receipt's "Receipt ID" row, the History sheet header (both entry
-  points pass `saleTitle()`), and — via `chargeLabel` — every place a sale bill is
-  named: money-received card + payment details sheet, debts, collect preview, WhatsApp. On
-  that ledger path it is the ONLY identity (`charges(*)` never joins `sales`, so
-  the label was the bare word "Sale"). The Audit Log card's chip stays the
-  **customer** — that is the subject, not the record's name.
-  **Searching it is the one place the platforms differ**: native matches the id's
-  tail in the mirror (SQLite stores `id` as TEXT), web filters `receipt_id(sales)`,
-  a PostgREST **computed field** storing nothing — Postgres has no `ILIKE` for
-  `uuid` and PostgREST refuses to cast a filter's left side, so neither
-  `id.ilike` nor `id::text.ilike` can ever work. A term counts as a receipt number
-  only when short and hex (`isReceiptIdTerm`), and the clause is **OR'd onto** the
-  item/customer search, never replacing it. One search helper per repository,
-  shared by `findAll` + `monthlyTotals`, so a page and its total cannot disagree.
-- **A PostgREST `or()` may only name columns of the table being queried.** A
-  dotted embed path (`customers.name.ilike…`) is a 400 — _"failed to parse logic
-  tree"_ — so sales search resolves matching customers in a **pre-query** and ORs
-  `customer_id.in.(…)`, the shape the product filter already used. **Never reach
-  for `customers!inner`**: it makes the embed filterable but INNER-joins away
-  every WALK-IN sale. Offline needs none of this — SQL ORs `c.name` over its LEFT
-  JOIN directly. Every typed term goes through `sanitizeSearchTerm()`
-  (`Shared/src/core/utils/searchTerm.ts`), which strips `, ( ) % * \` — one unescaped `%`
-  also breaks the logic tree, and it 400s the whole list rather than just missing.
-- **Expenses = stored `expenses` rows + DERIVED stock purchases** (computed at read
-  time from `stock_movements.unit_cost × quantity_delta`). A restock **never**
-  writes an expense row, so a derived row cannot be voided — fix the movement.
-  Cash basis, like revenue. Admin-only. Both halves are branch-`owned`, so branch
-  views SUM to the tenant total (gotchas #88/#89).
-- **A line's price is `resolveLinePrice(line)`, NEVER `plan.price`** — the amount,
-  its currency and `durationMonths` must always travel together, or an LBP amount
-  gets frozen at a USD rate of 1 (gotcha #85). Not frozen once billed.
-- **Collector wallet + custody chain** is computed at runtime from non-voided
-  `collections.held_by_user_id`. Cash moves **UP** the chain (collector → branch
-  admin → tenant-wide admin → owner) and never sideways. Rules live in one pure
-  file, `modules/wallet/utils/custody.ts` — **never re-derive a wallet permission
-  from `role` alone** (role cannot tell a branch admin from a tenant-wide one).
-- **The audit trail is written by the APP, never a Postgres trigger** (a trigger
-  would stamp the sync moment and the syncing session). Append-only, admins-only
-  reads, server-first with un-pushed local rows merged in. `stock_movements` is
-  audited for **changes only**.
-- **Reports** aggregate in memory from one read per window and **re-implement no
-  rule**. There are **no charts** — do not reintroduce a charting library. The
-  period scopes the CASH, never the debt (gotcha #91).
-
----
+Easy-to-get-wrong facts:
+- **Dashboard revenue = CASH COLLECTED, never billed value** — one source: `collection_items`, scoped by `collections.received_at`, summed in USD via the collection's frozen rate. Read returns one row per **BILL SETTLED**, not per hand-over (gotcha #107) — that makes the streams add up exactly. Never switch back to `sales.total_amount` or `charges.amount`; `paymentsCollectedCount` = **distinct `collectionId`s**.
+- **Product stock computed at runtime** — `SUM(stock_movements.quantity_delta)` over non-voided rows, never a stored counter. Manual entry only ADDS; mistakes fixed on the entry (**Edit entry**/**Revert entry**, gotchas #94/#96). A sale appends one negative `'sale'` movement per line inside its own write; voiding a sale **soft-voids** those rows, never inserts opposites. Oversell blocked in `SaleService.createSale` (advisory — two offline devices can each sell the last unit).
+- **Sale = header (`sales`) + lines (`sale_items`)**, holds **no money**: owes via its `charges` row, collected via `collections` rows → installments possible. A line sells a **product OR a service**; service = labour, **no stock, cost or quantity** (always 1 via `lineQuantity()`), **never a separate money stream**. Stock paths narrow via `productLines()`/`savedProductLines()`, never a nullable-id test (gotcha #97). Editing a sale touches three tables with three rules (gotcha #90). Collected amount is an ABSOLUTE input on the edit form; lowering it **rebuilds** cash — void every live hand-over, re-create slices that paid other bills, re-record the new figure at the ORIGINAL date + collector. Never an edited payment, always void + write (#111).
+- **A sale's total is TYPED; lines only SUGGEST it** (gotcha #142). `SaleService.totalOf(input)` = `input.totalAmount ?? lineSumOf(items)` is the one place money is decided — header, bill, every cap read it; nothing writing money may call `lineSumOf`. Line prices never rewritten to match → a receipt may not add up (= the discount). A sale may have **ZERO** lines: `validate` guards a positive TOTAL, not a non-empty cart; `items_summary` falls back to `sales.no_items_summary`. Save always **confirms** a total ≠ line sum, never refuses (no rule tells a discount from a typo).
+- **Sale identity = RECEIPT NUMBER** — last 6 chars of `id` uppercased, `receiptId()` in `Shared/src/core/utils/receiptId.ts`. **No sequence column, must not be one** (offline device raises a sale with no server round trip). It is the sale card **title** (items summary → subtitle), receipt "Receipt ID" row, History sheet header (both entry points pass `saleTitle()`), and via `chargeLabel` every place a sale bill is named: money-received card + payment details sheet, debts, collect preview, WhatsApp — on that ledger path the ONLY identity (`charges(*)` never joins `sales`; the label used to be bare "Sale"). Audit Log card chip stays the **customer** (the subject, not the record name). **Search is the one platform difference**: native matches the id tail in the mirror (SQLite `id` is TEXT); web filters `receipt_id(sales)`, a PostgREST **computed field** storing nothing — Postgres has no `ILIKE` for `uuid` and PostgREST won't cast a filter's left side, so `id.ilike` / `id::text.ilike` can never work. A term is a receipt number only if short + hex (`isReceiptIdTerm`); the clause is **OR'd onto** the item/customer search, never replacing it. One search helper per repository, shared by `findAll` + `monthlyTotals`, so a page and its total can't disagree.
+- **PostgREST `or()` may only name columns of the queried table.** A dotted embed path (`customers.name.ilike…`) → 400 _"failed to parse logic tree"_, so sales search resolves matching customers in a **pre-query** and ORs `customer_id.in.(…)` (the product filter's shape). **Never `customers!inner`** — makes the embed filterable but INNER-joins away every WALK-IN sale. Offline needs none: SQL ORs `c.name` over its LEFT JOIN. Every typed term → `sanitizeSearchTerm()` (`Shared/src/core/utils/searchTerm.ts`), strips `, ( ) % * \` — one unescaped `%` breaks the logic tree and 400s the whole list.
+- **Expenses = stored `expenses` rows + DERIVED stock purchases** (read-time from `stock_movements.unit_cost × quantity_delta`). A restock **never** writes an expense row → a derived row can't be voided, fix the movement. Cash basis, like revenue. Admin-only. Both halves branch-`owned`, so branch views SUM to the tenant total (gotchas #88/#89).
+- **A line's price = `resolveLinePrice(line)`, NEVER `plan.price`** — amount, currency and `durationMonths` travel together, else an LBP amount freezes at a USD rate of 1 (gotcha #85). Not frozen once billed.
+- **Collector wallet + custody chain** computed at runtime from non-voided `collections.held_by_user_id`. Cash moves **UP** (collector → branch admin → tenant-wide admin → owner), never sideways. Rules in one pure file `modules/wallet/utils/custody.ts` — **never derive a wallet permission from `role` alone** (can't tell branch admin from tenant-wide).
+- **Audit trail written by the APP, never a Postgres trigger** (a trigger stamps the sync moment + syncing session). Append-only, admin-only reads, server-first with un-pushed local rows merged in. `stock_movements` audited for **changes only**.
+- **Reports** aggregate in memory from one read per window, **re-implement no rule**. **No charts** — never reintroduce a charting library. Period scopes the CASH, never the debt (gotcha #91).
 
 ## 7. Month Grid (critical)
-
-`monthStatus.buildMonthGrid(customerPlan, bills, skips, year, unpaidRule)` is
-the **single source of truth** for month status — no other file may reimplement it.
-Pure, no I/O. One grid per **service line** (`CustomerPlan`); the payment slice
-keeps `monthGridsByLine`. Full rules, the badge contract and the order helpers:
-**`docs/month-grid.md`**.
-
+`monthStatus.buildMonthGrid(customerPlan, bills, skips, year, unpaidRule)` = **single source of truth** for month status; no other file may reimplement it. Pure, no I/O. One grid per **service line** (`CustomerPlan`); payment slice keeps `monthGridsByLine`. Full rules, badge contract, order helpers: **`docs/month-grid.md`**.
 ```
-1. month < line.startDate                     → "before_start" (gray, non-tappable)
-2. MONEY reached the month (collected > 0)    → "paid"  (INCLUDING partial payments)
-3. an active skip covers the month            → "skipped"  (money outranks a skip)
-4. month is in the future                     → "future"
+1. month < line.startDate                  → "before_start" (gray, non-tappable)
+2. MONEY reached the month (collected > 0) → "paid" (INCLUDING partial)
+3. active skip covers the month            → "skipped" (money outranks a skip)
+4. month in the future                     → "future"
 5. CURRENT month + 'customer_start_day' rule
-   + today < line's start day-of-month        → "future" ("not due yet", still payable)
-6. otherwise                                  → "unpaid"
+   + today < line's start day-of-month     → "future" ("not due yet", still payable)
+6. otherwise                               → "unpaid"
 ```
-
-- Months are **never stored in the DB**; a month has no bill until money first
-  reaches it.
-- **The grid keys off MONEY, not row existence** — an empty bill (its only
-  collection voided) reads _identically_ to a month never touched.
-- A partial payment resolves to `"paid"` — there is **no `"partial"` MonthStatus**.
-  Only presentation differs (amber **ring**, not fill; sublabel `PARTIAL`; on a
-  multi-month block only the first cell is ringed).
-- **No grace period** — the current month is unpaid from its first day.
-- **The read is NOT year-scoped** — year arrows re-derive from the store and never
-  re-query (gotcha #121). Never put a grid build inside a write; never scope the
-  fetch to a year (every pay/void gate is all-time).
-- **Per-tenant unpaid rule** (`tenant_settings.UnpaidStartRule`) decides **two
-  different things** and mixing them is gotcha #83: `isNotDueYet()` (the current
-  month's colour) and `isNotLateYet()` (when the customer reads "Overdue"). Both
-  live in `customer-payments/utils/monthDueRules.ts` — change them there, never in
-  a caller.
-- **Months settle OLDEST FIRST, and "earlier" means UNCOVERED, not merely
-  overdue.** Prepaying is allowed; prepaying out of order is not. One pure helper
-  `blockingUnpaidMonths()` fed by `monthStatus.uncoveredBillingMonths`. **Do not
-  feed the gate `unpaidBillingMonths`** (overdue only) — that is gotcha #81b — and
-  do not feed `buildCustomerStatus` the uncovered list. Months inside the same
-  write never block each other.
-- **Voids run NEWEST FIRST**, and a paid line's start date is FROZEN
-  (`assertStartDatesUnlocked`). An **unskip** follows the VOID rule, not the pay
-  rule (gotcha #84). Skipped months are never unpaid, never overdue, never payable.
-- **Multiple plans per customer**: 1..N service lines, each its own grid and
-  independent payments. **The service line owns the ONLY start date** — `customers`
-  has no `start_date`.
-- `monthStatus.buildCustomerStatus(...)` is the only place a list badge is
-  decided, derived from `buildMonthGrid`. **"Paid" means owes nothing**, so it can
-  never co-exist with "Overdue". Absence means unknown → **no pill**, never red.
-  One query, one arrival. No SQL mirror. `customerFlags(status)` decides both the
-  pills and the Payment status filter — never duplicate the suppression rule.
-  Every list filter (status, payment, debts, plan, unpaid months, type, last
-  paid, phone, portal) is ONE helper, `customerFilters.ts` →
-  `matchesCustomerFilters`, run by the phone AND the server; both apps show them
-  as dropdowns in one sideways-scrolling row. Sort is web-only (server-side).
-- **The web's exact filters run the SAME file on the server**: the `customer-status`
-  edge function bundles `customerStatusPage.ts` (→ `monthStatus.ts`) and feeds it
-  compact facts from `customer_status_facts()` (SQL that decides no rule). The
-  month rules read "today" ONLY through `currentDate()` (`core/utils/date.ts`),
-  which `onCalendarDay` pins to the caller's day — the server clock is UTC
-  (gotcha #173). A new clock read inside a month rule must use `currentDate()`.
-
----
+- Months **never stored**; no bill until money first reaches it.
+- **Keys off MONEY, not row existence** — an empty bill (only collection voided) reads _identically_ to an untouched month.
+- Partial → `"paid"`; **no `"partial"` MonthStatus**. Only presentation differs (amber **ring**, not fill; sublabel `PARTIAL`; multi-month block rings only the first cell).
+- **No grace period** — current month unpaid from day one.
+- **Read NOT year-scoped** — year arrows re-derive from the store, never re-query (gotcha #121). Never build a grid inside a write; never scope the fetch to a year (every pay/void gate is all-time).
+- **Per-tenant unpaid rule** (`tenant_settings.UnpaidStartRule`) decides **two different things** (mixing = gotcha #83): `isNotDueYet()` (current month's colour) vs `isNotLateYet()` (when the customer reads "Overdue"). Both in `customer-payments/utils/monthDueRules.ts` — change there, never in a caller.
+- **Months settle OLDEST FIRST; "earlier" = UNCOVERED, not merely overdue.** Prepaying allowed, out of order not. One pure helper `blockingUnpaidMonths()` fed by `monthStatus.uncoveredBillingMonths`. **Never feed the gate `unpaidBillingMonths`** (overdue only, gotcha #81b), and never feed `buildCustomerStatus` the uncovered list. Months in the same write never block each other.
+- **Voids NEWEST FIRST**; a paid line's start date is FROZEN (`assertStartDatesUnlocked`). **Unskip** follows the VOID rule, not pay (gotcha #84). Skipped months never unpaid/overdue/payable.
+- **Multiple plans**: 1..N service lines per customer, each its own grid + independent payments. **Service line owns the ONLY start date** — `customers` has no `start_date`.
+- `monthStatus.buildCustomerStatus(...)` is the only place a list badge is decided, derived from `buildMonthGrid`. **"Paid" = owes nothing** → never with "Overdue". Absence = unknown → **no pill**, never red. One query, one arrival, no SQL mirror. `customerFlags(status)` decides pills AND the Payment status filter — never duplicate the suppression rule. Every list filter (status, payment, debts, plan, unpaid months, type, last paid, phone, portal) = ONE helper `customerFilters.ts` → `matchesCustomerFilters`, run by phone AND server; both apps show them as dropdowns in one sideways-scrolling row. Sort web-only (server-side).
+- **Web's exact filters run the SAME file on the server**: `customer-status` edge function bundles `customerStatusPage.ts` (→ `monthStatus.ts`), fed compact facts by `customer_status_facts()` (SQL deciding no rule). Month rules read "today" ONLY via `currentDate()` (`core/utils/date.ts`), which `onCalendarDay` pins to the caller's day — server clock is UTC (gotcha #173). Any new clock read in a month rule must use `currentDate()`.
 
 ## 8. Database Changes
+`sql scripts/script.sql` = **full schema**, every statement idempotent: re-running builds a fresh DB and updates a live one; only ever **ADDS**. `sql scripts/migration.sql` = **one-time** statements a fresh DB must never run. No SQL in chat, no new `.sql` files (`sql scripts/` holds only `script.sql`, `migration.sql`, `reset.sql`).
 
-`sql scripts/script.sql` is **the full schema** — every statement is idempotent, so
-re-running the whole file builds a fresh database and brings a live one up to date.
-It only ever **ADDS**. `sql scripts/migration.sql` holds the **one-time** statements
-a fresh database must never run. Do not write SQL in chat and do not create new
-`.sql` files (`sql scripts/` holds only `script.sql`, `migration.sql` + `reset.sql`).
+**Which file — decide first:**
+- **Fresh-DB-safe → `script.sql` only**: new table, column, index, policy, trigger, function.
+- **One-time → `migration.sql` only**: meaningless on a fresh DB — dropping a constraint/column/index/policy, updating existing rows, backfill/one-off fix, dropping an old function signature.
+- **Non-additive → BOTH**: rename column, change type, edit an existing multi-column constraint. `script.sql` declares the NEW shape (fresh DB built right); `migration.sql` carries the one-off `ALTER … RENAME`/`ALTER … TYPE`/`DROP CONSTRAINT` for live DBs. `ADD COLUMN IF NOT EXISTS` can't rename/retype (silently leaves the old column beside the new); a guarded `DO $$ … pg_constraint …` block is skipped once its constraint exists.
 
-**Which file a change goes in — decide this first:**
+`migration.sql` = **growing log**: append each one-off at the bottom under a dated `-- ----` header, keep old ones, never rewrite above. Every entry guarded (re-run = no-op). Runs **BEFORE** `script.sql` — a constraint/signature `script.sql` declares needs its old version cleared first, and rows must clear a floor before the CHECK enforcing it is added.
 
-- **Fresh-DB-safe → `script.sql` alone.** A new table, column, index, policy,
-  trigger or function. Nothing to undo, so nothing to migrate.
-- **One-time only → `migration.sql` alone.** It would be meaningless on a fresh
-  database: dropping a constraint/column/index/policy, updating existing row
-  values, a data backfill or one-off fix, dropping an old function signature.
-- **Non-additive → BOTH files.** Renaming a column, changing a type, or editing an
-  existing multi-column constraint. `script.sql` declares the NEW shape so a fresh
-  database is built right; `migration.sql` carries the one-off `ALTER … RENAME` /
-  `ALTER … TYPE` / `DROP CONSTRAINT` that moves a live database over.
-  `ADD COLUMN IF NOT EXISTS` can never rename or retype — it silently leaves the
-  old column beside the new one — and a guarded `DO $$ … pg_constraint …` block is
-  skipped once its constraint exists.
-
-`migration.sql` is a **growing log**: append each new one-off at the bottom under a
-dated `-- ----` header, keep the old ones, never rewrite what is above. Every entry
-is guarded so a re-run is a no-op, and it runs **BEFORE** `script.sql` — a
-constraint or signature that `script.sql` declares needs its old version cleared
-first, and rows must clear a floor before the CHECK that enforces it is added.
-
-0. **Every table is declared in two steps** — `CREATE TABLE IF NOT EXISTS <t> ();`
-   then one `ALTER TABLE <t> ADD COLUMN IF NOT EXISTS …;` per column. There is **no
-   `CREATE TABLE` column list anywhere**, so every column self-heals on re-run.
-   Tables stay in dependency order (an inline `REFERENCES` needs its target first).
-1. **New column → append ONE line** to that table's column block. `NOT NULL` needs
-   a `DEFAULT`. A single-column `CHECK`/`UNIQUE`/`REFERENCES` rides the same line
-   (prefix `CONSTRAINT <name>` when the name matters). A **multi-column**
-   constraint cannot — it goes in that table's "Table-level constraints"
-   `DO $$ … pg_constraint …` block; because that block is guarded, _editing_ an
-   existing constraint is **not** picked up on a live DB — declare the new one
-   under a NEW name in `script.sql` and drop the old one by name in
-   `migration.sql`.
-2. **New table / index / policy / trigger / function** → edit `script.sql` in
-   place, keeping it re-runnable (`IF NOT EXISTS`, `CREATE OR REPLACE`,
-   `DROP POLICY IF EXISTS` before `CREATE POLICY`).
-3. **Mirror any column change in `SubsTrack/src/core/offline/db/tables.ts`** — the
-   native app's local SQLite schema. `applySchema.ts` creates missing tables and
-   `ALTER`s in missing columns on every app start, so editing the descriptor is the
-   whole local change. **Non-additive changes** (drop/rename a column, change a type
-   or table constraint) are NOT reconciled locally — `applySchema.ts` never drops
-   or renames — so say so and give the one-off statement; `migration.sql` is the
-   SERVER half only and does not reach the device mirror.
-4. Tell the user to run `migration.sql` **first**, then `script.sql`. When nothing
-   was appended to `migration.sql`, `script.sql` alone.
-
----
+0. **Every table in two steps** — `CREATE TABLE IF NOT EXISTS <t> ();` then one `ALTER TABLE <t> ADD COLUMN IF NOT EXISTS …;` per column. **No `CREATE TABLE` column list anywhere** → every column self-heals on re-run. Tables in dependency order (inline `REFERENCES` needs its target first).
+1. **New column → append ONE line** to that table's column block. `NOT NULL` needs a `DEFAULT`. Single-column `CHECK`/`UNIQUE`/`REFERENCES` rides the same line (`CONSTRAINT <name>` prefix when the name matters). **Multi-column** constraint → that table's "Table-level constraints" `DO $$ … pg_constraint …` block; guarded, so _editing_ one is **not** picked up live — declare the new one under a NEW name in `script.sql`, drop the old by name in `migration.sql`.
+2. **New table/index/policy/trigger/function** → edit `script.sql` in place, re-runnable (`IF NOT EXISTS`, `CREATE OR REPLACE`, `DROP POLICY IF EXISTS` before `CREATE POLICY`).
+3. **Mirror any column change in `SubsTrack/src/core/offline/db/tables.ts`** (native SQLite schema). `applySchema.ts` creates missing tables + `ALTER`s in missing columns every app start, so editing the descriptor is the whole local change. **Non-additive** (drop/rename column, change type/table constraint) NOT reconciled locally — `applySchema.ts` never drops/renames — say so and give the one-off statement; `migration.sql` is SERVER-only, never reaches the device mirror.
+4. Tell the user: run `migration.sql` **first**, then `script.sql`; nothing appended to `migration.sql` → `script.sql` alone.
 
 ## 9. Before you write code
-
-**§1.1 — zero inline comments.** The existing codebase is full of them and is
-wrong. Do not copy it.
+**§1.1 — zero inline comments.** The codebase is full of them and is wrong. Don't copy it.
