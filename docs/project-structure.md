@@ -99,7 +99,8 @@ SubsTrack/
   src/shared/constants/colors.ts  design tokens
   src/shared/lib/     supabase.ts (client), storage.ts, exportCsv, shareFile, clipboard, maps, whatsapp
   supabase/functions/ edge fns (docs/edge-functions.md)
-    customer-status/  exact customer tabs; _generated/ (git-ignored) = Shared bundle from Web/scripts/build-edge.mjs
+    customer-status/  exact customer tabs; _generated/ (committed) = Shared bundle from Web/scripts/build-edge.mjs
+    _dashboard/       git-ignored one-file customer-status copy to paste into the Supabase Dashboard
     _shared/          whatsapp/{rules,sijilTemplates}.ts → Shared as @edge/* (zero-import only)
 ```
 

@@ -6,9 +6,10 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const app = path.resolve(here, "../..");
 const shared = path.join(app, "Shared/src");
 const customers = path.join(shared, "modules/customer/customers");
-const fnDir = path.join(app, "SubsTrack/supabase/functions/customer-status");
+const functionsDir = path.join(app, "SubsTrack/supabase/functions");
+const fnDir = path.join(functionsDir, "customer-status");
 const outDir = path.join(fnDir, "_generated");
-const dashboardDir = path.join(outDir, "dashboard");
+const dashboardDir = path.join(functionsDir, "_dashboard/customer-status");
 
 // Deno gets one self-contained bundle, so any npm package import is a mistake.
 const sharedOnly = {
@@ -43,7 +44,7 @@ function bundle(outputDir, entry, emptyOutDir, banner) {
         fileName: (_format, name) =>
           name === "index" ? "index.ts" : `${name}.js`,
       },
-      rolldownOptions: { output: { banner } },
+      rolldownOptions: { output: { banner, comments: false } },
     },
   });
 }
