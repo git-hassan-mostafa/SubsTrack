@@ -230,29 +230,29 @@ export class ProductRepository
     endExclusiveIso: string,
     branchFilter: BranchFilter = null,
   ): Promise<StockCostRow[]> {
-    let query = this.db
-      .from("stock_movements")
-      .select(
-        "id, product_id, quantity_delta, unit_cost, currency_id, rate_per_usd_snapshot, occurred_at, recorded_by_user_id, products!inner(name, branch_id)",
-      )
-      .neq("reason", "sale")
-      .not("unit_cost", "is", null)
-      .is("voided_at", null)
-      .gte("occurred_at", startIso)
-      .lt("occurred_at", endExclusiveIso)
-      .order("occurred_at", { ascending: false });
-    query = this.applyBranchFilter(
-      query,
-      branchFilter,
-      this.BRANCH_SCOPES.stock_movements,
-    );
-    const { data, error } = await query;
-    if (error) this.handleError(error);
     type Row = Parameters<typeof toStockCostRow>[0] & {
       products: { name: string; branch_id: string | null } | null;
     };
-    return ((data ?? []) as unknown as Row[]).map((r) =>
-      toStockCostRow(r, r.products),
+    const rows = await this.readEveryRow<Row>((from, to) =>
+      this.applyBranchFilter(
+        this.db
+          .from("stock_movements")
+          .select(
+            "id, product_id, quantity_delta, unit_cost, currency_id, rate_per_usd_snapshot, occurred_at, recorded_by_user_id, products!inner(name, branch_id)",
+            { count: "exact" },
+          )
+          .neq("reason", "sale")
+          .not("unit_cost", "is", null)
+          .is("voided_at", null)
+          .gte("occurred_at", startIso)
+          .lt("occurred_at", endExclusiveIso)
+          .order("occurred_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+        branchFilter,
+        this.BRANCH_SCOPES.stock_movements,
+      ),
     );
+    return rows.map((r) => toStockCostRow(r, r.products));
   }
 }

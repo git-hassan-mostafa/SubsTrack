@@ -50,3 +50,7 @@ export function expenseToItem(e: Expense): ExpenseItem {
     canVoid: true,
   };
 }
+
+export function storedExpenseId(item: Pick<ExpenseItem, "id">): string {
+  return item.id.replace(/^exp:/, "");
+}

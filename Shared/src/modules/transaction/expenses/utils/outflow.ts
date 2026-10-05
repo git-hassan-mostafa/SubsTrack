@@ -1,17 +1,19 @@
 import type { Currency } from "@shared/core/types";
-import { formatMoney } from "@shared/core/utils/currency";
+import { formatMoney, formatMoneyPair } from "@shared/core/utils/currency";
 
-/**
- * How every figure on the Expenses screen prints. Money out carries a leading
- * `−`; a CREDIT — a costed stock removal (wrong entry, returned to the supplier)
- * is negative in the data — flips to `+`, so a correction never reads as more
- * spending and never prints a double minus. One helper, because the card, the
- * headline and the month section totals all say the same thing.
- */
+// Printed unsigned: a stock credit (costed removal) is negative in the data.
 export function outflowLabel(
   amount: number,
   source: Currency | null = null,
   target: Currency | null = null,
 ): string {
   return `${formatMoney(Math.abs(amount), source, target)}`;
+}
+
+export function outflowPair(
+  amount: number,
+  source: Currency | null,
+  display: Currency | null,
+): { primary: string; approx: string | null } {
+  return formatMoneyPair(Math.abs(amount), source, display);
 }

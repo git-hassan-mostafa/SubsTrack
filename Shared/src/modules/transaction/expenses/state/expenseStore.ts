@@ -1,18 +1,25 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import type {
-  ExpenseCategory,
   ExpenseItem,
   ExpenseSummary,
 } from "@shared/core/types";
 import expenseService from "@shared/modules/transaction/expenses/services/ExpenseService";
-import { expenseToItem } from "@shared/modules/transaction/expenses/utils/mapper";
+import {
+  EXPENSE_DEFAULT_PRESET,
+  type ExpenseCategoryFilter,
+} from "@shared/modules/transaction/expenses/utils/expenseList";
+import { expenseToItem, storedExpenseId } from "@shared/modules/transaction/expenses/utils/mapper";
 import type { CreateExpenseInput } from "@shared/modules/transaction/expenses/utils/types";
 import {
   ownedRowMatchesFilter,
   resolveBranchFilter,
 } from "@shared/shared/lib/branchFilter";
-import { currentMonthDays, rangeFromDays } from "@shared/core/utils/dateRange";
+import {
+  periodFromPreset,
+  toRange,
+  type ReportPeriod,
+} from "@shared/core/utils/dateRange";
 import { getStore } from "@shared/state/globalStore";
 
 const EMPTY_SUMMARY: ExpenseSummary = {
@@ -21,16 +28,16 @@ const EMPTY_SUMMARY: ExpenseSummary = {
   stockUsd: 0,
 };
 
-/** Is this row inside the fetched day window? Both bounds are inclusive days. */
-function inWindow(
-  date: string,
-  window: { fromDate: string; toDate: string },
-): boolean {
-  const day = date.slice(0, 10);
-  return day >= window.fromDate && day <= window.toDate;
+function defaultPeriod(): ReportPeriod {
+  return periodFromPreset(EXPENSE_DEFAULT_PRESET);
 }
 
-/** Newest first — the order `getExpensesView` returns, kept on an insert. */
+function inPeriod(date: string, period: ReportPeriod): boolean {
+  const day = date.slice(0, 10);
+  return day >= period.fromDate && day <= period.toDate;
+}
+
+// Newest first, the order getExpensesView returns.
 function insertByDateDesc(
   items: ExpenseItem[],
   item: ExpenseItem,
@@ -41,7 +48,6 @@ function insertByDateDesc(
   return next;
 }
 
-/** One row in (`sign` 1) or out (-1) of the totals, in USD via its frozen rate. */
 function addToSummary(
   summary: ExpenseSummary,
   item: ExpenseItem,
@@ -56,24 +62,18 @@ function addToSummary(
 export interface ExpenseState {
   items: ExpenseItem[];
   summary: ExpenseSummary;
+  loaded: boolean;
   loading: boolean;
   error: string | null;
   searchToken: number;
-  fromDate: string;
-  toDate: string;
-  search: string;
-  categoryFilter: ExpenseCategory | "all";
+  period: ReportPeriod;
+  categoryFilter: ExpenseCategoryFilter;
   fetchExpenses: () => Promise<void>;
-  setDateRange: (from: string, to: string) => Promise<void>;
-  setSearch: (term: string) => void;
-  setCategoryFilter: (category: ExpenseCategory | "all") => void;
+  setPeriod: (period: ReportPeriod) => Promise<void>;
+  setCategoryFilter: (category: ExpenseCategoryFilter) => void;
   clearFilters: () => Promise<void>;
   addExpense: (input: CreateExpenseInput) => Promise<boolean>;
-  voidExpense: (
-    id: string,
-    voidedBy: string,
-    reason: string | null,
-  ) => Promise<void>;
+  voidExpense: (item: ExpenseItem, voidedBy: string) => Promise<void>;
   clearError: () => void;
   reset: () => void;
 }
@@ -82,16 +82,16 @@ export const useExpenseStore = create<ExpenseState>()(
   immer((set, get) => ({
     items: [],
     summary: EMPTY_SUMMARY,
+    loaded: false,
     loading: false,
     error: null,
     searchToken: 0,
-    ...currentMonthDays(),
-    search: "",
+    period: defaultPeriod(),
     categoryFilter: "all",
 
     fetchExpenses: async () => {
       const branchFilter = resolveBranchFilter(getStore().getState().auth.user);
-      const { fromDate, toDate } = get();
+      const { period } = get();
       const token = get().searchToken + 1;
       set((state) => {
         state.searchToken = token;
@@ -100,13 +100,14 @@ export const useExpenseStore = create<ExpenseState>()(
       });
       try {
         const view = await expenseService.getExpensesView({
-          ...rangeFromDays(fromDate, toDate),
+          ...toRange(period),
           branchFilter,
         });
         if (get().searchToken !== token) return;
         set((state) => {
           state.items = view.items;
           state.summary = view.summary;
+          state.loaded = true;
           state.loading = false;
         });
       } catch (e) {
@@ -118,18 +119,12 @@ export const useExpenseStore = create<ExpenseState>()(
       }
     },
 
-    setDateRange: async (from, to) => {
+    setPeriod: async (period) => {
       set((state) => {
-        state.fromDate = from;
-        state.toDate = to;
+        state.period = period;
       });
       await get().fetchExpenses();
     },
-
-    setSearch: (term) =>
-      set((state) => {
-        state.search = term;
-      }),
 
     setCategoryFilter: (category) =>
       set((state) => {
@@ -137,12 +132,9 @@ export const useExpenseStore = create<ExpenseState>()(
       }),
 
     clearFilters: async () => {
-      const { fromDate, toDate } = currentMonthDays();
       set((state) => {
-        state.search = "";
         state.categoryFilter = "all";
-        state.fromDate = fromDate;
-        state.toDate = toDate;
+        state.period = defaultPeriod();
       });
       await get().fetchExpenses();
     },
@@ -160,7 +152,8 @@ export const useExpenseStore = create<ExpenseState>()(
         );
         set((state) => {
           state.loading = false;
-          if (!inWindow(item.date, state)) return;
+          if (!state.loaded) return;
+          if (!inPeriod(item.date, state.period)) return;
           if (!ownedRowMatchesFilter(item.branchId, branchFilter)) return;
           state.items = insertByDateDesc(state.items, item);
           addToSummary(state.summary, item, 1);
@@ -175,19 +168,18 @@ export const useExpenseStore = create<ExpenseState>()(
       }
     },
 
-    voidExpense: async (id, voidedBy, reason) => {
+    voidExpense: async (item, voidedBy) => {
       set((state) => {
         state.loading = true;
         state.error = null;
       });
       try {
-        await expenseService.voidExpense(id, voidedBy, reason);
+        await expenseService.voidExpense(storedExpenseId(item), voidedBy, null);
         set((state) => {
           state.loading = false;
-          const itemId = `exp:${id}`;
-          const gone = state.items.find((i) => i.id === itemId);
+          const gone = state.items.find((i) => i.id === item.id);
           if (!gone) return;
-          state.items = state.items.filter((i) => i.id !== itemId);
+          state.items = state.items.filter((i) => i.id !== item.id);
           addToSummary(state.summary, gone, -1);
         });
       } catch (e) {
@@ -205,15 +197,13 @@ export const useExpenseStore = create<ExpenseState>()(
 
     reset: () =>
       set((state) => {
-        const { fromDate, toDate } = currentMonthDays();
         state.items = [];
         state.summary = EMPTY_SUMMARY;
+        state.loaded = false;
         state.loading = false;
         state.error = null;
         state.searchToken += 1;
-        state.fromDate = fromDate;
-        state.toDate = toDate;
-        state.search = "";
+        state.period = defaultPeriod();
         state.categoryFilter = "all";
       }),
   })),

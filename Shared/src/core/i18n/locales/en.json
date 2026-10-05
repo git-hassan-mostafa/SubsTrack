@@ -1106,6 +1106,17 @@
     "cat_internet": "Internet",
     "cat_taxes": "Taxes & fees",
     "cat_marketing": "Marketing",
+    "cat_spare_parts": "Spare parts",
+    "cat_supplies": "Supplies & cables",
+    "cat_phone": "Phone & recharge",
+    "cat_software": "Software & subscriptions",
+    "cat_commissions": "Commissions",
+    "cat_bank_fees": "Bank & transfer fees",
+    "cat_insurance": "Insurance",
+    "cat_professional_fees": "Accountant & legal",
+    "cat_meals": "Meals & hospitality",
+    "cat_cleaning": "Cleaning",
+    "cat_donations": "Donations",
     "cat_other": "Other"
   },
   "wallet": {

@@ -1106,6 +1106,17 @@
     "cat_internet": "إنترنت",
     "cat_taxes": "ضرائب ورسوم",
     "cat_marketing": "تسويق",
+    "cat_spare_parts": "قطع غيار",
+    "cat_supplies": "لوازم وكابلات",
+    "cat_phone": "هاتف وتشريج",
+    "cat_software": "برامج واشتراكات",
+    "cat_commissions": "عمولات",
+    "cat_bank_fees": "رسوم مصرفية وتحويل",
+    "cat_insurance": "تأمين",
+    "cat_professional_fees": "محاسبة ومحاماة",
+    "cat_meals": "ضيافة وطعام",
+    "cat_cleaning": "تنظيف",
+    "cat_donations": "تبرعات",
     "cat_other": "أخرى"
   },
   "wallet": {

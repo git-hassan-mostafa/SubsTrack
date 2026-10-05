@@ -9,10 +9,8 @@ import {
   CardTitle,
 } from "@/src/shared/components/CardText";
 import { Chip } from "@/src/shared/components/Chip";
-import {
-  ActionMenu,
-  type ActionMenuItem,
-} from "@/src/shared/components/ActionMenu";
+import { ActionMenu } from "@/src/shared/components/ActionMenu";
+import { toActionMenuItems, type Glyph } from "@/src/shared/lib/menuActions";
 import type { ExpenseItem } from "@shared/core/types";
 import { snapshotCurrency } from "@shared/core/utils/currency";
 import { outflowLabel } from "@shared/modules/transaction/expenses/utils/outflow";
@@ -20,7 +18,17 @@ import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { formatDate } from "@shared/core/utils/date";
 import { expenseCategoryLabelKey } from "@shared/modules/transaction/expenses/utils/expenseCategories";
+import {
+  EXPENSE_SOURCE_TONE,
+  expenseMenuItems,
+  type ExpenseActionKey,
+} from "@shared/modules/transaction/expenses/utils/expenseList";
 import { expenseCategoryIcon } from "../utils/expenseCategoryIcon";
+
+const EXPENSE_ACTION_ICONS: Record<ExpenseActionKey, Glyph> = {
+  product: "cube-outline",
+  remove: "trash-outline",
+};
 
 interface Props {
   item: ExpenseItem;
@@ -38,27 +46,16 @@ export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
 
   const amountLabel = outflowLabel(item.amount, source, target);
   const isStock = item.source === "stock";
+  const productId = item.productId;
 
-  const actions: ActionMenuItem[] = [];
-  if (isStock && item.productId && onOpenProduct) {
-    actions.push({
-      key: "product",
-      group: "open",
-      label: t("expenses.open_product"),
-      icon: "cube-outline",
-      onPress: () => onOpenProduct(item.productId!),
-    });
-  }
-  if (item.canVoid && onVoid) {
-    actions.push({
-      key: "remove",
-      group: "danger",
-      label: t("expenses.remove"),
-      icon: "trash-outline",
-      destructive: true,
-      onPress: () => onVoid(item),
-    });
-  }
+  const actions = toActionMenuItems(expenseMenuItems(item), t, {
+    icons: EXPENSE_ACTION_ICONS,
+    run: {
+      product:
+        productId && onOpenProduct ? () => onOpenProduct(productId) : undefined,
+      remove: onVoid ? () => onVoid(item) : undefined,
+    },
+  });
 
   return (
     <>
@@ -81,7 +78,7 @@ export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
           <View className="mt-1">
             <Chip
               text={t(expenseCategoryLabelKey(item.category))}
-              tone={isStock ? "indigo" : "amber"}
+              tone={EXPENSE_SOURCE_TONE[item.source]}
             />
           </View>
         </View>

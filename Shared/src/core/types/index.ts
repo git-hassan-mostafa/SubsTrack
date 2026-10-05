@@ -594,8 +594,7 @@ export interface CollectionListItem {
   kind: WalletSource;
 }
 
-// The stored categories. 'stock' is never hand-picked — it labels the derived
-// rows. Labels + icons live in modules/transaction/expenses/utils/expenseCategories.ts.
+// 'stock' is never hand-picked, it labels derived rows (see expenseCategories.ts)
 export type ExpenseCategory =
   | "stock"
   | "rent"
@@ -604,10 +603,21 @@ export type ExpenseCategory =
   | "fuel"
   | "transport"
   | "maintenance"
+  | "spare_parts"
   | "equipment"
+  | "supplies"
   | "internet"
+  | "phone"
+  | "software"
+  | "commissions"
   | "taxes"
+  | "bank_fees"
+  | "insurance"
+  | "professional_fees"
   | "marketing"
+  | "meals"
+  | "cleaning"
+  | "donations"
   | "other";
 
 // A stored expense row. (Derived stock costs are ExpenseItems only.)

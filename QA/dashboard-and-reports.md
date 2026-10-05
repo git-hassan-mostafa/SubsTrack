@@ -19,16 +19,17 @@
 12. Sell or void a sale → Expenses do not change.
 13. Edit the cost of a restock entry → that entry's own month changes. Revert the entry → its cost leaves that month.
 14. A company-wide expense, or a restock of a shared product → shows only in All branches, never inside a branch.
-15. Collector → sees no expenses, net or reports.
+15. Expenses list: pick one category or search → the total is only the rows shown, each at its own rate; the Stock / Other split hides.
+16. Collector → sees no expenses, net or reports.
 
 ## Reports — debts
 
-16. Change the report period → "Still owed" does not change; only "Collected on debts" moves.
-17. "Behind on payments" → counts unpaid months to today; a customer behind on 2 plans for the same month counts 1 month.
-18. Skipped, not-due-yet, prepaid-ahead gaps and non-regular customers → never counted as behind.
-19. Tap any figure → the listed rows add up to the figure tapped. CSV export → adds up to Net.
+17. Change the report period → "Still owed" does not change; only "Collected on debts" moves.
+18. "Behind on payments" → counts unpaid months to today; a customer behind on 2 plans for the same month counts 1 month.
+19. Skipped, not-due-yet, prepaid-ahead gaps and non-regular customers → never counted as behind.
+20. Tap any figure → the listed rows add up to the figure tapped. CSV export → adds up to Net.
 
 ## Collection progress (dashboard)
 
-20. Skipped, not-due-yet, not-yet-started and non-regular customers → left out of "N of M customers paid".
-21. The unpaid count in the progress caption (M − N) = the Unpaid tile.
+21. Skipped, not-due-yet, not-yet-started and non-regular customers → left out of "N of M customers paid".
+22. The unpaid count in the progress caption (M − N) = the Unpaid tile.

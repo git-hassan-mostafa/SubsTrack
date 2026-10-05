@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type RefObject } from "react";
+import { useMemo, useState, type RefObject } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -24,114 +24,54 @@ import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import { Dropdown } from "@/src/shared/components/Dropdown";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
-import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
-import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
-import { confirm } from "@shared/shared/lib/confirm";
-import type { ExpenseCategory, ExpenseItem } from "@shared/core/types";
+import type { ExpenseCategory } from "@shared/core/types";
 import { formatMoney } from "@shared/core/utils/currency";
 import { outflowLabel } from "@shared/modules/transaction/expenses/utils/outflow";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
-import { useExpenseStore } from "@shared/modules/transaction/expenses/state/expenseStore";
+import { useExpensesList } from "@shared/modules/transaction/expenses/hooks/useExpensesList";
 import { ExpenseCard } from "../components/ExpenseCard";
 import { ExpenseFormSheet } from "../components/ExpenseFormSheet";
-import { EXPENSE_CATEGORIES, STOCK_CATEGORY } from "@shared/modules/transaction/expenses/utils/expenseCategories";
+import { EXPENSE_FILTER_CATEGORIES } from "@shared/modules/transaction/expenses/utils/expenseCategories";
 
 interface Props {
   filterRowRef?: RefObject<ScrollView | null>;
 }
 
-/**
- * The Expenses segment of the Transactions hub — money OUT, admin-only.
- * One list merging both sources: hand-typed expenses and the derived cost of
- * stock bought in the window. Reads a date window (this month by default)
- * rather than paginating, so section totals are always the local sum.
- */
+// Money OUT, admin-only: a date window (this month by default), not paged.
 export function ExpensesPanel({ filterRowRef }: Props = {}) {
   const { t } = useTranslation();
-  const { user } = useAuth();
   const router = useRouter();
-
-  const items = useExpenseStore((s) => s.items);
-  const summary = useExpenseStore((s) => s.summary);
-  const loading = useExpenseStore((s) => s.loading);
-  const error = useExpenseStore((s) => s.error);
-  const fromDate = useExpenseStore((s) => s.fromDate);
-  const toDate = useExpenseStore((s) => s.toDate);
-  const categoryFilter = useExpenseStore((s) => s.categoryFilter);
-  const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
-  const setDateRange = useExpenseStore((s) => s.setDateRange);
-  const setCategoryFilter = useExpenseStore((s) => s.setCategoryFilter);
-  const clearFilters = useExpenseStore((s) => s.clearFilters);
-  const voidExpense = useExpenseStore((s) => s.voidExpense);
-  const clearError = useExpenseStore((s) => s.clearError);
-
-  const branchFilter = useEffectiveBranchFilter();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
-
-  useEffect(() => {
-    void fetchExpenses();
-  }, [branchFilter, fetchExpenses]);
-
+  const list = useExpensesList(debouncedSearch);
+  const { period, setPeriod } = list;
   const target = useDisplayCurrency();
-
-  const visible = useMemo(() => {
-    const q = debouncedSearch.trim().toLowerCase();
-    return items.filter(
-      (i) =>
-        (categoryFilter === "all" || i.category === categoryFilter) &&
-        (!q || i.label.toLowerCase().includes(q)),
-    );
-  }, [items, debouncedSearch, categoryFilter]);
-
-  const visibleTotalUsd = useMemo(
-    () => visible.reduce((s, i) => s + i.amount / i.ratePerUsdSnapshot, 0),
-    [visible],
-  );
-  const filtered = visible.length !== items.length;
 
   const sections = useMemo(
     () =>
       groupByMonth(
-        visible,
+        list.rows,
         (i) => i.date,
         t,
         (i) => i.amount / i.ratePerUsdSnapshot,
       ),
-    [visible, t],
+    [list.rows, t],
   );
 
   const categoryOptions = useMemo(
     () =>
-      [...EXPENSE_CATEGORIES, STOCK_CATEGORY].map((c) => ({
+      EXPENSE_FILTER_CATEGORIES.map((c) => ({
         label: t(c.labelKey),
-        value: c.code as ExpenseCategory,
+        value: c.code,
       })),
     [t],
   );
 
-  const hasActiveFilters = categoryFilter !== "all";
-
-  async function handleVoid(item: ExpenseItem) {
-    if (!user) return;
-    await confirm({
-      title: t("expenses.remove_title"),
-      message: t("expenses.remove_message", { label: item.label }),
-      confirmLabel: t("expenses.remove"),
-      destructive: true,
-      onConfirm: async () => {
-        await voidExpense(item.id.replace(/^exp:/, ""), user.id, null);
-      },
-    });
-  }
-
   return (
     <View className="flex-1">
       <ResponsiveContainer className="flex-1">
-        {/* Total spent in the window — a leading minus, because every figure
-            on this screen is money leaving. */}
         <View className="px-4 pt-3">
           <Text
             fontWeight="Bold"
@@ -139,19 +79,13 @@ export function ExpensesPanel({ filterRowRef }: Props = {}) {
             className="text-2xl text-gray-900"
             numberOfLines={1}
           >
-            {outflowLabel(
-              filtered ? visibleTotalUsd : summary.totalUsd,
-              null,
-              target,
-            )}
+            {outflowLabel(list.totalUsd, null, target)}
           </Text>
-          {/* `!== 0` rather than `> 0`: a month of stock credits nets negative
-              and must still show its split. */}
-          {!filtered && summary.stockUsd !== 0 && summary.manualUsd !== 0 ? (
+          {list.breakdown ? (
             <Text className="text-xs text-gray-500 mt-0.5">
               {t("expenses.breakdown", {
-                stock: formatMoney(summary.stockUsd, null, target),
-                other: formatMoney(summary.manualUsd, null, target),
+                stock: formatMoney(list.breakdown.stockUsd, null, target),
+                other: formatMoney(list.breakdown.manualUsd, null, target),
               })}
             </Text>
           ) : null}
@@ -168,7 +102,7 @@ export function ExpensesPanel({ filterRowRef }: Props = {}) {
             </View>
             <FilterToggleButton
               active={filtersOpen}
-              hasActiveFilters={hasActiveFilters}
+              hasActiveFilters={list.hasActiveFilters}
               onPress={() => setFiltersOpen((v) => !v)}
             />
           </View>
@@ -177,28 +111,33 @@ export function ExpensesPanel({ filterRowRef }: Props = {}) {
               <Dropdown<ExpenseCategory>
                 placeholder={t("expenses.filter_by_category")}
                 options={categoryOptions}
-                value={categoryFilter === "all" ? null : categoryFilter}
-                onChange={(c) => setCategoryFilter(c ?? "all")}
+                value={list.category === "all" ? null : list.category}
+                onChange={(c) => list.setCategory(c ?? "all")}
                 nullable
                 nullLabel={t("expenses.all_categories")}
                 triggerStyle="chip"
+                searchable
               />
               <DatePickerInput
                 placeholder={t("expenses.date_from")}
-                value={fromDate}
-                onChange={(v) => void setDateRange(v, toDate)}
-                maxDate={toDate}
+                value={period.fromDate}
+                onChange={(fromDate) =>
+                  void setPeriod({ ...period, preset: "custom", fromDate })
+                }
+                maxDate={period.toDate}
                 triggerStyle="chip"
               />
               <DatePickerInput
                 placeholder={t("expenses.date_to")}
-                value={toDate}
-                onChange={(v) => void setDateRange(fromDate, v)}
-                minDate={fromDate}
+                value={period.toDate}
+                onChange={(toDate) =>
+                  void setPeriod({ ...period, preset: "custom", toDate })
+                }
+                minDate={period.fromDate}
                 triggerStyle="chip"
               />
               <PressableOpacity
-                onPress={() => void clearFilters()}
+                onPress={() => void list.clearFilters()}
                 className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
               >
                 <Ionicons name="close" size={14} color={COLORS.gray500} />
@@ -210,13 +149,13 @@ export function ExpensesPanel({ filterRowRef }: Props = {}) {
           ) : null}
         </View>
 
-        {error ? (
+        {list.error ? (
           <View className="px-4 pt-4">
-            <ErrorBanner message={error} onDismiss={clearError} />
+            <ErrorBanner message={list.error} onDismiss={list.clearError} />
           </View>
         ) : null}
 
-        {loading && items.length === 0 ? (
+        {list.loading && !list.loaded ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator color={COLORS.primary} />
           </View>
@@ -232,8 +171,8 @@ export function ExpensesPanel({ filterRowRef }: Props = {}) {
             }}
             refreshControl={
               <RefreshControl
-                refreshing={loading}
-                onRefresh={() => void fetchExpenses()}
+                refreshing={list.loading}
+                onRefresh={() => void list.reload()}
                 tintColor={COLORS.primary}
               />
             }
@@ -248,7 +187,7 @@ export function ExpensesPanel({ filterRowRef }: Props = {}) {
             renderItem={({ item }) => (
               <ExpenseCard
                 item={item}
-                onVoid={handleVoid}
+                onVoid={(expense) => void list.remove(expense)}
                 onOpenProduct={() =>
                   router.push("/(app)/(tabs)/admin/products")
                 }

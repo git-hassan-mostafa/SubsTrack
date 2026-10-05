@@ -30,7 +30,7 @@ export function refreshActiveData(): void {
   const debtHistory = useDebtHistoryStore.getState();
   if (debtHistory.items.length) void debtHistory.fetchHistory();
   const expenses = useExpenseStore.getState();
-  if (expenses.items.length) void expenses.fetchExpenses();
+  if (expenses.loaded) void expenses.fetchExpenses();
   const wallet = useWalletStore.getState();
   if (wallet.items.length) void wallet.fetchWallets();
   const audit = useAuditStore.getState();

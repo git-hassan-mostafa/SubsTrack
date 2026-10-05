@@ -16,21 +16,21 @@ export class ExpenseRepository
     endExclusiveIso: string,
     branchFilter: BranchFilter = null,
   ): Promise<DbExpense[]> {
-    let query = this.db
-      .from("expenses")
-      .select("*")
-      .is("voided_at", null)
-      .gte("incurred_at", startIso)
-      .lt("incurred_at", endExclusiveIso)
-      .order("incurred_at", { ascending: false });
-    query = this.applyBranchFilter(
-      query,
-      branchFilter,
-      this.BRANCH_SCOPES.expenses,
+    return this.readEveryRow<DbExpense>((from, to) =>
+      this.applyBranchFilter(
+        this.db
+          .from("expenses")
+          .select("*", { count: "exact" })
+          .is("voided_at", null)
+          .gte("incurred_at", startIso)
+          .lt("incurred_at", endExclusiveIso)
+          .order("incurred_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+        branchFilter,
+        this.BRANCH_SCOPES.expenses,
+      ),
     );
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    return (data ?? []) as DbExpense[];
   }
 
   async create(payload: CreateExpensePayload): Promise<DbExpense> {
@@ -73,29 +73,28 @@ export class ExpenseRepository
     endExclusiveIso: string,
     branchFilter: BranchFilter = null,
   ): Promise<ExpenseAmountRow[]> {
-    let query = this.db
-      .from("expenses")
-      .select("incurred_at, amount, rate_per_usd_snapshot")
-      .is("voided_at", null)
-      .gte("incurred_at", startIso)
-      .lt("incurred_at", endExclusiveIso);
-    query = this.applyBranchFilter(
-      query,
-      branchFilter,
-      this.BRANCH_SCOPES.expenses,
+    const rows = await this.readEveryRow<{
+      incurred_at: string;
+      amount: number;
+      rate_per_usd_snapshot: number;
+    }>((from, to) =>
+      this.applyBranchFilter(
+        this.db
+          .from("expenses")
+          .select("incurred_at, amount, rate_per_usd_snapshot", { count: "exact" })
+          .is("voided_at", null)
+          .gte("incurred_at", startIso)
+          .lt("incurred_at", endExclusiveIso)
+          .order("id")
+          .range(from, to),
+        branchFilter,
+        this.BRANCH_SCOPES.expenses,
+      ),
     );
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    return (data ?? []).map(
-      (r: {
-        incurred_at: string;
-        amount: number;
-        rate_per_usd_snapshot: number;
-      }) => ({
-        incurredAt: r.incurred_at,
-        amount: Number(r.amount),
-        ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
-      }),
-    );
+    return rows.map((r) => ({
+      incurredAt: r.incurred_at,
+      amount: Number(r.amount),
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+    }));
   }
 }

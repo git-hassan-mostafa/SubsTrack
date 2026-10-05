@@ -39,6 +39,7 @@ export function QuickActions() {
       customer: () => openQuickAction("customer"),
       sale: () => openQuickAction("sale"),
       customDebt: () => openQuickAction("customDebt"),
+      expense: () => openQuickAction("expense"),
       batchRestock: () => openQuickAction("batchRestock"),
       moneyReceived: () => void navigate("/money-received"),
     },

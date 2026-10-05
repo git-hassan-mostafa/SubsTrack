@@ -30,6 +30,7 @@ import { CustomerDetailPage } from "@/modules/customer/customer-detail/CustomerD
 import { CustomersPage } from "@/modules/customer/customers/CustomersPage";
 import { MoneyReceivedPage } from "@/modules/ledger/received/MoneyReceivedPage";
 import { DebtsPage } from "@/modules/transaction/debts/DebtsPage";
+import { ExpensesPage } from "@/modules/transaction/expenses/ExpensesPage";
 import { CustomerSalesPage } from "@/modules/transaction/sales/CustomerSalesPage";
 import { SalesPage } from "@/modules/transaction/sales/SalesPage";
 import { PAGE_ACCESS, type PageAccess } from "@shared/modules/authentication/auth/utils/pageAccess";
@@ -106,6 +107,7 @@ export const APP_PAGES: readonly AppPage[] = [
     access: PAGE_ACCESS.expenses,
     icon: TrendingDownOutlined,
     nav: "main",
+    component: ExpensesPage,
   },
   {
     path: "reports",

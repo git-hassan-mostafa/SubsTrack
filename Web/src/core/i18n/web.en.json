@@ -220,5 +220,10 @@
     "paid_on_the_day": "Paid on the day",
     "what_happened": "What happened",
     "settled_on": "Settled on"
+  },
+  "expenses": {
+    "recorded_by": "Recorded by",
+    "shown_total_one": "Total of {{count}} expense shown",
+    "shown_total_other": "Total of {{count}} expenses shown"
   }
 }
