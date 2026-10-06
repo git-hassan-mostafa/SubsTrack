@@ -1,3 +1,5 @@
+import { toDay } from "./dateRange";
+
 // Every date is formatted in this locale, never the UI language, so Arabic
 // shows English digits.
 const DATE_LOCALE = "en-US";
@@ -77,26 +79,15 @@ export function isValidDateString(s: string): boolean {
 }
 
 export function getTodayDateString(): string {
-  const now = currentDate();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return toDay(currentDate());
 }
 
-// YYYY-MM-DD for `months` calendar months before today (clamps to the last
-// valid day, e.g. Mar 31 → Feb 28). Used for the payments list default range.
+// Date rolls an overflowing day forward (Mar 31 − 1 month → Mar 3).
 export function getDateMonthsAgoString(months: number): string {
   const now = new Date();
-  const target = new Date(
-    now.getFullYear(),
-    now.getMonth() - months,
-    now.getDate(),
+  return toDay(
+    new Date(now.getFullYear(), now.getMonth() - months, now.getDate()),
   );
-  const y = target.getFullYear();
-  const m = String(target.getMonth() + 1).padStart(2, "0");
-  const d = String(target.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
 }
 
 // YYYY-MM-DD HH:mm for right now — the collect sheet's default "received at",
@@ -129,6 +120,12 @@ export function localMonthKey(iso: string): string {
   if (!iso.includes("T")) return iso.slice(0, 7);
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// Local calendar day of an instant; a bare day is cut as-is — see localMonthKey.
+export function localDayKey(iso: string): string {
+  if (!iso.includes("T")) return iso.slice(0, 10);
+  return toDay(new Date(iso));
 }
 
 // Whole days past a due date ("YYYY-MM-DD"), floored at 0 — how far behind a

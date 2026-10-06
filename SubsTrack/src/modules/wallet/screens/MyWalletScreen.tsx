@@ -1,23 +1,18 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter } from "expo-router";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { confirm } from "@shared/shared/lib/confirm";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { useWalletStore } from "@shared/modules/wallet/state/walletStore";
-import type { WalletItem } from "@shared/core/types";
+import { useWalletActions } from "@shared/modules/wallet/hooks/useWalletActions";
+import { walletActionMode } from "@shared/modules/wallet/utils/walletView";
 import { WalletDetailView } from "../components/WalletDetailView";
-import { canCloseOut } from "@shared/modules/wallet/utils/custody";
 
-// The signed-in user's own wallet — the cash they are carrying. Read-only for
-// everyone below the top of the chain: their cash leaves only when someone above
-// them receives it. A tenant-wide admin (or the owner) has nobody above them, so
-// they get "Close out" here — marking the cash banked and out of the system.
-// Every user role can open this from Settings.
+// Only the top of the chain may close out here; everyone else waits to be received.
 export function MyWalletScreen() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -28,14 +23,10 @@ export function MyWalletScreen() {
   const error = useWalletStore((s) => s.error);
   const fetchDetail = useWalletStore((s) => s.fetchDetail);
   const clearDetail = useWalletStore((s) => s.clearDetail);
-  const closeOutItems = useWalletStore((s) => s.closeOutItems);
-  const closeOutAll = useWalletStore((s) => s.closeOutAll);
   const clearError = useWalletStore((s) => s.clearError);
+  const { busyHolderId, actOnItems, actOnAll } = useWalletActions();
 
   const branchFilter = useEffectiveBranchFilter();
-  const [busy, setBusy] = useState(false);
-
-  const mayCloseOut = user ? canCloseOut(user) : false;
 
   const userId = user?.id;
   useFocusEffect(
@@ -44,44 +35,6 @@ export function MyWalletScreen() {
       return () => clearDetail();
     }, [userId, branchFilter, fetchDetail, clearDetail]),
   );
-
-  async function handleCloseOutItems(selected: WalletItem[]): Promise<boolean> {
-    if (selected.length === 0) return false;
-    let acted = false;
-    await confirm({
-      title: t("wallet.close_out_confirm_title"),
-      message: t("wallet.close_out_confirm_message", {
-        count: selected.length,
-      }),
-      confirmLabel: t("wallet.close_out"),
-      onConfirm: async () => {
-        setBusy(true);
-        try {
-          await closeOutItems(selected.map((i) => i.id));
-          acted = true;
-        } finally {
-          setBusy(false);
-        }
-      },
-    });
-    return acted;
-  }
-
-  async function handleCloseOutAll() {
-    await confirm({
-      title: t("wallet.close_out_all_confirm_title"),
-      message: t("wallet.close_out_all_confirm_message"),
-      confirmLabel: t("wallet.close_out_all"),
-      onConfirm: async () => {
-        setBusy(true);
-        try {
-          await closeOutAll();
-        } finally {
-          setBusy(false);
-        }
-      },
-    });
-  }
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
@@ -96,10 +49,14 @@ export function MyWalletScreen() {
         <WalletDetailView
           detail={detail}
           loading={detailLoading}
-          mode={mayCloseOut ? "close_out" : "view"}
-          busy={busy}
-          onActItems={handleCloseOutItems}
-          onActAll={() => void handleCloseOutAll()}
+          mode={walletActionMode(detail)}
+          busy={busyHolderId !== null}
+          onActItems={(selected) =>
+            detail ? actOnItems(detail, selected) : Promise.resolve(false)
+          }
+          onActAll={() => {
+            if (detail) void actOnAll(detail);
+          }}
         />
       </ResponsiveContainer>
     </SafeAreaView>

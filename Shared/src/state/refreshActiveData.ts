@@ -32,7 +32,7 @@ export function refreshActiveData(): void {
   const expenses = useExpenseStore.getState();
   if (expenses.loaded) void expenses.fetchExpenses();
   const wallet = useWalletStore.getState();
-  if (wallet.items.length) void wallet.fetchWallets();
+  if (wallet.loaded) void wallet.fetchWallets();
   const audit = useAuditStore.getState();
   if (audit.items.length) void audit.fetchEntries();
   const whatsappHistory = useMessageHistoryStore.getState();

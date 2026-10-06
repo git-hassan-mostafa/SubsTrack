@@ -675,7 +675,7 @@ export class OfflineCollectionRepository
     await this.write(async (db) => {
       for (const id of ids) {
         const owned = await db.getFirstAsync<{ id: string }>(
-          "SELECT id FROM collections WHERE id = ? AND held_by_user_id = ?",
+          "SELECT id FROM collections WHERE id = ? AND held_by_user_id = ? AND voided_at IS NULL",
           [id, fromUserId] as never[],
         );
         if (!owned) continue;

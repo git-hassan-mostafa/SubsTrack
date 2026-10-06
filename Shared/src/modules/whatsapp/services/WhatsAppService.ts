@@ -14,6 +14,7 @@ import type {
   WhatsAppTemplate,
   WhatsAppTemplatePurpose,
 } from "@shared/core/types";
+import { inChunks } from "@shared/core/utils/chunk";
 import { newId } from "@shared/core/utils/ids";
 import { canSendWhatsApp } from "@shared/core/utils/whatsappLink";
 import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
@@ -216,11 +217,11 @@ class WhatsAppService {
   ): Promise<WhatsAppQueueResult> {
     const requestId = newId();
     const result: WhatsAppQueueResult = { batchId: requestId, queued: 0, skipped: [] };
-    for (let i = 0; i < recipients.length; i += RECIPIENTS_PER_REQUEST) {
+    for (const part of inChunks(recipients, RECIPIENTS_PER_REQUEST)) {
       const chunk = await repositories().whatsApp.queue({
         requestId,
         templateId: template.id,
-        recipients: recipients.slice(i, i + RECIPIENTS_PER_REQUEST),
+        recipients: part,
         force,
       });
       result.queued += chunk.queued;

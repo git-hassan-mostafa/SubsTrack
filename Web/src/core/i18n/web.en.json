@@ -225,5 +225,10 @@
     "recorded_by": "Recorded by",
     "shown_total_one": "Total of {{count}} expense shown",
     "shown_total_other": "Total of {{count}} expenses shown"
+  },
+  "wallet": {
+    "holder": "Holder",
+    "by_currency": "By currency",
+    "back": "Back to wallets"
   }
 }

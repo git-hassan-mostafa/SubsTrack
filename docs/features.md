@@ -1198,11 +1198,11 @@ One of three **modes**, decided once (`modeFor` in `WalletsScreen`, from flags b
 
 Each mode: single-row action, **long-press multi-select** + selection bar, bulk ("Receive all" / "Close out all", re-reads current set first → never stale).
 
-Write = `transferCustody(ids, fromUserId, toUserId, actorUserId)` per cash repository (`toUserId` null = settle out + stamps `remitted_at`/`remitted_by`). UPDATE **guarded on `fromUserId`** → already-taken rows skipped (racing admins can't double-count). `custodyValues()` = one column-set builder so both exits never drift.
+Write = `transferCustody(ids, fromUserId, toUserId, actorUserId)` per cash repository (`toUserId` null = settle out + stamps `remitted_at`/`remitted_by`). UPDATE **guarded on `fromUserId` + `voided_at IS NULL`** (both repos) → already-taken / voided rows skipped (racing admins can't double-count); server in 100-id chunks. Doors both apps: Shared `useWalletActions` (confirm copy `walletActConfirm`, `busyHolderId`) over `walletStore`; mode/menus/source labels `wallet/utils/walletView.ts` (`walletActionMode`, `walletMenuItems`, `walletItemMenuItems`, `walletSelectionItems`, `WALLET_SOURCE_LABEL_KEY`, `cashOnHandUsd`). `custodyValues()` = one column-set builder so both exits never drift.
 
 ### Detail-view transaction list
 
-`WalletDetailView` (admin sheet + self-view, differ by `mode`): card per transaction — **customer** primary (walk-in → "Walk-in"), then `type · descriptor · date · Collected by <name>`, amount. **"Collected by" only once cash moved** (else holder = collector, noise). Client-side **filters** (customer, payment type, from/to **date range**) narrow the list only, never the headline total.
+`WalletDetailView` (admin sheet + self-view, differ by `mode`): card per transaction — **customer** primary (walk-in → "Walk-in"), then `type · descriptor · date · Collected by <name>`, amount. **"Collected by" only once cash moved** (else holder = collector, noise). Client-side **filters** (customer, payment type, from/to **date range** on the LOCAL day) narrow the list only, never the headline total — Shared `useWalletItemFilters` / `walletItemFilter.ts`, reset per holder.
 
 ### Self-correcting
 
@@ -1213,6 +1213,7 @@ Holder ≠ always collector (admin who only received recorded none) → `UserSer
 ### Where it lives
 
 - **Admin → Wallets** (`app/(app)/(tabs)/admin/wallets.tsx` → `WalletsScreen`): every wallet in branch scope **incl. viewer's own** ("You" chip, no receive). Holder viewer can't read (users RLS branch-scoped; branch admin can't see tenant-wide admin) → **dropped** (un-nameable, un-actionable = worse than nothing).
+- **Web**: `/admin/wallets` (`Web/src/modules/wallet/WalletsPage.tsx`), `/admin/wallets/:holderId` + `/my-wallet` share `WalletDetail.tsx` — see `docs/ui-patterns.md`.
 - **Settings → My Wallet** (`app/(app)/(tabs)/settings/my-wallet.tsx` → `MyWalletScreen`), every user: own cash; read-only below rank 2, "Close out" for tenant-wide admin/owner.
 - Dashboard (**admin-only**) **Cash on hand** tile: branch's un-settled net USD + `{holders} · {transactions}`, only when > 0. `DashboardService.getMetrics(branchFilter, viewer)` folds `walletService.getWalletsView(viewer, branchFilter)` into `walletCash` / `walletCollectors` / `walletTransactions`; slice passes `viewer = null` for non-admin → not computed.
 

@@ -6,6 +6,7 @@ import type {
   DbCollection,
   DbCollectionItem,
 } from "@shared/core/types/db";
+import { inChunks } from "@shared/core/utils/chunk";
 import { newId } from "@shared/core/utils/ids";
 import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
 import {
@@ -30,6 +31,8 @@ import {
 import { collectionPlanId } from "@shared/modules/ledger/utils/collectionPlan";
 import { sumByMonth } from "@shared/modules/ledger/utils/monthTotals";
 
+// A longer id list overflows the request URL of one UPDATE.
+const IDS_PER_WRITE = 100;
 const COLLECTION_SELECT = "*, collection_items(*, charges(*)), customers(*)";
 const COLLECTION_SELECT_SEARCH =
   "*, collection_items(*, charges(*)), customers!inner(*)";
@@ -571,39 +574,35 @@ export class CollectionRepository
     return ((data ?? []) as unknown as CollectedItemRow[]).map(toCashRow);
   }
 
-  async findHeld(
-    userId: string,
-    branchFilter: BranchFilter,
-  ): Promise<DbCollection[]> {
-    let query = this.db
-      .from("collections")
-      .select(COLLECTION_SELECT)
-      .eq("held_by_user_id", userId)
-      .is("voided_at", null);
-    query = this.applyBranchFilter(
-      query,
-      branchFilter,
-      this.BRANCH_SCOPES.collections,
-    );
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    return (data ?? []) as DbCollection[];
+  findHeld(userId: string, branchFilter: BranchFilter): Promise<DbCollection[]> {
+    return this.readHeld(userId, branchFilter);
   }
 
-  async findAllHeld(branchFilter: BranchFilter): Promise<DbCollection[]> {
-    let query = this.db
-      .from("collections")
-      .select(COLLECTION_SELECT)
-      .not("held_by_user_id", "is", null)
-      .is("voided_at", null);
-    query = this.applyBranchFilter(
-      query,
-      branchFilter,
-      this.BRANCH_SCOPES.collections,
-    );
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    return (data ?? []) as DbCollection[];
+  findAllHeld(branchFilter: BranchFilter): Promise<DbCollection[]> {
+    return this.readHeld(null, branchFilter);
+  }
+
+  // A wallet total sums every held row — gotcha #175.
+  private readHeld(
+    holderUserId: string | null,
+    branchFilter: BranchFilter,
+  ): Promise<DbCollection[]> {
+    return this.readEveryRow<DbCollection>((from, to) => {
+      const live = this.db
+        .from("collections")
+        .select(COLLECTION_SELECT, { count: "exact" })
+        .is("voided_at", null);
+      const held = holderUserId
+        ? live.eq("held_by_user_id", holderUserId)
+        : live.not("held_by_user_id", "is", null);
+      return this.applyBranchFilter(
+        held,
+        branchFilter,
+        this.BRANCH_SCOPES.collections,
+      )
+        .order("id")
+        .range(from, to);
+    });
   }
 
   async lastReceivedByCustomer(): Promise<Map<string, string>> {
@@ -622,12 +621,15 @@ export class CollectionRepository
     toUserId: string | null,
     actorUserId: string,
   ): Promise<void> {
-    if (ids.length === 0) return;
-    const { error } = await this.db
-      .from("collections")
-      .update(custodyValues(toUserId, actorUserId))
-      .in("id", ids)
-      .eq("held_by_user_id", fromUserId);
-    if (error) this.handleError(error);
+    const custody = custodyValues(toUserId, actorUserId);
+    for (const chunk of inChunks(ids, IDS_PER_WRITE)) {
+      const { error } = await this.db
+        .from("collections")
+        .update(custody)
+        .in("id", chunk)
+        .eq("held_by_user_id", fromUserId)
+        .is("voided_at", null);
+      if (error) this.handleError(error);
+    }
   }
 }

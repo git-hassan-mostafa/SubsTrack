@@ -33,6 +33,9 @@ import { DebtsPage } from "@/modules/transaction/debts/DebtsPage";
 import { ExpensesPage } from "@/modules/transaction/expenses/ExpensesPage";
 import { CustomerSalesPage } from "@/modules/transaction/sales/CustomerSalesPage";
 import { SalesPage } from "@/modules/transaction/sales/SalesPage";
+import { MyWalletPage } from "@/modules/wallet/MyWalletPage";
+import { WalletDetailPage } from "@/modules/wallet/WalletDetailPage";
+import { WalletsPage } from "@/modules/wallet/WalletsPage";
 import { PAGE_ACCESS, type PageAccess } from "@shared/modules/authentication/auth/utils/pageAccess";
 
 export type NavSection = "main" | "admin";
@@ -130,6 +133,14 @@ export const APP_PAGES: readonly AppPage[] = [
     access: PAGE_ACCESS.wallets,
     icon: AccountBalanceWalletOutlined,
     nav: "admin",
+    component: WalletsPage,
+  },
+  {
+    path: "admin/wallets/:holderId",
+    titleKey: "wallet.title",
+    access: PAGE_ACCESS.wallets,
+    icon: AccountBalanceWalletOutlined,
+    component: WalletDetailPage,
   },
   {
     path: "admin/plans",
@@ -206,5 +217,6 @@ export const APP_PAGES: readonly AppPage[] = [
     titleKey: "wallet.my_title",
     access: PAGE_ACCESS.my_wallet,
     icon: AccountBalanceWalletOutlined,
+    component: MyWalletPage,
   },
 ];

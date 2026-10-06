@@ -13,6 +13,7 @@ import { chargeService } from "./ChargeService";
 import { mergeOwed } from "../utils/mergeOwed";
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { groupBy } from "@shared/core/utils/groupBy";
+import { inChunks } from "@shared/core/utils/chunk";
 
 const OWED_BATCH_SIZE = 100;
 
@@ -58,8 +59,7 @@ class LedgerService {
   }): Promise<Map<string, OpenItem[]>> {
     const owed = new Map<string, OpenItem[]>();
     const skipsByCustomer = groupBy(args.skips, (s) => s.customerId);
-    for (let i = 0; i < args.customers.length; i += OWED_BATCH_SIZE) {
-      const chunk = args.customers.slice(i, i + OWED_BATCH_SIZE);
+    for (const chunk of inChunks(args.customers, OWED_BATCH_SIZE)) {
       const lineIds = chunk.flatMap((c) =>
         (c.customerPlans ?? []).filter((l) => l.active).map((l) => l.id),
       );

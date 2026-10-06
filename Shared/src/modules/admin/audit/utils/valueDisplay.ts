@@ -2,6 +2,7 @@ import type { TFunction } from "i18next";
 import type { AuditEntry, AuditTable, Currency } from "@shared/core/types";
 import { formatMoney } from "@shared/core/utils/currency";
 import { TENANT_SETTING_KEYS } from "@shared/modules/admin/tenant-settings/utils/constants";
+import { WALLET_SOURCE_LABEL_KEY } from "@shared/modules/wallet/utils/walletView";
 
 /** Id → display name. `null` = not found (deleted, or the list isn't loaded). */
 export interface AuditLookups {
@@ -118,17 +119,8 @@ const DISPLAY: Record<string, AuditValueFormatter> = {
 
   "customer_plans.plan_id": idRef("plan"),
 
-  "charges.kind": enumLabel({
-    month: "wallet.source_payment",
-    sale: "wallet.source_sale",
-    manual: "wallet.source_debt",
-  }),
-  "collections.kind": enumLabel({
-    month: "wallet.source_payment",
-    sale: "wallet.source_sale",
-    manual: "wallet.source_debt",
-    mixed: "wallet.source_mixed",
-  }),
+  "charges.kind": enumLabel(WALLET_SOURCE_LABEL_KEY),
+  "collections.kind": enumLabel(WALLET_SOURCE_LABEL_KEY),
 
   "customer_requests.status": enumLabel({
     pending: "audit.request_status.pending",

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { FlatList, RefreshControl, View } from "react-native";
 import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
@@ -13,41 +13,30 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
-import {
-  ActionMenu,
-  type ActionMenuItem,
-} from "@/src/shared/components/ActionMenu";
-import { confirm } from "@shared/shared/lib/confirm";
+import { ActionMenu } from "@/src/shared/components/ActionMenu";
+import { toActionMenuItems, type Glyph } from "@/src/shared/lib/menuActions";
 import { formatMoney } from "@shared/core/utils/currency";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 import { useWalletStore } from "@shared/modules/wallet/state/walletStore";
-import type { ReceiveBlock, UserWallet, WalletItem } from "@shared/core/types";
-import { WalletCard } from "../components/WalletCard";
+import { useWalletActions } from "@shared/modules/wallet/hooks/useWalletActions";
 import {
-  WalletDetailView,
-  type WalletActionMode,
-} from "../components/WalletDetailView";
+  cashOnHandUsd,
+  walletActionMode,
+  walletMenuItems,
+  type WalletActionKey,
+} from "@shared/modules/wallet/utils/walletView";
+import type { UserWallet } from "@shared/core/types";
+import { WalletCard } from "../components/WalletCard";
+import { WalletDetailView } from "../components/WalletDetailView";
 
-const BLOCK_LABEL: Record<Exclude<ReceiveBlock, null>, string> = {
-  self: "wallet.cannot_receive_self",
-  rank: "wallet.cannot_receive_rank",
-  branch: "wallet.cannot_receive_branch",
+const WALLET_ACTION_ICONS: Record<WalletActionKey, Glyph> = {
+  act_all: "checkmark-done-outline",
+  blocked: "lock-closed-outline",
 };
 
-// What the viewer may do with a given wallet. One place, so the card menu and
-// the detail sheet can never offer different actions for the same wallet.
-function modeFor(wallet: UserWallet): WalletActionMode {
-  if (wallet.receiveBlock === null) return "receive";
-  if (wallet.canCloseOut) return "close_out";
-  return "view";
-}
-
-// Admin screen: everyone holding cash that has not yet left the system, with the
-// total each is carrying. Tap to see the transactions behind it. Receiving moves
-// the cash into YOUR wallet; you can never receive your own, and a branch admin
-// only reaches their own branch's collectors (see utils/custody.ts).
+// Receiving moves cash UP the chain into your wallet — rules in utils/custody.ts.
 export function WalletsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -60,11 +49,8 @@ export function WalletsScreen() {
   const fetchWallets = useWalletStore((s) => s.fetchWallets);
   const fetchDetail = useWalletStore((s) => s.fetchDetail);
   const clearDetail = useWalletStore((s) => s.clearDetail);
-  const receiveFrom = useWalletStore((s) => s.receiveFrom);
-  const receiveAllFrom = useWalletStore((s) => s.receiveAllFrom);
-  const closeOutItems = useWalletStore((s) => s.closeOutItems);
-  const closeOutAll = useWalletStore((s) => s.closeOutAll);
   const clearError = useWalletStore((s) => s.clearError);
+  const { busyHolderId, actOnItems, actOnAll } = useWalletActions();
 
   const target = useDisplayCurrency();
 
@@ -72,18 +58,11 @@ export function WalletsScreen() {
   const [openWallet, setOpenWallet] = useState<UserWallet | null>(null);
   const detailReady = useAfterFirstFrame(!!openWallet);
   const [menuWallet, setMenuWallet] = useState<UserWallet | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [actingId, setActingId] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       void fetchWallets();
     }, [branchFilter, fetchWallets]),
-  );
-
-  const grandTotalUsd = useMemo(
-    () => items.reduce((sum, w) => sum + w.totalUsd, 0),
-    [items],
   );
 
   function openHolder(wallet: UserWallet) {
@@ -97,100 +76,19 @@ export function WalletsScreen() {
     clearDetail();
   }
 
-  // Act on one or several selected transactions. Returns whether it went
-  // through, so the detail view can clear its selection on success.
-  async function handleActItems(
-    wallet: UserWallet,
-    selected: WalletItem[],
-  ): Promise<boolean> {
-    if (selected.length === 0) return false;
-    const closing = modeFor(wallet) === "close_out";
-    let acted = false;
-    await confirm({
-      title: closing
-        ? t("wallet.close_out_confirm_title")
-        : t("wallet.receive_confirm_title"),
-      message: closing
-        ? t("wallet.close_out_confirm_message", { count: selected.length })
-        : selected.length === 1
-          ? t("wallet.receive_confirm_message")
-          : t("wallet.receive_selected_confirm_message", {
-              count: selected.length,
-            }),
-      confirmLabel: closing ? t("wallet.close_out") : t("wallet.receive"),
-      onConfirm: async () => {
-        const payload = selected.map((i) => i.id);
-        setBusy(true);
-        try {
-          if (closing) await closeOutItems(payload);
-          else await receiveFrom(wallet.holderUserId, payload);
-          acted = true;
-        } finally {
-          setBusy(false);
-        }
-      },
-    });
-    return acted;
+  async function actAllFromSheet(wallet: UserWallet) {
+    if (await actOnAll(wallet)) closeHolder();
   }
 
-  // Shared "empty this whole wallet" flow — used by both the detail sheet's
-  // button and the list card's menu. From the sheet it also closes it (the
-  // wallet drops off the list afterward).
-  async function actAllFor(wallet: UserWallet, fromSheet: boolean) {
-    const closing = modeFor(wallet) === "close_out";
-    await confirm({
-      title: closing
-        ? t("wallet.close_out_all_confirm_title")
-        : t("wallet.receive_all_confirm_title"),
-      message: closing
-        ? t("wallet.close_out_all_confirm_message")
-        : t("wallet.receive_all_confirm_message", { name: wallet.holderName }),
-      confirmLabel: closing
-        ? t("wallet.close_out_all")
-        : t("wallet.receive_all"),
-      onConfirm: async () => {
-        if (fromSheet) setBusy(true);
-        else setActingId(wallet.holderUserId);
-        try {
-          if (closing) await closeOutAll();
-          else await receiveAllFrom(wallet.holderUserId);
-          if (fromSheet) closeHolder();
-        } finally {
-          if (fromSheet) setBusy(false);
-          else setActingId(null);
-        }
-      },
-    });
-  }
-
-  function buildMenuActions(wallet: UserWallet | null): ActionMenuItem[] {
-    if (!wallet) return [];
-    const mode = modeFor(wallet);
-    if (mode === "view") {
-      return [
-        {
-          key: "blocked",
-          group: "manage",
-          label: t(BLOCK_LABEL[wallet.receiveBlock ?? "rank"]),
-          icon: "lock-closed-outline",
-          disabled: true,
-          onPress: () => {},
+  const menuActions = menuWallet
+    ? toActionMenuItems(walletMenuItems(menuWallet), t, {
+        icons: WALLET_ACTION_ICONS,
+        run: {
+          act_all: () => void actOnAll(menuWallet),
+          blocked: () => {},
         },
-      ];
-    }
-    return [
-      {
-        key: "act-all",
-        group: "money",
-        label:
-          mode === "close_out"
-            ? t("wallet.close_out_all")
-            : t("wallet.receive_all"),
-        icon: "checkmark-done-outline",
-        onPress: () => void actAllFor(wallet, false),
-      },
-    ];
-  }
+      })
+    : [];
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
@@ -206,7 +104,7 @@ export function WalletsScreen() {
             {t("wallet.cash_on_hand")}
           </Text>
           <Text fontWeight="Bold" className="text-2xl text-gray-900 mt-1">
-            {formatMoney(grandTotalUsd, null, target)}
+            {formatMoney(cashOnHandUsd(items), null, target)}
           </Text>
         </View>
 
@@ -218,7 +116,7 @@ export function WalletsScreen() {
               wallet={item}
               onPress={() => openHolder(item)}
               onMenu={() => setMenuWallet(item)}
-              menuLoading={actingId === item.holderUserId}
+              menuLoading={busyHolderId === item.holderUserId}
             />
           )}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
@@ -265,11 +163,11 @@ export function WalletsScreen() {
             <WalletDetailView
               detail={detail}
               loading={detailLoading}
-              mode={modeFor(openWallet)}
-              busy={busy}
+              mode={walletActionMode(openWallet)}
+              busy={busyHolderId === openWallet.holderUserId}
               Scroll={BottomSheetScrollView}
-              onActItems={(selected) => handleActItems(openWallet, selected)}
-              onActAll={() => void actAllFor(openWallet, true)}
+              onActItems={(selected) => actOnItems(openWallet, selected)}
+              onActAll={() => void actAllFromSheet(openWallet)}
             />
           ) : null}
         </ResponsiveContainer>
@@ -278,7 +176,7 @@ export function WalletsScreen() {
       <ActionMenu
         visible={menuWallet !== null}
         title={menuWallet?.holderName}
-        actions={buildMenuActions(menuWallet)}
+        actions={menuActions}
         onDismiss={() => setMenuWallet(null)}
       />
     </SafeAreaView>

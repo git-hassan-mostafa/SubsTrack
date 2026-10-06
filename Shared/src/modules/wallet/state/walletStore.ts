@@ -20,6 +20,7 @@ function viewer(): AuthUser | null {
 
 export interface WalletState {
   items: UserWallet[];
+  loaded: boolean;
   detail: UserWalletDetail | null;
   loading: boolean;
   detailLoading: boolean;
@@ -39,7 +40,6 @@ export interface WalletState {
 
 export const useWalletStore = create<WalletState>()(
   immer((set, get) => {
-    // Every mutation ends the same way: refresh the open detail, then the list.
     async function refresh(holderUserId: string): Promise<void> {
       if (get().detail?.holderUserId === holderUserId) {
         await get().fetchDetail(holderUserId);
@@ -47,24 +47,26 @@ export const useWalletStore = create<WalletState>()(
       await get().fetchWallets();
     }
 
-    // One try/catch for all four mutations — they differ only in the call.
+    // A failed write may have moved part of the cash, so it re-reads too.
     async function mutate(
       run: () => Promise<void>,
       holderUserId: string,
     ): Promise<void> {
       try {
         await run();
-        await refresh(holderUserId);
       } catch (e) {
+        await refresh(holderUserId);
         set((s) => {
           s.error = e instanceof Error ? e.message : String(e);
         });
         throw e;
       }
+      await refresh(holderUserId);
     }
 
     return {
       items: [],
+      loaded: false,
       detail: null,
       loading: false,
       detailLoading: false,
@@ -87,6 +89,7 @@ export const useWalletStore = create<WalletState>()(
           if (isStaleEpoch(epoch)) return;
           set((s) => {
             s.items = items;
+            s.loaded = true;
             s.loading = false;
           });
         } catch (e) {
@@ -181,6 +184,7 @@ export const useWalletStore = create<WalletState>()(
       reset: () => {
         set((s) => {
           s.items = [];
+          s.loaded = false;
           s.detail = null;
           s.loading = false;
           s.detailLoading = false;

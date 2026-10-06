@@ -613,7 +613,7 @@ export const fakeCollectionRepository = {
   ) {
     for (const id of ids) {
       const row = collections.find(
-        (c) => c.id === id && c.held_by_user_id === fromUserId,
+        (c) => c.id === id && c.held_by_user_id === fromUserId && !c.voided_at,
       );
       if (!row) continue;
       row.held_by_user_id = toUserId;

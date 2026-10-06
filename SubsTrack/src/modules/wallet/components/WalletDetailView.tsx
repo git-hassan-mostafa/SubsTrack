@@ -1,6 +1,5 @@
 import {
   useEffect,
-  useMemo,
   useState,
   type ComponentType,
   type ReactNode,
@@ -17,10 +16,8 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { EntityCard } from "@/src/shared/components/EntityCard";
-import {
-  SelectionBar,
-  type SelectionAction,
-} from "@/src/shared/components/SelectionBar";
+import { SelectionBar } from "@/src/shared/components/SelectionBar";
+import { toSelectionActions } from "@/src/shared/lib/menuActions";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
 import { FilterChipsRow } from "@/src/shared/components/FilterChipsRow";
 import {
@@ -37,6 +34,14 @@ import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import { formatDate } from "@shared/core/utils/date";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
+import { useWalletItemFilters } from "@shared/modules/wallet/hooks/useWalletItemFilters";
+import {
+  WALLET_SOURCE_LABEL_KEY,
+  WALLET_SOURCES,
+  walletActLabelKey,
+  walletSelectionItems,
+  type WalletActionMode,
+} from "@shared/modules/wallet/utils/walletView";
 import { CollectionDetailSheet } from "@/src/modules/ledger/components/CollectionDetailSheet";
 import type {
   UserWalletDetail,
@@ -44,62 +49,21 @@ import type {
   WalletSource,
 } from "@shared/core/types";
 
-const SOURCE_META: Record<
+const SOURCE_LOOK: Record<
   WalletSource,
-  {
-    icon: keyof typeof Ionicons.glyphMap;
-    color: string;
-    bg: string;
-    labelKey: string;
-  }
+  { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string }
 > = {
-  month: {
-    icon: "card-outline",
-    color: COLORS.primary,
-    bg: "bg-indigo-50",
-    labelKey: "wallet.source_payment",
-  },
-  sale: {
-    icon: "cube-outline",
-    color: COLORS.success,
-    bg: "bg-green-50",
-    labelKey: "wallet.source_sale",
-  },
+  month: { icon: "card-outline", color: COLORS.primary, bg: "bg-indigo-50" },
+  sale: { icon: "cube-outline", color: COLORS.success, bg: "bg-green-50" },
   manual: {
     icon: "document-text-outline",
     color: COLORS.warning,
     bg: "bg-amber-50",
-    labelKey: "wallet.source_debt",
   },
-  mixed: {
-    icon: "cash-outline",
-    color: COLORS.success,
-    bg: "bg-green-50",
-    labelKey: "wallet.source_mixed",
-  },
+  mixed: { icon: "cash-outline", color: COLORS.success, bg: "bg-green-50" },
 };
 
-// A hand-over's own id — unique now that there is one money table.
 const keyOf = (it: WalletItem) => it.id;
-
-// Local calendar day (YYYY-MM-DD) of an ISO timestamp, matching how the card
-// shows the date — so the date-range filter agrees with what the user sees.
-function localDay(iso: string): string {
-  const d = new Date(iso);
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${m}-${day}`;
-}
-
-/**
- * What the viewer may do with this wallet's cash:
- *   'view'      — look only (someone else's wallet they can't take, or their own
- *                 when they're not allowed to settle it)
- *   'receive'   — take it from the holder into their own wallet
- *   'close_out' — their own cash, settled out of the system (banked)
- * Decided by WalletService from utils/custody.ts — never re-derived here.
- */
-export type WalletActionMode = "view" | "receive" | "close_out";
 
 // Gorhom's scroll view requires children; RN's ScrollView class cannot type it
 type ScrollBody = ComponentType<ScrollViewProps & { children: ReactNode }>;
@@ -130,11 +94,9 @@ export function WalletDetailView({
   const currencies = useCurrencySlice((s) => s.items);
   const target = useDisplayCurrency();
 
+  const actionLabel = mode === "view" ? "" : t(walletActLabelKey(mode, false));
+  const actionAllLabel = mode === "view" ? "" : t(walletActLabelKey(mode, true));
   const canAct = mode !== "view";
-  const actionLabel =
-    mode === "close_out" ? t("wallet.close_out") : t("wallet.receive");
-  const actionAllLabel =
-    mode === "close_out" ? t("wallet.close_out_all") : t("wallet.receive_all");
 
   const selection = useSelection();
   const selecting = canAct && selection.active;
@@ -142,23 +104,17 @@ export function WalletDetailView({
   useSelectionBackHandler(selecting, selection.clear);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [customerFilter, setCustomerFilter] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState<WalletSource | null>(null);
-  const [fromDate, setFromDate] = useState<string | null>(null);
-  const [toDate, setToDate] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const allItems = detail?.items ?? [];
   const holderId = detail?.holderUserId ?? null;
+  const filters = useWalletItemFilters(allItems, holderId);
+  const filtered = filters.rows;
 
   const clearItemSelection = selection.clear;
 
   useEffect(() => {
     setFiltersOpen(false);
-    setCustomerFilter(null);
-    setTypeFilter(null);
-    setFromDate(null);
-    setToDate(null);
     clearItemSelection();
   }, [holderId, clearItemSelection]);
 
@@ -167,46 +123,11 @@ export function WalletDetailView({
     return formatMoney(amount, cur, cur);
   };
 
-  const customerOptions: DropdownOption<string>[] = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const it of allItems) {
-      if (it.customerId && it.customerName)
-        map.set(it.customerId, it.customerName);
-    }
-    return [...map.entries()].map(([value, label]) => ({ label, value }));
-  }, [allItems]);
+  const customerOptions: DropdownOption<string>[] = filters.customers;
 
-  const typeOptions: DropdownOption<WalletSource>[] = [
-    { label: t("wallet.source_payment"), value: "month" },
-    { label: t("wallet.source_sale"), value: "sale" },
-    { label: t("wallet.source_debt"), value: "manual" },
-    { label: t("wallet.source_mixed"), value: "mixed" },
-  ];
-
-  const hasActiveFilters =
-    !!customerFilter || !!typeFilter || !!fromDate || !!toDate;
-
-  const filtered = useMemo(
-    () =>
-      allItems.filter((it) => {
-        if (typeFilter && it.source !== typeFilter) return false;
-        if (customerFilter && it.customerId !== customerFilter) return false;
-        if (fromDate || toDate) {
-          const day = localDay(it.date);
-          if (fromDate && day < fromDate) return false;
-          if (toDate && day > toDate) return false;
-        }
-        return true;
-      }),
-    [allItems, typeFilter, customerFilter, fromDate, toDate],
+  const typeOptions: DropdownOption<WalletSource>[] = WALLET_SOURCES.map(
+    (source) => ({ label: t(WALLET_SOURCE_LABEL_KEY[source]), value: source }),
   );
-
-  function clearFilters() {
-    setCustomerFilter(null);
-    setTypeFilter(null);
-    setFromDate(null);
-    setToDate(null);
-  }
 
   async function act(items: WalletItem[]) {
     if (items.length === 0) return;
@@ -214,17 +135,14 @@ export function WalletDetailView({
     if (ok) selection.clear();
   }
 
-  const selectionActions: SelectionAction[] = [
-    {
-      key: "act",
-      group: "money",
-      icon: "checkmark-done-outline",
-      label: actionLabel,
-      disabled: busy,
-      onPress: () =>
+  const selectionActions = toSelectionActions(walletSelectionItems(mode), t, {
+    icons: { details: "receipt-outline", act: "checkmark-done-outline" },
+    run: {
+      act: () =>
         void act(allItems.filter((it) => selection.isSelected(keyOf(it)))),
     },
-  ];
+    disabled: busy,
+  });
 
   if (loading && !detail) {
     return (
@@ -318,7 +236,7 @@ export function WalletDetailView({
                 </Text>
                 <FilterToggleButton
                   active={filtersOpen}
-                  hasActiveFilters={hasActiveFilters}
+                  hasActiveFilters={filters.active}
                   onPress={() => setFiltersOpen((v) => !v)}
                 />
               </View>
@@ -330,8 +248,8 @@ export function WalletDetailView({
                   <Dropdown<string>
                     placeholder={t("wallet.filter_by_customer")}
                     options={customerOptions}
-                    value={customerFilter}
-                    onChange={setCustomerFilter}
+                    value={filters.filter.customerId}
+                    onChange={(customerId) => filters.set({ customerId })}
                     nullable
                     nullLabel={t("wallet.all_customers")}
                     triggerStyle="chip"
@@ -341,31 +259,31 @@ export function WalletDetailView({
                 <Dropdown<WalletSource>
                   placeholder={t("wallet.filter_by_type")}
                   options={typeOptions}
-                  value={typeFilter}
-                  onChange={setTypeFilter}
+                  value={filters.filter.source}
+                  onChange={(source) => filters.set({ source })}
                   nullable
                   nullLabel={t("wallet.all_types")}
                   triggerStyle="chip"
                 />
                 <DatePickerInput
                   placeholder={t("wallet.date_from")}
-                  value={fromDate ?? ""}
-                  onChange={(v) => setFromDate(v || null)}
-                  maxDate={toDate ?? undefined}
+                  value={filters.filter.fromDay ?? ""}
+                  onChange={(v) => filters.set({ fromDay: v || null })}
+                  maxDate={filters.filter.toDay ?? undefined}
                   triggerStyle="chip"
                   clearable
                 />
                 <DatePickerInput
                   placeholder={t("wallet.date_to")}
-                  value={toDate ?? ""}
-                  onChange={(v) => setToDate(v || null)}
-                  minDate={fromDate ?? undefined}
+                  value={filters.filter.toDay ?? ""}
+                  onChange={(v) => filters.set({ toDay: v || null })}
+                  minDate={filters.filter.fromDay ?? undefined}
                   triggerStyle="chip"
                   clearable
                 />
-                {hasActiveFilters ? (
+                {filters.active ? (
                   <PressableOpacity
-                    onPress={clearFilters}
+                    onPress={filters.clear}
                     className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
                   >
                     <Ionicons name="close" size={14} color={COLORS.gray500} />
@@ -384,11 +302,11 @@ export function WalletDetailView({
               />
             ) : (
               filtered.map((item) => {
-                const meta = SOURCE_META[item.source];
+                const look = SOURCE_LOOK[item.source];
                 const k = keyOf(item);
                 const checked = selection.isSelected(k);
                 const subline = [
-                  t(meta.labelKey),
+                  t(WALLET_SOURCE_LABEL_KEY[item.source]),
                   item.label,
                   formatDate(item.date),
                   item.collectorName
@@ -401,9 +319,9 @@ export function WalletDetailView({
                   <EntityCard
                     key={k}
                     onPress={() => setDetailId(item.id)}
-                    icon={meta.icon}
-                    iconColor={meta.color}
-                    iconBgClassName={meta.bg}
+                    icon={look.icon}
+                    iconColor={look.color}
+                    iconBgClassName={look.bg}
                     selectionMode={selecting}
                     selected={checked}
                     onToggleSelect={() => selection.toggle(k)}

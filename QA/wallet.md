@@ -31,3 +31,10 @@ Cash moves up: collector → branch admin → tenant-wide admin → owner.
 ## Dashboard
 
 15. "Cash on hand" = sum of every wallet in the branch scope; handing cash up does not change it.
+
+## Many hand-overs
+
+16. Receive all from a collector holding 300+ payments → every one moves; the collector's wallet reads 0.
+17. A collector holds more than 1,000 payments → the wallet lists every one and its total equals their sum; the Wallets total includes them all.
+18. Void a payment while another admin has that wallet open, then they receive it → the voided payment does not move and never shows in any wallet.
+19. The network drops in the middle of Receive all → an error shows and the wallet shows exactly what already moved; Receive all again moves the rest.
