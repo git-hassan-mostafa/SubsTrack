@@ -25,6 +25,7 @@ export function ServicesPage() {
   const paged = usePagedTable(useServicesTable, branch);
   const query = paged.query;
   const patchRow = paged.patchRow;
+  const addRow = paged.addRow;
   const setFilters = paged.setFilters;
   const reload = paged.reload;
   const writeError = useServiceSlice((s) => s.error);
@@ -119,7 +120,7 @@ export function ServicesPage() {
           onSaved={(saved) => {
             setForm(null);
             if (form.service) patchRow(saved);
-            else reload();
+            else addRow(saved);
           }}
         />
       ) : null}

@@ -23,6 +23,7 @@ export function CurrenciesPage() {
   const paged = usePagedTable(useCurrenciesTable);
   const query = paged.query;
   const patchRow = paged.patchRow;
+  const addRow = paged.addRow;
   const setFilters = paged.setFilters;
   const reload = paged.reload;
   const writeError = useCurrencySlice((s) => s.error);
@@ -135,7 +136,7 @@ export function CurrenciesPage() {
           onSaved={(saved) => {
             setForm(null);
             if (form.currency) patchRow(saved);
-            else reload();
+            else addRow(saved);
           }}
         />
       ) : null}

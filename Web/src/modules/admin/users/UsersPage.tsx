@@ -53,6 +53,7 @@ export function UsersPage() {
   const paged = usePagedTable(useUsersTable, branch);
   const query = paged.query;
   const patchRow = paged.patchRow;
+  const addRow = paged.addRow;
   const setFilters = paged.setFilters;
   const reload = paged.reload;
   const writeError = useUserSlice((s) => s.error);
@@ -218,7 +219,7 @@ export function UsersPage() {
           onSaved={(saved) => {
             setForm(null);
             if (form.user) patchRow(saved);
-            else reload();
+            else addRow(saved);
           }}
         />
       ) : null}

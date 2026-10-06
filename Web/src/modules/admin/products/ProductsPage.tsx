@@ -32,6 +32,7 @@ export function ProductsPage() {
   const rows = paged.tableProps.rows;
   const query = paged.query;
   const patchRow = paged.patchRow;
+  const addRow = paged.addRow;
   const setFilters = paged.setFilters;
   const reload = paged.reload;
   const writeError = useProductSlice((s) => s.error);
@@ -162,7 +163,7 @@ export function ProductsPage() {
           onSaved={(saved) => {
             setForm(null);
             if (form.product) patchRow(saved);
-            else reload();
+            else addRow(saved);
           }}
           onAdjustStock={setStockFor}
         />

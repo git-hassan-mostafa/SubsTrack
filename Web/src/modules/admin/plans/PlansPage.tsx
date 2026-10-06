@@ -25,6 +25,7 @@ export function PlansPage() {
   const paged = usePagedTable(usePlansTable, branch);
   const query = paged.query;
   const patchRow = paged.patchRow;
+  const addRow = paged.addRow;
   const reload = paged.reload;
   const writeError = usePlanSlice((s) => s.error);
   const clearWriteError = usePlanSlice((s) => s.clearError);
@@ -111,7 +112,7 @@ export function PlansPage() {
           onSaved={(saved) => {
             setForm(null);
             if (form.plan) patchRow(saved);
-            else reload();
+            else addRow(saved);
           }}
         />
       ) : null}

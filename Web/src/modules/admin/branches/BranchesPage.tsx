@@ -21,6 +21,7 @@ export function BranchesPage() {
   const paged = usePagedTable(useBranchesTable);
   const query = paged.query;
   const patchRow = paged.patchRow;
+  const addRow = paged.addRow;
   const setFilters = paged.setFilters;
   const reload = paged.reload;
   const writeError = useBranchSlice((s) => s.error);
@@ -98,7 +99,7 @@ export function BranchesPage() {
           onSaved={(saved) => {
             setForm(null);
             if (form.branch) patchRow(saved);
-            else reload();
+            else addRow(saved);
           }}
         />
       ) : null}

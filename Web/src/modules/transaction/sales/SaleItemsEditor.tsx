@@ -21,6 +21,8 @@ import { ProductFormDialog } from "@/modules/admin/products/ProductFormDialog";
 import { ServiceFormDialog } from "@/modules/admin/services/ServiceFormDialog";
 import { CurrencyInput } from "@/shared/components/CurrencyInput";
 import { CurrencySelect } from "@/shared/components/CurrencySelect";
+import { useProductsTable } from "@/state/productsTable";
+import { useServicesTable } from "@/state/servicesTable";
 import { CatalogPicker } from "./CatalogPicker";
 import { QuantityField } from "./QuantityField";
 
@@ -38,11 +40,13 @@ export function SaleItemsEditor({ cart }: { cart: SaleCart }) {
 
   const productCreated = (product: Product) => {
     if (newItemFor) cart.selectProduct(newItemFor.rowKey, product);
+    useProductsTable.getState().addRow(product);
     setNewItemFor(null);
   };
 
   const serviceCreated = (service: Service) => {
     if (newItemFor) cart.selectService(newItemFor.rowKey, service);
+    useServicesTable.getState().addRow(service);
     setNewItemFor(null);
   };
 
