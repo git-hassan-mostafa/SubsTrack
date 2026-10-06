@@ -158,8 +158,6 @@ function PaymentBody({ collection, onOpenItem, loadingItemId }: PaymentBodyProps
       field: "billTotal",
       headerName: t("ledger.bill_total"),
       width: 130,
-      align: "right",
-      headerAlign: "right",
       valueGetter: (_value, row) => (row.charge ? money(row.charge.amount) : ""),
     },
     {
@@ -172,8 +170,6 @@ function PaymentBody({ collection, onOpenItem, loadingItemId }: PaymentBodyProps
       field: "amount",
       headerName: t("web.payment.from_this_payment"),
       width: 170,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => (
         <Box
           component="span"

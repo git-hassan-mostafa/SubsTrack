@@ -95,16 +95,12 @@ export function MonthsTable({ grid, menuActions }: MonthsTableProps) {
       field: "bill",
       headerName: t("web.month_grid.col_bill"),
       width: 140,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => billCell(params.row),
     },
     {
       field: "paid",
       headerName: t("web.month_grid.col_paid"),
       width: 140,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => {
         const paid = monthPaidFigure(params.row);
         return paid ? (
@@ -118,8 +114,6 @@ export function MonthsTable({ grid, menuActions }: MonthsTableProps) {
       field: "owed",
       headerName: t("web.month_grid.col_owed"),
       width: 140,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => {
         const owed = monthOwedFigure(params.row);
         return owed ? (

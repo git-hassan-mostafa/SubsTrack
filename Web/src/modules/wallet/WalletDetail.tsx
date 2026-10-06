@@ -169,8 +169,6 @@ export function WalletDetail({
         field: "amount",
         headerName: t("ledger.amount"),
         width: 170,
-        align: "right",
-        headerAlign: "right",
         renderCell: (params) => {
           const money = formatMoneyPair(params.row.amount, snapshotCurrency(params.row, currencies), display);
           return <MoneyText primary={money.primary} approx={money.approx} />;
@@ -192,6 +190,7 @@ export function WalletDetail({
   return (
     <>
       <DataTable<WalletItem>
+        viewKey="wallet-items"
         label={t("wallet.transactions_section")}
         columns={columns}
         rows={paging.rows}

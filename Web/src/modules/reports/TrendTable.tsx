@@ -54,8 +54,6 @@ export function TrendTable<T extends { key: string }>({
           flex: s.color ? 1 : undefined,
           width: s.color ? undefined : 150,
           minWidth: s.color ? 220 : undefined,
-          align: s.color ? "left" : "right",
-          headerAlign: s.color ? "left" : "right",
           renderCell: (params) => {
             const value = s.valueOf(params.row);
             if (!s.color) return s.format(value);

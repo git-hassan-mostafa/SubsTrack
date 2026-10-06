@@ -9,6 +9,8 @@ import {
 import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "@/state/createPagedStore";
 import { actionsColumn } from "./actionsColumn";
 import { AUTO_ROW_HEIGHT, gridSx, LOCKED_GRID, rowClassName, type RowTone } from "./gridBase";
+import { useGridColumns } from "./gridColumns";
+import { useTableDensity } from "./tableViews";
 import type { TableAction } from "./tableAction";
 
 // The caller owns the picked ids, so it may widen a pick (a whole bundle).
@@ -58,12 +60,15 @@ export function LocalTable<T extends GridValidRowModel & { id: string }>({
       actionsColumn<T>({ headerName: t("web.table.actions"), rowLabel, rowActions, rowBusy }),
     ];
   }, [columns, rowActions, rowBusy, rowLabel, t]);
+  const grid = useGridColumns(allColumns, null);
+  const { density } = useTableDensity();
 
   return (
     <DataGrid<T>
       aria-label={label}
       rows={rows}
-      columns={allColumns}
+      {...grid.gridProps}
+      density={density}
       {...LOCKED_GRID}
       disableRowSelectionOnClick
       checkboxSelection={Boolean(selection)}
@@ -77,7 +82,7 @@ export function LocalTable<T extends GridValidRowModel & { id: string }>({
       initialState={{ pagination: { paginationModel: { pageSize: DEFAULT_PAGE_SIZE } } }}
       getRowHeight={autoRowHeight ? AUTO_ROW_HEIGHT : undefined}
       getRowClassName={(params) => rowClassName(params.indexRelativeToCurrentPage, rowTone?.(params.row))}
-      sx={gridSx(autoRowHeight)}
+      sx={gridSx(autoRowHeight, density)}
     />
   );
 }

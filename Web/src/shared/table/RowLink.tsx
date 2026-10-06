@@ -7,7 +7,14 @@ type RowLinkProps = { label: string; tabIndex: -1 | 0 } & (
 
 // The record's name in its cell; opening it is the row's main action.
 export function RowLink({ label, tabIndex, onClick, href }: RowLinkProps) {
-  const sx = { fontWeight: 600, textAlign: "start" } as const;
+  const sx = {
+    fontWeight: 600,
+    textAlign: "start",
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  } as const;
   if (href !== undefined) {
     return (
       <Link href={href} tabIndex={tabIndex} sx={sx}>

@@ -84,8 +84,8 @@ export function BillsTable({
               <TableCell sx={{ width: 40 }} />
               <TableCell>{t("web.collect.bill_column")}</TableCell>
               <TableCell>{t("ledger.due_date")}</TableCell>
-              <TableCell align="right">{t("ledger.owed")}</TableCell>
-              <TableCell align="right">{t("web.collect.paying_column")}</TableCell>
+              <TableCell>{t("ledger.owed")}</TableCell>
+              <TableCell>{t("web.collect.paying_column")}</TableCell>
               <TableCell sx={{ width: 170 }} />
             </TableRow>
           </TableHead>
@@ -116,8 +116,8 @@ export function BillsTable({
                       </Typography>
                     ) : null}
                   </TableCell>
-                  <TableCell align="right">{money(item.balance)}</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                  <TableCell>{money(item.balance)}</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>
                     {line ? money(line.amount) : (
                       <Typography component="span" variant="body2" color="text.disabled">
                         —

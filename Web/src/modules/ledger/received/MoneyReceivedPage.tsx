@@ -182,12 +182,10 @@ export function MoneyReceivedPage() {
         field: "amount",
         headerName: t("ledger.amount"),
         width: 170,
-        align: "right",
-        headerAlign: "right",
         renderCell: (params) => {
           const money = formatMoneyPair(params.row.amount, snapshotCurrency(params.row, currencies), display);
           return isVoided(params.row) ? (
-            <Box sx={{ textDecoration: "line-through", height: "100%" }}>
+            <Box sx={{ textDecoration: "line-through" }}>
               <MoneyText primary={money.primary} approx={money.approx} />
             </Box>
           ) : (
@@ -218,6 +216,7 @@ export function MoneyReceivedPage() {
       <ErrorBanner message={sale.error} onDismiss={sale.clearError} />
       <ErrorBanner message={sale.notice} onDismiss={sale.clearNotice} severity="info" />
       <DataTable<CollectionListItem>
+        viewKey="money-received"
         label={t("ledger.history_title")}
         columns={columns}
         {...paged.tableProps}

@@ -60,8 +60,6 @@ export function CustomersSection({ report }: { report: CustomersReport }) {
       field,
       headerName: t(headerKey),
       width: 110,
-      align: "right",
-      headerAlign: "right",
       valueGetter: (_value, row) => analysis.figures.get(row.key)?.[field] ?? 0,
     });
     return [
@@ -72,8 +70,6 @@ export function CustomersSection({ report }: { report: CustomersReport }) {
         field: "monthlyUsd",
         headerName: t("reports.expected_monthly"),
         width: 170,
-        align: "right",
-        headerAlign: "right",
         valueGetter: (_value, row) =>
           formatKpiValue(money(analysis.figures.get(row.key)?.monthlyUsd ?? 0), display),
       },
@@ -185,8 +181,6 @@ function CustomersDialog({ drill, format, currencies, onClose }: CustomersDialog
         field: "monthly",
         headerName: t("reports.expected_monthly"),
         width: 160,
-        align: "right",
-        headerAlign: "right",
         valueGetter: (_value, row) => format(expectedMonthlyUsd(row, currencies)),
       },
     ],

@@ -69,16 +69,12 @@ export function CustomerSalesPanel({ customer }: { customer: Customer }) {
       field: "totalAmount",
       headerName: t("sales.total_label"),
       width: 140,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => <MoneyText primary={money(params.row.totalAmount, params.row)} />,
     },
     {
       field: "owed",
       headerName: t("web.customer_detail.still_owed"),
       width: 140,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => {
         const facts = saleFacts(params.row);
         return facts.voided || facts.fullyPaid ? null : <MoneyText primary={money(facts.owed, params.row)} />;

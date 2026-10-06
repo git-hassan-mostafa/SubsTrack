@@ -91,8 +91,6 @@ export function ProductsPage() {
       field: "price",
       headerName: t("products.price_label"),
       width: 170,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => {
         const money = moneyPair(params.row.price, params.row.currencyId);
         return <MoneyText primary={money.primary} approx={money.approx} />;
@@ -102,8 +100,6 @@ export function ProductsPage() {
       field: "costPrice",
       headerName: t("web.products.cost"),
       width: 150,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => {
         if (params.row.costPrice == null) return null;
         const money = moneyPair(params.row.costPrice, params.row.costCurrencyId);
@@ -128,6 +124,7 @@ export function ProductsPage() {
     <Stack spacing={2}>
       <ErrorBanner message={dialogOpen ? null : writeError} onDismiss={clearWriteError} />
       <DataTable<Product>
+        viewKey="products"
         label={t("products.title")}
         columns={columns}
         {...paged.tableProps}

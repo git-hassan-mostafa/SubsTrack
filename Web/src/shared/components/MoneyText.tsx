@@ -7,12 +7,10 @@ interface MoneyTextProps {
   meta?: string | null;
 }
 
-// Numbers line up at the cell's end so a column of amounts reads at a glance.
+// Amount over its small print, both starting where every other cell's text starts.
 export function MoneyText({ primary, approx, meta }: MoneyTextProps) {
   return (
-    <Stack
-      sx={{ justifyContent: "center", alignItems: "flex-end", height: "100%", lineHeight: 1.3 }}
-    >
+    <Stack sx={{ justifyContent: "center", alignItems: "flex-start", lineHeight: 1.3 }}>
       <Typography variant="body2" sx={{ fontWeight: 600 }}>
         {primary}
       </Typography>

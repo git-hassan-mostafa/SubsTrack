@@ -111,20 +111,16 @@ export function SalesTable({ table, branch, customerScoped = false, customer = n
         field: "totalAmount",
         headerName: t("sales.total_label"),
         width: 160,
-        align: "right",
-        headerAlign: "right",
         renderCell: (params) => {
           const pair = formatMoneyPair(params.row.totalAmount, snapshotCurrency(params.row, currencies), display);
           const text = <MoneyText primary={pair.primary} approx={pair.approx} />;
-          return params.row.voidedAt ? <Box sx={{ textDecoration: "line-through", height: "100%" }}>{text}</Box> : text;
+          return params.row.voidedAt ? <Box sx={{ textDecoration: "line-through" }}>{text}</Box> : text;
         },
       },
       {
         field: "owed",
         headerName: t("web.customer_detail.still_owed"),
         width: 140,
-        align: "right",
-        headerAlign: "right",
         renderCell: (params) => {
           const facts = saleFacts(params.row);
           return facts.voided || facts.fullyPaid ? null : <MoneyText primary={money(facts.owed, params.row)} />;
@@ -145,6 +141,7 @@ export function SalesTable({ table, branch, customerScoped = false, customer = n
       <ErrorBanner message={doors.error} onDismiss={doors.clearError} />
       <ErrorBanner message={doors.notice} onDismiss={doors.clearNotice} severity="info" />
       <DataTable<Sale>
+        viewKey="sales"
         label={t("sales.title")}
         add={
           customerScoped && !customer

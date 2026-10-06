@@ -57,8 +57,6 @@ export function OverviewSection({ report }: { report: MoneyReport }) {
       field: "amount",
       headerName: t("reports.collected"),
       width: 220,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => {
         const currency = findCurrency(currencies, params.row.currencyId);
         return (

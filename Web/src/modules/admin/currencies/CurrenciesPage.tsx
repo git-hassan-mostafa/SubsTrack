@@ -79,8 +79,6 @@ export function CurrenciesPage() {
       field: "ratePerUsd",
       headerName: t("web.currencies.rate"),
       width: 170,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => (
         <MoneyText
           primary={formatRate(params.row.ratePerUsd)}
@@ -92,8 +90,6 @@ export function CurrenciesPage() {
       field: "decimals",
       headerName: t("tenant_settings.decimals_label"),
       width: 140,
-      align: "right",
-      headerAlign: "right",
     },
     activeStatusColumn<Currency>(t),
   ];
@@ -102,6 +98,7 @@ export function CurrenciesPage() {
     <Stack spacing={2}>
       <ErrorBanner message={form ? null : writeError} onDismiss={clearWriteError} />
       <DataTable<Currency>
+        viewKey="currencies"
         label={t("tenant_settings.currencies_section_title")}
         columns={columns}
         {...paged.tableProps}

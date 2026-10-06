@@ -24,6 +24,8 @@ export function actionsColumn<T extends GridValidRowModel>({
     align: "center",
     headerAlign: "center",
     sortable: false,
+    resizable: false,
+    hideable: false,
     renderCell: (params) => (
       <RowActionsMenu
         rowLabel={rowLabel(params.row)}

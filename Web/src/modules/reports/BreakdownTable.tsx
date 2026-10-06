@@ -103,8 +103,6 @@ export function BreakdownTable<R>({
       field: "value",
       headerName: valueHeader ?? t("reports.col_amount"),
       width: 170,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) =>
         measure === "money" ? (
           <MoneyText primary={formatMoney(params.row.value, null, display)} />
@@ -134,8 +132,6 @@ export function BreakdownTable<R>({
         field: "count",
         headerName: countHeader,
         width: 130,
-        align: "right",
-        headerAlign: "right",
       },
       ...(hideValue ? [] : [valueColumn]),
       {

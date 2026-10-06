@@ -105,10 +105,8 @@ export function BillPaymentsList({ bill, chargeId, source, billVoided, recipient
       field: "paidHere",
       headerName: t("web.bill.paid_here"),
       width: 170,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => (
-        <Stack sx={{ alignItems: "flex-end" }}>
+        <Stack sx={{ alignItems: "flex-start" }}>
           <Typography
             variant="body2"
             sx={{

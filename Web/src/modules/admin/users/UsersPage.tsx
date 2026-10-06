@@ -179,6 +179,7 @@ export function UsersPage() {
     <Stack spacing={2}>
       <ErrorBanner message={form ? null : writeError} onDismiss={clearWriteError} />
       <DataTable<AppUser>
+        viewKey="users"
         label={t("users.title")}
         columns={columns}
         {...paged.tableProps}

@@ -78,8 +78,6 @@ export function ServicesPage() {
       field: "price",
       headerName: t("services.price_label"),
       width: 180,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => {
         const money = moneyPair(params.row.price, params.row.currencyId);
         return <MoneyText primary={money.primary} approx={money.approx} />;
@@ -92,6 +90,7 @@ export function ServicesPage() {
     <Stack spacing={2}>
       <ErrorBanner message={form ? null : writeError} onDismiss={clearWriteError} />
       <DataTable<Service>
+        viewKey="services"
         label={t("services.title")}
         columns={columns}
         {...paged.tableProps}

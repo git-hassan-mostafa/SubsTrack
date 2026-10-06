@@ -69,6 +69,7 @@ export function BranchesPage() {
     <Stack spacing={2}>
       <ErrorBanner message={form ? null : writeError} onDismiss={clearWriteError} />
       <DataTable<Branch>
+        viewKey="branches"
         label={t("branches.section_title")}
         columns={columns}
         {...paged.tableProps}

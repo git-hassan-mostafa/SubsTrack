@@ -88,8 +88,6 @@ export function WalletsPage() {
         field: "itemCount",
         headerName: t("wallet.transactions_section"),
         width: 140,
-        align: "right",
-        headerAlign: "right",
       },
       {
         field: "byCurrency",
@@ -108,8 +106,6 @@ export function WalletsPage() {
         field: "totalUsd",
         headerName: t("wallet.total_held"),
         width: 180,
-        align: "right",
-        headerAlign: "right",
         renderCell: (params) => (
           <MoneyText primary={formatMoney(params.row.totalUsd, null, display)} />
         ),
@@ -120,6 +116,7 @@ export function WalletsPage() {
 
   return (
     <DataTable<WalletRow>
+      viewKey="wallets"
       label={t("wallet.title")}
       columns={columns}
       rows={paging.rows}

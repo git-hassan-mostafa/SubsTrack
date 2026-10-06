@@ -145,16 +145,12 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
       field: "quantityDelta",
       headerName: t("products.stock_quantity_label"),
       width: 100,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => <QuantityCell movement={params.row} />,
     },
     {
       field: "unitCost",
       headerName: t("web.products.cost"),
       width: 180,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => <CostCell movement={params.row} />,
     },
     {

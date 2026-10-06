@@ -189,10 +189,10 @@ function RestockTable({ products, quantities, costs, currency, onQuantity, onCos
         <TableHead>
           <TableRow>
             <TableCell>{t("products.name_label")}</TableCell>
-            <TableCell align="right">{t("products.stock_on_hand")}</TableCell>
+            <TableCell>{t("products.stock_on_hand")}</TableCell>
             <TableCell sx={{ width: 120 }}>{t("products.stock_quantity_label")}</TableCell>
             <TableCell sx={{ width: 160 }}>{t("products.cost_per_unit_label")}</TableCell>
-            <TableCell align="right">{t("web.products.new_stock")}</TableCell>
+            <TableCell>{t("web.products.new_stock")}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -202,7 +202,7 @@ function RestockTable({ products, quantities, costs, currency, onQuantity, onCos
             return (
               <TableRow key={product.id} selected={picked}>
                 <TableCell sx={{ fontWeight: 600 }}>{product.name}</TableCell>
-                <TableCell align="right">{product.stockOnHand}</TableCell>
+                <TableCell>{product.stockOnHand}</TableCell>
                 <TableCell>
                   <TextField
                     size="small"
@@ -239,7 +239,6 @@ function RestockTable({ products, quantities, costs, currency, onQuantity, onCos
                   ) : null}
                 </TableCell>
                 <TableCell
-                  align="right"
                   sx={{ fontWeight: picked ? 700 : undefined, color: picked ? "success.main" : "text.disabled" }}
                 >
                   {picked ? product.stockOnHand + quantity : "—"}

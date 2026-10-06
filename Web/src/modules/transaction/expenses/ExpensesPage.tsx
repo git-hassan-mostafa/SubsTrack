@@ -111,8 +111,6 @@ export function ExpensesPage() {
         field: "amount",
         headerName: t("expenses.amount_label"),
         width: 170,
-        align: "right",
-        headerAlign: "right",
         renderCell: (params) => {
           const money = outflowPair(params.row.amount, snapshotCurrency(params.row, currencies), display);
           return <MoneyText primary={money.primary} approx={money.approx} />;
@@ -125,6 +123,7 @@ export function ExpensesPage() {
   return (
     <>
       <DataTable<ExpenseItem>
+        viewKey="expenses"
         label={t("expenses.title")}
         columns={columns}
         rows={paging.rows}

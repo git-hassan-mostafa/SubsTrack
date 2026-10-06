@@ -220,8 +220,6 @@ export function CustomersPage() {
       field: "debtUsd",
       headerName: t("customers.debt"),
       width: 140,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) =>
         hasDebtFlag(params.row.debtUsd) ? (
           <MoneyText primary={formatMoney(params.row.debtUsd, null, display)} />
@@ -239,6 +237,7 @@ export function CustomersPage() {
       {debts.banners}
       <CustomerFiltersBar value={query.filters} onChange={setFilters} onClear={clearFilters} />
       <DataTable<CustomerRow>
+        viewKey="customers"
         label={t("customers.title")}
         columns={columns}
         {...paged.tableProps}

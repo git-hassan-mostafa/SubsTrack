@@ -76,8 +76,6 @@ export function RecordsDialog({ drill, exportName, onClose }: RecordsDialogProps
         field: "amount",
         headerName: t("reports.col_amount"),
         width: 180,
-        align: "right",
-        headerAlign: "right",
         renderCell: (params) => {
           const pair = formatMoneyPair(
             params.row.amount,

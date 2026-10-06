@@ -91,8 +91,6 @@ export function StaffSection({ money: moneyReport, sales }: StaffSectionProps) {
     field,
     headerName: header,
     width: 160,
-    align: "right",
-    headerAlign: "right",
     renderCell: (params) => <MoneyText primary={fmt(params.row[field])} />,
   });
 
@@ -111,8 +109,8 @@ export function StaffSection({ money: moneyReport, sales }: StaffSectionProps) {
       ),
     },
     moneyColumn("collectedUsd", t("web.reports.staff_collected")),
-    { field: "handOvers", headerName: t("reports.hand_overs"), width: 140, align: "right", headerAlign: "right" },
-    { field: "salesCount", headerName: t("reports.sales_count"), width: 110, align: "right", headerAlign: "right" },
+    { field: "handOvers", headerName: t("reports.hand_overs"), width: 140 },
+    { field: "salesCount", headerName: t("reports.sales_count"), width: 110 },
     moneyColumn("soldUsd", t("reports.sold_value")),
     moneyColumn("spentUsd", t("web.reports.staff_expenses")),
   ];

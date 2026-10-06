@@ -1,3 +1,5 @@
+import type { GridDensity } from "@mui/x-data-grid";
+
 export const ACTIONS_FIELD = "__actions";
 
 export type RowTone = "muted" | "highlighted" | null;
@@ -15,13 +17,13 @@ export const LOCKED_GRID = {
   disableColumnSorting: true,
   disableColumnMenu: true,
   disableColumnFilter: true,
-  disableColumnSelector: true,
-  disableColumnResize: true,
   autoHeight: true,
 } as const;
 
+const AUTO_ROW_PADDING: Record<GridDensity, number> = { compact: 0.75, standard: 1.5, comfortable: 2.25 };
+
 // Every web grid, page or dialog, draws its rows the same way.
-export function gridSx(autoRowHeight: boolean) {
+export function gridSx(autoRowHeight: boolean, density: GridDensity) {
   return {
     bgcolor: "background.paper",
     "--DataGrid-overlayHeight": "160px",
@@ -29,6 +31,6 @@ export function gridSx(autoRowHeight: boolean) {
     "& .row-striped": { bgcolor: "background.default" },
     "& .row-muted": { color: "text.disabled" },
     "& .row-highlighted": { bgcolor: "action.selected" },
-    ...(autoRowHeight ? { "& .MuiDataGrid-cell": { py: 1.5 } } : {}),
+    ...(autoRowHeight ? { "& .MuiDataGrid-cell": { py: AUTO_ROW_PADDING[density] } } : {}),
   };
 }

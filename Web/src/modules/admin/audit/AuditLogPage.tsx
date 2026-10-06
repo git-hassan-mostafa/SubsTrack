@@ -111,6 +111,7 @@ export function AuditLogPage() {
   return (
     <Stack spacing={2}>
       <DataTable<AuditEntry>
+        viewKey="audit-log"
         label={t("audit.title")}
         columns={columns}
         {...paged.tableProps}

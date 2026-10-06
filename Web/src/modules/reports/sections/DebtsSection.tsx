@@ -29,16 +29,12 @@ export function DebtsSection({ report }: { report: DebtsReport }) {
               field: "monthsBehind",
               headerName: t("reports.col_months_behind"),
               width: 150,
-              align: "right",
-              headerAlign: "right",
               valueGetter: (_value, row) => analysis.monthsBehind.get(row.key) ?? 0,
             },
             {
               field: "daysLate",
               headerName: t("web.reports.oldest_days_late"),
               width: 150,
-              align: "right",
-              headerAlign: "right",
               valueGetter: (_value, row) => analysis.oldestDaysLate.get(row.key) ?? 0,
             },
           ]

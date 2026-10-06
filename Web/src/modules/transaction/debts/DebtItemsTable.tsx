@@ -113,8 +113,6 @@ export function DebtItemsTable({
       field: "balance",
       headerName: t("web.customer_detail.still_owed"),
       width: 150,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => {
         const money = formatMoneyPair(params.row.balance, snapshotCurrency(params.row, currencies), display);
         return <MoneyText primary={money.primary} approx={money.approx} />;

@@ -37,8 +37,6 @@ export function SalesSection({ report, money }: SalesSectionProps) {
         field: "units",
         headerName: t("reports.units_sold"),
         width: 120,
-        align: "right",
-        headerAlign: "right",
         valueGetter: (_value, row) => unitsOf(row.rows),
       },
     ],

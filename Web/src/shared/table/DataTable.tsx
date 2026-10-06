@@ -20,9 +20,13 @@ import { EmptyState } from "@/shared/components/EmptyState";
 import { SearchField } from "@/shared/components/SearchField";
 import { PAGE_SIZE_OPTIONS } from "@/state/createPagedStore";
 import { BulkActionBar } from "./BulkActionBar";
+import { TableViewButton } from "./TableViewButton";
 import { FilterBar } from "./FilterBar";
 import { actionsColumn } from "./actionsColumn";
 import { AUTO_ROW_HEIGHT, gridSx, LOCKED_GRID, rowClassName, type RowTone } from "./gridBase";
+import { useGridColumns } from "./gridColumns";
+import { useColumnsPanel } from "./useColumnsPanel";
+import { useTableDensity } from "./tableViews";
 import type { TableAction } from "./tableAction";
 import { useTableExport, type TableExport } from "./useTableExport";
 
@@ -35,6 +39,7 @@ interface TableEmpty {
 
 export interface DataTableProps<T extends GridValidRowModel & { id: string }> {
   label: string;
+  viewKey: string;
   columns: GridColDef<T>[];
   rows: T[];
   total: number;
@@ -66,6 +71,7 @@ export interface DataTableProps<T extends GridValidRowModel & { id: string }> {
 // Server-paged, never client-sorted; a new page of rows drops the selection.
 export function DataTable<T extends GridValidRowModel & { id: string }>({
   label,
+  viewKey,
   columns,
   rows,
   total,
@@ -115,6 +121,9 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
       actionsColumn<T>({ headerName: t("web.table.actions"), rowLabel, rowActions, rowBusy }),
     ];
   }, [columns, rowActions, rowBusy, rowLabel, t]);
+  const grid = useGridColumns(allColumns, viewKey);
+  const columnsPanel = useColumnsPanel();
+  const { density } = useTableDensity();
 
   const showEmpty = loaded && !loading && !error && rows.length === 0;
   const bulk = bulkActions && selectedRows.length > 0
@@ -153,6 +162,8 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
                 </IconButton>
               </span>
             </Tooltip>
+            {showEmpty ? null : columnsPanel.button}
+            <TableViewButton onResetColumns={grid.resetColumns} />
             {tableExport.button}
             {toolbarActions}
             {add ? (
@@ -189,8 +200,12 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
       ) : (
         <DataGrid<T>
           aria-label={label}
+          apiRef={columnsPanel.apiRef}
           rows={rows}
-          columns={allColumns}
+          {...grid.gridProps}
+          density={density}
+          onPreferencePanelOpen={columnsPanel.onPreferencePanelOpen}
+          onPreferencePanelClose={columnsPanel.onPreferencePanelClose}
           rowCount={total}
           loading={loading}
           paginationMode="server"
@@ -208,8 +223,9 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
           getRowClassName={(params) => rowClassName(params.indexRelativeToCurrentPage, rowTone?.(params.row))}
           slotProps={{
             loadingOverlay: { variant: "linear-progress", noRowsVariant: "linear-progress" },
+            panel: { target: columnsPanel.panelTarget },
           }}
-          sx={gridSx(autoRowHeight)}
+          sx={gridSx(autoRowHeight, density)}
         />
       )}
     </Stack>

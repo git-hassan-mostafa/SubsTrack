@@ -68,8 +68,6 @@ export function PlansPage() {
       field: "price",
       headerName: t("plans.price_label"),
       width: 180,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => {
         if (params.row.isCustomPrice || params.row.price === null) {
           return <StatusChip label={t("common.custom")} tone="indigo" />;
@@ -90,6 +88,7 @@ export function PlansPage() {
     <Stack spacing={2}>
       <ErrorBanner message={form ? null : writeError} onDismiss={clearWriteError} />
       <DataTable<Plan>
+        viewKey="plans"
         label={t("plans.title")}
         columns={columns}
         {...paged.tableProps}

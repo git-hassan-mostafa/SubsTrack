@@ -73,16 +73,12 @@ export function DebtorsTab({ debtors, loaded, doors }: DebtorsTabProps) {
       field: "bills",
       headerName: t("web.debts.bills_column"),
       width: 110,
-      align: "right",
-      headerAlign: "right",
       valueGetter: (_value, row) => row.items.length,
     },
     {
       field: "debtUsd",
       headerName: t("web.debts.debt_column"),
       width: 160,
-      align: "right",
-      headerAlign: "right",
       renderCell: (params) => <MoneyText primary={formatMoney(params.row.debtUsd, null, display)} />,
     },
   ], [t, display]);

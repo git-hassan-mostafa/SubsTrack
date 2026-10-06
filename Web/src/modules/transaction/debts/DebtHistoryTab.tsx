@@ -110,8 +110,6 @@ export function DebtHistoryTab({ branch, doors }: DebtHistoryTabProps) {
         field: "amount",
         headerName: t("web.debts.billed_column"),
         width: 150,
-        align: "right",
-        headerAlign: "right",
         renderCell: (params) => {
           const money = formatMoneyPair(params.row.amount, snapshotCurrency(params.row, currencies), display);
           return <MoneyText primary={money.primary} approx={money.approx} />;
@@ -121,16 +119,12 @@ export function DebtHistoryTab({ branch, doors }: DebtHistoryTabProps) {
         field: "downPaid",
         headerName: t("web.debts.paid_on_the_day"),
         width: 140,
-        align: "right",
-        headerAlign: "right",
         renderCell: (params) => <MoneyText primary={own(params.row.downPaid, params.row)} />,
       },
       {
         field: "balance",
         headerName: t("web.customer_detail.still_owed"),
         width: 140,
-        align: "right",
-        headerAlign: "right",
         renderCell: (params) =>
           params.row.balance > 0 ? <MoneyText primary={own(params.row.balance, params.row)} /> : null,
       },
@@ -152,6 +146,7 @@ export function DebtHistoryTab({ branch, doors }: DebtHistoryTabProps) {
 
   return (
     <DataTable<DebtHistoryRow>
+      viewKey="debt-history"
       label={t("debts.history_title")}
       columns={columns}
       {...paged.tableProps}
