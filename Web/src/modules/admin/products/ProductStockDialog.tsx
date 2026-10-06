@@ -32,6 +32,7 @@ import { CurrencyInput } from "@/shared/components/CurrencyInput";
 import { FormDialog } from "@/shared/components/FormDialog";
 import { StatusChip } from "@/shared/components/StatusChip";
 import { LocalTable } from "@/shared/table/LocalTable";
+import { PAGE_SIZE_OPTIONS } from "@/state/createPagedStore";
 import { toTableActions, type TableAction } from "@/shared/table/tableAction";
 import { useHistoryDoor } from "@/modules/admin/audit/useHistoryDoor";
 
@@ -46,6 +47,8 @@ const STOCK_ENTRY_ICONS: Record<StockEntryActionKey, SvgIconComponent> = {
   history: HistoryOutlined,
   revert: UndoOutlined,
 };
+
+const LONGEST_PAGE = Math.max(...PAGE_SIZE_OPTIONS);
 
 // A manual change only ADDS; a wrong entry is fixed on itself — see gotcha #94.
 export function ProductStockDialog({ product, onClose, onChanged }: ProductStockDialogProps) {
@@ -280,6 +283,7 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
             label={t("products.stock_history")}
             columns={columns}
             rows={history}
+            pageSize={LONGEST_PAGE}
             rowLabel={(movement) =>
               `${t(`products.stock_reason_${movement.reason}`)} ${signedQuantity(movement.quantityDelta)}`
             }

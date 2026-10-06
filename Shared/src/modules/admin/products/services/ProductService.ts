@@ -233,8 +233,8 @@ class ProductService {
     return repositories().product.stockOnHand(productIds);
   }
 
-  async getMovements(productId: string, limit = 20): Promise<StockMovement[]> {
-    const rows = await repositories().product.movementsForProduct(productId, limit);
+  async getMovements(productId: string): Promise<StockMovement[]> {
+    const rows = await repositories().product.movementsForProduct(productId);
     return rows.map(mapDbStockMovementToStockMovement);
   }
 

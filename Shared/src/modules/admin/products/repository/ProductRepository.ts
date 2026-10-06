@@ -156,16 +156,14 @@ export class ProductRepository
     if (error) this.handleError(error);
   }
 
-  async movementsForProduct(
-    productId: string,
-    limit = 20,
-  ): Promise<DbStockMovement[]> {
+  async movementsForProduct(productId: string): Promise<DbStockMovement[]> {
     const { data, error } = await this.db
       .from("stock_movements")
       .select("*")
       .eq("product_id", productId)
       .order("occurred_at", { ascending: false })
-      .limit(limit);
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false });
     if (error) this.handleError(error);
     return (data ?? []) as DbStockMovement[];
   }

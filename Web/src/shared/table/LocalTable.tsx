@@ -30,6 +30,7 @@ interface LocalTableProps<T extends GridValidRowModel & { id: string }> {
   rowTone?: (row: T) => RowTone;
   autoRowHeight?: boolean;
   selection?: LocalSelection<T>;
+  pageSize?: number;
 }
 
 // DataTable's look for rows already in memory (dialogs); pages only past one page.
@@ -43,9 +44,10 @@ export function LocalTable<T extends GridValidRowModel & { id: string }>({
   rowTone,
   autoRowHeight = false,
   selection,
+  pageSize = DEFAULT_PAGE_SIZE,
 }: LocalTableProps<T>) {
   const { t } = useTranslation();
-  const paged = rows.length > DEFAULT_PAGE_SIZE;
+  const paged = rows.length > pageSize;
   const pickedIds = selection?.ids;
   const isSelectable = selection?.isSelectable;
   const selectionModel = useMemo<GridRowSelectionModel>(
@@ -79,7 +81,7 @@ export function LocalTable<T extends GridValidRowModel & { id: string }>({
       hideFooterSelectedRowCount
       hideFooter={!paged}
       pageSizeOptions={PAGE_SIZE_OPTIONS}
-      initialState={{ pagination: { paginationModel: { pageSize: DEFAULT_PAGE_SIZE } } }}
+      initialState={{ pagination: { paginationModel: { pageSize } } }}
       getRowHeight={autoRowHeight ? AUTO_ROW_HEIGHT : undefined}
       getRowClassName={(params) => rowClassName(params.indexRelativeToCurrentPage, rowTone?.(params.row))}
       sx={gridSx(autoRowHeight, density)}

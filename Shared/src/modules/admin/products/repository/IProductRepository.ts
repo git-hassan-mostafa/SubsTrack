@@ -77,10 +77,7 @@ export interface IProductRepository {
     payload: UpdateStockMovementPayload,
   ): Promise<DbStockMovement>;
   voidMovement(id: string, voidedBy: string | null): Promise<DbStockMovement>;
-  movementsForProduct(
-    productId: string,
-    limit?: number,
-  ): Promise<DbStockMovement[]>;
+  movementsForProduct(productId: string): Promise<DbStockMovement[]>;
   stockCostsInRange(
     startIso: string,
     endExclusiveIso: string,

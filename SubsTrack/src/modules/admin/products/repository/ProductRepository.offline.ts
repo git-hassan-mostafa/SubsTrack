@@ -195,13 +195,10 @@ export class OfflineProductRepository
     });
   }
 
-  async movementsForProduct(
-    productId: string,
-    limit = 20,
-  ): Promise<DbStockMovement[]> {
+  async movementsForProduct(productId: string): Promise<DbStockMovement[]> {
     const rows = await this.all(
-      "SELECT * FROM stock_movements WHERE product_id = ? ORDER BY occurred_at DESC LIMIT ?",
-      [productId, limit],
+      "SELECT * FROM stock_movements WHERE product_id = ? ORDER BY julianday(occurred_at) DESC, julianday(created_at) DESC, id DESC",
+      [productId],
     );
     return this.decodeAll<DbStockMovement>("stock_movements", rows);
   }
