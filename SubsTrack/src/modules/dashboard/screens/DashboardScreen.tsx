@@ -13,9 +13,17 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { formatMoney } from "@shared/core/utils/currency";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useDashboardStore } from "@shared/modules/dashboard/state/dashboardStore";
+import {
+  dashboardTiles,
+  type DashboardTile,
+  type DashboardTileKey,
+} from "@shared/modules/dashboard/utils/dashboardView";
+import {
+  formatKpiValue,
+  formatKpiValues,
+} from "@shared/modules/reports/utils/reportKpis";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { BranchSelector } from "@/src/shared/components/BranchSelector";
 import { QuickActionsMenuButton } from "@/src/shared/components/QuickActionsMenuButton";
@@ -23,8 +31,32 @@ import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { CustomerFormSheet } from "@/src/modules/customer/customers/components/CustomerFormSheet";
 import { SaleFormSheet } from "@/src/modules/transaction/sales/components/SaleFormSheet";
-import { StatTile } from "@/src/shared/components/StatTile";
+import { STAT_TONE, StatTile } from "@/src/shared/components/StatTile";
 import { RevenueHeroCard } from "../components/RevenueHeroCard";
+
+const TILE_ICON: Record<DashboardTileKey, keyof typeof Ionicons.glyphMap> = {
+  active: "people-outline",
+  unpaid: "alert-circle-outline",
+  new_customers: "person-add-outline",
+  cancelled: "person-remove-outline",
+  payments: "card-outline",
+  sales: "receipt-outline",
+  expenses: "trending-down-outline",
+  net: "stats-chart-outline",
+  wallets: "wallet-outline",
+  debt: "hourglass-outline",
+};
+
+// Half tiles pair up; a money tile takes the whole row so its amount fits.
+function tileRows(tiles: DashboardTile[]): DashboardTile[][] {
+  const rows: DashboardTile[][] = [];
+  for (const tile of tiles) {
+    const last = rows[rows.length - 1];
+    if (!tile.wide && last && last.length === 1 && !last[0].wide) last.push(tile);
+    else rows.push([tile]);
+  }
+  return rows;
+}
 
 export function DashboardScreen() {
   const { t } = useTranslation();
@@ -35,7 +67,6 @@ export function DashboardScreen() {
   const fetchMetrics = useDashboardStore((s) => s.fetchMetrics);
   const clearError = useDashboardStore((s) => s.clearError);
   const displayCurrency = useDisplayCurrency();
-  const fmt = (usd: number) => formatMoney(usd, null, displayCurrency);
 
   const branchFilter = useEffectiveBranchFilter();
   const [customerFormOpen, setCustomerFormOpen] = useState(false);
@@ -45,20 +76,8 @@ export function DashboardScreen() {
     fetchMetrics();
   }, [branchFilter, fetchMetrics]);
 
-  const activeCustomers = metrics?.activeCustomers ?? 0;
-  const hasDebt = (metrics?.totalDebt ?? 0) > 0;
-
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
-  const walletCash = metrics?.walletCash ?? 0;
-  const hasWalletCash = isAdmin && walletCash > 0;
-
-  const monthlyExpenses = metrics?.monthlyExpenses ?? 0;
-  const netIncome = metrics?.netIncome ?? 0;
-  const showExpenses = isAdmin && monthlyExpenses > 0;
-
-  const monthlyRevenue = metrics?.monthlyRevenue ?? 0;
-
-  const paymentsCount = metrics?.paymentsCollectedCount ?? 0;
+  const tiles = metrics ? dashboardTiles(metrics, isAdmin) : [];
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -73,8 +92,6 @@ export function DashboardScreen() {
             />
           }
         >
-          {/* Greeting — name, branch chip and quick actions share one row, the
-              same arrangement PageHeader uses on every other screen. */}
           <View className="flex-row items-center gap-2 px-5 pt-5 pb-4">
             <Text
               fontWeight="Bold"
@@ -87,7 +104,6 @@ export function DashboardScreen() {
             <QuickActionsMenuButton />
           </View>
 
-          {/* Quick actions */}
           <View className="flex-row mx-4 gap-3 mb-4">
             <PressableOpacity
               onPress={() => setCustomerFormOpen(true)}
@@ -137,142 +153,38 @@ export function DashboardScreen() {
             </View>
           ) : (
             <>
-              {/* Hero card — this month's money, tapping through to the
-                  full report. Both the dashboard and Reports are admin-only
-                  tabs, so anyone seeing this card can open it. */}
-              <RevenueHeroCard
-                metrics={metrics}
-                fmt={fmt}
-                showExpenses={showExpenses}
-                onPress={() => router.push("/(app)/(tabs)/reports" as Href)}
-              />
+              {metrics ? (
+                <RevenueHeroCard
+                  metrics={metrics}
+                  isAdmin={isAdmin}
+                  displayCurrency={displayCurrency}
+                  onPress={() => router.push("/(app)/(tabs)/reports" as Href)}
+                />
+              ) : null}
 
-              {/* This-month section heading */}
               <Text className="text-xs text-gray-400 uppercase tracking-wide mx-5 mt-2 mb-2">
                 {t("dashboard.this_month")}
               </Text>
 
-              {/* Stat grid */}
               <View className="mx-4 gap-3 mb-3">
-                <View className="flex-row gap-3">
-                  <StatTile
-                    label={t("dashboard.active")}
-                    value={activeCustomers}
-                    sub={t("dashboard.of_total", {
-                      total: metrics?.totalCustomers ?? 0,
-                    })}
-                    icon="people-outline"
-                  />
-                  <StatTile
-                    label={t("dashboard.unpaid")}
-                    value={metrics?.unpaidThisMonth ?? 0}
-                    sub={t("dashboard.customers_this_month")}
-                    tone="danger"
-                    icon="alert-circle-outline"
-                  />
-                </View>
-
-                <View className="flex-row gap-3">
-                  <StatTile
-                    label={t("dashboard.new_customers")}
-                    value={metrics?.newCustomersThisMonth ?? 0}
-                    sub={t("dashboard.joined")}
-                    tone="success"
-                    icon="person-add-outline"
-                  />
-                  <StatTile
-                    label={t("dashboard.cancelled")}
-                    value={metrics?.cancelledThisMonth ?? 0}
-                    sub={t("dashboard.left")}
-                    icon="person-remove-outline"
-                  />
-                </View>
-
-                <View className="flex-row gap-3">
-                  <StatTile
-                    label={t("dashboard.payments_recorded")}
-                    value={paymentsCount}
-                    sub={t("dashboard.this_month")}
-                    tone="primary"
-                    icon="card-outline"
-                  />
-                  <StatTile
-                    label={t("dashboard.sales_recorded")}
-                    value={metrics?.salesCount ?? 0}
-                    sub={t("dashboard.this_month")}
-                    tone="primary"
-                    icon="receipt-outline"
-                  />
-                </View>
+                {tileRows(tiles).map((row) => (
+                  <View key={row[0].key} className="flex-row gap-3">
+                    {row.map((tile) => (
+                      <StatTile
+                        key={tile.key}
+                        label={t(tile.labelKey)}
+                        value={formatKpiValue(tile.value, displayCurrency)}
+                        sub={t(
+                          tile.subKey,
+                          formatKpiValues(tile.subValues, displayCurrency),
+                        )}
+                        tone={STAT_TONE[tile.tone]}
+                        icon={TILE_ICON[tile.key]}
+                      />
+                    ))}
+                  </View>
+                ))}
               </View>
-
-              {/* Money out this month, and what's left after it — admin-only.
-                  Full-width like the other money tiles: a formatted amount at
-                  text-3xl doesn't fit half a phone screen. */}
-              {showExpenses ? (
-                <>
-                  <View className="flex-row mx-4 mb-3">
-                    <StatTile
-                      label={t("dashboard.expenses_label")}
-                      value={fmt(monthlyExpenses)}
-                      sub={t("dashboard.expense_breakdown", {
-                        stock: fmt(metrics?.stockExpenses ?? 0),
-                        other: fmt(metrics?.customExpenses ?? 0),
-                      })}
-                      tone="warning"
-                      icon="trending-down-outline"
-                    />
-                  </View>
-                  <View className="flex-row mx-4 mb-3">
-                    <StatTile
-                      label={t("dashboard.net_income")}
-                      value={
-                        netIncome < 0
-                          ? `−${fmt(Math.abs(netIncome))}`
-                          : fmt(netIncome)
-                      }
-                      sub={t("dashboard.net_sub", {
-                        income: fmt(monthlyRevenue),
-                        expenses: fmt(monthlyExpenses),
-                      })}
-                      tone={netIncome < 0 ? "danger" : "success"}
-                      icon="stats-chart-outline"
-                    />
-                  </View>
-                </>
-              ) : null}
-
-              {/* Cash collectors hold but haven't handed over yet — admin-only, when > 0 */}
-              {hasWalletCash ? (
-                <View className="flex-row mx-4 mb-3">
-                  <StatTile
-                    label={t("dashboard.cash_in_wallets")}
-                    value={fmt(walletCash)}
-                    sub={t("dashboard.wallet_breakdown", {
-                      collectors: metrics?.walletCollectors ?? 0,
-                      transactions: metrics?.walletTransactions ?? 0,
-                    })}
-                    tone="primary"
-                    icon="wallet-outline"
-                  />
-                </View>
-              ) : null}
-
-              {/* Net debt still owed (all-time, not month-scoped) — only shown when > 0 */}
-              {hasDebt ? (
-                <View className="flex-row mx-4 mb-3">
-                  <StatTile
-                    label={t("dashboard.total_debt")}
-                    value={fmt(metrics?.totalDebt ?? 0)}
-                    sub={t("dashboard.debt_breakdown", {
-                      months: fmt(metrics?.monthsDebt ?? 0),
-                      sales: fmt(metrics?.salesDebt ?? 0),
-                    })}
-                    tone="warning"
-                    icon="hourglass-outline"
-                  />
-                </View>
-              ) : null}
 
               <View className="h-6" />
             </>

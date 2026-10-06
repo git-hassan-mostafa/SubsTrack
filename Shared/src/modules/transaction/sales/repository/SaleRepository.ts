@@ -390,6 +390,28 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     return count ?? 0;
   }
 
+  // A report sums every live sale in the window — gotcha #175.
+  findInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<DbSale[]> {
+    return this.readEveryRow<DbSale>((from, to) =>
+      this.applyBranchFilter(
+        this.db
+          .from("sales")
+          .select(SALE_SELECT, { count: "exact" })
+          .is("voided_at", null)
+          .gte("sold_at", startIso)
+          .lt("sold_at", endExclusiveIso),
+        branchFilter,
+        this.BRANCH_SCOPES.sales,
+      )
+        .order("id")
+        .range(from, to),
+    );
+  }
+
   async monthlyTotals(
     opts: FindSalesOptions = {},
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {

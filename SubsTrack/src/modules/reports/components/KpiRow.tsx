@@ -1,6 +1,8 @@
 import { View } from "react-native";
-import { StatTile } from "@/src/shared/components/StatTile";
+import type { Currency } from "@shared/core/types";
 import type { Delta } from "@shared/modules/reports/utils/aggregate";
+import { formatKpiValue, type ReportKpi } from "@shared/modules/reports/utils/reportKpis";
+import { STAT_TONE, StatTile, type StatTone } from "@/src/shared/components/StatTile";
 import { ComparisonPill } from "./ComparisonPill";
 
 export interface Kpi {
@@ -8,9 +10,25 @@ export interface Kpi {
   label: string;
   value: string | number;
   sub?: string;
-  tone?: "default" | "danger" | "success" | "warning" | "primary";
+  tone?: StatTone;
   delta?: Delta;
   higherIsBetter?: boolean;
+}
+
+export function toKpis(
+  kpis: ReportKpi[],
+  t: (key: string) => string,
+  display: Currency | null,
+): Kpi[] {
+  return kpis.map((kpi) => ({
+    key: kpi.key,
+    label: t(kpi.labelKey),
+    value: formatKpiValue(kpi.value, display),
+    sub: kpi.hintKey ? t(kpi.hintKey) : undefined,
+    tone: STAT_TONE[kpi.tone],
+    delta: kpi.delta,
+    higherIsBetter: kpi.higherIsBetter,
+  }));
 }
 
 const PER_ROW = 2;

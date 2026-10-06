@@ -379,9 +379,7 @@ Both have **multi-select → one WhatsApp receipt** (`useSaleInvoiceAction`): lo
   - Hero breakdown: **Subscriptions and Sales** (+ hand-typed fees if any); money filed by what it paid for (sale-debt cash under Sales), no "hide collected debts" rule.
   - Money in (number + streams) vs money out (chips) never mix: collecting a debt raises total, lowers red chip.
 
-**Hero = `dashboard/components/RevenueHeroCard.tsx`**, derives every figure itself (month label, ▲/▼ pill, revenue mix, two outflow chips, collection bar); screen passes `metrics`, `fmt`, `showExpenses` (admin **and** something spent — same flag as the two money-out tiles), `onPress`. **Tap → Reports tab**, "Reports ›" pill top-right (both admin-only). No `onPress` → plain `View`, no pill / feedback. Flat `bg-white/10` insets for revenue mix + Net row, not dividers (`bg-indigo-500` dividers invisible — `bg-primary` **is** indigo-500).
-
-Shared `StatTile` (label / value / sub-line / tone / optional icon) for stat grid (Active, Unpaid, New, Cancelled, Payments, Sales) + total-debt tile. Every range query: Supabase + Offline SQLite behind `ICollectionRepository` / `IChargeRepository` / `ISaleRepository` / `ICustomerRepository`.
+**Hero figures + every tile = Shared `dashboard/utils/dashboardView.ts`** (both apps): `revenueHero(metrics, isAdmin)` → ▲/▼ % (`null` if prior month 0), mix (subscriptions / sales / manual, only when 2+ earned), `showExpenses` (admin **and** something spent), owed, net, paid-of-due % (100 when nothing due); `dashboardTiles(metrics, isAdmin)` → `{ key, labelKey, value: KpiValue, subKey, subValues, tone: Tone, page: PageKey, wide }` (expenses + net admin-only when spent, wallets admin when > 0, debt when > 0). Values via `formatKpiValue` (loss = `−$5`). Phone `RevenueHeroCard` (tap → Reports, "Reports ›" pill; flat `bg-white/10` insets, `bg-primary` **is** indigo-500) + `StatTile` grid (half tiles pair, `wide` = full row; `STAT_TONE` Tone → tile tone); web `DashboardPage` = hero + `StatCard` tiles linking to their page (`TILE_PATH`). Dashboard store keeps a `ReadStamp` (`ensureMetrics`: re-read only when branch / `ledger.owedVersion` moved). Every range query: Supabase + Offline SQLite behind `ICollectionRepository` / `IChargeRepository` / `ISaleRepository` / `ICustomerRepository`.
 
 **Nothing here capped** (products, services, sales, stock movements); only cap = customer allowance (see Customer Allowance & Requests).
 
@@ -463,7 +461,7 @@ Dashboard = "how is **this month**?"; Reports tab = "how is the business over an
 
 ### The page
 
-`PageHeader` (branch chip + CSV export) → `PeriodPicker` → `SegmentedTabs` → section cards. Phase 1: **Money**, **Debts**; Customers, Staff/Products = phase 2, same shells.
+Phone: `PageHeader` (branch chip + CSV export) → `PeriodPicker` → `SegmentedTabs` → section cards: **Money**, **Debts**. Web has 7 sections (below, "Web Reports").
 
 **Period** (`Shared/src/core/utils/dateRange.ts`): `ReportPeriod { preset, fromDate, toDate }`, presets _This month · Last month · Last 3 / 6 / 12 months · This year · Custom_. Presets = **whole calendar months** (end on last day of final month) → buckets + comparison window same shape. `previousPeriod()` shifts by whole months (custom: own day count). Also `dayStartIso` / `nextDayStartIso` / `rangeFromDays` (shared by four repos + expense slice).
 
@@ -494,8 +492,9 @@ Only one figure period-scoped, labelled apart → gotcha #91.
 
 |Repository|Method|
 |-|-|
-|`ICollectionRepository`|`collectedInRange(startIso, endExclusiveIso, branchFilter)` — ONE read, one row per bill settled|
-|`ISaleRepository`|`collectedInRange(…)`|
+|`ICollectionRepository`|`collectedInRange(startIso, endExclusiveIso, branchFilter)` — ONE read, one row per bill settled, every row (`readEveryRow`)|
+|`ISaleRepository`|`findInRange(…)` — live sales + lines (web Sales / Staff)|
+|`ICustomerRepository`|`findEveryWithLines(branchFilter)` — every customer (web Customers); `findAllForStatus` (ageing) also past the row cap|
 
 Each on its table's repository (never a cross-table `ReportsRepository` — would re-derive `BRANCH_SCOPES`), Supabase + offline twin. `ReportsService` tags `stream`, merges to `CashRow[]`.
 
@@ -513,7 +512,19 @@ CSV → share sheet (`expo-file-system` + `expo-sharing`); web (`expo-sharing` n
 
 Phase-2 report = config + data hook over `ReportSection` (loading / error / empty / pull-to-refresh), `KpiRow`, `ReportCard`, `BreakdownList`, `RankedList`, `ComparisonPill`, `CurrencySplit`, `RecordsSheet`; palette `reports/utils/reportColors.ts` (stream keeps colour).
 
-**No charts** — `react-native-svg` + `react-native-gifted-charts` removed (native rebuild for decoration). Don't reintroduce unless a figure can't be read as a list.
+**No charts** — `react-native-svg` + `react-native-gifted-charts` removed (native rebuild for decoration). Don't reintroduce unless a figure can't be read as a list. Web bars = plain `Box` (`ShareBar`), no chart library either.
+
+Phone KPIs + drill rows come from Shared: `reportKpis.ts` (`moneyKpis`, `debtsKpis`, `ReportKpi { labelKey, value: KpiValue, tone: Tone, hintKey, delta }`, `formatKpiValue`) → phone `toKpis()`; `reportRecords.ts` (`cashRecords`, `expenseRecords`, `debtCollectedRecords`, `debtItemRecords`, `saleRecords`, `withTotal`).
+
+### Web Reports (G2) — "any number, for anyone, any filter"
+
+Sections (`reportSections.ts`, `ReportSection`): **Overview** (`money`) · **Money in** · **Money out** · **Debts** · **Customers** · **Sales** · **Staff**; phone shows only `money` + `debts`. One period for all; each section keeps its own view `{ filter, groupBy, grain }` in the store (`views`), so switching sections keeps filters. Changing a view never reads (gotcha #121).
+
+**Data = 4 datasets** read per section (`SECTION_DATASETS`; sales + staff also need money), each kept with a `ReadStamp` (branch + `ledger.owedVersion`): `ensureSection()` reads only missing/stale, `fetchSection()` forces, `setPeriod` drops all. `money` (cash + expenses + **previous-period rows**, so a filtered view still compares), `debts` (+ full `debtors`), `customers` (`customer.findEveryWithLines` — every customer, active or not, with lines), `sales` (`sale.findInRange` headers + lines, current + previous period; **no money join**). Every read `readEveryRow` (gotcha #175). Registered in `refreshActiveData` (`reloadIfLoaded`).
+
+**Engine** `reports/utils/analysis.ts`: a section = rows + `keyOf(row, dim)` (a row may have several keys — customer with 2 plans); `applyFilter`, `filterOptions` (faceted: honours every OTHER filter), `groupRows` (largest first, or fixed order with empty groups for time / age). Time buckets `timeBuckets.ts`: auto grain day ≤ 31 days, week (Mon) ≤ 16 weeks, else month. Section builders: `moneyViews.ts` (`overviewAnalysis`, `moneyTrend`, `moneyInView` — collected / payments taken / customers paid / average, `moneyOutView`), `debtsView.ts` (filtered KPIs scope cash on debts by customer/kind/plan/branch; age buckets from `daysLate` today), `customersView.ts` (joined / left in period vs previous, active lines, **expected per month** = `resolveLinePrice` ÷ `durationMonths` at today's rate, cancelled + unpriced add nothing; joined/left trend), `salesView.ts` (sale-level groups use the **typed total**, item / line-type groups use line values — gotcha #142; "collected on sales" from sale cash, hidden under a staff/item filter), `staffView.ts` (per person: cash taken, payments, sales, sold, expenses). A picked day (time filter) drops "vs previous". Labels: Shared hook `useReportLabels` (ids → names, `NO_KEY` → "No plan"/"Unknown"…).
+
+**Web UI** (`Web/src/modules/reports/`): `ReportsPage` (tabs, `PeriodPicker`, refresh, CSV of the section's rows via `sectionCsv`) → `AnalysisLayout`: `KpiGrid` (`StatCard` + vs-previous line) → `ReportFilters` (dropdowns + pinned chips) → "By X" `BreakdownTable` (group-by + time step, count, amount, share bar, CSV) → row ⋮ **Show records** (`RecordsDialog`, own CSV, adds to the group), **Only {row}, grouped by Y** (`drillInto`: pin the row as a filter, group by Y; Y = `splitTargets`), **Open customer**. Overview = KPIs + money-over-time `TrendTable` + in / out tables + currency split; Customers adds joined/left trend + customer list dialog; Staff = one table per person.
 
 Shared homes reused: `StatTile` → `src/shared/components/`, date helpers → `Shared/src/core/utils/dateRange.ts`, wallet per-currency fold → `groupByCurrency` (`Shared/src/core/utils/currency.ts`).
 

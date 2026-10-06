@@ -1,9 +1,12 @@
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
+import type { Tone as SharedTone } from "@shared/shared/lib/tone";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 
-type Tone = "default" | "danger" | "success" | "warning" | "primary";
+export type StatTone = "default" | "danger" | "success" | "warning" | "primary";
+
+type Tone = StatTone;
 
 interface Props {
   label: string;
@@ -12,6 +15,18 @@ interface Props {
   tone?: Tone;
   icon?: keyof typeof Ionicons.glyphMap;
 }
+
+export const STAT_TONE: Record<SharedTone, StatTone> = {
+  emerald: "success",
+  teal: "success",
+  red: "danger",
+  orange: "warning",
+  amber: "warning",
+  indigo: "primary",
+  violet: "primary",
+  sky: "primary",
+  gray: "default",
+};
 
 const valueColor: Record<Tone, string> = {
   default: "text-gray-900",

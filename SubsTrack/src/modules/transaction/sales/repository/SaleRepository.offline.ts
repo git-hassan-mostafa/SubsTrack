@@ -417,6 +417,26 @@ export class OfflineSaleRepository
     return this.count(`SELECT COUNT(*) AS n FROM sales s ${sql}`, params);
   }
 
+  async findInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<DbSale[]> {
+    const { sql, params } = this.combineWhere([
+      { clause: "s.voided_at IS NULL", params: [] },
+      {
+        clause: "s.sold_at >= ? AND s.sold_at < ?",
+        params: [startIso, endExclusiveIso],
+      },
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.sales, "s"),
+    ]);
+    const rows = await this.all(
+      `SELECT s.* FROM sales s ${sql} ORDER BY ${SALE_LIST_ORDER}`,
+      params,
+    );
+    return this.hydrate(this.decodeAll<DbSale>("sales", rows));
+  }
+
   async monthlyTotals(
     opts: FindSalesOptions = {},
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {

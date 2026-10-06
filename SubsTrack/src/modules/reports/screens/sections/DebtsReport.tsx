@@ -3,13 +3,12 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import type { ChargeKind, Currency } from "@shared/core/types";
 import { formatMoney } from "@shared/core/utils/currency";
-import { delta, shareOfTotal } from "@shared/modules/reports/utils/aggregate";
-import type {
-  DebtsReport as DebtsReportData,
-  RecordRow,
-} from "@shared/modules/reports/utils/types";
+import { shareOfTotal } from "@shared/modules/reports/utils/aggregate";
+import { debtsKpis } from "@shared/modules/reports/utils/reportKpis";
+import { debtCollectedRecords } from "@shared/modules/reports/utils/reportRecords";
+import type { DebtsReport as DebtsReportData } from "@shared/modules/reports/utils/types";
 import { ReportCard } from "../../components/ReportCard";
-import { KpiRow, type Kpi } from "../../components/KpiRow";
+import { KpiRow, toKpis } from "../../components/KpiRow";
 import { BreakdownList } from "../../components/BreakdownList";
 import { RankedList } from "../../components/RankedList";
 import { RecordsSheet } from "../../components/RecordsSheet";
@@ -35,35 +34,7 @@ export function DebtsReport({ data, currencies, displayCurrency }: Props) {
 
   const money = (usd: number) => formatMoney(usd, null, displayCurrency);
 
-  const kpis: Kpi[] = [
-    {
-      key: "outstanding",
-      label: t("reports.outstanding"),
-      value: money(data.outstandingUsd),
-      sub: t("reports.outstanding_hint"),
-      tone: data.outstandingUsd > 0 ? "danger" : "success",
-    },
-    {
-      key: "collected",
-      label: t("reports.debt_collected"),
-      value: money(data.collectedUsd),
-      sub: t("reports.debt_collected_hint"),
-      tone: "success",
-      delta: delta(data.collectedUsd, data.prevCollectedUsd),
-    },
-    {
-      key: "debtors",
-      label: t("reports.customers_in_debt"),
-      value: data.debtorCount,
-    },
-    {
-      key: "overdue",
-      label: t("reports.overdue_customers"),
-      value: data.aging.length,
-      sub: t("reports.overdue_hint"),
-      tone: data.aging.length > 0 ? "warning" : "success",
-    },
-  ];
+  const kpis = toKpis(debtsKpis(data), t, displayCurrency);
 
   const categoryRows = shareOfTotal(data.categoryEntries).map((e) => ({
     key: e.key,
@@ -77,17 +48,8 @@ export function DebtsReport({ data, currencies, displayCurrency }: Props) {
   }));
 
   const collectedRows = useMemo(
-    (): RecordRow[] =>
-      data.collected.map((r) => ({
-        id: r.id,
-        title: r.customerName ?? t("reports.debt_collected"),
-        subtitle: r.label,
-        date: r.date,
-        amount: r.amount,
-        currencyId: r.currencyId,
-        ratePerUsdSnapshot: r.ratePerUsdSnapshot,
-      })),
-    [data.collected, t],
+    () => debtCollectedRecords(data.collected),
+    [data.collected],
   );
 
   return (

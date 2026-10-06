@@ -42,23 +42,37 @@ export class CustomerRepository
     return (data ?? []) as CustomerWithLines[];
   }
 
-  async findAllForStatus(
+  findAllForStatus(
     branchFilter: BranchFilter = null,
   ): Promise<CustomerWithLines[]> {
-    let query = this.db
-      .from("customers")
-      .select(SELECT)
-      .eq("active", true)
-      .eq("is_regular", true)
-      .order("name");
-    query = this.applyBranchFilter(
-      query,
-      branchFilter,
-      this.BRANCH_SCOPES.customers,
-    );
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    return (data ?? []) as CustomerWithLines[];
+    return this.readCustomers(branchFilter, true);
+  }
+
+  findEveryWithLines(
+    branchFilter: BranchFilter = null,
+  ): Promise<CustomerWithLines[]> {
+    return this.readCustomers(branchFilter, false);
+  }
+
+  // Ageing and the customer report count every customer — gotcha #175.
+  private async readCustomers(
+    branchFilter: BranchFilter,
+    activeRegularOnly: boolean,
+  ): Promise<CustomerWithLines[]> {
+    const rows = await this.readEveryRow<CustomerWithLines>((from, to) => {
+      const all = this.db.from("customers").select(SELECT, { count: "exact" });
+      const scoped = activeRegularOnly
+        ? all.eq("active", true).eq("is_regular", true)
+        : all;
+      return this.applyBranchFilter(
+        scoped,
+        branchFilter,
+        this.BRANCH_SCOPES.customers,
+      )
+        .order("id")
+        .range(from, to);
+    });
+    return rows.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async findById(id: string): Promise<CustomerWithLines> {

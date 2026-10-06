@@ -6,67 +6,28 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { MONTHS } from "@shared/core/constants";
-import type { DashboardMetrics } from "@shared/core/types";
+import type { Currency, DashboardMetrics } from "@shared/core/types";
+import { formatMoney } from "@shared/core/utils/currency";
+import { revenueHero } from "@shared/modules/dashboard/utils/dashboardView";
+import { formatKpiValue, money } from "@shared/modules/reports/utils/reportKpis";
 
 interface Props {
-  metrics: DashboardMetrics | null;
-  fmt: (usd: number) => string;
-  showExpenses?: boolean;
+  metrics: DashboardMetrics;
+  isAdmin: boolean;
+  displayCurrency: Currency | null;
   onPress?: () => void;
 }
 
-// This month's money at a glance: cash collected, how it was earned, what is
-// left after spending, and how much of the month has been collected.
-export function RevenueHeroCard({
-  metrics,
-  fmt,
-  showExpenses,
-  onPress,
-}: Props) {
+// This month's cash at a glance; the figures and what shows come from revenueHero.
+export function RevenueHeroCard({ metrics, isAdmin, displayCurrency, onPress }: Props) {
   const { t } = useTranslation();
+  const hero = revenueHero(metrics, isAdmin);
+  const fmt = (usd: number) => formatMoney(usd, null, displayCurrency);
 
   const now = new Date();
   const monthLabel = t(`months.${MONTHS[now.getMonth()]}`);
   const year = now.getFullYear();
-
-  const monthlyRevenue = metrics?.monthlyRevenue ?? 0;
-  const monthlyExpenses = metrics?.monthlyExpenses ?? 0;
-  const netIncome = metrics?.netIncome ?? 0;
-
-  const prevMonthRevenue = metrics?.prevMonthRevenue ?? 0;
-  const momPct =
-    prevMonthRevenue > 0
-      ? Math.round(
-          ((monthlyRevenue - prevMonthRevenue) / prevMonthRevenue) * 100,
-        )
-      : null;
-  const momUp = (momPct ?? 0) >= 0;
-
-  const revenueMix = [
-    {
-      key: "subscriptions",
-      label: t("dashboard.subscriptions"),
-      value: metrics?.subscriptionRevenue ?? 0,
-    },
-    {
-      key: "sales",
-      label: t("dashboard.sales_label"),
-      value: metrics?.salesRevenue ?? 0,
-    },
-  ].filter((s) => s.value > 0);
-  const showRevenueMix = revenueMix.length > 1;
-
-  const totalDebt = metrics?.totalDebt ?? 0;
-
-  const dueCustomers = metrics?.dueThisMonth ?? 0;
-  const paidCustomers = Math.max(
-    0,
-    dueCustomers - (metrics?.unpaidThisMonth ?? 0),
-  );
-  const collectedPct =
-    dueCustomers > 0
-      ? Math.min(100, Math.round((paidCustomers / dueCustomers) * 100))
-      : 100;
+  const changeUp = (hero.changePct ?? 0) >= 0;
 
   const Wrapper = onPress ? PressableOpacity : View;
 
@@ -76,7 +37,6 @@ export function RevenueHeroCard({
       accessibilityRole={onPress ? "button" : undefined}
       className="mx-4 mb-3 rounded-3xl bg-primary p-5"
     >
-      {/* Month, and the way through to the full report */}
       <View className="flex-row items-center gap-2 mb-4">
         <Text
           fontWeight="SemiBold"
@@ -95,28 +55,27 @@ export function RevenueHeroCard({
         ) : null}
       </View>
 
-      {/* Total collected, with the month-over-month change beside it */}
       <View className="flex-row items-end flex-wrap gap-x-3 gap-y-1">
         <Text fontWeight="Bold" className="text-4xl text-white">
-          {fmt(monthlyRevenue)}
+          {fmt(hero.revenueUsd)}
         </Text>
-        {momPct !== null ? (
+        {hero.changePct !== null ? (
           <View className="flex-row items-center gap-1.5 pb-1.5">
             <View
               className={`flex-row items-center gap-0.5 rounded-full px-2 py-0.5 ${
-                momUp ? "bg-emerald-400/25" : "bg-red-400/25"
+                changeUp ? "bg-emerald-400/25" : "bg-red-400/25"
               }`}
             >
               <Ionicons
-                name={momUp ? "arrow-up" : "arrow-down"}
+                name={changeUp ? "arrow-up" : "arrow-down"}
                 size={12}
-                color={momUp ? "#6ee7b7" : "#fca5a5"}
+                color={changeUp ? "#6ee7b7" : "#fca5a5"}
               />
               <Text
                 fontWeight="SemiBold"
-                className={`text-xs ${momUp ? "text-emerald-200" : "text-red-200"}`}
+                className={`text-xs ${changeUp ? "text-emerald-200" : "text-red-200"}`}
               >
-                {Math.abs(momPct)}%
+                {Math.abs(hero.changePct)}%
               </Text>
             </View>
             <Text className="text-xs text-indigo-200">
@@ -126,25 +85,24 @@ export function RevenueHeroCard({
         ) : null}
       </View>
 
-      {/* Where the money came from — only when more than one stream earned */}
-      {showRevenueMix ? (
+      {hero.mix.length > 0 ? (
         <View className="flex-row items-stretch rounded-2xl bg-white/10 px-4 py-3 mt-4">
-          {revenueMix.map((stream, i) => (
-            <Fragment key={stream.key}>
+          {hero.mix.map((part, i) => (
+            <Fragment key={part.key}>
               {i > 0 ? <View className="w-px bg-white/20 mx-3" /> : null}
               <View className="flex-1">
                 <Text
                   numberOfLines={1}
                   className="text-xs text-indigo-200 mb-0.5"
                 >
-                  {stream.label}
+                  {t(part.labelKey)}
                 </Text>
                 <Text
                   fontWeight="Bold"
                   numberOfLines={1}
                   className="text-sm text-white"
                 >
-                  {fmt(stream.value)}
+                  {fmt(part.usd)}
                 </Text>
               </View>
             </Fragment>
@@ -152,26 +110,23 @@ export function RevenueHeroCard({
         </View>
       ) : null}
 
-      {/* Money that is NOT in the headline: spent (orange) and still owed
-          (red). Different meanings, so never the same colour. Each chip hugs
-          its content instead of stretching. */}
-      {showExpenses || totalDebt > 0 ? (
+      {hero.showExpenses || hero.owedUsd > 0 ? (
         <View className="flex-row flex-wrap gap-2 mt-3">
-          {showExpenses ? (
+          {hero.showExpenses ? (
             <OutflowChip
               icon="trending-down-outline"
               label={t("dashboard.expenses_label")}
-              amount={fmt(Math.abs(monthlyExpenses))}
+              amount={fmt(Math.abs(hero.expensesUsd))}
               className="bg-amber-400/20"
               textClassName="text-amber-100"
               iconColor="#fcd34d"
             />
           ) : null}
-          {totalDebt > 0 ? (
+          {hero.owedUsd > 0 ? (
             <OutflowChip
               icon="hourglass-outline"
               label={t("dashboard.owed_by_customers")}
-              amount={`${fmt(totalDebt)}`}
+              amount={fmt(hero.owedUsd)}
               className="bg-red-400/20"
               textClassName="text-red-100"
               iconColor="#fca5a5"
@@ -180,9 +135,7 @@ export function RevenueHeroCard({
         </View>
       ) : null}
 
-      {/* Net — collected minus spent. The only figure on the card that can go
-          negative, so it says so in red. */}
-      {showExpenses ? (
+      {hero.showExpenses ? (
         <View className="flex-row items-center justify-between rounded-2xl bg-white/10 px-4 py-3 mt-3">
           <Text
             fontWeight="SemiBold"
@@ -192,14 +145,13 @@ export function RevenueHeroCard({
           </Text>
           <Text
             fontWeight="Bold"
-            className={`text-xl ${netIncome < 0 ? "text-red-200" : "text-white"}`}
+            className={`text-xl ${hero.netUsd < 0 ? "text-red-200" : "text-white"}`}
           >
-            {netIncome < 0 ? `−${fmt(Math.abs(netIncome))}` : fmt(netIncome)}
+            {formatKpiValue(money(hero.netUsd), displayCurrency)}
           </Text>
         </View>
       ) : null}
 
-      {/* How much of what this month bills has been collected */}
       <View className="mt-5">
         <View className="flex-row justify-between items-center mb-2">
           <Text
@@ -209,19 +161,19 @@ export function RevenueHeroCard({
             {t("dashboard.collection_progress")}
           </Text>
           <Text fontWeight="Bold" className="text-sm text-white">
-            {collectedPct}%
+            {hero.collectedPct}%
           </Text>
         </View>
         <View className="bg-white/20 rounded-full h-2 overflow-hidden">
           <View
             className="bg-white rounded-full h-full"
-            style={{ width: `${collectedPct}%` }}
+            style={{ width: `${hero.collectedPct}%` }}
           />
         </View>
         <Text className="text-xs text-indigo-200 mt-2">
           {t("dashboard.paid_of_active", {
-            paid: paidCustomers,
-            total: dueCustomers,
+            paid: hero.paid,
+            total: hero.due,
           })}
         </Text>
       </View>
@@ -238,9 +190,7 @@ interface ChipProps {
   iconColor: string;
 }
 
-// One outflow figure on the hero: an icon, what it is, and the amount. Spending
-// prints unsigned (matching the Expenses tab's outflowLabel); the owed figure
-// keeps its minus, because it is the one number the card never collected.
+// Spending prints unsigned, matching the Expenses tab's outflowLabel.
 function OutflowChip({
   icon,
   label,

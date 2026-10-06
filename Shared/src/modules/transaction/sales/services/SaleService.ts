@@ -340,6 +340,20 @@ class SaleService {
     return repositories().sale.countInRange(startIso, endExclusiveIso, branchFilter);
   }
 
+  // Headers + lines only: reports read the money from collections, never a join here.
+  async getInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<Sale[]> {
+    const rows = await repositories().sale.findInRange(
+      startIso,
+      endExclusiveIso,
+      branchFilter,
+    );
+    return rows.map(mapDbSaleToSale);
+  }
+
   async getMonthlyTotals(
     opts: FindSalesOptions = {},
   ): Promise<Record<string, number>> {

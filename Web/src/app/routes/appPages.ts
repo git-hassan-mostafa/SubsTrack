@@ -28,7 +28,9 @@ import { OrganizationPage } from "@/modules/admin/tenant-settings/OrganizationPa
 import { UsersPage } from "@/modules/admin/users/UsersPage";
 import { CustomerDetailPage } from "@/modules/customer/customer-detail/CustomerDetailPage";
 import { CustomersPage } from "@/modules/customer/customers/CustomersPage";
+import { DashboardPage } from "@/modules/dashboard/DashboardPage";
 import { MoneyReceivedPage } from "@/modules/ledger/received/MoneyReceivedPage";
+import { ReportsPage } from "@/modules/reports/ReportsPage";
 import { DebtsPage } from "@/modules/transaction/debts/DebtsPage";
 import { ExpensesPage } from "@/modules/transaction/expenses/ExpensesPage";
 import { CustomerSalesPage } from "@/modules/transaction/sales/CustomerSalesPage";
@@ -57,6 +59,7 @@ export const APP_PAGES: readonly AppPage[] = [
     access: PAGE_ACCESS.dashboard,
     icon: HomeOutlined,
     nav: "main",
+    component: DashboardPage,
   },
   {
     path: "customers",
@@ -118,6 +121,7 @@ export const APP_PAGES: readonly AppPage[] = [
     access: PAGE_ACCESS.reports,
     icon: BarChartOutlined,
     nav: "main",
+    component: ReportsPage,
   },
   {
     path: "admin/users",

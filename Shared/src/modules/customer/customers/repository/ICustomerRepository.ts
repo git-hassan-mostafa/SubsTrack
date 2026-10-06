@@ -40,6 +40,7 @@ export interface ICustomerRepository {
     branchFilter?: BranchFilter,
   ): Promise<CustomerWithLines[]>;
   findAllForStatus(branchFilter?: BranchFilter): Promise<CustomerWithLines[]>;
+  findEveryWithLines(branchFilter?: BranchFilter): Promise<CustomerWithLines[]>;
   findById(id: string): Promise<CustomerWithLines>;
   create(payload: CreateCustomerPayload): Promise<CustomerWithLines>;
   update(

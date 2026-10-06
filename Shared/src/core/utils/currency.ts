@@ -20,13 +20,15 @@ export function convert(
   return fromUsd(toUsd(amount, source), target);
 }
 
-// Sums money rows in USD via each row's FROZEN snapshot rate, never the live
-// one — a later rate edit must not drift a historical total. The single
-// aggregation behind every cash figure (revenue, debts, expenses, wallets).
+// The FROZEN rate the row carries, never the live one — gotcha #92c.
+export function snapshotUsd(row: { amount: number; ratePerUsdSnapshot: number }): number {
+  return row.amount / row.ratePerUsdSnapshot;
+}
+
 export function sumUsd(
-  rows: { amount: number; ratePerUsdSnapshot: number }[],
+  rows: readonly { amount: number; ratePerUsdSnapshot: number }[],
 ): number {
-  return rows.reduce((total, r) => total + r.amount / r.ratePerUsdSnapshot, 0);
+  return rows.reduce((total, r) => total + snapshotUsd(r), 0);
 }
 
 export function findCurrency(

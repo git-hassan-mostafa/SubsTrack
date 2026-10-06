@@ -2,6 +2,7 @@ import { useAuditStore } from "@shared/modules/admin/audit/state/auditStore";
 import { useLastPaidStore } from "@shared/modules/customer/customers/state/lastPaidStore";
 import { useDashboardStore } from "@shared/modules/dashboard/state/dashboardStore";
 import { useCollectionsListStore } from "@shared/modules/ledger/state/collectionsListStore";
+import { useReportsStore } from "@shared/modules/reports/state/reportsStore";
 import { useDebtHistoryStore } from "@shared/modules/transaction/debts/state/debtHistoryStore";
 import { useExpenseStore } from "@shared/modules/transaction/expenses/state/expenseStore";
 import { useWalletStore } from "@shared/modules/wallet/state/walletStore";
@@ -38,6 +39,7 @@ export function refreshActiveData(): void {
   const whatsappHistory = useMessageHistoryStore.getState();
   if (whatsappHistory.items.length) void whatsappHistory.fetchMessages();
   if (s.whatsapp.loaded) void s.whatsapp.fetchOverview();
+  void useReportsStore.getState().reloadIfLoaded();
   const lastPaid = useLastPaidStore.getState();
   if (lastPaid.loaded) void lastPaid.fetchLastPaid();
 

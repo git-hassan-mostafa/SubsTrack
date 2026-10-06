@@ -5,6 +5,7 @@ import type {
 } from "@shared/core/types";
 import type { BranchFilter } from "@shared/core/constants";
 import { repositories } from "@shared/core/runtime/repositories";
+import { sumUsd } from "@shared/core/utils/currency";
 import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
 import { collectionService } from "@shared/modules/ledger/services/CollectionService";
 import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
@@ -14,7 +15,7 @@ import expenseService from "@shared/modules/transaction/expenses/services/Expens
 import walletService from "@shared/modules/wallet/services/WalletService";
 import type { WalletActor } from "@shared/modules/wallet/utils/custody";
 
-// One calendar month of collected cash, split by what it settled.
+// One month of cash split by what it settled; one pass, so the parts add to the total.
 interface MonthCollections {
   subscription: number;
   sales: number;
@@ -36,17 +37,12 @@ class DashboardService {
       collectionService.collectedInRange(start, endExclusive, branchFilter),
       saleService.countInRange(start, endExclusive, branchFilter),
     ]);
-    // ONE pass: every row is a settled bill carrying its own kind, so the three
-    // parts and the total come from the same numbers and cannot disagree.
-    const usd = (r: { amount: number; ratePerUsdSnapshot: number }) =>
-      r.amount / r.ratePerUsdSnapshot;
-    const sumOf = (kind: ChargeKind) =>
-      rows.filter((r) => r.stream === kind).reduce((s, r) => s + usd(r), 0);
+    const sumOf = (kind: ChargeKind) => sumUsd(rows.filter((r) => r.stream === kind));
     return {
       subscription: sumOf("month"),
       sales: sumOf("sale"),
       manual: sumOf("manual"),
-      total: rows.reduce((s, r) => s + usd(r), 0),
+      total: sumUsd(rows),
       paymentsCollectedCount: new Set(rows.map((r) => r.collectionId)).size,
       salesCount,
     };

@@ -1,5 +1,11 @@
 import type { BranchFilter } from "@shared/core/constants";
-import type { CashRow, CustomerDebts, ExpenseItem } from "@shared/core/types";
+import type {
+  CashRow,
+  Customer,
+  CustomerDebts,
+  ExpenseItem,
+  Sale,
+} from "@shared/core/types";
 import type { ReportPeriod } from "@shared/core/utils/dateRange";
 import type { Entry } from "./aggregate";
 
@@ -18,11 +24,14 @@ export interface RecordRow {
   amount: number;
   currencyId: string | null;
   ratePerUsdSnapshot: number;
+  customerId?: string | null;
 }
 
 export interface MoneyReport {
   cash: CashRow[];
   expenses: ExpenseItem[];
+  prevCash: CashRow[];
+  prevExpenses: ExpenseItem[];
   collectedUsd: number;
   spentUsd: number;
   netUsd: number;
@@ -45,10 +54,21 @@ export interface DebtsReport {
   outstandingUsd: number;
   writtenOffUsd: number;
   debtorCount: number;
+  debtors: CustomerDebts[];
   topDebtors: CustomerDebts[];
   categoryEntries: Entry[];
   collected: CashRow[];
   collectedUsd: number;
   prevCollectedUsd: number;
   aging: AgingRow[];
+}
+
+// Every customer, active or not, with every service line — the period is applied in memory.
+export interface CustomersReport {
+  customers: Customer[];
+}
+
+export interface SalesReport {
+  sales: Sale[];
+  prevSales: Sale[];
 }

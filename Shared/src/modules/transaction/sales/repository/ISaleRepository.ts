@@ -92,4 +92,9 @@ export interface ISaleRepository {
     endExclusiveIso: string,
     branchFilter?: BranchFilter,
   ): Promise<number>;
+  findInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter?: BranchFilter,
+  ): Promise<DbSale[]>;
 }

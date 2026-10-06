@@ -94,6 +94,11 @@ function toCashRow(r: CollectedItemRow): CashRow {
 }
 const COLLECTION_SELECT_LEAN = "*, customers(*)";
 
+const COLLECTED_ITEM_SELECT =
+  "id, amount, charges!inner(kind, plan_id, description, billing_month), " +
+  "collections!inner(id, received_at, currency_id, rate_per_usd_snapshot, branch_id, " +
+  "received_by_user_id, customer_id, notes, voided_at, customers(name))";
+
 interface MonthTotalRow {
   received_at: string;
   amount: number;
@@ -549,29 +554,31 @@ export class CollectionRepository
     return { voided, created };
   }
 
+  // Revenue sums every settled bill in the window — gotcha #175.
   async collectedInRange(
     startIso: string,
     endExclusiveIso: string,
     branchFilter: BranchFilter,
   ): Promise<CashRow[]> {
-    let query = this.db
-      .from("collection_items")
-      .select(
-        "id, amount, charges!inner(kind, plan_id, description, billing_month), " +
-          "collections!inner(id, received_at, currency_id, rate_per_usd_snapshot, branch_id, " +
-          "received_by_user_id, customer_id, notes, voided_at, customers(name))",
+    const rows = await this.readEveryRow<CollectedItemRow>((from, to) =>
+      this.applyBranchFilter(
+        this.db
+          .from("collection_items")
+          .select(COLLECTED_ITEM_SELECT, { count: "exact" })
+          .is("collections.voided_at", null)
+          .gte("collections.received_at", startIso)
+          .lt("collections.received_at", endExclusiveIso),
+        branchFilter,
+        {
+          ...this.BRANCH_SCOPES.collections,
+          kind: "inherited",
+          joinedTable: "collections",
+        },
       )
-      .is("collections.voided_at", null)
-      .gte("collections.received_at", startIso)
-      .lt("collections.received_at", endExclusiveIso);
-    query = this.applyBranchFilter(query, branchFilter, {
-      ...this.BRANCH_SCOPES.collections,
-      kind: "inherited",
-      joinedTable: "collections",
-    });
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    return ((data ?? []) as unknown as CollectedItemRow[]).map(toCashRow);
+        .order("id")
+        .range(from, to),
+    );
+    return rows.map(toCashRow);
   }
 
   findHeld(userId: string, branchFilter: BranchFilter): Promise<DbCollection[]> {

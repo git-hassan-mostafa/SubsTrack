@@ -33,3 +33,14 @@
 
 21. Skipped, not-due-yet, not-yet-started and non-regular customers → left out of "N of M customers paid".
 22. The unpaid count in the progress caption (M − N) = the Unpaid tile.
+
+## Reports — web analysis (filters, group by, records)
+
+23. Any filter or group (collector, customer, plan, currency, category, item…) → the groups add up to the headline above them, and "Show records" adds up to the group's number.
+24. More than 1000 payments in the period → Collected still counts every one (same as Money received for that period).
+25. Filter by one collector → "Collected" and its "vs previous" both count only that person's cash.
+26. Pick one day (⋮ on a date row → "Only …, grouped by customer") → the "vs previous" line disappears.
+27. Sales: a sale with a discount → "Sold" shows the typed receipt total; by item, line values can add up to more (note shown).
+28. Debts: filter "Owed for: Sales" → "Still owed" and "Collected on debts" both count only sales.
+29. Customers: "Expected per month" → a 3-month plan at $30 counts $10; a cancelled customer or a line with no set price counts nothing.
+30. Staff: one person's "Cash taken" = Money received filtered to that collector for the same days.

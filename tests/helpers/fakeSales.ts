@@ -180,6 +180,16 @@ export const fakeSaleRepository = {
       (s) => s.sold_at >= startIso && s.sold_at < endExclusiveIso,
     ).length;
   },
+  async findInRange(startIso: string, endExclusiveIso: string) {
+    return sales
+      .filter(
+        (s) =>
+          s.voided_at === null &&
+          s.sold_at >= startIso &&
+          s.sold_at < endExclusiveIso,
+      )
+      .map(hydrate);
+  },
 };
 
 /** Stock the fake product service reports, per product id. */
