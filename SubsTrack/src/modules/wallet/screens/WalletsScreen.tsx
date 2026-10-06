@@ -47,6 +47,7 @@ export function WalletsScreen() {
   const detail = useWalletStore((s) => s.detail);
   const detailLoading = useWalletStore((s) => s.detailLoading);
   const fetchWallets = useWalletStore((s) => s.fetchWallets);
+  const ensureWallets = useWalletStore((s) => s.ensureWallets);
   const fetchDetail = useWalletStore((s) => s.fetchDetail);
   const clearDetail = useWalletStore((s) => s.clearDetail);
   const clearError = useWalletStore((s) => s.clearError);
@@ -61,8 +62,8 @@ export function WalletsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void fetchWallets();
-    }, [branchFilter, fetchWallets]),
+      void ensureWallets();
+    }, [branchFilter, ensureWallets]),
   );
 
   function openHolder(wallet: UserWallet) {

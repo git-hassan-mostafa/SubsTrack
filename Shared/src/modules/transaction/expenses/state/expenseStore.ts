@@ -20,7 +20,16 @@ import {
   toRange,
   type ReportPeriod,
 } from "@shared/core/utils/dateRange";
+import { isFreshRead, readStamp, type ReadStamp } from "@shared/shared/lib/readStamp";
 import { getStore } from "@shared/state/globalStore";
+
+function currentBranchFilter() {
+  return resolveBranchFilter(getStore().getState().auth.user);
+}
+
+function stockVersion(): number {
+  return getStore().getState().products.stockVersion;
+}
 
 const EMPTY_SUMMARY: ExpenseSummary = {
   totalUsd: 0,
@@ -66,9 +75,11 @@ export interface ExpenseState {
   loading: boolean;
   error: string | null;
   searchToken: number;
+  stamp: ReadStamp | null;
   period: ReportPeriod;
   categoryFilter: ExpenseCategoryFilter;
   fetchExpenses: () => Promise<void>;
+  ensureExpenses: () => Promise<void>;
   setPeriod: (period: ReportPeriod) => Promise<void>;
   setCategoryFilter: (category: ExpenseCategoryFilter) => void;
   clearFilters: () => Promise<void>;
@@ -86,11 +97,13 @@ export const useExpenseStore = create<ExpenseState>()(
     loading: false,
     error: null,
     searchToken: 0,
+    stamp: null,
     period: defaultPeriod(),
     categoryFilter: "all",
 
     fetchExpenses: async () => {
-      const branchFilter = resolveBranchFilter(getStore().getState().auth.user);
+      const branchFilter = currentBranchFilter();
+      const stamp = readStamp(branchFilter, stockVersion());
       const { period } = get();
       const token = get().searchToken + 1;
       set((state) => {
@@ -107,6 +120,7 @@ export const useExpenseStore = create<ExpenseState>()(
         set((state) => {
           state.items = view.items;
           state.summary = view.summary;
+          state.stamp = stamp;
           state.loaded = true;
           state.loading = false;
         });
@@ -117,6 +131,11 @@ export const useExpenseStore = create<ExpenseState>()(
           state.loading = false;
         });
       }
+    },
+
+    ensureExpenses: async () => {
+      if (isFreshRead(get().stamp, currentBranchFilter(), stockVersion())) return;
+      await get().fetchExpenses();
     },
 
     setPeriod: async (period) => {
@@ -147,9 +166,7 @@ export const useExpenseStore = create<ExpenseState>()(
       try {
         const expense = await expenseService.addExpense(input);
         const item = expenseToItem(expense);
-        const branchFilter = resolveBranchFilter(
-          getStore().getState().auth.user,
-        );
+        const branchFilter = currentBranchFilter();
         set((state) => {
           state.loading = false;
           if (!state.loaded) return;
@@ -203,6 +220,7 @@ export const useExpenseStore = create<ExpenseState>()(
         state.loading = false;
         state.error = null;
         state.searchToken += 1;
+        state.stamp = null;
         state.period = defaultPeriod();
         state.categoryFilter = "all";
       }),

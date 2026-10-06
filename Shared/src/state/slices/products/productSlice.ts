@@ -14,6 +14,7 @@ export interface ProductSlice {
   loaded: boolean;
   loading: boolean;
   error: string | null;
+  stockVersion: number;
   getProducts: () => Promise<void>;
   fetchProducts: () => Promise<void>;
   createProduct: (
@@ -80,6 +81,7 @@ export const createProductSlice: StateCreator<
     set((state) => {
       const i = state.products.items.findIndex((p) => p.id === productId);
       if (i !== -1) state.products.items[i].stockOnHand = onHand;
+      state.products.stockVersion += 1;
       state.products.loading = false;
     });
 
@@ -87,6 +89,7 @@ export const createProductSlice: StateCreator<
     set((state) => {
       const i = state.products.items.findIndex((p) => p.id === product.id);
       if (i !== -1) state.products.items[i] = product;
+      state.products.stockVersion += 1;
       state.products.loading = false;
     });
 
@@ -95,6 +98,7 @@ export const createProductSlice: StateCreator<
     loaded: false,
     loading: false,
     error: null,
+    stockVersion: 0,
     getProducts: async () => {
       const { loaded, loading } = get().products;
       if (loaded || loading) return;
@@ -132,6 +136,7 @@ export const createProductSlice: StateCreator<
         );
         set((state) => {
           state.products.items.unshift(product);
+          state.products.stockVersion += 1;
           state.products.loading = false;
         });
         return product;
@@ -238,6 +243,7 @@ export const createProductSlice: StateCreator<
           for (const p of state.products.items) {
             if (p.id in onHand) p.stockOnHand = onHand[p.id];
           }
+          state.products.stockVersion += 1;
           state.products.loading = false;
         });
         return true;

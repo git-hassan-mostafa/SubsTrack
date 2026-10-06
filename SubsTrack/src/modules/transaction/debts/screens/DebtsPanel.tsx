@@ -50,12 +50,17 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
   const loading = useLedgerSlice((s) => s.loading);
   const error = useLedgerSlice((s) => s.error);
   const fetchDebts = useLedgerSlice((s) => s.fetchDebts);
+  const ensureDebts = useLedgerSlice((s) => s.ensureDebts);
   const clearError = useLedgerSlice((s) => s.clearError);
 
   const branchFilter = useEffectiveBranchFilter();
   const refresh = useCallback(
     () => void fetchDebts(branchFilter),
     [fetchDebts, branchFilter],
+  );
+  const ensure = useCallback(
+    () => void ensureDebts(branchFilter),
+    [ensureDebts, branchFilter],
   );
 
   const collectSheet = useCollectSheet();
@@ -68,7 +73,7 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
     editSheet,
   } = useDebtRowActions();
   const openBill = useOpenBill({ onOpenSale });
-  useOwedChanged(refresh);
+  useOwedChanged(ensure);
 
   const [debtorSearch, setDebtorSearch] = useState("");
   const debouncedDebtorSearch = useDebounce(debtorSearch);
@@ -79,8 +84,8 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
   const [menuDebtor, setMenuDebtor] = useState<CustomerDebts | null>(null);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    ensure();
+  }, [ensure]);
 
   const target = useDisplayCurrency();
   const debtors = useMemo(() => view?.customers ?? [], [view]);

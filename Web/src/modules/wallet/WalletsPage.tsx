@@ -5,6 +5,7 @@ import Typography from "@mui/material/Typography";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { UserWallet } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
+import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import { useWalletActions } from "@shared/modules/wallet/hooks/useWalletActions";
 import { useWalletStore } from "@shared/modules/wallet/state/walletStore";
 import { cashOnHandUsd, walletMenuItems } from "@shared/modules/wallet/utils/walletView";
@@ -27,7 +28,7 @@ const rowTone = (row: WalletRow) => (row.active ? null : "muted");
 
 const walletPath =(holderUserId: string) => `/admin/wallets/${holderUserId}`;
 
-// Everyone holding cash not yet out of the system; re-read on every open.
+// Everyone holding cash not yet out; re-read only after a money write or branch switch.
 export function WalletsPage() {
   const { t } = useTranslation();
   const branch = useEffectiveBranchFilter();
@@ -36,14 +37,17 @@ export function WalletsPage() {
   const loading = useWalletStore((s) => s.loading);
   const error = useWalletStore((s) => s.error);
   const fetchWallets = useWalletStore((s) => s.fetchWallets);
+  const ensureWallets = useWalletStore((s) => s.ensureWallets);
   const clearError = useWalletStore((s) => s.clearError);
   const { busyHolderId, actOnAll } = useWalletActions();
   const currencies = useCurrencySlice((s) => s.items);
   const display = useDisplayCurrency();
 
+  const ensure = useCallback(() => void ensureWallets(), [ensureWallets]);
   useEffect(() => {
-    void fetchWallets();
-  }, [branch, fetchWallets]);
+    ensure();
+  }, [branch, ensure]);
+  useOwedChanged(ensure);
 
   const rows = useMemo<WalletRow[]>(
     () => wallets.map((wallet) => ({ ...wallet, id: wallet.holderUserId })),

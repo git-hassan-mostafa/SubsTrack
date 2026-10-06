@@ -10,7 +10,7 @@ import {
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { confirm } from "@shared/shared/lib/confirm";
 
-// Re-reads on every open: a restock elsewhere changes the derived stock half.
+// Opening re-reads only after a branch switch or a product/stock write (derived half).
 export function useExpensesList(search: string) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -23,6 +23,7 @@ export function useExpensesList(search: string) {
   const period = useExpenseStore((s) => s.period);
   const category = useExpenseStore((s) => s.categoryFilter);
   const fetchExpenses = useExpenseStore((s) => s.fetchExpenses);
+  const ensureExpenses = useExpenseStore((s) => s.ensureExpenses);
   const setPeriod = useExpenseStore((s) => s.setPeriod);
   const setCategory = useExpenseStore((s) => s.setCategoryFilter);
   const clearFilters = useExpenseStore((s) => s.clearFilters);
@@ -30,8 +31,8 @@ export function useExpensesList(search: string) {
   const clearError = useExpenseStore((s) => s.clearError);
 
   useEffect(() => {
-    void fetchExpenses();
-  }, [branch, fetchExpenses]);
+    void ensureExpenses();
+  }, [branch, ensureExpenses]);
 
   const view = useMemo(
     () => expenseListView(items, summary, { search, category }),

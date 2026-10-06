@@ -6,6 +6,7 @@ import type { WalletActor } from "@shared/modules/wallet/utils/custody";
 import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
 import { getStore } from "@shared/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
+import { isFreshRead, readStamp, type ReadStamp } from "@shared/shared/lib/readStamp";
 
 // The signed-in user as the chain sees them. Role + branch decide every wallet
 // permission, so they travel together into the service (never re-derived there).
@@ -18,9 +19,14 @@ function viewer(): AuthUser | null {
   return getStore().getState().auth.user;
 }
 
+function owedVersion(): number {
+  return getStore().getState().ledger.owedVersion;
+}
+
 export interface WalletState {
   items: UserWallet[];
   loaded: boolean;
+  stamp: ReadStamp | null;
   detail: UserWalletDetail | null;
   loading: boolean;
   detailLoading: boolean;
@@ -28,6 +34,7 @@ export interface WalletState {
   detailToken: number;
 
   fetchWallets: () => Promise<void>;
+  ensureWallets: () => Promise<void>;
   fetchDetail: (holderUserId: string) => Promise<void>;
   clearDetail: () => void;
   receiveFrom: (holderUserId: string, ids: string[]) => Promise<void>;
@@ -67,6 +74,7 @@ export const useWalletStore = create<WalletState>()(
     return {
       items: [],
       loaded: false,
+      stamp: null,
       detail: null,
       loading: false,
       detailLoading: false,
@@ -77,6 +85,8 @@ export const useWalletStore = create<WalletState>()(
         const user = viewer();
         if (!user) return;
         const epoch = currentDataEpoch();
+        const branchFilter = resolveBranchFilter(user);
+        const stamp = readStamp(branchFilter, owedVersion());
         set((s) => {
           s.loading = true;
           s.error = null;
@@ -84,11 +94,12 @@ export const useWalletStore = create<WalletState>()(
         try {
           const items = await walletService.getWalletsView(
             actorOf(user),
-            resolveBranchFilter(user),
+            branchFilter,
           );
           if (isStaleEpoch(epoch)) return;
           set((s) => {
             s.items = items;
+            s.stamp = stamp;
             s.loaded = true;
             s.loading = false;
           });
@@ -99,6 +110,12 @@ export const useWalletStore = create<WalletState>()(
             s.loading = false;
           });
         }
+      },
+
+      ensureWallets: async () => {
+        const branchFilter = resolveBranchFilter(viewer());
+        if (isFreshRead(get().stamp, branchFilter, owedVersion())) return;
+        await get().fetchWallets();
       },
 
       fetchDetail: async (holderUserId) => {
@@ -185,6 +202,7 @@ export const useWalletStore = create<WalletState>()(
         set((s) => {
           s.items = [];
           s.loaded = false;
+          s.stamp = null;
           s.detail = null;
           s.loading = false;
           s.detailLoading = false;

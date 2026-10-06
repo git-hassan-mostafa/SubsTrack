@@ -32,7 +32,7 @@ function tabOf(raw: string | null): DebtTab {
   return DEBT_TABS.find((tab) => tab === raw) ?? "debtors";
 }
 
-// The whole open-bills view is ONE read, re-read on open and on every money write.
+// ONE read of the open bills, kept across visits until a money write or branch switch.
 export function DebtsPage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -42,12 +42,14 @@ export function DebtsPage() {
   const loading = useLedgerSlice((s) => s.loading);
   const error = useLedgerSlice((s) => s.error);
   const fetchDebts = useLedgerSlice((s) => s.fetchDebts);
+  const ensureDebts = useLedgerSlice((s) => s.ensureDebts);
   const clearError = useLedgerSlice((s) => s.clearError);
   const doors = useDebtDoors();
 
   const refresh = useCallback(() => void fetchDebts(branch), [fetchDebts, branch]);
-  useEffect(refresh, [refresh]);
-  useOwedChanged(refresh);
+  const ensure = useCallback(() => void ensureDebts(branch), [ensureDebts, branch]);
+  useEffect(ensure, [ensure]);
+  useOwedChanged(ensure);
 
   const selectTab = (next: DebtTab) =>
     setSearchParams(next === "debtors" ? {} : { tab: next }, { replace: true });

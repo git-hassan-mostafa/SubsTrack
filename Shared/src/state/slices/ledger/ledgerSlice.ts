@@ -22,6 +22,7 @@ import { parseUnpaidStartRule } from "@shared/modules/admin/tenant-settings/util
 import { TENANT_SETTING_KEYS } from "@shared/modules/admin/tenant-settings/utils/constants";
 import type { GlobalState } from "@shared/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
+import { isFreshRead, readStamp, type ReadStamp } from "@shared/shared/lib/readStamp";
 
 const getUnpaidRule = (get: () => GlobalState) =>
   parseUnpaidStartRule(
@@ -39,6 +40,7 @@ const getUnpaidRule = (get: () => GlobalState) =>
  */
 export interface LedgerSlice {
   debts: DebtsView | null;
+  debtsStamp: ReadStamp | null;
   owed: OpenItem[];
   collections: CollectionListItem[];
   netByCustomer: Record<string, number>;
@@ -49,6 +51,7 @@ export interface LedgerSlice {
   error: string | null;
 
   fetchDebts: (branchFilter: BranchFilter) => Promise<void>;
+  ensureDebts: (branchFilter: BranchFilter) => Promise<void>;
   fetchNetByCustomer: (branchFilter?: BranchFilter) => Promise<void>;
   fetchOwed: (
     customer: Customer,
@@ -153,6 +156,7 @@ export const createLedgerSlice: StateCreator<
 
   return {
     debts: null,
+    debtsStamp: null,
     owed: [],
     collections: [],
     netByCustomer: {},
@@ -164,6 +168,7 @@ export const createLedgerSlice: StateCreator<
 
     fetchDebts: async (branchFilter) => {
       const epoch = currentDataEpoch();
+      const stamp = readStamp(branchFilter, get().ledger.owedVersion);
       set((state) => {
         state.ledger.loading = true;
         state.ledger.error = null;
@@ -173,6 +178,7 @@ export const createLedgerSlice: StateCreator<
         if (isStaleEpoch(epoch)) return;
         set((state) => {
           state.ledger.debts = debts;
+          state.ledger.debtsStamp = stamp;
           state.ledger.netByCustomer = netMap(debts);
           state.ledger.loading = false;
         });
@@ -183,6 +189,12 @@ export const createLedgerSlice: StateCreator<
           state.ledger.loading = false;
         });
       }
+    },
+
+    ensureDebts: async (branchFilter) => {
+      const { debtsStamp, owedVersion } = get().ledger;
+      if (isFreshRead(debtsStamp, branchFilter, owedVersion)) return;
+      await get().ledger.fetchDebts(branchFilter);
     },
 
     fetchNetByCustomer: async (branchFilter = null) => {
@@ -400,6 +412,7 @@ export const createLedgerSlice: StateCreator<
     reset: () => {
       set((state) => {
         state.ledger.debts = null;
+        state.ledger.debtsStamp = null;
         state.ledger.owed = [];
         state.ledger.collections = [];
         state.ledger.netByCustomer = {};
