@@ -1,4 +1,4 @@
-import { type NullOption, SearchableSelect } from "@/shared/components/SearchableSelect";
+import { SearchableSelect } from "@/shared/components/SearchableSelect";
 
 interface CatalogPickerProps<T extends { id: string; name: string }> {
   label: string;
@@ -7,7 +7,6 @@ interface CatalogPickerProps<T extends { id: string; name: string }> {
   onChange: (item: T | null) => void;
   sublabel: (item: T) => string;
   optionDisabled?: (item: T) => boolean;
-  nullOption?: NullOption;
   placeholder?: string;
   required?: boolean;
 }
@@ -20,7 +19,6 @@ export function CatalogPicker<T extends { id: string; name: string }>({
   onChange,
   sublabel,
   optionDisabled,
-  nullOption,
   placeholder,
   required = false,
 }: CatalogPickerProps<T>) {
@@ -36,7 +34,6 @@ export function CatalogPicker<T extends { id: string; name: string }>({
         sublabel: sublabel(item),
         disabled: optionDisabled?.(item),
       }))}
-      nullOption={nullOption}
       placeholder={placeholder}
       required={required}
       fullWidth

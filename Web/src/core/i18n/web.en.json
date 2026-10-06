@@ -209,6 +209,7 @@
     "new_customer": "Add a new customer",
     "new_product": "Add a new product",
     "new_service": "Add a new service",
+    "service_placeholder": "Pick a service or type what was done",
     "line_total": "Line total",
     "amount_collected": "Money collected now"
   },

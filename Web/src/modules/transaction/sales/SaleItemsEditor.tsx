@@ -6,7 +6,6 @@ import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddCircleOutlined from "@mui/icons-material/AddCircleOutlined";
@@ -25,6 +24,7 @@ import { useProductsTable } from "@/state/productsTable";
 import { useServicesTable } from "@/state/servicesTable";
 import { CatalogPicker } from "./CatalogPicker";
 import { QuantityField } from "./QuantityField";
+import { ServicePicker } from "./ServicePicker";
 
 const KIND_ICON: Record<SaleLineType, SvgIconComponent> = {
   product: Inventory2Outlined,
@@ -144,14 +144,13 @@ function SaleLineRow({ row, cart, onNewItem }: SaleLineRowProps) {
                 required
               />
             ) : (
-              <CatalogPicker<Service>
-                label={t("sales.service_label")}
+              <ServicePicker
                 value={cart.services.find((s) => s.id === row.serviceId) ?? null}
+                customName={row.customName}
                 options={cart.services}
-                onChange={(service) => cart.selectService(row.key, service)}
+                onSelect={(service) => cart.selectService(row.key, service)}
+                onType={(name) => cart.setCustomName(row.key, name)}
                 sublabel={catalogPrice}
-                optionDisabled={(service) => !service.active}
-                nullOption={{ label: t("sales.service_other"), sublabel: t("sales.service_other_hint") }}
               />
             )}
             <Tooltip title={newLabel}>
@@ -160,17 +159,6 @@ function SaleLineRow({ row, cart, onNewItem }: SaleLineRowProps) {
               </IconButton>
             </Tooltip>
           </Stack>
-          {!isProduct && row.serviceId === null ? (
-            <TextField
-              size="small"
-              label={t("sales.service_name_label")}
-              value={row.customName}
-              onChange={(event) => cart.setCustomName(row.key, event.target.value)}
-              placeholder={t("sales.service_name_placeholder")}
-              helperText={t("sales.service_other_hint")}
-              required
-            />
-          ) : null}
         </Stack>
         {isProduct ? (
           <QuantityField
