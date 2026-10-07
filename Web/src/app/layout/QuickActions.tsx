@@ -20,6 +20,7 @@ import { quickActionItems, type QuickActionKey } from "@shared/shared/lib/quickA
 import { useUiStore } from "@shared/shared/lib/uiStore";
 import { toTableActions, type TableAction } from "@/shared/table/tableAction";
 import { AddNewMenuButton } from "./AddNewMenuButton";
+import { QuickActionsMenuButton } from "./QuickActionsMenuButton";
 
 const QUICK_ACTION_ICONS: Record<QuickActionKey, SvgIconComponent> = {
   collect: PaymentsOutlined,
@@ -31,11 +32,12 @@ const QUICK_ACTION_ICONS: Record<QuickActionKey, SvgIconComponent> = {
   moneyReceived: HistoryOutlined,
 };
 
-// Money = one labelled button, "create" rows = one menu, the rest = icons.
+// Phone = one ⋮ menu; else money = labelled button, "create" = menu, rest = icons.
 export function QuickActions() {
   const { t } = useTranslation();
   const theme = useTheme();
   const wide = useMediaQuery(theme.breakpoints.up("lg"));
+  const phone = useMediaQuery(theme.breakpoints.down("sm"));
   const { isAdmin } = useAuth();
   const openQuickAction = useUiStore((s) => s.openQuickAction);
   const navigate = useNavigate();
@@ -52,6 +54,7 @@ export function QuickActions() {
     },
   });
   const sorted = sortActions(actions);
+  if (phone) return <QuickActionsMenuButton actions={sorted} />;
   const createActions = sorted.filter((action) => action.group === "create");
 
   return (
