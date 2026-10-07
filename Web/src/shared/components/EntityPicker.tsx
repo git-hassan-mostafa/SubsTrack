@@ -5,6 +5,7 @@ import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useDebounce } from "@shared/shared/hooks/useDebounce";
+import { fieldTextWidth } from "./fieldTextWidth";
 
 export interface EntityOption {
   label: string;
@@ -121,6 +122,15 @@ export function EntityPicker<T>({
           required={required}
           error={Boolean(error)}
           helperText={error ?? undefined}
+          slotProps={{
+            ...params.slotProps,
+            htmlInput: {
+              ...params.slotProps.htmlInput,
+              style: minWidth
+                ? { minWidth: fieldTextWidth(label, [value ? describe(value).label : placeholder]) }
+                : undefined,
+            },
+          }}
         />
       )}
     />

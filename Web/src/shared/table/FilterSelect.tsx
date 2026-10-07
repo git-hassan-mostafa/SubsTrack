@@ -1,5 +1,6 @@
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
+import { fieldTextWidth } from "@/shared/components/fieldTextWidth";
 import { SearchableSelect } from "@/shared/components/SearchableSelect";
 
 const ANY = "";
@@ -55,7 +56,7 @@ export function FilterSelect<T extends string | number | null>({
       label={label}
       value={value ?? ANY}
       onChange={(event) => pick(event.target.value)}
-      sx={{ minWidth }}
+      sx={{ minWidth, "& .MuiSelect-select": { minWidth: fieldTextWidth(label, []) } }}
     >
       {anyLabel !== undefined ? <MenuItem value={ANY}>{anyLabel}</MenuItem> : null}
       {options.map((option) => (

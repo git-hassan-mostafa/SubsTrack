@@ -37,7 +37,7 @@ export function BranchSelector() {
         </InputAdornment>
       }
       sx={{
-        width: { xs: 200, sm: 300 },
+        minWidth: { xs: 160, sm: 200 },
         flexShrink: 0,
         "& .MuiInputBase-root": { bgcolor: filtered ? "primary.light" : "background.paper" },
         "& .MuiInputBase-input": { fontWeight: filtered ? 600 : 400 },

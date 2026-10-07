@@ -6,6 +6,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import type { SxProps, Theme } from "@mui/material/styles";
 import { matchesOptionSearch } from "@shared/shared/lib/optionSearch";
+import { fieldTextWidth } from "./fieldTextWidth";
 import { type SelectAddNew, SelectAddNewPaper } from "./SelectAddNewPaper";
 
 const NULL_KEY = "__null__";
@@ -121,9 +122,11 @@ export function SearchableSelect<T extends string | number>({
               ...params.slotProps.input,
               startAdornment: startAdornment ?? params.slotProps.input.startAdornment,
             },
-            htmlInput: ariaLabel
-              ? { ...params.slotProps.htmlInput, "aria-label": ariaLabel }
-              : params.slotProps.htmlInput,
+            htmlInput: {
+              ...params.slotProps.htmlInput,
+              "aria-label": ariaLabel ?? params.slotProps.htmlInput["aria-label"],
+              style: fullWidth ? undefined : { minWidth: fieldTextWidth(label, [selected?.label ?? placeholder]) },
+            },
           }}
         />
       )}

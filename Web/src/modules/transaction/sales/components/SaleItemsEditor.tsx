@@ -67,7 +67,7 @@ export function SaleItemsEditor({ cart }: { cart: SaleCart }) {
           value={cart.currencyId}
           onChange={cart.changeCurrency}
           currencies={cart.currencies}
-          sx={{ width: 180 }}
+          sx={{ minWidth: 180, flexShrink: 0 }}
         />
       </Stack>
       {cart.rows.map((row) => (
