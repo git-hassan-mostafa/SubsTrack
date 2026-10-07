@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router";
 import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
-import { TenantInactivePage } from "@/modules/auth/TenantInactivePage";
+import { TenantInactivePage } from "@/modules/auth/screens/TenantInactivePage";
 
 export interface FromState {
   from?: string;

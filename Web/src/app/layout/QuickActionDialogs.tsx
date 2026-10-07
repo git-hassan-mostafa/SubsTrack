@@ -1,12 +1,12 @@
 import { useUiStore } from "@shared/shared/lib/uiStore";
 import { markCollectionsTableStale } from "@/state/collectionsTable";
 import { markProductsTableStale } from "@/state/productsTable";
-import { BatchRestockDialog } from "@/modules/admin/products/BatchRestockDialog";
-import { CustomerFormDialog } from "@/modules/customer/customers/CustomerFormDialog";
-import { CollectQuickActionDialog } from "@/modules/ledger/collect/CollectQuickActionDialog";
-import { CustomDebtFormDialog } from "@/modules/transaction/debts/CustomDebtFormDialog";
-import { ExpenseFormDialog } from "@/modules/transaction/expenses/ExpenseFormDialog";
-import { SaleFormDialog } from "@/modules/transaction/sales/SaleFormDialog";
+import { BatchRestockDialog } from "@/modules/admin/products/components/BatchRestockDialog";
+import { CustomerFormDialog } from "@/modules/customer/customers/components/CustomerFormDialog";
+import { CollectQuickActionDialog } from "@/modules/ledger/collect/components/CollectQuickActionDialog";
+import { CustomDebtFormDialog } from "@/modules/transaction/debts/components/CustomDebtFormDialog";
+import { ExpenseFormDialog } from "@/modules/transaction/expenses/components/ExpenseFormDialog";
+import { SaleFormDialog } from "@/modules/transaction/sales/components/SaleFormDialog";
 
 // The one host for dialogs a header quick action opens, on any page.
 export function QuickActionDialogs() {

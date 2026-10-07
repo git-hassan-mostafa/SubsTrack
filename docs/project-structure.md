@@ -21,7 +21,7 @@ Web/src/
   shared/hooks/       useCopyText (useMoneyPair moved to Shared/src/shared/hooks)
   shared/lib/         downloadCsv, openWhatsApp (+ openWhatsAppAfterSave), copyText
   state/              web-only: createPagedStore + one table store per list (salesTable also exports createSalesTable(customerId), page-owned store), webSession.ts
-  modules/<group>/<module>/  pages + dialogs:
+  modules/<group>/<module>/  SubsTrack layout: screens/ (*Page.tsx; reports sections → screens/sections/), components/, hooks/ (use*), utils/ (*Look, *Icons, csv); feature subfolder (ledger/bill…) gets the same four:
     admin/{branches,currencies,services,plans,products,users,audit,billing,tenant-settings}
     customer/{customers,customer-plans,customer-detail (page + details panel),customer-payments (months panel + table)}
     transaction/debts   Debts page (Debtors / All debts / History tabs), DebtorDialog, CustomDebtFormDialog, useDebtDoors + DebtItemsTable; customer page's debts panel

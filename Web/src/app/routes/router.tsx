@@ -3,7 +3,7 @@ import { AppFrame } from "@/app/layout/AppFrame";
 import { ComingSoonPage } from "@/app/layout/ComingSoonPage";
 import { NotFoundPage } from "@/app/layout/NotFoundPage";
 import type { PageHandle } from "@/app/layout/usePageTitle";
-import { LoginPage } from "@/modules/auth/LoginPage";
+import { LoginPage } from "@/modules/auth/screens/LoginPage";
 import { APP_PAGES } from "./appPages";
 import { GuestOnly } from "./GuestOnly";
 import { LandingRedirect } from "./LandingRedirect";

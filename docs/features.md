@@ -1224,7 +1224,7 @@ Holder ≠ always collector (admin who only received recorded none) → `UserSer
 ### Where it lives
 
 - **Admin → Wallets** (`app/(app)/(tabs)/admin/wallets.tsx` → `WalletsScreen`): every wallet in branch scope **incl. viewer's own** ("You" chip, no receive). Holder viewer can't read (users RLS branch-scoped; branch admin can't see tenant-wide admin) → **dropped** (un-nameable, un-actionable = worse than nothing).
-- **Web**: `/admin/wallets` (`Web/src/modules/wallet/WalletsPage.tsx`), `/admin/wallets/:holderId` + `/my-wallet` share `WalletDetail.tsx` — see `docs/ui-patterns.md`.
+- **Web**: `/admin/wallets` (`Web/src/modules/wallet/screens/WalletsPage.tsx`), `/admin/wallets/:holderId` + `/my-wallet` share `WalletDetail.tsx` — see `docs/ui-patterns.md`.
 - **Settings → My Wallet** (`app/(app)/(tabs)/settings/my-wallet.tsx` → `MyWalletScreen`), every user: own cash; read-only below rank 2, "Close out" for tenant-wide admin/owner.
 - Dashboard (**admin-only**) **Cash on hand** tile: branch's un-settled net USD + `{holders} · {transactions}`, only when > 0. `DashboardService.getMetrics(branchFilter, viewer)` folds `walletService.getWalletsView(viewer, branchFilter)` into `walletCash` / `walletCollectors` / `walletTransactions`; slice passes `viewer = null` for non-admin → not computed.
 
