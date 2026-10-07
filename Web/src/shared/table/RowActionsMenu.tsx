@@ -2,13 +2,11 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
 import Menu from "@mui/material/Menu";
-import MenuItem from "@mui/material/MenuItem";
 import Tooltip from "@mui/material/Tooltip";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import { sortActions } from "@shared/shared/lib/actionOrder";
+import { actionMenuItem } from "./actionMenuItem";
 import type { TableAction } from "./tableAction";
 
 interface RowActionsMenuProps {
@@ -61,26 +59,7 @@ export function RowActionsMenu({ rowLabel, actions, tabIndex, busy = false }: Ro
         onClose={() => setAnchor(null)}
         onClick={(event) => event.stopPropagation()}
       >
-        {sorted.map((action) => {
-          const Icon = action.icon;
-          const color = action.destructive ? "error.main" : undefined;
-          return (
-            <MenuItem
-              key={action.key}
-              disabled={action.disabled}
-              onClick={() => run(action)}
-            >
-              <ListItemIcon sx={{ color }}>
-                <Icon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText
-                primary={action.label}
-                secondary={action.caption}
-                slotProps={{ primary: { sx: { color } } }}
-              />
-            </MenuItem>
-          );
-        })}
+        {sorted.map((action) => actionMenuItem(action, run))}
       </Menu>
     </>
   );

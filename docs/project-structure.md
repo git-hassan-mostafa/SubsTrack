@@ -14,7 +14,7 @@ Web/src/
   platform/           Supabase client, configureWeb()
   core/i18n/          web i18n init + web.en.json (web-only keys under web.*)
   app/routes/         appPages.ts (THE page list: path, title, access, icon, nav, component), guards, router
-  app/layout/         AppFrame, SideNav, AppHeader, QuickActions + QuickActionDialogs, UserMenu
+  app/layout/         AppFrame, SideNav, AppHeader, QuickActions + AddNewMenuButton + QuickActionDialogs, UserMenu
   app/theme/
   shared/components/  ErrorBanner, FormDialog, ConfirmDialogHost, ReasonConfirmDialog, BranchSelector, BranchPicker, inputs, MoneyText, EmptyState, StatusChip, InfoRows, PanelSection…
   shared/table/       DataTable, RowActionsMenu, BulkActionBar, useTableExport, TableAction, RowLink, ActiveFilterSelect, activeStatusColumn, useBranchColumn
