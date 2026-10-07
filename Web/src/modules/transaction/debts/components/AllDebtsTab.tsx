@@ -18,9 +18,8 @@ import {
 } from "@shared/modules/transaction/debts/utils/allDebtsFilter";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
-import { SearchField } from "@/shared/components/SearchField";
-import { FilterBar } from "@/shared/table/FilterBar";
 import { FilterSelect } from "@/shared/table/FilterSelect";
+import { TableToolbar, type TableAdd } from "@/shared/table/TableToolbar";
 import { DebtItemsTable } from "./DebtItemsTable";
 import type { DebtDoors } from "../hooks/useDebtDoors";
 
@@ -28,10 +27,13 @@ interface AllDebtsTabProps {
   view: DebtsView | null;
   branch: BranchFilter;
   doors: DebtDoors;
+  add: TableAdd;
+  loading: boolean;
+  onReload: () => void;
 }
 
 // Reads the view the page holds, so this total and the page's always agree.
-export function AllDebtsTab({ view, branch, doors }: AllDebtsTabProps) {
+export function AllDebtsTab({ view, branch, doors, add, loading, onReload }: AllDebtsTabProps) {
   const { t } = useTranslation();
   const display = useDisplayCurrency();
   const { filters, patch, setSearch, scope, setScope, showingWrittenOff, writtenOff, rows, totalUsd, dirty, clearAll } =
@@ -39,47 +41,6 @@ export function AllDebtsTab({ view, branch, doors }: AllDebtsTabProps) {
 
   return (
     <Stack spacing={2}>
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ alignItems: { sm: "center" }, minWidth: 0 }}>
-        <SearchField
-          value={filters.search}
-          onSearch={setSearch}
-          placeholder={t("debts.all_debts_search_hint")}
-        />
-        <FilterBar>
-          <FilterSelect<DebtScope>
-            label={t("debts.filter_by_scope")}
-            value={scope}
-            onChange={setScope}
-            options={[
-              { value: "live", label: t("debts.scope_live") },
-              { value: "written_off", label: t("debts.scope_written_off") },
-            ]}
-          />
-          <FilterSelect<ChargeKind | null>
-            label={t("ledger.filter_by_type")}
-            anyLabel={t("ledger.all_types")}
-            value={filters.kind}
-            onChange={(kind) => patch({ kind })}
-            options={DEBT_KINDS.map((kind) => ({ value: kind, label: t(`ledger.kind_${kind}`) }))}
-          />
-          {showingWrittenOff ? null : (
-            <FilterSelect<AllDebtsStatus | null>
-              label={t("ledger.filter_by_status")}
-              anyLabel={t("ledger.all_statuses")}
-              value={filters.status}
-              onChange={(status) => patch({ status })}
-              options={ALL_DEBTS_STATUSES.map((status) => ({ value: status, label: t(`debts.status_${status}`) }))}
-            />
-          )}
-          <FilterSelect<AllDebtsSort>
-            label={t("ledger.sort_by_label")}
-            value={filters.sort}
-            onChange={(sort) => patch({ sort })}
-            options={ALL_DEBTS_SORTS.map((sort) => ({ value: sort, label: t(`debts.sort_${sort}`) }))}
-          />
-          {dirty ? <Button onClick={clearAll}>{t("common.clear_filters")}</Button> : null}
-        </FilterBar>
-      </Stack>
       {showingWrittenOff ? <ErrorBanner message={writtenOff.error} onDismiss={writtenOff.clearError} /> : null}
       <Paper variant="outlined" sx={{ px: 2, py: 1.5 }}>
         <Stack direction="row" spacing={2} sx={{ alignItems: "baseline", justifyContent: "space-between" }}>
@@ -93,6 +54,48 @@ export function AllDebtsTab({ view, branch, doors }: AllDebtsTabProps) {
           </Typography>
         </Stack>
       </Paper>
+      <TableToolbar
+        search={{ value: filters.search, onSearch: setSearch, placeholder: t("debts.all_debts_search_hint") }}
+        add={add}
+        loading={loading}
+        onReload={onReload}
+        filters={
+          <>
+            <FilterSelect<DebtScope>
+              label={t("debts.filter_by_scope")}
+              value={scope}
+              onChange={setScope}
+              options={[
+                { value: "live", label: t("debts.scope_live") },
+                { value: "written_off", label: t("debts.scope_written_off") },
+              ]}
+            />
+            <FilterSelect<ChargeKind | null>
+              label={t("ledger.filter_by_type")}
+              anyLabel={t("ledger.all_types")}
+              value={filters.kind}
+              onChange={(kind) => patch({ kind })}
+              options={DEBT_KINDS.map((kind) => ({ value: kind, label: t(`ledger.kind_${kind}`) }))}
+            />
+            {showingWrittenOff ? null : (
+              <FilterSelect<AllDebtsStatus | null>
+                label={t("ledger.filter_by_status")}
+                anyLabel={t("ledger.all_statuses")}
+                value={filters.status}
+                onChange={(status) => patch({ status })}
+                options={ALL_DEBTS_STATUSES.map((status) => ({ value: status, label: t(`debts.status_${status}`) }))}
+              />
+            )}
+            <FilterSelect<AllDebtsSort>
+              label={t("ledger.sort_by_label")}
+              value={filters.sort}
+              onChange={(sort) => patch({ sort })}
+              options={ALL_DEBTS_SORTS.map((sort) => ({ value: sort, label: t(`debts.sort_${sort}`) }))}
+            />
+            {dirty ? <Button onClick={clearAll}>{t("common.clear_filters")}</Button> : null}
+          </>
+        }
+      />
       <Box>
         <DebtItemsTable
           label={showingWrittenOff ? t("debts.scope_written_off") : t("debts.all_debts_title")}

@@ -31,6 +31,7 @@ import { DataTable } from "@/shared/table/DataTable";
 import { usePagedTable } from "@/shared/table/usePagedTable";
 import { FilterSelect } from "@/shared/table/FilterSelect";
 import { RowLink } from "@/shared/table/RowLink";
+import type { TableAdd } from "@/shared/table/TableToolbar";
 import { CustomerPicker } from "@/modules/customer/customers/components/CustomerPicker";
 import { KIND_TONE } from "@shared/modules/ledger/utils/collectionKind";
 import { KIND_ICON } from "@/modules/ledger/utils/kindLook";
@@ -43,10 +44,11 @@ const rowTone = (row: DebtHistoryRow) => (isDeadHistoryRow(row) ? "muted" : null
 interface DebtHistoryTabProps {
   branch: BranchFilter;
   doors: Pick<DebtDoors, "openBill">;
+  add: TableAdd;
 }
 
 // Past bills that left a customer owing; a customer is PICKED, never typed.
-export function DebtHistoryTab({ branch, doors }: DebtHistoryTabProps) {
+export function DebtHistoryTab({ branch, doors, add }: DebtHistoryTabProps) {
   const { t } = useTranslation();
   const table = useDebtHistoryTable;
   const paged = usePagedTable(table, branch);
@@ -191,6 +193,7 @@ export function DebtHistoryTab({ branch, doors }: DebtHistoryTabProps) {
           />
         </>
       }
+      add={add}
       rowLabel={rowLabel}
       rowTone={rowTone}
       autoRowHeight

@@ -2,17 +2,12 @@ import { useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
-import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import NoteAddOutlined from "@mui/icons-material/NoteAddOutlined";
-import RefreshIcon from "@mui/icons-material/Refresh";
 import type { DebtSummary } from "@shared/core/types";
 import { formatMoney } from "@shared/core/utils/currency";
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
@@ -20,6 +15,7 @@ import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranc
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import type { TableAdd } from "@/shared/table/TableToolbar";
 import { AllDebtsTab } from "../components/AllDebtsTab";
 import { DebtHistoryTab } from "../components/DebtHistoryTab";
 import { DebtorsTab } from "../components/DebtorsTab";
@@ -51,6 +47,8 @@ export function DebtsPage() {
   useEffect(ensure, [ensure]);
   useOwedChanged(ensure);
 
+  const add: TableAdd = { label: t("debts.add_custom_debt"), onClick: () => doors.addCustomDebt() };
+
   const selectTab = (next: DebtTab) =>
     setSearchParams(next === "debtors" ? {} : { tab: next }, { replace: true });
 
@@ -60,45 +58,33 @@ export function DebtsPage() {
       {doors.banners}
       <DebtsSummary summary={view?.summary ?? null} />
       <Paper variant="outlined">
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center", paddingInlineEnd: 2, minWidth: 0 }}>
-          <Tabs
-            value={tab}
-            onChange={(_event, next: DebtTab) => selectTab(next)}
-            variant="scrollable"
-            scrollButtons="auto"
-            aria-label={t("web.debts.tabs")}
-            sx={{ flexGrow: 1, minWidth: 0 }}
-          >
-            <Tab value="debtors" label={t("debts.tab_debtors")} />
-            <Tab value="all" label={t("debts.all_debts_title")} />
-            <Tab value="history" label={t("debts.history_title")} />
-          </Tabs>
-          {tab !== "history" ? (
-            <Tooltip title={t("web.table.refresh")}>
-              <span>
-                <IconButton aria-label={t("web.table.refresh")} disabled={loading} onClick={refresh}>
-                  <RefreshIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
-          ) : null}
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<NoteAddOutlined />}
-            onClick={() => doors.addCustomDebt()}
-            sx={{ flexShrink: 0 }}
-          >
-            {t("debts.add_custom_debt")}
-          </Button>
-        </Stack>
+        <Tabs
+          value={tab}
+          onChange={(_event, next: DebtTab) => selectTab(next)}
+          variant="scrollable"
+          scrollButtons="auto"
+          aria-label={t("web.debts.tabs")}
+        >
+          <Tab value="debtors" label={t("debts.tab_debtors")} />
+          <Tab value="all" label={t("debts.all_debts_title")} />
+          <Tab value="history" label={t("debts.history_title")} />
+        </Tabs>
         {loading && tab !== "history" ? <LinearProgress aria-label={t("web.loading")} /> : null}
       </Paper>
       {tab === "debtors" ? (
-        <DebtorsTab debtors={view?.customers ?? []} loaded={view !== null} doors={doors} />
+        <DebtorsTab
+          debtors={view?.customers ?? []}
+          loaded={view !== null}
+          doors={doors}
+          add={add}
+          loading={loading}
+          onReload={refresh}
+        />
       ) : null}
-      {tab === "all" ? <AllDebtsTab view={view} branch={branch} doors={doors} /> : null}
-      {tab === "history" ? <DebtHistoryTab branch={branch} doors={doors} /> : null}
+      {tab === "all" ? (
+        <AllDebtsTab view={view} branch={branch} doors={doors} add={add} loading={loading} onReload={refresh} />
+      ) : null}
+      {tab === "history" ? <DebtHistoryTab branch={branch} doors={doors} add={add} /> : null}
       {doors.dialogs}
     </Stack>
   );

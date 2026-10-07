@@ -15,10 +15,10 @@ import { debtorActions, debtorOwedItems, filterDebtors } from "@shared/modules/t
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { MoneyText } from "@/shared/components/MoneyText";
-import { SearchField } from "@/shared/components/SearchField";
 import { LocalTable } from "@/shared/table/LocalTable";
 import { RowLink } from "@/shared/table/RowLink";
 import { toTableActions, type TableAction } from "@/shared/table/tableAction";
+import { TableToolbar, type TableAdd } from "@/shared/table/TableToolbar";
 import { DEBTOR_ACTION_ICONS } from "../utils/debtActionIcons";
 import { DebtorDialog } from "./DebtorDialog";
 import type { DebtDoors } from "../hooks/useDebtDoors";
@@ -29,12 +29,15 @@ interface DebtorsTabProps {
   debtors: CustomerDebts[];
   loaded: boolean;
   doors: DebtDoors;
+  add: TableAdd;
+  loading: boolean;
+  onReload: () => void;
 }
 
 const rowLabel = (row: DebtorRow) => row.customerName;
 
 // Most behind first, as the view sorts it; the dialog follows the view's re-reads.
-export function DebtorsTab({ debtors, loaded, doors }: DebtorsTabProps) {
+export function DebtorsTab({ debtors, loaded, doors, add, loading, onReload }: DebtorsTabProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const display = useDisplayCurrency();
@@ -109,7 +112,12 @@ export function DebtorsTab({ debtors, loaded, doors }: DebtorsTabProps) {
 
   return (
     <Stack spacing={2}>
-      <SearchField value={search} onSearch={setSearch} placeholder={t("debts.search_debtors_hint")} />
+      <TableToolbar
+        search={{ value: search, onSearch: setSearch, placeholder: t("debts.search_debtors_hint") }}
+        add={add}
+        loading={loading}
+        onReload={onReload}
+      />
       {!loaded ? (
         <Box sx={{ py: 4, display: "flex", justifyContent: "center" }}>
           <CircularProgress aria-label={t("web.loading")} />

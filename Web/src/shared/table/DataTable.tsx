@@ -1,13 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
-import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import Tooltip from "@mui/material/Tooltip";
-import AddIcon from "@mui/icons-material/Add";
-import RefreshIcon from "@mui/icons-material/Refresh";
 import {
   DataGrid,
   type GridColDef,
@@ -17,11 +11,10 @@ import {
 } from "@mui/x-data-grid";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { EmptyState } from "@/shared/components/EmptyState";
-import { SearchField } from "@/shared/components/SearchField";
 import { PAGE_SIZE_OPTIONS } from "@/state/createPagedStore";
 import { BulkActionBar } from "./BulkActionBar";
 import { TableViewButton } from "./TableViewButton";
-import { FilterBar } from "./FilterBar";
+import { TableToolbar, type TableAdd, type TableSearch } from "./TableToolbar";
 import { actionsColumn } from "./actionsColumn";
 import { AUTO_ROW_HEIGHT, gridSx, LOCKED_GRID, rowClassName, type RowTone } from "./gridBase";
 import { useGridColumns } from "./gridColumns";
@@ -48,10 +41,10 @@ export interface DataTableProps<T extends GridValidRowModel & { id: string }> {
   page: number;
   pageSize: number;
   onPageChange: (page: number, pageSize: number) => void;
-  search?: { value: string; onSearch: (term: string) => void; placeholder?: string };
+  search?: TableSearch;
   filters?: ReactNode;
   summary?: ReactNode;
-  add?: { label: string; onClick: () => void };
+  add?: TableAdd;
   toolbarActions?: ReactNode;
   exportConfig?: TableExport<T>;
   rowLabel: (row: T) => string;
@@ -134,51 +127,30 @@ export function DataTable<T extends GridValidRowModel & { id: string }>({
     <Stack spacing={2}>
       <ErrorBanner message={error ?? null} onDismiss={onDismissError} onRetry={onReload} />
       <ErrorBanner message={tableExport.error} onDismiss={tableExport.clearError} />
-      {bulk ? (
-        <BulkActionBar count={selectedRows.length} actions={bulk} onClear={clearSelection} />
-      ) : (
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={1.5}
-          sx={{ alignItems: { sm: "center" }, minHeight: 56, minWidth: 0 }}
-        >
-          {search ? (
-            <SearchField
-              value={search.value}
-              onSearch={search.onSearch}
-              placeholder={search.placeholder}
-            />
-          ) : null}
-          {filters ? <FilterBar>{filters}</FilterBar> : <Box sx={{ flexGrow: 1 }} />}
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <Tooltip title={t("web.table.refresh")}>
-              <span>
-                <IconButton
-                  aria-label={t("web.table.refresh")}
-                  disabled={loading}
-                  onClick={onReload}
-                >
-                  <RefreshIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
-            {showEmpty ? null : columnsPanel.button}
-            <TableViewButton onResetColumns={grid.resetColumns} />
-            {tableExport.button}
-            {toolbarActions}
-            {add ? (
-              <Button variant="contained" startIcon={<AddIcon />} onClick={add.onClick}>
-                {add.label}
-              </Button>
-            ) : null}
-          </Stack>
-        </Stack>
-      )}
       {summary ? (
         <Paper variant="outlined" sx={{ px: 2, py: 1.5 }}>
           {summary}
         </Paper>
       ) : null}
+      {bulk ? (
+        <BulkActionBar count={selectedRows.length} actions={bulk} onClear={clearSelection} />
+      ) : (
+        <TableToolbar
+          search={search}
+          filters={filters}
+          add={add}
+          loading={loading}
+          onReload={onReload}
+          tools={
+            <>
+              {showEmpty ? null : columnsPanel.button}
+              <TableViewButton onResetColumns={grid.resetColumns} />
+              {tableExport.button}
+              {toolbarActions}
+            </>
+          }
+        />
+      )}
       {showEmpty ? (
         <Paper variant="outlined">
           {filtered ? (
