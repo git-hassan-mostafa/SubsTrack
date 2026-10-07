@@ -1,201 +1,53 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { Customer, WhatsAppTemplatePurpose } from "@shared/core/types";
-import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
+import type { Customer } from "@shared/core/types";
+import { useWhatsAppActions as useSharedWhatsAppActions } from "@shared/modules/whatsapp/hooks/useWhatsAppActions";
+import type { WhatsAppActionKey } from "@shared/modules/whatsapp/utils/whatsappMenu";
 import { useWhatsApp } from "@/src/modules/invoicing/hooks/useWhatsApp";
 import type { ActionMenuItem } from "@/src/shared/components/ActionMenu";
 import type { SelectionAction } from "@/src/shared/components/SelectionBar";
-import { confirm } from "@shared/shared/lib/confirm";
-import { getStore } from "@shared/state/globalStore";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import {
-  useUnpaidStartRule,
-  useWhatsAppLanguage,
-} from "@shared/state/hooks/useTenantSettingSlice";
-import {
-  useOptedOutCustomerIds,
-  useTemplateForPurpose,
-  useWhatsAppReady,
-  useWhatsAppSlice,
-} from "@shared/state/hooks/useWhatsAppSlice";
+import { toActionMenuItems, toSelectionActions, type Glyph } from "@/src/shared/lib/menuActions";
 import { SendWhatsAppSheet } from "../components/SendWhatsAppSheet";
 
-interface OpenSheet {
-  customers: Customer[];
-  purpose: WhatsAppTemplatePurpose | null;
-}
+const WHATSAPP_ACTION_ICONS: Record<WhatsAppActionKey, Glyph> = {
+  whatsapp_reminder: "logo-whatsapp",
+  whatsapp_message: "chatbubbles-outline",
+  whatsapp_send: "logo-whatsapp",
+  whatsapp_stop: "notifications-off-outline",
+  whatsapp_allow: "notifications-outline",
+};
 
 export interface WhatsAppActions {
   rowItems: (customer: Customer) => ActionMenuItem[];
-  selectionAction: (selected: Customer[]) => SelectionAction | null;
+  selectionActions: (selected: Customer[]) => SelectionAction[];
   sheet: ReactNode;
 }
 
-// Cloud API actions when connected, the wa.me reminder otherwise.
 export function useWhatsAppActions(): WhatsAppActions {
-  const { t, i18n } = useTranslation();
-  const { user, isAdmin, whatsappEnabled } = useAuth();
-  const cloudEnabled = isAdmin && whatsappEnabled;
-  const connected = useWhatsAppReady();
-  const ready = cloudEnabled && connected;
-  const reminderTemplate = useTemplateForPurpose("payment_reminder");
-  const optedOut = useOptedOutCustomerIds();
-  const ensureLoaded = useWhatsAppSlice((s) => s.ensureLoaded);
-  const setOptOut = useWhatsAppSlice((s) => s.setOptOut);
-  const reminderFallbackText = useWhatsAppSlice((s) => s.reminderFallbackText);
-  const clearError = useWhatsAppSlice((s) => s.clearError);
-  const language = useWhatsAppLanguage();
-  const currencies = useCurrencySlice((s) => s.items);
-  const unpaidRule = useUnpaidStartRule();
-  const { canSend, openChat } = useWhatsApp();
-  const [open, setOpen] = useState<OpenSheet | null>(null);
+  const { t } = useTranslation();
+  const { openChat } = useWhatsApp();
+  const actions = useSharedWhatsAppActions(openChat);
 
-  useEffect(() => {
-    if (cloudEnabled) void ensureLoaded();
-  }, [cloudEnabled, ensureLoaded]);
+  const rowItems = (customer: Customer) =>
+    toActionMenuItems(actions.customerItems(customer), t, {
+      icons: WHATSAPP_ACTION_ICONS,
+      run: actions.runFor([customer]),
+    });
 
-  const showProblem = useCallback(
-    async (message: string) => {
-      await confirm({
-        title: t("whatsapp.problem_title"),
-        message,
-        confirmLabel: t("common.ok"),
-        hideCancel: true,
-      });
-    },
-    [t],
-  );
+  const selectionActions = (selected: Customer[]) =>
+    toSelectionActions(actions.selectionItems(selected), t, {
+      icons: WHATSAPP_ACTION_ICONS,
+      run: actions.runFor(selected),
+    });
 
-  const showSliceError = useCallback(async () => {
-    const message =
-      getStore().getState().whatsapp.error ?? t("common.something_went_wrong");
-    clearError();
-    await showProblem(message);
-  }, [clearError, showProblem, t]);
-
-  const sendReminderFallback = useCallback(
-    async (customer: Customer) => {
-      const result = await reminderFallbackText(
-        {
-          customers: [customer],
-          businessName: user?.tenant.name ?? "",
-          optedOutCustomerIds: optedOut,
-          currencies,
-          unpaidRule,
-          t: i18n.getFixedT(language),
-        },
-        language,
-      );
-      if (!result) {
-        await showSliceError();
-        return;
-      }
-      if (!result.text) {
-        await showProblem(t(`whatsapp.skip.${result.reason}`, { count: 1 }));
-        return;
-      }
-      await openChat(customer.phoneNumber, result.text);
-    },
-    [reminderFallbackText, user, optedOut, currencies, unpaidRule, i18n, language, showSliceError, showProblem, t, openChat],
-  );
-
-  const toggleOptOut = useCallback(
-    async (customer: Customer, stop: boolean) => {
-      const agreed = await confirm({
-        title: stop ? t("whatsapp.stop_messages") : t("whatsapp.allow_messages"),
-        message: stop
-          ? t("whatsapp.stop_messages_confirm", { name: customer.name })
-          : t("whatsapp.allow_messages_confirm", { name: customer.name }),
-        confirmLabel: t("common.confirm"),
-        destructive: stop,
-      });
-      if (!agreed) return;
-      const ok = await setOptOut(customer.id, stop);
-      if (!ok) await showSliceError();
-    },
-    [setOptOut, showSliceError, t],
-  );
-
-  const rowItems = useCallback(
-    (customer: Customer): ActionMenuItem[] => {
-      if (!isAdmin) return [];
-      const hasPhone = canSend(customer.phoneNumber);
-      if (!ready) {
-        if (!hasPhone) return [];
-        return [
-          {
-            key: "whatsapp-reminder",
-            group: "send",
-            label: t("whatsapp.send_reminder"),
-            icon: "logo-whatsapp",
-            caption: t("whatsapp.opens_whatsapp"),
-            onPress: () => void sendReminderFallback(customer),
-          },
-        ];
-      }
-      const isOptedOut = optedOut.has(customer.id);
-      const blockedCaption = !hasPhone
-        ? t("invoice.no_phone")
-        : isOptedOut
-          ? t("whatsapp.opted_out_caption")
-          : undefined;
-      return [
-        {
-          key: "whatsapp-reminder",
-          group: "send",
-          label: t("whatsapp.send_reminder"),
-          icon: "logo-whatsapp",
-          disabled: !!blockedCaption || !reminderTemplate,
-          caption: blockedCaption ?? (reminderTemplate ? undefined : t("whatsapp.template_pending")),
-          onPress: () => setOpen({ customers: [customer], purpose: "payment_reminder" }),
-        },
-        {
-          key: "whatsapp-message",
-          group: "send",
-          label: t("whatsapp.send_message"),
-          icon: "chatbubbles-outline",
-          disabled: !!blockedCaption,
-          caption: blockedCaption,
-          onPress: () => setOpen({ customers: [customer], purpose: null }),
-        },
-        {
-          key: "whatsapp-opt-out",
-          group: "manage",
-          label: isOptedOut ? t("whatsapp.allow_messages") : t("whatsapp.stop_messages"),
-          icon: isOptedOut ? "notifications-outline" : "notifications-off-outline",
-          disabled: !hasPhone,
-          onPress: () => void toggleOptOut(customer, !isOptedOut),
-        },
-      ];
-    },
-    [isAdmin, canSend, ready, optedOut, reminderTemplate, t, sendReminderFallback, toggleOptOut],
-  );
-
-  const selectionAction = useCallback(
-    (selected: Customer[]): SelectionAction | null => {
-      if (!ready || selected.length === 0) return null;
-      return {
-        key: "whatsapp-send",
-        group: "send",
-        icon: "logo-whatsapp",
-        label: t("whatsapp.send_on_whatsapp"),
-        onPress: () =>
-          setOpen({
-            customers: selected,
-            purpose: reminderTemplate ? "payment_reminder" : null,
-          }),
-      };
-    },
-    [ready, reminderTemplate, t],
-  );
-
-  const sheet = open ? (
+  const target = actions.sendTarget;
+  const sheet = target ? (
     <SendWhatsAppSheet
-      customers={open.customers}
-      purpose={open.purpose}
-      onDismiss={() => setOpen(null)}
+      customers={target.customers}
+      purpose={target.purpose}
+      onDismiss={actions.closeSend}
     />
   ) : null;
 
-  return { rowItems, selectionAction, sheet };
+  return { rowItems, selectionActions, sheet };
 }

@@ -1,4 +1,6 @@
+import type { BranchFilter } from "@shared/core/constants";
 import type {
+  Page,
   WhatsAppMessageStatus,
   WhatsAppQueueResult,
   WhatsAppRecipient,
@@ -19,6 +21,7 @@ export interface QueueInput {
 
 export interface MessagePageQuery {
   status: WhatsAppMessageStatus | null;
+  branch: BranchFilter;
   offset: number;
   limit: number;
 }
@@ -41,10 +44,10 @@ export interface IWhatsAppRepository {
   findLiveAccount(tenantId: string): Promise<DbWhatsAppAccount | null>;
   findTemplates(accountId: string): Promise<DbWhatsAppTemplate[]>;
   findOptOuts(tenantId: string): Promise<DbWhatsAppOptOut[]>;
-  findMessages(
+  findMessagePage(
     tenantId: string,
     query: MessagePageQuery,
-  ): Promise<DbWhatsAppMessage[]>;
+  ): Promise<Page<DbWhatsAppMessage>>;
   startConnect(consent: boolean): Promise<{ url: string }>;
   refresh(): Promise<void>;
   submitTemplates(): Promise<number>;

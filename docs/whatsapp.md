@@ -2,7 +2,7 @@
 
 Each tenant connects **its own** WABA + phone number via Meta **Embedded Signup v4**; **Meta bills that tenant directly**. Sijil = Meta **Tech Provider**: never holds a credit line, never pays for tenant messages. Receipts still use `wa.me` links (`modules/invoicing`); Cloud API sends **reminders + notices**.
 
-Read before touching `supabase/functions/whatsapp-*`, `supabase/functions/_shared/whatsapp/`, `src/modules/whatsapp/` or `whatsapp_*` tables. Gotchas #161–#170. Owner's step-by-step setup + test list: `docs/whatsapp-setup-guide.md`.
+Read before touching `supabase/functions/whatsapp-*`, `supabase/functions/_shared/whatsapp/`, `Shared/src/modules/whatsapp/`, `SubsTrack/src/modules/whatsapp/`, `Web/src/modules/whatsapp/` or `whatsapp_*` tables. Client rules live once in Shared (`utils/whatsappMenu.ts`, `utils/whatsappView.ts`, `utils/embeddedSignup.ts`, hooks `useWhatsAppActions`/`useSendWhatsAppForm`/`useWhatsAppConnection`/`useEmbeddedSignup`); each app adds icons, layout and how it opens a URL. Gotchas #161–#170. Owner's step-by-step setup + test list: `docs/whatsapp-setup-guide.md`.
 
 ## 1. Moving parts
 
@@ -32,7 +32,7 @@ Shared server code `_shared/whatsapp/` (`optOuts.ts` records/clears opt-outs for
 |`whatsapp_credentials`|AES-256-GCM token + PIN (`WHATSAPP_TOKEN_KEY`)|none (no policy)|
 |`whatsapp_connect_sessions`|SHA-256 of one-time link token, 15-min expiry, pending token while PIN asked|none|
 |`whatsapp_templates`|synced from Meta; `is_sijil`, `purpose`, `params`, `supported`|SELECT tenant admins|
-|`whatsapp_messages`|history **and** queue; `variables` only until Meta accepts|SELECT admins, branch-scoped|
+|`whatsapp_messages`|history **and** queue; `variables` only until Meta accepts; read via `findMessagePage` (exact count, `branch_id` = `owned` scope)|SELECT admins, branch-scoped|
 |`whatsapp_opt_outs`|numbers not to message (STOP or admin), soft-cleared|SELECT tenant admins|
 
 SQL functions (service role only): `whatsapp_claim_messages`, `whatsapp_apply_status` (forward-only, idempotent), `whatsapp_reached_last_day`, `whatsapp_kick_worker` (reads worker URL, secret, anon key from **Vault**). `whatsapp-worker` pg_cron job every minute; no-op when no rows due.
@@ -55,7 +55,7 @@ Owner switch `tenants.whatsapp_enabled` (SuperAdmin), guarded by `trg_tenants_gu
 - **Opt-outs.** STOP reply + admin's **Stop messages** both go through `recordOptOut`, which also cancels that number's queued rows (#169). **Allow messages** clears the customer's current number + admin's own blocks for that customer. A STOP from a number the customer no longer has stays in force, but unlinked from the customer.
 - **Template webhooks** via `templateStatusForEvent`: `REINSTATED` / `UNARCHIVED` → `APPROVED`; `FLAGGED` / `LOCKED` / `UNLOCKED` leave status alone (#168). Template whose buttons/header need a value Sijil can't fill (copy-code, dynamic URL, media, OTP, flow, catalog) stored as not supported (`isSendableTemplate`).
 - **Not connected.** One-customer reminder opens `wa.me` w/ same template wording. Bulk sends + notices need a connection.
-- **Connect page.** Trusts `postMessage` only from `facebook.com` or `*.facebook.com`. `FINISH_ONLY_WABA` (admin finished Meta's window w/o phone number) shows own message, never sent to server. Started from web app → page gets `?from=web`, and **Return to Sijil** goes back to Admin → WhatsApp in same tab instead of `sijil://`. Native WhatsApp screen refetches when app returns to front.
+- **Connect page.** Trusts `postMessage` only from `facebook.com` or `*.facebook.com`. `FINISH_ONLY_WABA` (admin finished Meta's window w/o phone number) shows own message, never sent to server. Started from web app → page gets `?from=web`, and **Return to Sijil** goes back to Admin → WhatsApp (`/admin/whatsapp`, same path in Expo web and `Web/`) in same tab instead of `sijil://`. `Web/` has its own `/whatsapp-connect` (public, outside `SessionGate`, reads options itself); `WhatsAppConnectUrl` decides which one Meta's link opens until H2. Native WhatsApp screen refetches when app returns to front.
 
 ## 4. Meta setup (SaaS owner, once)
 

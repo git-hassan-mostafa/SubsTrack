@@ -1840,7 +1840,7 @@
     "send_reminder": "إرسال تذكير بالدفع",
     "send_message": "إرسال رسالة واتساب",
     "send_on_whatsapp": "إرسال عبر واتساب",
-    "opens_whatsapp": "يفتح واتساب على هذا الهاتف",
+    "opens_whatsapp": "يفتح واتساب والرسالة جاهزة",
     "opted_out_caption": "طلب عدم استلام رسائل واتساب",
     "template_pending": "بانتظار موافقة Meta على التذكير",
     "stop_messages": "إيقاف رسائل واتساب",

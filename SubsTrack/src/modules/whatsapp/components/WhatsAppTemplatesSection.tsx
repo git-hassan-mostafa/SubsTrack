@@ -2,21 +2,17 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import type { WhatsAppTemplate } from "@shared/core/types";
 import { Button } from "@/src/shared/components/Button";
-import { Chip, type ChipTone } from "@/src/shared/components/Chip";
+import { Chip } from "@/src/shared/components/Chip";
 import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE } from "@/src/shared/constants";
 import { useWhatsAppSlice } from "@shared/state/hooks/useWhatsAppSlice";
 import { templateLabel } from "@shared/modules/whatsapp/utils/labels";
-
-const STATUS_TONES: Record<string, ChipTone> = {
-  APPROVED: "emerald",
-  PENDING: "amber",
-  IN_APPEAL: "amber",
-  REJECTED: "red",
-  DISABLED: "red",
-  PAUSED: "orange",
-  FLAGGED: "orange",
-};
+import {
+  templateMetaText,
+  templateStatusLabel,
+  templateStatusTone,
+  templateWarnings,
+} from "@shared/modules/whatsapp/utils/whatsappView";
 
 function TemplateRow({ template }: { template: WhatsAppTemplate }) {
   const { t } = useTranslation();
@@ -27,31 +23,21 @@ function TemplateRow({ template }: { template: WhatsAppTemplate }) {
           {templateLabel(template, t)}
         </Text>
         <Chip
-          text={t(`whatsapp.template_status.${template.status}`, {
-            defaultValue: template.status,
-          })}
-          tone={STATUS_TONES[template.status] ?? "gray"}
+          text={templateStatusLabel(template, t)}
+          tone={templateStatusTone(template.status)}
         />
       </View>
       <Text className="text-xs text-gray-500 mt-1">
-        {[
-          template.language.toUpperCase(),
-          template.category,
-          template.supported ? null : t("whatsapp.template_not_supported"),
-        ]
-          .filter(Boolean)
-          .join(" · ")}
+        {templateMetaText(template, t)}
       </Text>
-      {template.rejectionReason ? (
-        <Text className="text-xs text-red-600 mt-1">
-          {t("whatsapp.rejection_reason", { reason: template.rejectionReason })}
+      {templateWarnings(template, t).map((warning) => (
+        <Text
+          key={warning.text}
+          className={`text-xs mt-1 ${warning.tone === "red" ? "text-red-600" : "text-amber-700"}`}
+        >
+          {warning.text}
         </Text>
-      ) : null}
-      {template.isSijil && template.category === "MARKETING" ? (
-        <Text className="text-xs text-amber-700 mt-1">
-          {t("whatsapp.marketing_warning")}
-        </Text>
-      ) : null}
+      ))}
     </View>
   );
 }

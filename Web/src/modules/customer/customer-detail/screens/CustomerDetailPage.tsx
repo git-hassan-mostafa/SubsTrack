@@ -27,6 +27,7 @@ import { CUSTOMER_ACTION_ICONS } from "@/modules/customer/customers/utils/custom
 import { MonthPanel } from "@/modules/customer/customer-payments/components/MonthPanel";
 import { CustomerDebtsPanel } from "@/modules/transaction/debts/components/CustomerDebtsPanel";
 import { CustomerSalesPanel } from "@/modules/transaction/sales/components/CustomerSalesPanel";
+import { useWhatsAppDoors } from "@/modules/whatsapp/hooks/useWhatsAppDoors";
 import { CustomerDetailsPanel } from "../components/CustomerDetailsPanel";
 
 const CUSTOMERS_PATH = "/customers";
@@ -44,6 +45,7 @@ export function CustomerDetailPage() {
   const fetchCustomer = useCustomerSlice((s) => s.fetchCustomer);
   const adminActions = useCustomerAdminActions();
   const history = useCustomerHistoryAction();
+  const whatsapp = useWhatsAppDoors();
   const [editing, setEditing] = useState(false);
   const [readId, setReadId] = useState<string | null>(null);
   const read = readId === id;
@@ -81,14 +83,17 @@ export function CustomerDetailPage() {
             </Button>
             <RowActionsMenu
               rowLabel={customer.name}
-              actions={toTableActions(customerStatusItems(customer, { isAdmin }), t, {
-                icons: CUSTOMER_ACTION_ICONS,
-                run: {
-                  deactivate: () => void adminActions.toggleActive(customer),
-                  reactivate: () => void adminActions.toggleActive(customer),
-                  delete: () => void removeCustomer(customer),
-                },
-              })}
+              actions={[
+                ...whatsapp.rowActions(customer),
+                ...toTableActions(customerStatusItems(customer, { isAdmin }), t, {
+                  icons: CUSTOMER_ACTION_ICONS,
+                  run: {
+                    deactivate: () => void adminActions.toggleActive(customer),
+                    reactivate: () => void adminActions.toggleActive(customer),
+                    delete: () => void removeCustomer(customer),
+                  },
+                }),
+              ]}
             />
           </Stack>
         ) : null}
@@ -129,6 +134,7 @@ export function CustomerDetailPage() {
         <CustomerFormDialog customer={customer} onClose={() => setEditing(false)} onSaved={() => setEditing(false)} />
       ) : null}
       {history.dialog}
+      {whatsapp.dialog}
     </Stack>
   );
 }

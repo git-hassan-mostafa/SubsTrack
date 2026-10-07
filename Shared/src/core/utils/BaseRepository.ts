@@ -260,6 +260,7 @@ export abstract class BaseRepository {
     services: { kind: "shared" },
     sales: { kind: "owned" },
     expenses: { kind: "owned" },
+    whatsapp_messages: { kind: "owned" },
     stock_movements: { kind: "inherited", joinedTable: "products" },
   } satisfies Record<string, BranchScope>;
 

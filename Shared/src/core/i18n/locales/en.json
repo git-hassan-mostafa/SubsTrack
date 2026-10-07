@@ -1840,7 +1840,7 @@
     "send_reminder": "Send payment reminder",
     "send_message": "Send WhatsApp message",
     "send_on_whatsapp": "Send on WhatsApp",
-    "opens_whatsapp": "Opens WhatsApp on this phone",
+    "opens_whatsapp": "Opens WhatsApp with the message ready",
     "opted_out_caption": "Asked not to get WhatsApp messages",
     "template_pending": "Waiting for Meta to approve the reminder",
     "stop_messages": "Stop WhatsApp messages",

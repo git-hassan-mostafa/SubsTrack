@@ -10,6 +10,7 @@ import { useProductsTable } from "./productsTable";
 import { useSalesTable } from "./salesTable";
 import { useServicesTable } from "./servicesTable";
 import { useUsersTable } from "./usersTable";
+import { useWhatsAppHistoryTable } from "./whatsappHistoryTable";
 
 const WEB_STORE_RESETS: readonly (() => void)[] = [
   () => useBranchesTable.getState().reset(),
@@ -23,6 +24,7 @@ const WEB_STORE_RESETS: readonly (() => void)[] = [
   () => useCollectionsTable.getState().reset(),
   () => useSalesTable.getState().reset(),
   () => useDebtHistoryTable.getState().reset(),
+  () => useWhatsAppHistoryTable.getState().reset(),
 ];
 
 // The ONE web session end: Shared's reset, then every Web/src/state store.

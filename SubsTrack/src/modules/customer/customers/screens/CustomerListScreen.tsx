@@ -356,9 +356,7 @@ export function CustomerListScreen() {
         disabled: busy ? ["delete", "quick_pay"] : [],
       },
     );
-    const whatsappAction = whatsappActions.selectionAction(selected);
-    if (whatsappAction) actions.push(whatsappAction);
-    return actions;
+    return [...actions, ...whatsappActions.selectionActions(selected)];
   }
 
   // Collect everything a customer owes — waterfall settles it oldest-first.

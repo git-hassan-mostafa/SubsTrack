@@ -43,16 +43,16 @@ export const useMessageHistoryStore = create<MessageHistoryState>()(
         s.error = null;
       });
       try {
-        const items = await whatsAppService.getMessages(
-          tenant,
-          get().status,
-          0,
-          HISTORY_PAGE_SIZE,
-        );
+        const page = await whatsAppService.getMessagePage(tenant, {
+          status: get().status,
+          branch: null,
+          offset: 0,
+          limit: HISTORY_PAGE_SIZE,
+        });
         if (isStaleEpoch(epoch)) return;
         set((s) => {
-          s.items = items;
-          s.hasMore = items.length === HISTORY_PAGE_SIZE;
+          s.items = page.rows;
+          s.hasMore = page.rows.length < page.total;
           s.loading = false;
         });
       } catch (e) {
@@ -73,16 +73,16 @@ export const useMessageHistoryStore = create<MessageHistoryState>()(
         s.loadingMore = true;
       });
       try {
-        const page = await whatsAppService.getMessages(
-          tenant,
+        const page = await whatsAppService.getMessagePage(tenant, {
           status,
-          items.length,
-          HISTORY_PAGE_SIZE,
-        );
+          branch: null,
+          offset: items.length,
+          limit: HISTORY_PAGE_SIZE,
+        });
         if (isStaleEpoch(epoch)) return;
         set((s) => {
-          s.items.push(...page);
-          s.hasMore = page.length === HISTORY_PAGE_SIZE;
+          s.items.push(...page.rows);
+          s.hasMore = s.items.length < page.total;
           s.loadingMore = false;
         });
       } catch (e) {

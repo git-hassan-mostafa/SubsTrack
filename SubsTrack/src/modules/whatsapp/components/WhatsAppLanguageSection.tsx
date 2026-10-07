@@ -1,12 +1,10 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import type { WhatsAppLanguage } from "@shared/core/types";
-import {
-  Dropdown,
-  type DropdownOption,
-} from "@/src/shared/components/Dropdown";
+import { Dropdown } from "@/src/shared/components/Dropdown";
 import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE } from "@/src/shared/constants";
+import { whatsAppLanguageOptions } from "@shared/modules/whatsapp/utils/whatsappView";
 import {
   useTenantSettingSlice,
   useWhatsAppLanguage,
@@ -18,10 +16,7 @@ export function WhatsAppLanguageSection() {
   const saving = useTenantSettingSlice((s) => s.saving);
   const setWhatsAppLanguage = useTenantSettingSlice((s) => s.setWhatsAppLanguage);
 
-  const options: DropdownOption<WhatsAppLanguage>[] = [
-    { label: t("whatsapp.language_en"), value: "en" },
-    { label: t("whatsapp.language_ar"), value: "ar" },
-  ];
+  const options = whatsAppLanguageOptions(t);
 
   return (
     <View className={`${CARD_SURFACE} p-4 mb-4`}>

@@ -30,6 +30,7 @@ import { useSendCollectionReceipt } from "@/modules/invoicing/hooks/useSendColle
 import { useCollectDialog } from "@/modules/ledger/collect/hooks/useCollectDialog";
 import { useDebtDoors } from "@/modules/transaction/debts/hooks/useDebtDoors";
 import { useSaleDoors } from "@/modules/transaction/sales/hooks/useSaleDoors";
+import { useWhatsAppDoors } from "@/modules/whatsapp/hooks/useWhatsAppDoors";
 import { DataTable } from "@/shared/table/DataTable";
 import { RowLink } from "@/shared/table/RowLink";
 import { toTableActions, type TableAction } from "@/shared/table/tableAction";
@@ -67,6 +68,7 @@ export function CustomersPage() {
   const history = useCustomerHistoryAction();
   const sale = useSaleDoors();
   const debts = useDebtDoors();
+  const whatsapp = useWhatsAppDoors();
   const [form, setForm] = useState<{ customer: Customer | null } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loadingOwedFor, setLoadingOwedFor] = useState<string | null>(null);
@@ -150,8 +152,8 @@ export function CustomersPage() {
     };
   };
 
-  const rowActions = (row: CustomerRow): TableAction[] =>
-    toTableActions(
+  const rowActions = (row: CustomerRow): TableAction[] => [
+    ...toTableActions(
       customerMenuItems(
         row.customer,
         { status: row.status, debtUsd: row.debtUsd, currencies },
@@ -159,7 +161,9 @@ export function CustomersPage() {
       ),
       t,
       { icons: CUSTOMER_ACTION_ICONS, run: runFor(row), disabled: quickPay.bulkBusy ? ["quick_pay"] : [] },
-    );
+    ),
+    ...whatsapp.rowActions(row.customer),
+  ];
 
   const bulkActions = (selected: CustomerRow[]): TableAction[] => {
     const one = selected.length === 1 ? selected[0] : null;
@@ -171,11 +175,14 @@ export function CustomersPage() {
         : () => void quickPay.bulkQuickPay(selected.map(targetOf)),
       delete: () => void adminActions.remove(customers),
     };
-    return toTableActions(customerSelectionItems(customers, { isAdmin }), t, {
-      icons: CUSTOMER_ACTION_ICONS,
-      run,
-      disabled: quickPay.bulkBusy || adminActions.busy ? ["quick_pay", "delete"] : [],
-    });
+    return [
+      ...toTableActions(customerSelectionItems(customers, { isAdmin }), t, {
+        icons: CUSTOMER_ACTION_ICONS,
+        run,
+        disabled: quickPay.bulkBusy || adminActions.busy ? ["quick_pay", "delete"] : [],
+      }),
+      ...whatsapp.bulkActions(customers),
+    ];
   };
 
   const columns: GridColDef<CustomerRow>[] = [
@@ -270,6 +277,7 @@ export function CustomersPage() {
       {collect.dialog}
       {sale.dialogs}
       {debts.dialogs}
+      {whatsapp.dialog}
     </Stack>
   );
 }

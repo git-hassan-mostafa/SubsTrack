@@ -43,7 +43,7 @@ export function CustomerDetailScreen() {
   const whatsappReminder = customer
     ? whatsappActions
         .rowItems(customer)
-        .find((item) => item.key === "whatsapp-reminder" && !item.disabled)
+        .find((item) => item.key === "whatsapp_reminder" && !item.disabled)
     : undefined;
 
   useEffect(() => {

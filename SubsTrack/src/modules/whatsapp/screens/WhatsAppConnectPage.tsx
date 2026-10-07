@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, Linking, ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter, type Href } from "expo-router";
@@ -7,97 +7,12 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
-import { useOptionSlice, useWhatsAppSignupOptions } from "@shared/state/hooks/useOptionSlice";
-import { GRAPH_VERSION } from "@edge/whatsapp/rules";
-import { useConnectStore } from "@shared/modules/whatsapp/state/connectStore";
+import { useEmbeddedSignup } from "@shared/modules/whatsapp/hooks/useEmbeddedSignup";
 import { CONNECT_FROM_WEB } from "@shared/modules/whatsapp/utils/constants";
+import { isSignupPin, SIGNUP_PIN_LENGTH } from "@shared/modules/whatsapp/utils/embeddedSignup";
 
-const SDK_URL = "https://connect.facebook.net/en_US/sdk.js";
-const SDK_SCRIPT_ID = "facebook-jssdk";
-const DETAILS_WAIT_MS = 10_000;
 const APP_RETURN_URL = "sijil://";
 const WEB_RETURN_ROUTE = "/(app)/(tabs)/admin/whatsapp" as Href;
-const NO_NUMBER_EVENT = "FINISH_ONLY_WABA";
-
-interface FacebookLoginResponse {
-  authResponse?: { code?: string } | null;
-}
-
-interface FacebookSdk {
-  init: (options: Record<string, unknown>) => void;
-  login: (
-    callback: (response: FacebookLoginResponse) => void,
-    options: Record<string, unknown>,
-  ) => void;
-}
-
-interface SignupDetails {
-  wabaId: string;
-  phoneNumberId: string;
-  businessId: string | null;
-  flow: "cloud" | "coexistence";
-}
-
-interface Pending {
-  code: string | null;
-  details: SignupDetails | null;
-  settled: boolean;
-}
-
-type FacebookWindow = Window & { FB?: FacebookSdk; fbAsyncInit?: () => void };
-
-function facebookWindow(): FacebookWindow {
-  return window as FacebookWindow;
-}
-
-function useFacebookSdk(appId: string | null): boolean {
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    if (!appId) return;
-    const w = facebookWindow();
-    const init = () => {
-      w.FB?.init({ appId, autoLogAppEvents: true, xfbml: false, version: GRAPH_VERSION });
-      setReady(true);
-    };
-    if (w.FB) {
-      init();
-      return;
-    }
-    w.fbAsyncInit = init;
-    if (!document.getElementById(SDK_SCRIPT_ID)) {
-      const script = document.createElement("script");
-      script.id = SDK_SCRIPT_ID;
-      script.src = SDK_URL;
-      script.async = true;
-      script.defer = true;
-      script.crossOrigin = "anonymous";
-      document.body.appendChild(script);
-    }
-  }, [appId]);
-  return ready;
-}
-
-// A bare endsWith("facebook.com") would also trust evilfacebook.com.
-function isFacebookOrigin(origin: string): boolean {
-  try {
-    const host = new URL(origin).hostname;
-    return host === "facebook.com" || host.endsWith(".facebook.com");
-  } catch {
-    return false;
-  }
-}
-
-function parseSignupMessage(event: MessageEvent): { event: string; data: Record<string, string> } | null {
-  if (!isFacebookOrigin(event.origin)) return null;
-  try {
-    const payload = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
-    return payload?.type === "WA_EMBEDDED_SIGNUP"
-      ? { event: String(payload.event ?? ""), data: payload.data ?? {} }
-      : null;
-  } catch {
-    return null;
-  }
-}
 
 // Web-only: Embedded Signup needs the Facebook JS SDK, never the native app.
 export function WhatsAppConnectPage() {
@@ -105,96 +20,17 @@ export function WhatsAppConnectPage() {
   const router = useRouter();
   const { s, from } = useLocalSearchParams<{ s?: string; from?: string }>();
   const fromWeb = from === CONNECT_FROM_WEB;
-  const optionsLoading = useOptionSlice((state) => state.loading);
-  const { appId, configId } = useWhatsAppSignupOptions();
-  const sdkReady = useFacebookSdk(appId);
-  const phase = useConnectStore((state) => state.phase);
-  const error = useConnectStore((state) => state.error);
-  const result = useConnectStore((state) => state.result);
-  const complete = useConnectStore((state) => state.complete);
-  const submitPin = useConnectStore((state) => state.submitPin);
-  const fail = useConnectStore((state) => state.fail);
-  const reset = useConnectStore((state) => state.reset);
+  const signup = useEmbeddedSignup(s ?? null);
+  const { phase, error, result } = signup;
   const [pin, setPin] = useState("");
-  const pending = useRef<Pending>({ code: null, details: null, settled: false });
-
-  const trySubmit = useCallback(() => {
-    const { code, details, settled } = pending.current;
-    if (settled || !code || !details || !s) return;
-    pending.current.settled = true;
-    void complete({ s, code, ...details });
-  }, [complete, s]);
-
-  const settleWithError = useCallback(
-    (message: string) => {
-      pending.current.settled = true;
-      fail(message);
-    },
-    [fail],
-  );
-
-  useEffect(() => {
-    function onMessage(event: MessageEvent) {
-      const message = parseSignupMessage(event);
-      if (!message) return;
-      if (message.event === NO_NUMBER_EVENT) {
-        settleWithError(t("whatsapp.connect_page.no_number"));
-      } else if (message.event.startsWith("FINISH")) {
-        pending.current.details = {
-          wabaId: String(message.data.waba_id ?? ""),
-          phoneNumberId: String(message.data.phone_number_id ?? ""),
-          businessId: message.data.business_id ? String(message.data.business_id) : null,
-          flow:
-            message.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING"
-              ? "coexistence"
-              : "cloud",
-        };
-        trySubmit();
-      } else if (message.event === "CANCEL" || message.event === "ERROR") {
-        const detail = message.data.error_message;
-        settleWithError(detail ? t("whatsapp.connect_page.meta_error", { message: detail }) : t("whatsapp.connect_page.cancelled"));
-      }
-    }
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [trySubmit, settleWithError, t]);
-
-  useEffect(() => reset, [reset]);
-
-  function launch() {
-    const sdk = facebookWindow().FB;
-    if (!sdk || !configId) return;
-    reset();
-    const attempt: Pending = { code: null, details: null, settled: false };
-    pending.current = attempt;
-    sdk.login(
-      (response) => {
-        const code = response.authResponse?.code ?? null;
-        if (!code) return;
-        attempt.code = code;
-        trySubmit();
-        setTimeout(() => {
-          if (pending.current === attempt && !attempt.settled) {
-            fail(t("whatsapp.connect_page.no_details"));
-          }
-        }, DETAILS_WAIT_MS);
-      },
-      {
-        config_id: configId,
-        response_type: "code",
-        override_default_response_type: true,
-        extras: { setup: {} },
-      },
-    );
-  }
 
   if (!s) {
     return <Message title={t("whatsapp.connect_page.title")} body={t("whatsapp.connect_page.no_link")} />;
   }
-  if (optionsLoading && !appId) {
+  if (signup.optionsLoading) {
     return <Message title={t("whatsapp.connect_page.title")} loading />;
   }
-  if (!appId || !configId) {
+  if (!signup.configured) {
     return <Message title={t("whatsapp.connect_page.title")} body={t("whatsapp.errors.not_configured")} />;
   }
 
@@ -240,13 +76,13 @@ export function WhatsAppConnectPage() {
             value={pin}
             onChangeText={setPin}
             keyboardType="number-pad"
-            maxLength={6}
+            maxLength={SIGNUP_PIN_LENGTH}
             secureTextEntry
           />
           <Button
             label={t("whatsapp.connect_page.pin_submit")}
-            onPress={() => void submitPin(s, pin)}
-            disabled={!/^\d{6}$/.test(pin)}
+            onPress={() => void signup.submitPin(pin)}
+            disabled={!isSignupPin(pin)}
             fullWidth
           />
         </View>
@@ -259,9 +95,9 @@ export function WhatsAppConnectPage() {
           ))}
           <Button
             label={t("whatsapp.connect_page.start")}
-            onPress={launch}
-            disabled={!sdkReady}
-            loading={!sdkReady}
+            onPress={signup.launch}
+            disabled={!signup.sdkReady}
+            loading={!signup.sdkReady}
             fullWidth
           />
         </View>

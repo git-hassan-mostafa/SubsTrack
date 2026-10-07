@@ -3,9 +3,9 @@ import { ActivityIndicator, FlatList, RefreshControl, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter } from "expo-router";
-import type { WhatsAppMessage, WhatsAppMessageStatus } from "@shared/core/types";
+import type { WhatsAppMessage } from "@shared/core/types";
 import { formatDateTime } from "@shared/core/utils/date";
-import { Chip, type ChipTone } from "@/src/shared/components/Chip";
+import { Chip } from "@/src/shared/components/Chip";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PageHeader } from "@/src/shared/components/PageHeader";
@@ -16,22 +16,20 @@ import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { confirm } from "@shared/shared/lib/confirm";
 import { useMessageHistoryStore } from "@shared/modules/whatsapp/state/messageHistoryStore";
-import { HISTORY_STATUS_FILTERS } from "@shared/modules/whatsapp/utils/constants";
-import { sijilTemplateByName } from "@edge/whatsapp/sijilTemplates";
-
-type Filter = WhatsAppMessageStatus | "all";
-
-const STATUS_TONES: Record<WhatsAppMessageStatus, ChipTone> = {
-  queued: "gray",
-  sending: "gray",
-  unknown: "orange",
-  accepted: "sky",
-  sent: "sky",
-  delivered: "indigo",
-  read: "emerald",
-  failed: "red",
-  cancelled: "gray",
-};
+import {
+  HISTORY_STATUS_FILTERS,
+  type HistoryStatusFilter,
+} from "@shared/modules/whatsapp/utils/constants";
+import { whatsAppMessageItems } from "@shared/modules/whatsapp/utils/whatsappMenu";
+import {
+  cancelBatchConfirm,
+  historyFilterLabel,
+  messageCustomerName,
+  messageErrorText,
+  messageStatusLabel,
+  messageStatusTone,
+  messageTitle,
+} from "@shared/modules/whatsapp/utils/whatsappView";
 
 function MessageCard({
   message,
@@ -41,36 +39,29 @@ function MessageCard({
   onCancel: (batchId: string) => void;
 }) {
   const { t } = useTranslation();
-  const sijil = sijilTemplateByName(message.templateName);
-  const title = sijil
-    ? t(`whatsapp.purpose.${sijil.purpose}`)
-    : message.templateName;
+  const errorText = messageErrorText(message, t);
   return (
     <View className={`${CARD_SURFACE} p-4 mb-3`}>
       <View className="flex-row items-center justify-between gap-2">
         <Text fontWeight="SemiBold" className="flex-1 text-sm text-gray-900">
-          {message.customerName ?? t("whatsapp.unknown_customer")}
+          {messageCustomerName(message, t)}
         </Text>
         <Chip
-          text={t(`whatsapp.message_status.${message.status}`)}
-          tone={STATUS_TONES[message.status] ?? "gray"}
+          text={messageStatusLabel(message.status, t)}
+          tone={messageStatusTone(message.status)}
         />
       </View>
       <Text className="text-xs text-gray-500 mt-1">
-        {`${title} · ${formatDateTime(message.createdAt)}`}
+        {`${messageTitle(message, t)} · ${formatDateTime(message.createdAt)}`}
       </Text>
-      {message.errorKey ? (
-        <Text className="text-xs text-red-600 mt-2">
-          {t(`whatsapp.message_error.${message.errorKey}`, {
-            defaultValue: message.errorTitle ?? t("whatsapp.message_error.meta_error"),
-          })}
-        </Text>
+      {errorText ? (
+        <Text className="text-xs text-red-600 mt-2">{errorText}</Text>
       ) : null}
-      {message.status === "queued" ? (
-        <PressableOpacity onPress={() => onCancel(message.batchId)} className="mt-2">
-          <Text className="text-xs text-primary">{t("whatsapp.cancel_batch")}</Text>
+      {whatsAppMessageItems(message).map((item) => (
+        <PressableOpacity key={item.key} onPress={() => onCancel(message.batchId)} className="mt-2">
+          <Text className="text-xs text-primary">{t(item.labelKey)}</Text>
         </PressableOpacity>
-      ) : null}
+      ))}
     </View>
   );
 }
@@ -96,18 +87,12 @@ export function WhatsAppHistoryScreen() {
   );
 
   async function handleCancel(batchId: string) {
-    const agreed = await confirm({
-      title: t("whatsapp.cancel_batch"),
-      message: t("whatsapp.cancel_batch_confirm"),
-      confirmLabel: t("whatsapp.cancel_batch"),
-      destructive: true,
-    });
-    if (agreed) await cancelBatch(batchId);
+    if (await confirm(cancelBatchConfirm(t))) await cancelBatch(batchId);
   }
 
   const tabs = HISTORY_STATUS_FILTERS.map((key) => ({
     key,
-    label: t(key === "all" ? "whatsapp.filter_all" : `whatsapp.message_status.${key}`),
+    label: historyFilterLabel(key, t),
   }));
 
   return (
@@ -119,7 +104,7 @@ export function WhatsAppHistoryScreen() {
       />
       <ResponsiveContainer className="flex-1">
         <View className="px-4 pt-3">
-          <PillTabs<Filter>
+          <PillTabs<HistoryStatusFilter>
             value={status ?? "all"}
             onChange={(value) => void setStatus(value === "all" ? null : value)}
             tabs={tabs}

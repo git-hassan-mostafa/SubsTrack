@@ -110,7 +110,12 @@
   "whatsapp": {
     "blocked_title": "Send it on WhatsApp",
     "blocked_message": "It was saved. Your browser did not let WhatsApp open by itself — click Open WhatsApp to send the message.",
-    "open": "Open WhatsApp"
+    "open": "Open WhatsApp",
+    "sent_at": "Sent",
+    "customer": "Customer",
+    "message": "Message",
+    "details": "What happened",
+    "history_empty_hint": "Messages sent from Customers show up here with what Meta did with them."
   },
   "bill": {
     "paid_here": "Paid to this bill",

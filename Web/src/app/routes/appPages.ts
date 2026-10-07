@@ -38,6 +38,8 @@ import { SalesPage } from "@/modules/transaction/sales/screens/SalesPage";
 import { MyWalletPage } from "@/modules/wallet/screens/MyWalletPage";
 import { WalletDetailPage } from "@/modules/wallet/screens/WalletDetailPage";
 import { WalletsPage } from "@/modules/wallet/screens/WalletsPage";
+import { WhatsAppHistoryPage } from "@/modules/whatsapp/screens/WhatsAppHistoryPage";
+import { WhatsAppSettingsPage } from "@/modules/whatsapp/screens/WhatsAppSettingsPage";
 import { PAGE_ACCESS, type PageAccess } from "@shared/modules/authentication/auth/utils/pageAccess";
 
 export type NavSection = "main" | "admin";
@@ -208,6 +210,7 @@ export const APP_PAGES: readonly AppPage[] = [
     access: PAGE_ACCESS.whatsapp,
     icon: WhatsApp,
     nav: "admin",
+    component: WhatsAppSettingsPage,
   },
   {
     path: "admin/whatsapp-history",
@@ -215,6 +218,7 @@ export const APP_PAGES: readonly AppPage[] = [
     access: PAGE_ACCESS.whatsapp_history,
     icon: ForumOutlined,
     nav: "admin",
+    component: WhatsAppHistoryPage,
   },
   {
     path: "my-wallet",

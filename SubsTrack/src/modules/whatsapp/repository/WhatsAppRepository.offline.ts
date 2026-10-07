@@ -1,4 +1,4 @@
-import type { WhatsAppQueueResult } from "@shared/core/types";
+import type { Page, WhatsAppQueueResult } from "@shared/core/types";
 import type {
   DbWhatsAppAccount,
   DbWhatsAppMessage,
@@ -39,12 +39,12 @@ export class OfflineWhatsAppRepository implements IWhatsAppRepository {
     return this.online.findOptOuts(tenantId);
   }
 
-  async findMessages(
+  async findMessagePage(
     tenantId: string,
     query: MessagePageQuery,
-  ): Promise<DbWhatsAppMessage[]> {
+  ): Promise<Page<DbWhatsAppMessage>> {
     await this.requireOnline();
-    return this.online.findMessages(tenantId, query);
+    return this.online.findMessagePage(tenantId, query);
   }
 
   async startConnect(consent: boolean): Promise<{ url: string }> {

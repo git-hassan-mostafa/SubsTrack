@@ -8,7 +8,9 @@ export const WHATSAPP_FUNCTIONS = {
 
 export const HISTORY_PAGE_SIZE = 30;
 
-export const HISTORY_STATUS_FILTERS: (WhatsAppMessageStatus | "all")[] = [
+export type HistoryStatusFilter = WhatsAppMessageStatus | "all";
+
+export const HISTORY_STATUS_FILTERS: HistoryStatusFilter[] = [
   "all",
   "queued",
   "sent",

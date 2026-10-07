@@ -1,42 +1,15 @@
-import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import type {
-  Customer,
-  WhatsAppQueueResult,
-  WhatsAppTemplatePurpose,
-} from "@shared/core/types";
+import type { Customer, WhatsAppTemplatePurpose } from "@shared/core/types";
+import { useSendWhatsAppForm } from "@shared/modules/whatsapp/hooks/useSendWhatsAppForm";
+import type { PlaceholderSource } from "@shared/modules/whatsapp/utils/templateValues";
 import { Button } from "@/src/shared/components/Button";
-import {
-  Dropdown,
-  type DropdownOption,
-} from "@/src/shared/components/Dropdown";
+import { Dropdown } from "@/src/shared/components/Dropdown";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { Input } from "@/src/shared/components/Input";
 import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE } from "@/src/shared/constants";
-import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
-import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { useUnpaidStartRule } from "@shared/state/hooks/useTenantSettingSlice";
-import {
-  useOptedOutCustomerIds,
-  useSendableTemplates,
-  useTemplateForPurpose,
-  useWhatsAppSlice,
-} from "@shared/state/hooks/useWhatsAppSlice";
-import type { WhatsAppSendOutcome } from "@shared/state/slices/whatsapp/whatsappSlice";
-import { templateLabel } from "@shared/modules/whatsapp/utils/labels";
-import {
-  defaultChoices,
-  messageLanguage,
-  missingCustomText,
-  paramMaxLength,
-  PLACEHOLDER_SOURCES,
-  previewText,
-  type PlaceholderChoices,
-  type PlaceholderSource,
-} from "@shared/modules/whatsapp/utils/templateValues";
 
 interface SendWhatsAppSheetProps {
   customers: Customer[];
@@ -44,120 +17,39 @@ interface SendWhatsAppSheetProps {
   onDismiss: () => void;
 }
 
-type SkipList = WhatsAppQueueResult["skipped"];
-
-function countReasons(skipped: SkipList): [string, number][] {
-  const counts = new Map<string, number>();
-  for (const { reason } of skipped) counts.set(reason, (counts.get(reason) ?? 0) + 1);
-  return [...counts.entries()];
-}
-
 export function SendWhatsAppSheet({
   customers,
   purpose = null,
   onDismiss,
 }: SendWhatsAppSheetProps) {
-  const { t, i18n } = useTranslation();
-  const sendable = useSendableTemplates();
-  const forPurpose = useTemplateForPurpose(purpose);
-  const optedOutCustomerIds = useOptedOutCustomerIds();
-  const sending = useWhatsAppSlice((s) => s.sending);
-  const error = useWhatsAppSlice((s) => s.error);
-  const clearError = useWhatsAppSlice((s) => s.clearError);
-  const send = useWhatsAppSlice((s) => s.send);
-  const businessName = useAuthSlice((s) => s.user?.tenant.name ?? "");
-  const currencies = useCurrencySlice((s) => s.items);
-  const getCurrencies = useCurrencySlice((s) => s.getCurrencies);
-  const unpaidRule = useUnpaidStartRule();
+  const { t } = useTranslation();
+  const form = useSendWhatsAppForm(customers, purpose);
 
-  const initial = forPurpose ?? sendable[0] ?? null;
-
-  const [templateId, setTemplateId] = useState<string | null>(initial?.id ?? null);
-  const template = sendable.find((x) => x.id === templateId) ?? null;
-  const [choices, setChoices] = useState<PlaceholderChoices>(() =>
-    initial ? defaultChoices(initial) : {},
-  );
-  const [outcome, setOutcome] = useState<WhatsAppSendOutcome | null>(null);
-
-  useEffect(() => {
-    void getCurrencies();
-    return clearError;
-  }, [getCurrencies, clearError]);
-
-  const templateOptions: DropdownOption<string>[] = sendable.map((x) => ({
-    label: templateLabel(x, t),
-    sublabel: x.isSijil ? undefined : t("whatsapp.own_template"),
-    value: x.id,
-  }));
-
-  const sourceOptions: DropdownOption<PlaceholderSource>[] =
-    PLACEHOLDER_SOURCES.map((source) => ({
-      label: t(`whatsapp.source.${source}`),
-      value: source,
-    }));
-
-  function pickTemplate(id: string | null) {
-    setTemplateId(id);
-    const next = sendable.find((x) => x.id === id);
-    setChoices(next ? defaultChoices(next) : {});
-  }
-
-  function updateChoice(param: string, patch: Partial<PlaceholderChoices[string]>) {
-    setChoices((prev) => ({ ...prev, [param]: { ...prev[param], ...patch } }));
-  }
-
-  async function runSend(force: boolean, targets: Customer[]) {
-    if (!template) return;
-    const result = await send({
-      template,
-      force,
-      build: {
-        customers: targets,
-        choices,
-        businessName,
-        optedOutCustomerIds,
-        currencies,
-        unpaidRule,
-        t: i18n.getFixedT(messageLanguage(template, i18n.language)),
-      },
-    });
-    if (result) setOutcome(result);
-  }
-
-  const missing = missingCustomText(choices);
-  const preview = template
-    ? previewText(template, choices, (source) => t(`whatsapp.source.${source}`))
-    : "";
-
-  if (outcome) {
-    const skipped = [...outcome.localSkipped, ...outcome.result.skipped];
-    const recent = skipped.filter((s) => s.reason === "recently_sent");
-    const recentCustomers = customers.filter((c) =>
-      recent.some((r) => r.customerId === c.id),
-    );
+  if (form.result) {
+    const { recentCustomers } = form.result;
     return (
       <FormSheet title={t("whatsapp.send_title")} onDismiss={onDismiss}>
         <View className={`${CARD_SURFACE} p-4 mb-4`}>
           <Text fontWeight="SemiBold" className="text-base text-gray-900 mb-1">
-            {t("whatsapp.queued_count", { count: outcome.result.queued })}
+            {form.result.queuedText}
           </Text>
           <Text className="text-xs text-gray-500">
             {t("whatsapp.queued_hint")}
           </Text>
-          {countReasons(skipped).map(([reason, count]) => (
-            <Text key={reason} className="text-sm text-gray-700 mt-2">
-              {t(`whatsapp.skip.${reason}`, { count })}
+          {form.result.skipTexts.map((text) => (
+            <Text key={text} className="text-sm text-gray-700 mt-2">
+              {text}
             </Text>
           ))}
         </View>
-        {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+        {form.error ? <ErrorBanner message={form.error} onDismiss={form.clearError} /> : null}
         {recentCustomers.length > 0 ? (
           <View className="mb-3">
             <Button
               label={t("whatsapp.send_again_anyway", { count: recentCustomers.length })}
               variant="ghost"
-              loading={sending}
-              onPress={() => void runSend(true, recentCustomers)}
+              loading={form.sending}
+              onPress={() => void form.sendAgain(recentCustomers)}
               fullWidth
             />
           </View>
@@ -173,8 +65,8 @@ export function SendWhatsAppSheet({
       subject={t("whatsapp.recipients_count", { count: customers.length })}
       onDismiss={onDismiss}
     >
-      {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
-      {sendable.length === 0 ? (
+      {form.error ? <ErrorBanner message={form.error} onDismiss={form.clearError} /> : null}
+      {!form.hasTemplates ? (
         <Text className="text-sm text-gray-600 mb-4">
           {t("whatsapp.no_approved_templates")}
         </Text>
@@ -183,44 +75,38 @@ export function SendWhatsAppSheet({
           <View className="mb-4">
             <Dropdown<string>
               label={t("whatsapp.message_type")}
-              options={templateOptions}
-              value={templateId}
-              onChange={pickTemplate}
+              options={form.templateOptions}
+              value={form.templateId}
+              onChange={form.pickTemplate}
               searchable
             />
           </View>
 
-          {template
-            ? Object.entries(choices).map(([param, choice]) => (
-                <View key={param} className="mb-3">
-                  {template.isSijil ? null : (
-                    <Dropdown<PlaceholderSource>
-                      label={t("whatsapp.placeholder_label", { name: param })}
-                      options={sourceOptions}
-                      value={choice.source}
-                      onChange={(source) =>
-                        source && updateChoice(param, { source })
-                      }
-                    />
-                  )}
-                  {choice.source === "custom" ? (
-                    <Input
-                      label={
-                        template.isSijil
-                          ? t(`whatsapp.param.${param}`)
-                          : t("whatsapp.custom_text")
-                      }
-                      value={choice.text}
-                      onChangeText={(text) => updateChoice(param, { text })}
-                      maxLength={paramMaxLength(template, param)}
-                      multiline
-                    />
-                  ) : null}
-                </View>
-              ))
-            : null}
+          {form.fields.map((field) => (
+            <View key={field.param} className="mb-3">
+              {field.pickSource ? (
+                <Dropdown<PlaceholderSource>
+                  label={t("whatsapp.placeholder_label", { name: field.param })}
+                  options={form.sourceOptions}
+                  value={field.choice.source}
+                  onChange={(source) =>
+                    source && form.updateChoice(field.param, { source })
+                  }
+                />
+              ) : null}
+              {field.choice.source === "custom" ? (
+                <Input
+                  label={field.textLabel}
+                  value={field.choice.text}
+                  onChangeText={(text) => form.updateChoice(field.param, { text })}
+                  maxLength={field.maxLength}
+                  multiline
+                />
+              ) : null}
+            </View>
+          ))}
 
-          {template ? (
+          {form.template ? (
             <View className={`${CARD_SURFACE} p-4 mb-4`}>
               <Text
                 fontWeight="SemiBold"
@@ -228,7 +114,7 @@ export function SendWhatsAppSheet({
               >
                 {t("whatsapp.preview")}
               </Text>
-              <Text className="text-sm text-gray-800">{preview}</Text>
+              <Text className="text-sm text-gray-800">{form.preview}</Text>
             </View>
           ) : null}
 
@@ -238,9 +124,9 @@ export function SendWhatsAppSheet({
 
           <Button
             label={t("whatsapp.send_button", { count: customers.length })}
-            onPress={() => void runSend(false, customers)}
-            loading={sending}
-            disabled={!template || missing.length > 0}
+            onPress={() => void form.send()}
+            loading={form.sending}
+            disabled={!form.canSend}
             fullWidth
           />
         </>

@@ -1,4 +1,4 @@
-import type { WhatsAppQueueResult } from "@shared/core/types";
+import type { Page, WhatsAppQueueResult } from "@shared/core/types";
 import type {
   DbWhatsAppAccount,
   DbWhatsAppMessage,
@@ -63,20 +63,22 @@ export class WhatsAppRepository
     return (data ?? []) as DbWhatsAppOptOut[];
   }
 
-  async findMessages(
+  async findMessagePage(
     tenantId: string,
     query: MessagePageQuery,
-  ): Promise<DbWhatsAppMessage[]> {
+  ): Promise<Page<DbWhatsAppMessage>> {
     let request = this.db
       .from("whatsapp_messages")
-      .select(MESSAGE_COLUMNS)
+      .select(MESSAGE_COLUMNS, { count: "exact" })
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(query.offset, query.offset + query.limit - 1);
+    request = this.applyBranchFilter(request, query.branch, this.BRANCH_SCOPES.whatsapp_messages);
     if (query.status) request = request.eq("status", query.status);
-    const { data, error } = await request;
+    const { data, error, count } = await request;
     if (error) this.handleError(error);
-    return (data ?? []) as unknown as DbWhatsAppMessage[];
+    return { rows: (data ?? []) as unknown as DbWhatsAppMessage[], total: count ?? 0 };
   }
 
   async startConnect(consent: boolean): Promise<{ url: string }> {

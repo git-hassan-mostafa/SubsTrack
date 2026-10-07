@@ -2,11 +2,11 @@ import { repositories } from "@shared/core/runtime/repositories";
 import type {
   Currency,
   Customer,
+  Page,
   UnpaidStartRule,
   WhatsAppAccount,
   WhatsAppLanguage,
   WhatsAppMessage,
-  WhatsAppMessageStatus,
   WhatsAppOptOut,
   WhatsAppQueueResult,
   WhatsAppRecipient,
@@ -27,7 +27,11 @@ import {
   sijilTemplateByPurpose,
   type SijilTemplatePurpose,
 } from "@edge/whatsapp/sijilTemplates";
-import type { SignupCompletion, SignupResult } from "@shared/modules/whatsapp/repository/IWhatsAppRepository";
+import type {
+  MessagePageQuery,
+  SignupCompletion,
+  SignupResult,
+} from "@shared/modules/whatsapp/repository/IWhatsAppRepository";
 import {
   mapDbWhatsAppAccount,
   mapDbWhatsAppMessage,
@@ -78,14 +82,9 @@ class WhatsAppService {
     return { account, templates, optOuts: optOutRows.map(mapDbWhatsAppOptOut) };
   }
 
-  async getMessages(
-    tenantId: string,
-    status: WhatsAppMessageStatus | null,
-    offset: number,
-    limit: number,
-  ): Promise<WhatsAppMessage[]> {
-    const rows = await repositories().whatsApp.findMessages(tenantId, { status, offset, limit });
-    return rows.map(mapDbWhatsAppMessage);
+  async getMessagePage(tenantId: string, query: MessagePageQuery): Promise<Page<WhatsAppMessage>> {
+    const page = await repositories().whatsApp.findMessagePage(tenantId, query);
+    return { rows: page.rows.map(mapDbWhatsAppMessage), total: page.total };
   }
 
   async startConnect(consent: boolean): Promise<string> {

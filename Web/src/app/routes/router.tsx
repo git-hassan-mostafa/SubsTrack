@@ -4,6 +4,7 @@ import { ComingSoonPage } from "@/app/layout/ComingSoonPage";
 import { NotFoundPage } from "@/app/layout/NotFoundPage";
 import type { PageHandle } from "@/app/layout/usePageTitle";
 import { LoginPage } from "@/modules/auth/screens/LoginPage";
+import { WhatsAppConnectPage } from "@/modules/whatsapp/screens/WhatsAppConnectPage";
 import { APP_PAGES } from "./appPages";
 import { GuestOnly } from "./GuestOnly";
 import { LandingRedirect } from "./LandingRedirect";
@@ -12,6 +13,7 @@ import { RequireSignedIn } from "./RequireSignedIn";
 import { SessionGate } from "./SessionGate";
 
 export const router = createBrowserRouter([
+  { path: "whatsapp-connect", element: <WhatsAppConnectPage /> },
   {
     element: <SessionGate />,
     children: [
