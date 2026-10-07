@@ -19,7 +19,7 @@ import {
 } from "@/src/core/i18n/languageStore";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { endSession } from "@shared/shared/lib/session";
-import { IS_OFFLINE_CAPABLE, syncNow } from "@/src/core/offline";
+import { syncNow } from "@/src/core/offline";
 import { useSyncStatus } from "@/src/shared/hooks/useSyncStatus";
 import { refreshActiveData } from "@shared/state/refreshActiveData";
 
@@ -135,7 +135,6 @@ export function SettingsScreen() {
             </Text>
           </View>
 
-          {/* Profile card */}
           {user ? (
             <View
               className={`${CARD_SURFACE} mx-4 mb-5 px-4 py-4 flex-row items-center`}
@@ -163,7 +162,6 @@ export function SettingsScreen() {
             </View>
           ) : null}
 
-          {/* My wallet — cash this user has collected but not handed over yet. */}
           <View className="mx-4 mb-5">
             <View className={`${CARD_SURFACE} overflow-hidden`}>
               <SettingsRow
@@ -177,7 +175,6 @@ export function SettingsScreen() {
             </View>
           </View>
 
-          {/* Preferences */}
           <View className="mx-4 mb-5">
             <Text
               fontWeight="SemiBold"
@@ -214,7 +211,6 @@ export function SettingsScreen() {
             </View>
           </View>
 
-          {/* Organization */}
           <View className="mx-4 mb-5">
             <Text
               fontWeight="SemiBold"
@@ -241,56 +237,52 @@ export function SettingsScreen() {
             </View>
           </View>
 
-          {/* Data / sync — native only (web talks to Supabase directly) */}
-          {IS_OFFLINE_CAPABLE ? (
-            <View className="mx-4 mb-5">
-              <Text
-                fontWeight="SemiBold"
-                className="text-xs text-gray-400 uppercase tracking-wide mb-2 px-1"
+          <View className="mx-4 mb-5">
+            <Text
+              fontWeight="SemiBold"
+              className="text-xs text-gray-400 uppercase tracking-wide mb-2 px-1"
+            >
+              {t("settings.data_section")}
+            </Text>
+            <View className={`${CARD_SURFACE} overflow-hidden`}>
+              <PressableOpacity
+                onPress={() => void handleSyncPress()}
+                disabled={syncing}
+                className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100"
               >
-                {t("settings.data_section")}
-              </Text>
-              <View className={`${CARD_SURFACE} overflow-hidden`}>
-                <PressableOpacity
-                  onPress={() => void handleSyncPress()}
-                  disabled={syncing}
-                  className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100"
-                >
-                  <View className="flex-row items-center gap-3">
-                    <Ionicons
-                      name="sync-outline"
-                      size={18}
-                      color={COLORS.gray500}
-                    />
-                    <Text fontWeight="Medium" className="text-sm text-gray-900">
-                      {t("settings.sync_now")}
-                    </Text>
-                  </View>
-                  {syncing ? (
-                    <ActivityIndicator size="small" color={COLORS.gray400} />
-                  ) : (
-                    <DirectionalIcon
-                      name="chevron-forward"
-                      size={14}
-                      color={COLORS.gray300}
-                    />
-                  )}
-                </PressableOpacity>
-                {isAdmin ? (
-                  <SettingsRow
-                    icon="code-slash-outline"
-                    label={t("settings.developer")}
-                    last
-                    onPress={() =>
-                      router.push("/(app)/(tabs)/settings/developer")
-                    }
+                <View className="flex-row items-center gap-3">
+                  <Ionicons
+                    name="sync-outline"
+                    size={18}
+                    color={COLORS.gray500}
                   />
-                ) : null}
-              </View>
+                  <Text fontWeight="Medium" className="text-sm text-gray-900">
+                    {t("settings.sync_now")}
+                  </Text>
+                </View>
+                {syncing ? (
+                  <ActivityIndicator size="small" color={COLORS.gray400} />
+                ) : (
+                  <DirectionalIcon
+                    name="chevron-forward"
+                    size={14}
+                    color={COLORS.gray300}
+                  />
+                )}
+              </PressableOpacity>
+              {isAdmin ? (
+                <SettingsRow
+                  icon="code-slash-outline"
+                  label={t("settings.developer")}
+                  last
+                  onPress={() =>
+                    router.push("/(app)/(tabs)/settings/developer")
+                  }
+                />
+              ) : null}
             </View>
-          ) : null}
+          </View>
 
-          {/* Logout */}
           <View className="mx-4 mb-8">
             <View className={`${CARD_SURFACE} overflow-hidden`}>
               <SettingsRow
@@ -304,9 +296,7 @@ export function SettingsScreen() {
           </View>
         </ScrollView>
 
-        {/* Manual-sync result flash (the "syncing" state itself is shown by the
-            global SyncIndicator, so this only covers the one-off outcome). */}
-        {IS_OFFLINE_CAPABLE && syncResult ? (
+        {syncResult ? (
           <View className="absolute inset-x-0 bottom-0 px-4 pb-4">
             <View
               className={`flex-row items-center gap-2 rounded-xl px-4 py-3 ${

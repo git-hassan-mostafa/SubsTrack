@@ -1,5 +1,4 @@
-import { Text as RNText, TextProps, StyleSheet, Platform } from "react-native";
-import { useLanguageStore } from "@/src/core/i18n/languageStore";
+import { Text as RNText, TextProps, StyleSheet } from "react-native";
 
 interface Props extends TextProps {
   fontWeight?: "Bold" | "Medium" | "Regular" | "SemiBold";
@@ -14,11 +13,6 @@ export function Text({ style, ...props }: Props) {
           ? "-" + props.fontWeight?.replace("Regular", "")
           : ""),
     },
-    Platform.OS === "web"
-      ? {
-          writingDirection: "ltr" as const,
-        }
-      : null,
     StyleSheet.flatten(style) ?? {},
   ];
   return <RNText style={allStyles} {...props} />;

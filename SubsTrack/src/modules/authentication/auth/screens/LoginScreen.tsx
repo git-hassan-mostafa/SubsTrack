@@ -15,7 +15,6 @@ import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer
 
 const BRAND_LOGO = require("@/assets/images/icon-web-transparent.png");
 
-// sized by style: web Image ignores className and width props (gotcha #172)
 const BRAND_LOGO_SIZE = { width: 28, height: 28 };
 
 type FormState = {

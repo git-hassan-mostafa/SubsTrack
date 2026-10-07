@@ -3,7 +3,6 @@ import {
   DevSettings,
   I18nManager,
   NativeModules,
-  Platform,
 } from "react-native";
 import { getLocales } from "expo-localization";
 import i18n, {
@@ -28,23 +27,14 @@ export async function reloadApp(): Promise<void> {
     return;
   } catch {}
 
-  if (Platform.OS !== "web") {
-    try {
-      if (typeof DevSettings?.reload === "function") {
-        DevSettings.reload();
-        return;
-      }
-      const DevMenu = (NativeModules as any).DevMenu;
-      if (DevMenu?.reload) {
-        DevMenu.reload();
-        return;
-      }
-    } catch {}
-  }
-
-  if (typeof window !== "undefined" && typeof window.location !== "undefined") {
-    window.location.reload();
-  }
+  try {
+    if (typeof DevSettings?.reload === "function") {
+      DevSettings.reload();
+      return;
+    }
+    const DevMenu = (NativeModules as any).DevMenu;
+    DevMenu?.reload?.();
+  } catch {}
 }
 
 export function getDeviceLanguage(): SupportedLanguage {
@@ -67,17 +57,15 @@ export async function initI18n(): Promise<void> {
 
   const isRTL = isRtlLanguage(language);
 
-  if (Platform.OS !== "web") {
-    const rtlMismatch = I18nManager.isRTL !== isRTL;
-    I18nManager.allowRTL(isRTL);
-    I18nManager.forceRTL(isRTL);
-    if (rtlMismatch) {
-      const count = await getRTLReloadCount();
-      if (count < MAX_RTL_RELOADS) {
-        await incrementRTLReloadCount();
-        await reloadApp();
-        return;
-      }
+  const rtlMismatch = I18nManager.isRTL !== isRTL;
+  I18nManager.allowRTL(isRTL);
+  I18nManager.forceRTL(isRTL);
+  if (rtlMismatch) {
+    const count = await getRTLReloadCount();
+    if (count < MAX_RTL_RELOADS) {
+      await incrementRTLReloadCount();
+      await reloadApp();
+      return;
     }
   }
 

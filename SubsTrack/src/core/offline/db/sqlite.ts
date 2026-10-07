@@ -1,5 +1,4 @@
 import * as SQLite from "expo-sqlite";
-import { IS_OFFLINE_CAPABLE } from "../platform";
 import { applySchema } from "./applySchema";
 import { withDbLock } from "../dbLock";
 
@@ -8,13 +7,8 @@ const DB_NAME = "sijil.db";
 let _db: SQLite.SQLiteDatabase | null = null;
 let _initPromise: Promise<void> | null = null;
 
-/**
- * Open the local DB and reconcile its schema with `tables.ts`. Idempotent and
- * safe to call from bootstrap before any repository use. No-op on web (offline
- * is native-only).
- */
+// Idempotent; reconciles the schema with `tables.ts` before any repository use.
 export async function initOfflineDb(): Promise<void> {
-  if (!IS_OFFLINE_CAPABLE) return;
   if (_initPromise) return _initPromise;
   _initPromise = (async () => {
     const db = await SQLite.openDatabaseAsync(DB_NAME);

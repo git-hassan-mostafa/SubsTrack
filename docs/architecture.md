@@ -16,10 +16,10 @@ Layers L1 Presentation → L2 State → L3 Services → L4 Repository → DB, L5
 - `@edge/*` files today: `whatsapp/rules.ts`, `whatsapp/sijilTemplates.ts`; guard test checks zero-import too.
 - **Stays in SubsTrack:** screens, components, RN / expo-router hooks (`useTextField`, `useExportRows`, …), presentation helpers (`kindStyle`, `kindIcon`, menu icon maps `*ActionIcons`, `menuActions`, `reportColors`, `expenseCategoryIcon`), Supabase client + `storage.ts`, phone i18n (`core/i18n/setup.ts`, `languageStore`), offline layer (`core/offline/**`, `*.offline.ts`, `platform/offlineRepositories.ts`, `errorLog/`, `net/connectivity`).
 
-### Offline-First (native only) — repository seam
+### Offline-First (phone only) — repository seam
 
 Core rules in CLAUDE.md §5. Extras:
-- Supabase class `Shared/src/modules/**/repository/XxxRepository.ts` (class only) + `OfflineXxxRepository` (SubsTrack `XxxRepository.offline.ts`); shared `implements IXxxRepository` → compiler keeps lockstep. Phone passes `createOfflineRepositories()`; Expo web gets `createSupabaseRepositories()` via the one temporary `Platform.OS` check in `configurePhone.ts`.
+- Supabase class `Shared/src/modules/**/repository/XxxRepository.ts` (class only) + `OfflineXxxRepository` (SubsTrack `XxxRepository.offline.ts`); shared `implements IXxxRepository` → compiler keeps lockstep. Phone always passes `createOfflineRepositories()` (`configurePhone.ts`, no platform check — SubsTrack has no web build); `Web/` passes `createSupabaseRepositories()`.
 - Mirror = `expo-sqlite`. `runSyncIfDue()` serves both app-open triggers (cold start + session restore), measuring durable `sync_meta.last_sync_at`. Pull order meaningless b/c mirror has no FKs; push goes in `PUSH_WAVES` b/c server FKs are real; `withDbLock` b/c one connection → concurrent transactions interleave and fail.
 - Online-only also covers every `CustomerRequest.*` (table not mirrored); `User.*` ones are edge fns.
 - Requires `sql scripts/script.sql` (`updated_at` + BEFORE UPDATE triggers on every synced table) + **dev-client rebuild** (native module).

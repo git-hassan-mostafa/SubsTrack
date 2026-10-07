@@ -7,7 +7,6 @@
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web",
     "lint": "expo lint",
     "deploy-create-user-edge-function": "supabase functions deploy create-user",
     "deploy-delete-user-edge-function": "supabase functions deploy delete-user",
@@ -21,9 +20,7 @@
     "build-prod": "eas build --platform android --profile production",
     "ota-preview": "eas update --channel preview",
     "ota-prod": "eas update --channel production",
-    "ota-fingerprint": "node ./scripts/print-fingerprint.js",
-    "build-web": "npx expo export -p web",
-    "serve-web": "npm run build-web && node -e \"require('fs').copyFileSync('serve.json', 'dist/serve.json')\" && npx serve dist"
+    "ota-fingerprint": "node ./scripts/print-fingerprint.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -50,7 +47,6 @@
     "immer": "^11.1.8",
     "nativewind": "^4.2.3",
     "react": "19.1.0",
-    "react-dom": "19.1.0",
     "react-i18next": "^17.0.6",
     "react-native": "0.81.5",
     "react-native-gesture-handler": "^3.2.1",
@@ -59,7 +55,6 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-url-polyfill": "^3.0.0",
-    "react-native-web": "~0.21.0",
     "react-native-worklets": "0.5.1",
     "tailwindcss": "^3.4.19",
     "zustand": "^5.0.12"

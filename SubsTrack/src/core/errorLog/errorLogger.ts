@@ -1,4 +1,3 @@
-import { IS_OFFLINE_CAPABLE } from "../offline/platform";
 import { getDb } from "../offline/db/sqlite";
 import { insertDirty } from "../offline/db/dml";
 import { newId, nowIso } from "@shared/core/utils/ids";
@@ -6,8 +5,6 @@ import { runtime, type ExceptionInput } from "@shared/core/runtime/runtime";
 
 // Never throws: it runs inside error paths, so it must not mask the real error.
 export async function logException(input: ExceptionInput): Promise<void> {
-  if (!IS_OFFLINE_CAPABLE) return;
-
   try {
     const user = runtime().actor();
     const row = {

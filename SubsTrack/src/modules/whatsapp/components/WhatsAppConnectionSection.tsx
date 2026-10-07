@@ -1,4 +1,4 @@
-import { Linking, Platform, View } from "react-native";
+import { Linking, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
 import { Checkbox } from "@/src/shared/components/Checkbox";
@@ -8,17 +8,9 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { CARD_SURFACE } from "@/src/shared/constants";
 import { useWhatsAppConnection } from "@shared/modules/whatsapp/hooks/useWhatsAppConnection";
-import { CONNECT_FROM_PARAM, CONNECT_FROM_WEB } from "@shared/modules/whatsapp/utils/constants";
 
-// On web the page replaces this tab, so it is told to come back in-app.
 async function openConnectPage(url: string) {
-  if (Platform.OS !== "web") {
-    await Linking.openURL(url);
-    return;
-  }
-  const target = new URL(url);
-  target.searchParams.set(CONNECT_FROM_PARAM, CONNECT_FROM_WEB);
-  window.location.assign(target.toString());
+  await Linking.openURL(url);
 }
 
 export function WhatsAppConnectionSection() {

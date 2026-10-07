@@ -506,7 +506,7 @@ Breakdown row / debts card → `RecordsSheet`: **filter over rows in memory**, n
 
 ### Export
 
-CSV → share sheet (`expo-file-system` + `expo-sharing`); web (`expo-sharing` no-op) → browser download. `Shared/src/shared/lib/csv.ts`: RFC-4180 quoting + UTF-8 BOM (commas, Arabic in Excel). Spending written **negative** → Amount sums to Net.
+CSV → share sheet (`expo-file-system` + `expo-sharing`); `Web/` has its own browser download. `Shared/src/shared/lib/csv.ts`: RFC-4180 quoting + UTF-8 BOM (commas, Arabic in Excel). Spending written **negative** → Amount sums to Net.
 
 ### Reusable pieces
 
@@ -574,7 +574,7 @@ Each tenant connects its **own** WhatsApp Business number (Embedded Signup, web 
 - **Background:** queued + background-processed, retries, Meta daily limit, idempotent webhooks. Opt-out (STOP reply or admin) also cancels that number's waiting messages; account problem (e.g. no payment method) keeps them waiting until **Check again**.
 - **Not connected:** single reminder opens `wa.me` w/ same wording.
 - **Both apps, one rule set:** menu = Shared `whatsapp/utils/whatsappMenu.ts` (`whatsAppCustomerItems`/`whatsAppSelectionItems`/`whatsAppMessageItems`); tones, labels, account rows, skip summary = `whatsappView.ts`; doors = Shared `useWhatsAppActions(openChat)` (phone `useWhatsApp().openChat`, web `openWhatsAppAfterSave` — reminder text read after an await, blocked tab gets a second click); send form = `useSendWhatsAppForm`; connection = `useWhatsAppConnection(openConnectPage)`; Meta signup = `useEmbeddedSignup` + pure `embeddedSignup.ts` (origin check, event parse, PIN).
-- **Web (G3):** customer row ⋮ + bulk bar + customer page ⋮ via `useWhatsAppDoors` → `SendWhatsAppDialog`; `/admin/whatsapp` (`WhatsAppSettingsPage`, re-reads on open); `/admin/whatsapp-history` = `DataTable` over `whatsappHistoryTable` (`findMessagePage`, count + header branch, status filter, `rereadOnOpen`), ⋮ Cancel waiting messages (Shared `messageHistoryStore.cancelBatch`, then re-read); public `/whatsapp-connect` route outside `SessionGate`, reads options itself.
+- **Web (G3):** customer row ⋮ + bulk bar + customer page ⋮ via `useWhatsAppDoors` → `SendWhatsAppDialog`; `/admin/whatsapp` (`WhatsAppSettingsPage`, re-reads on open); `/admin/whatsapp-history` = `DataTable` over `whatsappHistoryTable` (`findMessagePage`, count + header branch, status filter, `rereadOnOpen`), ⋮ Cancel waiting messages (Shared `messageHistoryStore.cancelBatch`, then re-read); public `/whatsapp-connect` route outside `SessionGate`, reads options itself — the ONLY connect page: phone `WhatsAppConnectionSection` opens it in the browser (`Linking.openURL(connectUrl)`), page returns to the app via `sijil://`.
 
 Full design, Meta setup, tenant steps: `docs/whatsapp.md`.
 
@@ -1018,7 +1018,7 @@ Long-press a card → selection mode: avatars become checkboxes, `PageHeader` �
 **Building blocks (domain-agnostic):**
 
 - `useSelection()` — `Shared/src/shared/hooks/useSelection.ts` (web month table too) → `{ active, selectedIds, count, isSelected, toggle, toggleMany, enterWith, clear }`. `active` **derived** from `selectedIds.size > 0` (last deselect auto-exits). Mutators `useCallback([])`-stable. `toggleMany(ids)` flips a group atomically (all selected → remove all, else add all); `enterWith(id | ids)` — both let the month grid move a multi-month block as one unit.
-- `useSelectionBackHandler(active, onExit)` — `SubsTrack/src/shared/hooks/useSelectionBackHandler.ts`, phone only: focus-gated Android `BackHandler` (expo-router `useFocusEffect`), back exits selection. App's only `BackHandler`; no-op iOS/web.
+- `useSelectionBackHandler(active, onExit)` — `SubsTrack/src/shared/hooks/useSelectionBackHandler.ts`, phone only: focus-gated Android `BackHandler` (expo-router `useFocusEffect`), back exits selection. App's only `BackHandler`; no-op iOS.
 - `SelectionBar` — `SubsTrack/src/shared/components/SelectionBar.tsx`: **the one selection row on every list/panel**: optional **select-all checkbox**, X, "N selected" (`common.selected_count`), icon actions. Props `{ count, actions, onClose, allSelected?, onToggleAll? }`; checkbox only w/ `onToggleAll`. `onToggleAll` → `toggleMany(visibleIds)`; `allSelected` = `visible.every(selected)` — "all" = **visible/loaded** rows (post-filter/pagination), never unloaded pages. `SelectionAction = { key, icon, label /*=a11y label*/, onPress, destructive?, disabled? }`.
 - `PageHeader` `selection?: { active, count, actions, onClose, allSelected?, onToggleAll? }` (`SubsTrack/src/shared/components/PageHeader.tsx`): when `active`, `SelectionBar` replaces the whole header (branch selector gone), select-all passed through. Header screens wrap search/filter row in `SelectionOverlaySlot` only to **blank its space** (no jump), not to host a select-all bar. Transactions panels (no `PageHeader`) render `SelectionBar` inline. Optional prop.
 - `Checkbox` — `SubsTrack/src/shared/components/Checkbox.tsx`, presentational (parent owns tap).
@@ -1146,7 +1146,7 @@ Offline specifics (`appendOnly` + `pullDays` flags, `json` column type, local pr
 
 ## Developer Tools
 
-**Native + admins only**: `IS_OFFLINE_CAPABLE` (views the native-only SQLite mirror) **and `isAdmin`** (export = plaintext of every customer/amount/collection). Entry Settings → Data → "Developer" row (hidden on web + non-admins; screen re-checks both — deep-linkable).
+**Admins only** (`isAdmin`; export = plaintext of every customer/amount/collection). Phone-only (reads the SQLite mirror; `Web/` has no such page). Entry Settings → Data → "Developer" row (hidden for non-admins; screen re-checks `isAdmin` — deep-linkable).
 
 - **Table browser** (`SubsTrack/src/modules/settings/developer/screens/DeveloperScreen.tsx`): every `TABLES` entry (`src/core/offline/db/tables.ts`) + `sync_meta`, `pending_deletes` (not in descriptor), live row counts. Tap → `DbTableViewer` (`SubsTrack/src/shared/components/DbTableViewer.tsx`): self-contained, only a `tableName` prop, runs `SELECT * FROM <table>`, columns from rows, horizontal-scroll read-only grid. No editing anywhere.
 - **Export**: whole mirror → one JSON → share sheet. Refused while un-pushed writes exist ("Sync now" button) → always complete synced snapshot; `_dirty` stripped, delete queue never carried. Streamed per row (heap-safe).

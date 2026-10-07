@@ -1,9 +1,8 @@
 import { useCallback, useEffect } from "react";
-import { AppState, Platform } from "react-native";
+import { AppState } from "react-native";
 import * as Updates from "expo-updates";
 
-export const IS_OTA_CAPABLE =
-  Platform.OS !== "web" && Updates.isEnabled && !__DEV__;
+export const IS_OTA_CAPABLE = Updates.isEnabled && !__DEV__;
 
 async function downloadIfAvailable(): Promise<void> {
   try {

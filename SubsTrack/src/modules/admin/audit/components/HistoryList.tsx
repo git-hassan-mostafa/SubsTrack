@@ -8,7 +8,6 @@ import {
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { useTranslation } from "react-i18next";
 import type { AuditEntry, AuditSource } from "@shared/core/types";
-import { IS_OFFLINE_CAPABLE } from "@/src/core/offline";
 import { COLORS } from "@/src/shared/constants";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { EmptyState } from "@/src/shared/components/EmptyState";
@@ -127,15 +126,9 @@ export function HistoryList({
   );
 }
 
-/**
- * Says which trail is on screen — the full server history, or the device's 30-day
- * window when the server could not be reached. Informational only: there is no
- * action, because the server read is already the default. Renders nothing on web,
- * where there is no local window and so nothing to distinguish.
- */
+// Full server trail, or the device's 30-day window when the server was unreachable.
 function SourceNote({ source }: { source: AuditSource }) {
   const { t } = useTranslation();
-  if (!IS_OFFLINE_CAPABLE) return null;
   return (
     <Text className="text-xs text-gray-400 mb-3">
       {t(

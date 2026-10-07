@@ -55,7 +55,7 @@ npm run lint                                # oxlint; on this laptop "Access is 
 - Lists: every web list = `DataTable` (`shared/table/`, free MUI Data Grid: server paging up to 100 rows/page, no column sorting) fed by a `createPagedStore()` store (`src/state/`), whose `(query, window)` reader calls a Shared service method reading `I*Repository.findPage(query) → { rows, total }`. **Both** repository classes implement `findPage` (rule 5b). `BranchesPage` (`modules/admin/branches/`) = reference page, copy its shape. Rules: `docs/ui-patterns.md` → Web tables.
 - Log out = `endWebSession()` (`src/state/webSession.ts`): Shared `endSession()`, then every web-only store under `src/state/` (each new one adds its reset to `WEB_STORE_RESETS`). Never call `endSession()` directly from a web page.
 - Edge bundle: `npm run build-edge` writes the Shared code `customer-status` runs into `SubsTrack/supabase/functions/customer-status/_generated/` (committed — rebuild + commit after a month-rule change); `npm run deploy-customer-status` builds + deploys; plain `supabase functions deploy customer-status` uses the committed bundle. Details + no-CLI route: docs/edge-functions.md → `customer-status`.
-- Deploy: `Web/vercel.json` (installs Web + Shared dev deps, SPA rewrite). Vercel **preview** project until switch-over phase (H2); real address stays on Expo web until then.
+- Deploy: `Web/vercel.json` (installs Web + Shared dev deps, SPA rewrite) serves the real staff web address; Vercel project root = `Web/` (set in Vercel dashboard). Expo web gone (H2): SubsTrack has no web build, `vercel.json` or `serve.json`.
 
 ### Tests (`tests/`)
 
@@ -104,4 +104,6 @@ Postgres changes are server-side, unrelated — but run `script.sql` **before** 
 
 `runtimeVersion` = `{ policy: "fingerprint" }`: only matching builds receive an update → forgotten rebuild = "no update arrives", never a crash. **Main trap**: `package.json` → `scripts` + raw bytes of `eas.json` / `.gitignore` feed it; repo-root `.gitattributes` (`* text=auto eol=lf`) stops CRLF drift (→ #53b). Read #53 / #53b before changing scripts or native deps, or if an update never arrives. Channels on `eas.json` build profiles (`development` / `preview` / `production`); a build w/ no channel can never receive an update. Rollback `eas update:rollback`; promote preview → production `eas update:republish`.
 
-In-app `useAppUpdate` + `<UpdateBanner>` (mounted once in `app/(app)/_layout.tsx`) download in background, re-check every foreground, show "New version ready → Restart" pill. Both no-op on web + in dev builds.
+In-app `useAppUpdate` + `<UpdateBanner>` (mounted once in `app/(app)/_layout.tsx`) download in background, re-check every foreground, show "New version ready → Restart" pill. Both no-op in dev builds (`IS_OTA_CAPABLE = Updates.isEnabled && !__DEV__`).
+
+Expo web removal (H2) moved fingerprint `2eeff39960ff3353a41748e61a6a35a50516d9cd` → `c81e22c4cbb4d7cdb7f4fbf8b9096b7483961b7f` (scripts `web`/`build-web`/`serve-web`, deps `react-dom`/`react-native-web`, `app.json` `expo.web` gone) → ONE new EAS build; installed apps get no OTA until they install it.

@@ -27,7 +27,6 @@ import {
 import {
   countUnsyncedWrites,
   getSyncStatus,
-  IS_OFFLINE_CAPABLE,
   isOnline,
   RestoreBlockedError,
   restoreBackup,
@@ -103,11 +102,11 @@ export function DeveloperScreen() {
   }, []);
 
   useEffect(() => {
-    if (!IS_OFFLINE_CAPABLE || !isAdmin) return;
+    if (!isAdmin) return;
     void refreshCounts();
   }, [refreshCounts, isAdmin]);
 
-  if (!IS_OFFLINE_CAPABLE || !isAdmin) {
+  if (!isAdmin) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
         <PageHeader
@@ -118,9 +117,7 @@ export function DeveloperScreen() {
         />
         <View className="flex-1 items-center justify-center px-8">
           <Text className="text-sm text-gray-400 text-center">
-            {IS_OFFLINE_CAPABLE
-              ? t("settings.developer_admin_only")
-              : t("settings.developer_web_unavailable")}
+            {t("settings.developer_admin_only")}
           </Text>
         </View>
       </SafeAreaView>

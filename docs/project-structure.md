@@ -4,7 +4,7 @@ Trees go stale — when in doubt, file-search. Update on any structure change.
 
 ## Workspace top level
 
-`App/`: `CLAUDE.md` (lean core context), `docs/`, `new-features.md` (backlog; mark done when implemented), `Shared/` (types → services → repositories → stores; source only, not a workspace), `SubsTrack/` (tenant Expo app: UI + offline layer), `Web/` (staff desktop, React + Vite + MUI, on Shared services + stores), `Portal/` (read-only customer portal, React + Vite, Shared pure code), `SuperAdmin/` (SaaS-owner Expo app), `tests/` (Jest money rules; own package, never inside SubsTrack/), `sql scripts/` (script.sql schema + RLS, migration.sql one-offs, reset.sql teardown), `Design/`, `QA/`.
+`App/`: `CLAUDE.md` (lean core context), `docs/`, `new-features.md` (backlog; mark done when implemented), `Shared/` (types → services → repositories → stores; source only, not a workspace), `SubsTrack/` (tenant Expo app, phone only — Android/iOS, no web build: UI + offline layer), `Web/` (staff desktop, React + Vite + MUI, on Shared services + stores; owns the staff web address), `Portal/` (read-only customer portal, React + Vite, Shared pure code), `SuperAdmin/` (SaaS-owner Expo app), `tests/` (Jest money rules; own package, never inside SubsTrack/), `sql scripts/` (script.sql schema + RLS, migration.sql one-offs, reset.sql teardown), `Design/`, `QA/`.
 
 `Web/scripts/`: `build-edge.mjs` (bundles Shared code for `customer-status` edge fn), `status-speed/` (seed + speed test, TEST project only).
 
@@ -85,7 +85,7 @@ SubsTrack/
     configurePhone.ts       configureShared({ supabase, repositories, ids, storage, actor, … })
     offlineRepositories.ts  createOfflineRepositories() — *.offline.ts twins
     phoneIds.ts             expo-crypto adapter for runtime.ids
-  src/core/offline/   whole offline layer (docs/offline.md): db/, sync/, bootstrap/, backup/, net/, OfflineBaseRepository.ts, dbLock.ts, batch.ts, scope.ts, platform.ts (IS_OFFLINE_CAPABLE)
+  src/core/offline/   whole offline layer (docs/offline.md): db/, sync/, bootstrap/, backup/, net/, OfflineBaseRepository.ts, dbLock.ts, batch.ts, scope.ts
   src/core/errorLog/  SQLite error logger (runtime.logException) + global handler
   src/core/i18n/      setup.ts (initI18n, RTL, device language, reload), languageStore, useAppFont
   src/modules/<group>/<module>/   UI ONLY, same paths as Shared/src/modules

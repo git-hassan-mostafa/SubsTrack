@@ -3,21 +3,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Text } from "./Text";
 import { useSyncStatus } from "@/src/shared/hooks/useSyncStatus";
-import { IS_OFFLINE_CAPABLE } from "@/src/core/offline";
 
-/**
- * Global "syncing" marker. Mounted once in the authenticated app layout so it
- * shows on every page whenever the sync engine is running — manual (Sync now)
- * or automatic (reconnect / foreground / periodic / after a write). Floats at
- * the top center, above screen content, and renders nothing when idle or on
- * web (offline sync is native-only).
- */
+// Mounted once in the app layout, so it shows on every page while sync runs.
 export function SyncIndicator() {
   const { t } = useTranslation();
   const { top } = useSafeAreaInsets();
   const { syncing } = useSyncStatus();
 
-  if (!IS_OFFLINE_CAPABLE || !syncing) return null;
+  if (!syncing) return null;
 
   return (
     <View

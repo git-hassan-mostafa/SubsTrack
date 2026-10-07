@@ -55,7 +55,7 @@ Owner switch `tenants.whatsapp_enabled` (SuperAdmin), guarded by `trg_tenants_gu
 - **Opt-outs.** STOP reply + admin's **Stop messages** both go through `recordOptOut`, which also cancels that number's queued rows (#169). **Allow messages** clears the customer's current number + admin's own blocks for that customer. A STOP from a number the customer no longer has stays in force, but unlinked from the customer.
 - **Template webhooks** via `templateStatusForEvent`: `REINSTATED` / `UNARCHIVED` → `APPROVED`; `FLAGGED` / `LOCKED` / `UNLOCKED` leave status alone (#168). Template whose buttons/header need a value Sijil can't fill (copy-code, dynamic URL, media, OTP, flow, catalog) stored as not supported (`isSendableTemplate`).
 - **Not connected.** One-customer reminder opens `wa.me` w/ same template wording. Bulk sends + notices need a connection.
-- **Connect page.** Trusts `postMessage` only from `facebook.com` or `*.facebook.com`. `FINISH_ONLY_WABA` (admin finished Meta's window w/o phone number) shows own message, never sent to server. Started from web app → page gets `?from=web`, and **Return to Sijil** goes back to Admin → WhatsApp (`/admin/whatsapp`, same path in Expo web and `Web/`) in same tab instead of `sijil://`. `Web/` has its own `/whatsapp-connect` (public, outside `SessionGate`, reads options itself); `WhatsAppConnectUrl` decides which one Meta's link opens until H2. Native WhatsApp screen refetches when app returns to front.
+- **Connect page.** Trusts `postMessage` only from `facebook.com` or `*.facebook.com`. `FINISH_ONLY_WABA` (admin finished Meta's window w/o phone number) shows own message, never sent to server. Lives ONLY in `Web/` (`/whatsapp-connect`, public, outside `SessionGate`, reads options itself; `WhatsAppConnectUrl` points at it). Phone opens it in the browser (`Linking.openURL`), **Return to Sijil** → `sijil://`. Started from `Web/` → page gets `?from=web`, **Return to Sijil** goes back to `/admin/whatsapp` in same tab. Native WhatsApp screen refetches when app returns to front.
 
 ## 4. Meta setup (SaaS owner, once)
 
@@ -76,7 +76,7 @@ Owner switch `tenants.whatsapp_enabled` (SuperAdmin), guarded by `trg_tenants_gu
 - **Vault** (Dashboard → Vault): `whatsapp_worker_url` = `https://<ref>.supabase.co/functions/v1/whatsapp-worker`, `whatsapp_worker_secret` = same value as `WHATSAPP_WORKER_SECRET`, `whatsapp_worker_apikey` = anon key (#167).
 - **Webhook callback URL** carries anon key: `…/whatsapp-webhook?apikey=<anon key>` (#167).
 - **Extensions:** `pg_cron`, `pg_net` (`script.sql` creates them).
-- **Deploy:** `yarn deploy-whatsapp-functions` from inside `SubsTrack/`. That script changed the OTA fingerprint, so it came w/ a new native build (#53). Also deploy Sijil web build — it hosts `/whatsapp-connect`.
+- **Deploy:** `yarn deploy-whatsapp-functions` from inside `SubsTrack/`. That script changed the OTA fingerprint, so it came w/ a new native build (#53). Also deploy `Web/` — it hosts `/whatsapp-connect`.
 - **SuperAdmin → Options:** `WhatsAppAppId`, `WhatsAppConfigId`, `WhatsAppConnectUrl`. **SuperAdmin → Tenants:** "WhatsApp messaging allowed".
 
 ## 6. Tenant admin steps

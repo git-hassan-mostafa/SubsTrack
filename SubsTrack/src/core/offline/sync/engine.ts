@@ -2,7 +2,6 @@ import { supabase } from "@/src/shared/lib/supabase";
 import { getDb, isOfflineDbReady } from "../db/sqlite";
 import { nowIso } from "@shared/core/utils/ids";
 import { isOnline } from "../net/connectivity";
-import { IS_OFFLINE_CAPABLE } from "../platform";
 import {
   getMeta,
   META_LAST_PULLED_AT,
@@ -31,7 +30,6 @@ export function resumeSync(): void {
 
 /** One sync cycle: push local changes up, then pull server changes down. Serialized. */
 export async function runSync(): Promise<void> {
-  if (!IS_OFFLINE_CAPABLE) return;
   if (suspended) return;
   if (running) return running;
   running = (async () => {
@@ -70,7 +68,7 @@ export async function runSync(): Promise<void> {
  * Manual sync (`syncNow` / `resyncFromScratch`) ignores this gate entirely.
  */
 export async function runSyncIfDue(): Promise<void> {
-  if (!IS_OFFLINE_CAPABLE || !isOfflineDbReady()) return;
+  if (!isOfflineDbReady()) return;
   const last = await getMeta(getDb(), META_LAST_SYNC_AT);
   if (last && Date.now() - Date.parse(last) < SYNC_INTERVAL_MS) {
     try {
@@ -86,7 +84,6 @@ export async function runSyncIfDue(): Promise<void> {
  * the UI can tell "offline" apart from "nothing to do".
  */
 export async function syncNow(): Promise<{ ok: boolean; offline: boolean }> {
-  if (!IS_OFFLINE_CAPABLE) return { ok: true, offline: false };
   if (!(await isOnline())) return { ok: false, offline: true };
   await runSync();
   return { ok: getSyncStatus().lastError === null, offline: false };
@@ -100,7 +97,7 @@ export async function syncNow(): Promise<{ ok: boolean; offline: boolean }> {
  * offline / signed-out → no-op; a rejected row simply stays `_dirty` for later.
  */
 export async function flushPendingWrites(): Promise<void> {
-  if (!IS_OFFLINE_CAPABLE || suspended) return;
+  if (suspended) return;
   if (!(await isOnline())) return;
   const { data: sess } = await supabase.auth.getSession();
   if (!sess.session) return;
@@ -118,7 +115,6 @@ export async function resyncFromScratch(): Promise<{
   ok: boolean;
   offline: boolean;
 }> {
-  if (!IS_OFFLINE_CAPABLE) return { ok: true, offline: false };
   if (!(await isOnline())) return { ok: false, offline: true };
   const db = getDb();
   await db.runAsync("DELETE FROM sync_meta WHERE key = ?", [
@@ -135,7 +131,7 @@ export async function resyncFromScratch(): Promise<{
  * durably in SQLite; the next trigger pushes them.
  */
 export async function startSync(cb: () => void): Promise<void> {
-  if (!IS_OFFLINE_CAPABLE || started) return;
+  if (started) return;
   started = true;
   if (isOfflineDbReady()) {
     setStatus({ lastSyncAt: await getMeta(getDb(), META_LAST_SYNC_AT) });

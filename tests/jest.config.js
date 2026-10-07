@@ -17,7 +17,6 @@ module.exports = {
     "^@shared/(.*)$": `${shared}/src/$1`,
     "^@edge/(.*)$": `${app}/supabase/functions/_shared/$1`,
     "^@/(.*)$": `${app}/$1`,
-    "^react-native$": stub("react-native.ts"),
     "^expo-crypto$": stub("expo-crypto.ts"),
     "^@react-native-community/netinfo$": stub("netinfo.ts"),
   },

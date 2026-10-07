@@ -83,7 +83,7 @@ Start this early. **Business Verification can take a few days.**
     - It shows **401** → the anon key in the address is wrong.
     - It shows **403** → the verify token does not match the secret.
 
-15. **Deploy the Sijil web build** (Vercel). The connect page lives at `https://<your Sijil web domain>/whatsapp-connect`, and it must be on the same domain you added in step 7.
+15. **Deploy the Sijil web app** (the `Web/` folder, on Vercel). The connect page lives at `https://<your Sijil web domain>/whatsapp-connect`, and it must be on the same domain you added in step 7.
 
 16. **Ship the app update.** `SubsTrack/package.json` changed, so make a **new build** (`npm run build-prod`) and publish it. Phones on the old build will not get the WhatsApp screens.
 

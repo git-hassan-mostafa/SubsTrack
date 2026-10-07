@@ -2,7 +2,6 @@ import { useMemo, type ReactNode } from "react";
 import { View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useBottomSheetGestureHandlers } from "@gorhom/bottom-sheet";
-import { SHEET_DRAG_ENABLED } from "./AppBottomSheet";
 
 interface SheetDragAreaProps {
   children: ReactNode;
@@ -36,8 +35,6 @@ export function SheetDragArea({
     handlePanGestureHandler.handleOnEnd,
     handlePanGestureHandler.handleOnFinalize,
   ]);
-
-  if (!SHEET_DRAG_ENABLED) return <View className={className}>{children}</View>;
 
   return (
     <GestureDetector gesture={gesture}>

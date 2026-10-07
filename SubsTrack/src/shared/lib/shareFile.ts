@@ -1,4 +1,3 @@
-import { Platform } from "react-native";
 import { Directory, File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
@@ -58,7 +57,6 @@ export async function shareFile(
   return true;
 }
 
-/** Share sheet on native, plain download on web. */
 export async function shareTextFile(
   baseName: string,
   ext: string,
@@ -66,19 +64,6 @@ export async function shareTextFile(
   mimeType: string,
   uti?: string,
 ): Promise<boolean> {
-  const name = `${safeName(baseName)}.${ext}`;
-
-  if (Platform.OS === "web") {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    a.click();
-    URL.revokeObjectURL(url);
-    return true;
-  }
-
   const file = newExportFile(baseName, ext);
   file.write(content);
   return shareFile(file, mimeType, uti);

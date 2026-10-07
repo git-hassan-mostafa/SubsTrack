@@ -1,6 +1,6 @@
-# Offline-First (native)
+# Offline-First (phone)
 
-> Referenced from `CLAUDE.md`. Read before touching **any repository** or the sync engine. Native only — Expo web gets `createSupabaseRepositories()` from Shared (talks to Supabase directly; zero web behavior change).
+> Referenced from `CLAUDE.md`. Read before touching **any repository** or the sync engine. SubsTrack is phone-only (no Expo web) → every offline path runs unconditionally, no platform gate. `Web/` gets `createSupabaseRepositories()` from Shared (talks to Supabase directly, no offline layer).
 
 ## Why / what
 
@@ -12,13 +12,10 @@ Supabase class in Shared (`Shared/src/modules/**/repository/XxxRepository.ts`, `
 
 ```ts
 // SubsTrack/src/platform/configurePhone.ts
-repositories:
-  Platform.OS === "web"
-    ? createSupabaseRepositories() // Shared/src/core/runtime/supabaseRepositories.ts
-    : createOfflineRepositories(), // SubsTrack/src/platform/offlineRepositories.ts
+repositories: createOfflineRepositories(), // SubsTrack/src/platform/offlineRepositories.ts
 ```
 
-ONLY platform switch; the `Platform.OS` check is temporary (goes when new web app replaces Expo web). Offline twin delegating online (`private online = new XxxRepository()`) imports the class from `@shared/…`. New repository = key on `Repositories` (`Shared/src/core/runtime/repositories.ts`) + one line in each factory.
+`Web/` hands `createSupabaseRepositories()` (`Shared/src/core/runtime/supabaseRepositories.ts`) from `configureWeb()`. Offline twin delegating online (`private online = new XxxRepository()`) imports the class from `@shared/…`. New repository = key on `Repositories` (`Shared/src/core/runtime/repositories.ts`) + one line in each factory.
 
 Both `implements IXxxRepository` → compiler keeps them in lockstep. Offline classes return **same `Db*` row shapes** (snake_case, incl. nested joins like `customer_plans(*, plans(*))`) the mappers consume, so nothing above repo layer can tell. `monthStatus.buildMonthGrid` is pure → month grid works offline free.
 
@@ -32,9 +29,8 @@ Every local write flags its row `_dirty = 1` (create/edit/soft-delete); hard del
 
 |Path|Role|
 |-|-|
-|`platform.ts`|`IS_OFFLINE_CAPABLE = Platform.OS !== 'web'` — gates every offline path.|
 |`db/tables.ts`|**Single descriptor** of the mirror (columns + types + scope). Drives DDL, encode/decode, generic sync upserts.|
-|`db/schema.ts` / `db/applySchema.ts` / `db/sqlite.ts`|DDL from `tables.ts` (`columnDefs`, `CREATE_TABLE_STATEMENTS`, `CREATE_INDEX_STATEMENTS`); reconciler (`applySchema` — create missing tables, `ALTER` in missing columns, create missing indices; every start, no version numbers); handle (`initOfflineDb`, `getDb`, `wipeOfflineData`). `sqlite.ts` = **only** _value_ import of `expo-sqlite`; sibling `sqlite.web.ts` stub (same exports, no `expo-sqlite`) is what web resolves, so Metro never pulls its wasm into web. All other `expo-sqlite` imports are `import type`.|
+|`db/schema.ts` / `db/applySchema.ts` / `db/sqlite.ts`|DDL from `tables.ts` (`columnDefs`, `CREATE_TABLE_STATEMENTS`, `CREATE_INDEX_STATEMENTS`); reconciler (`applySchema` — create missing tables, `ALTER` in missing columns, create missing indices; every start, no version numbers); handle (`initOfflineDb`, `getDb`, `wipeOfflineData`). `sqlite.ts` = **only** _value_ import of `expo-sqlite`; all other `expo-sqlite` imports are `import type`.|
 |`db/codec.ts`|Row encode/decode (0/1↔boolean, TEXT-decimal↔number).|
 |`db/dml.ts`|`insertDirty` / `updateDirty` / `upsertNaturalKeyDirty` (local write + `_dirty=1`), `markDeleted` (log hard delete), `upsertFromServer` (one-row merge, `_dirty=0`, used by read-through caches), pull's batched trio `dirtyIdSet` / `clearNaturalKeyDuplicates` / `upsertManyFromServer`.|
 |`batch.ts`|`inBatches(items, size)` — the one list-splitter (SQLite bound params, PostgREST query strings).|
@@ -166,8 +162,8 @@ Nothing fires it on background `runSyncIfDue()` (reloading under user's fingers 
 
 `sync/status.ts`: `SyncStatus = { syncing, lastSyncAt, lastError }` via `getSyncStatus()` / `subscribeSyncStatus()`; `runSync()` broadcasts, so **every** cycle flips `syncing`. `syncNow()` = manual entry (probes connectivity first, returns `{ ok, offline }` to tell "reached server" from "no connection"). Re-exported from `src/core/offline/index.ts`; components read via `useSyncStatus()` (`src/shared/hooks/`, `useSyncExternalStore`).
 
-- **Global marker** — `SyncIndicator` (`src/shared/components/`) mounted once in `app/(app)/_layout.tsx` → top-center "Syncing data…" pill on **all pages** while `syncing`. Nothing when idle or on web.
-- **Settings** — "Sync now" row (native only) → `syncNow()`; brief bottom flash reports outcome (done / offline / failed).
+- **Global marker** — `SyncIndicator` (`src/shared/components/`) mounted once in `app/(app)/_layout.tsx` → top-center "Syncing data…" pill on **all pages** while `syncing`. Nothing when idle.
+- **Settings** — "Sync now" row → `syncNow()`; brief bottom flash reports outcome (done / offline / failed).
 
 ## Conflict policy
 
@@ -207,12 +203,12 @@ Branch scoping: the one deliberate mirror ≠ RLS — both tables filter on **ow
 
 ## Exception logger (`src/core/errorLog/`) + Developer page
 
-Small, deliberately unlayered debug feature, native-only:
+Small, deliberately unlayered debug feature:
 
 - `errorLog/errorLogger.ts` `logException({ source, message, stack?, context? })` — one row into local `exception_logs` (`pushOnly: true`) via `insertDirty`. Reads user/tenant via `getStore().getState().auth.user` (no hook — runs outside React). Never throws; failure only `console.error`s (can't mask original error or loop).
 - `errorLog/globalHandler.ts` `installGlobalErrorHandler()`, once from `app/_layout.tsx` bootstrap effect. Wraps RN `ErrorUtils.setGlobalHandler`, chaining to existing handler (Expo overlay) — only adds logging.
 - Wired into: `ErrorBoundary.componentDidCatch` (`source: 'boundary'`), global handler (`source: 'global_handler'`), `BaseRepository.handleError` / `OfflineBaseRepository.handleError` (`source: 'repository'`) — every repo's catch funnels through these.
-- **Settings → Developer** (`src/modules/settings/developer/`, native-only row gated by `IS_OFFLINE_CAPABLE` **and `isAdmin`**): read-only mirror browser — every `TABLES` table + `sync_meta`, `pending_deletes` w/ row counts, opens any in `DbTableViewer` (`src/shared/components/DbTableViewer.tsx`; takes only `tableName`, does own `SELECT * FROM <table>` + column discovery). Intentionally not layered — debug tool.
+- **Settings → Developer** (`src/modules/settings/developer/`, row gated by `isAdmin` only): read-only mirror browser — every `TABLES` table + `sync_meta`, `pending_deletes` w/ row counts, opens any in `DbTableViewer` (`src/shared/components/DbTableViewer.tsx`; takes only `tableName`, does own `SELECT * FROM <table>` + column discovery). Intentionally not layered — debug tool.
 - **Export/Import**, same screen, **admin-only**: JSON **file** via share sheet / file picker (`shared/lib/shareFile.ts`; `expo-file-system` 19 has `FileHandle` + `File.pickFileAsync` → no new dependency, no native rebuild).
   - **Export refuses while any un-pushed write remains**, offers "Sync now": backup = fully-synced snapshot, `_dirty` stripped, `pending_deletes` never carried. Streams row by row via `FileHandle` (one `JSON.stringify` of whole mirror = un-catchable OOM kill).
   - Envelope: `format` / `version` / `exportedAt` / `app` / `tenant` / `branchScope` / `user` / `counts` / `tables`. `tables` holds **every** `TABLES` entry (empty arrays too) in `BACKUP_TABLE_ORDER`; missing key = refusal, never "leave table alone". No `sync_meta` (device identity, not data).

@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from "react";
 import {
-  Platform,
   StyleSheet,
   TextInput,
   View,
@@ -50,12 +49,11 @@ export function AppTextInput({
   const ref = useRef<TextInput>(null);
   const [focused, setFocused] = useState(false);
 
-  const Field = (insideSheet && Platform.OS !== "web"
+  const Field = (insideSheet
     ? BottomSheetTextInput
     : TextInput) as unknown as typeof TextInput;
 
-  const shielded =
-    Platform.OS !== "web" && !focused && props.editable !== false;
+  const shielded = !focused && props.editable !== false;
 
   const shieldTap = useMemo(
     () =>

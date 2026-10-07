@@ -3,8 +3,6 @@ import {
   Keyboard,
   Platform,
   View,
-  useWindowDimensions,
-  type ViewStyle,
 } from "react-native";
 import { Easing, type WithTimingConfig } from "react-native-reanimated";
 import {
@@ -38,16 +36,12 @@ interface AppBottomSheetProps {
 
 const LIST_SNAP_RATIO = 0.7;
 
-const WEB_MAX_WIDTH = 768;
 const FULL_SNAP = ["92%"];
 
 const ANIMATION_CONFIGS: WithTimingConfig | undefined =
   Platform.OS === "android"
     ? { duration: 180, easing: Easing.out(Easing.cubic) }
     : undefined;
-
-// off on web — a drag-close eats the next click there, see gotcha #46
-export const SHEET_DRAG_ENABLED = Platform.OS !== "web";
 
 // the app's only bottom sheet — see gotchas #44 / #45 / #47
 export function AppBottomSheet({
@@ -60,7 +54,6 @@ export function AppBottomSheet({
   dismissOnBackdropPress = true,
 }: AppBottomSheetProps) {
   const insets = useSafeAreaInsets();
-  const { width: screenWidth } = useWindowDimensions();
   const { height: frameHeight } = useSafeAreaFrame();
   const ref = useRef<BottomSheetModal>(null);
 
@@ -131,11 +124,6 @@ export function AppBottomSheet({
     [dirty, dismissOnBackdropPress, guardedDismiss],
   );
 
-  const containerStyle: ViewStyle | undefined =
-    Platform.OS === "web" && screenWidth > WEB_MAX_WIDTH
-      ? { width: WEB_MAX_WIDTH, marginHorizontal: "auto" }
-      : undefined;
-
   const body =
     typeof children === "function" ? children(guardedDismiss) : children;
 
@@ -149,20 +137,19 @@ export function AppBottomSheet({
   return (
     <BottomSheetModal
       ref={ref}
-      containerStyle={containerStyle}
       onChange={handleChange}
       onAnimate={handleAnimate}
       onDismiss={handleDismiss}
       stackBehavior="push"
-      enablePanDownToClose={SHEET_DRAG_ENABLED}
-      enableHandlePanningGesture={SHEET_DRAG_ENABLED}
+      enablePanDownToClose
+      enableHandlePanningGesture
       animationConfigs={ANIMATION_CONFIGS}
       enableDynamicSizing={!useFixedSnap}
       maxDynamicContentSize={!useFixedSnap ? frameHeight * 0.9 : undefined}
       snapPoints={snapPoints}
       enableContentPanningGesture={false}
       backdropComponent={renderBackdrop}
-      keyboardBehavior={Platform.OS === "web" ? "extend" : "interactive"}
+      keyboardBehavior="interactive"
       keyboardBlurBehavior="restore"
       android_keyboardInputMode="adjustPan"
       backgroundStyle={styles.background}

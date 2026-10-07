@@ -27,7 +27,7 @@ npm run typecheck                # tsc over the tests AND the app code they reac
 |`helpers/fakeSupabase.ts`|RECORDING PostgREST stand-in, only for the four sync suites (must see the engine's requests). Every other suite keeps `stubs/supabase-client.ts`, which throws on any access|
 |`helpers/clock.ts`|freezes "today". A month test not pinning the clock passes in June, fails in July|
 |`tsconfig.json`|read by editor + `npm run typecheck`. No tsconfig at repo root → without it every `@/…` import and `describe`/`expect` errors in IDE|
-|`stubs/`|one tiny file per native module the app graph reaches (react-native, expo-crypto, Supabase client, NetInfo…). A stub may fake a **platform**, never a rule|
+|`stubs/`|one tiny file per native module the app graph reaches (expo-crypto, Supabase client, NetInfo, i18n; no `react-native` stub — only the deleted platform check reached it). A stub may fake a **platform**, never a rule|
 
 Jest vs tsc see the app differently on purpose: `moduleNameMapper` swaps native modules for stubs, **tsc follows the real files** → tests checked against the app's real types.
 

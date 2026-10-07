@@ -604,7 +604,6 @@
     "logout": "تسجيل الخروج",
     "logout_confirm": "هل أنت متأكد من تسجيل الخروج؟",
     "developer": "أدوات المطور",
-    "developer_web_unavailable": "أدوات المطور متوفرة فقط في تطبيق الهاتف.",
     "developer_admin_only": "أدوات المطور متاحة للمدير فقط.",
     "developer_tables_section": "جداول قاعدة البيانات المحلية",
     "developer_export": "تصدير إلى ملف",

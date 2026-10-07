@@ -1,4 +1,3 @@
-import { Platform } from "react-native";
 import { Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
@@ -25,23 +24,13 @@ const TAB_LABEL_MARGIN = TAB_ICON_GAP - TAB_ITEM_PADDING;
 export default function TabsLayout() {
   const viewer = useAuth();
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
-  // Mobile browsers (e.g. Android Chrome) report a phantom safe-area-inset-bottom
-  // for their own gesture bar, which the browser chrome already accounts for.
-  // Adding it again here left a dead empty gap below the tab bar on web.
-  const bottom = Platform.OS === "web" ? 0 : insets.bottom;
+  const { bottom } = useSafeAreaInsets();
 
   return (
     <Tabs
-      // Back follows the pages actually visited, not the tab order. React
-      // Navigation defaults to `firstRoute`, so Back from ANY tab jumped to Home
-      // (and, for a non-admin, to the admin-only dashboard). See gotcha #93.
       backBehavior="history"
       screenOptions={{
         headerShown: false,
-        // Only the selected tab is named. `children` is the screen title, so one
-        // renderer covers every tab; an unselected label is laid out but not painted,
-        // which is what keeps all five icons on the same line.
         tabBarLabel: ({ focused, color, children }) => (
           <Text
             fontWeight="Bold"
@@ -64,7 +53,6 @@ export default function TabsLayout() {
           backgroundColor: COLORS.white,
           borderTopColor: COLORS.gray200,
           paddingBottom: bottom,
-          // GAP + icon + GAP-to-label + label + GAP, the padding above included.
           height:
             TAB_ICON_GAP * 2 +
             TAB_ICON_SIZE +
@@ -72,11 +60,6 @@ export default function TabsLayout() {
             TAB_LABEL_HEIGHT +
             bottom,
         },
-        // `auto` margins swallow the free space evenly, so the icon sits exactly
-        // TAB_ICON_GAP below the top edge and TAB_LABEL_MARGIN above the label.
-        // React Navigation pins it to the top otherwise (its tab item is
-        // `justifyContent: flex-start`), and that pressable is not reachable from
-        // `tabBarItemStyle` — which styles the item WRAPPER, not the icon.
         tabBarIconStyle: { marginVertical: "auto" },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.gray500,

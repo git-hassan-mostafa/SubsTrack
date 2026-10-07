@@ -27,10 +27,6 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.hassanmostafaexpo.Sijil"
     },
-    "web": {
-      "output": "single",
-      "favicon": "./assets/images/favicon-32.png"
-    },
     "plugins": [
       "expo-router",
       [
