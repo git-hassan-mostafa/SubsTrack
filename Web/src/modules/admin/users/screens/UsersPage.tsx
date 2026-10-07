@@ -4,6 +4,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { AppUser, UserRole } from "@shared/core/types";
+import { isolate } from "@shared/core/utils/bidi";
 import type { UserRoleFilter } from "@shared/modules/admin/users/utils/types";
 import { canEditUser } from "@shared/modules/admin/users/utils/userPermissions";
 import {
@@ -157,12 +158,14 @@ export function UsersPage() {
       flex: 0.8,
       minWidth: 140,
       valueGetter: (_value, row) => `@${row.username}`,
+      renderCell: (params) => isolate(params.value ?? ""),
     },
     {
       field: "phoneNumber",
       headerName: t("web.users.phone"),
       width: 160,
       valueGetter: (_value, row) => row.phoneNumber ?? "",
+      renderCell: (params) => isolate(params.value ?? ""),
     },
     ...(branchColumn ? [branchColumn] : []),
     {

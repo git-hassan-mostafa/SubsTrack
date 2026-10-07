@@ -11,6 +11,7 @@ import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { DropdownModal } from "@/src/shared/components/Dropdown";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { confirm } from "@shared/shared/lib/confirm";
+import { LANGUAGE_NAMES } from "@shared/core/i18n";
 import {
   useLanguageStore,
   SUPPORTED_LANGUAGES,
@@ -21,11 +22,6 @@ import { endSession } from "@shared/shared/lib/session";
 import { IS_OFFLINE_CAPABLE, syncNow } from "@/src/core/offline";
 import { useSyncStatus } from "@/src/shared/hooks/useSyncStatus";
 import { refreshActiveData } from "@shared/state/refreshActiveData";
-
-const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
-  en: "English",
-  ar: "العربية",
-};
 
 function SettingsRow({
   icon,
@@ -105,7 +101,7 @@ export function SettingsScreen() {
   }
 
   const languageOptions = SUPPORTED_LANGUAGES.map((lang) => ({
-    label: LANGUAGE_LABELS[lang],
+    label: LANGUAGE_NAMES[lang],
     value: lang,
   }));
 
@@ -206,7 +202,7 @@ export function SettingsScreen() {
                 </View>
                 <View className="flex-row items-center gap-1">
                   <Text className="text-sm text-gray-400">
-                    {LANGUAGE_LABELS[language]}
+                    {LANGUAGE_NAMES[language]}
                   </Text>
                   <Ionicons
                     name="chevron-down"

@@ -8,7 +8,7 @@ import {
   STORAGE_KEYS,
 } from "@/src/shared/lib/storage";
 import {
-  RTL_LANGUAGES,
+  isRtlLanguage,
   SUPPORTED_LANGUAGES,
   type SupportedLanguage,
 } from "@shared/core/i18n";
@@ -25,7 +25,7 @@ export const useLanguageStore = create<LanguageState>()(
       language: getDeviceLanguage(),
 
       setLanguage: async (lang) => {
-        const isRTL = (RTL_LANGUAGES as readonly string[]).includes(lang);
+        const isRTL = isRtlLanguage(lang);
 
         await i18n.changeLanguage(lang);
         I18nManager.allowRTL(isRTL);

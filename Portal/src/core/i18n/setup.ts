@@ -1,8 +1,5 @@
 import { initReactI18next } from "react-i18next";
-import i18n, {
-  FALLBACK_LANGUAGE,
-  RTL_LANGUAGES,
-} from "@shared/core/i18n";
+import i18n, { FALLBACK_LANGUAGE } from "@shared/core/i18n";
 import {
   months as enMonths,
   months_long as enMonthsLong,
@@ -15,10 +12,6 @@ import {
 } from "@shared/core/i18n/locales/ar.json";
 import portalEn from "./portal.en.json";
 import portalAr from "./portal.ar.json";
-
-export function isRtl(language: string): boolean {
-  return (RTL_LANGUAGES as readonly string[]).includes(language);
-}
 
 // Named imports only: a whole locale file would ship ~180 KB of staff wording.
 function initPortalI18n(): void {

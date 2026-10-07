@@ -18,6 +18,7 @@ import type { CustomerMonthGrid } from "@shared/modules/customer/customer-paymen
 import { lineLabel } from "@shared/modules/customer/customer-plans/utils/lineLabel";
 import { BulkActionBar } from "@/shared/table/BulkActionBar";
 import type { TableAction } from "@/shared/table/tableAction";
+import { flipInRtl } from "@/app/theme/flipInRtl";
 import { MonthGrid } from "./MonthGrid";
 import { MONTH_SELECTION_ICONS } from "../utils/monthGridIcons";
 import { MonthsTable } from "./MonthsTable";
@@ -60,7 +61,7 @@ export function YearCard({ grid, menuActions }: YearCardProps) {
                   disabled={year <= grid.minYear}
                   onClick={() => grid.stepYear(-1)}
                 >
-                  <ChevronLeft />
+                  <ChevronLeft sx={flipInRtl} />
                 </IconButton>
               </span>
             </Tooltip>
@@ -69,7 +70,7 @@ export function YearCard({ grid, menuActions }: YearCardProps) {
             </Typography>
             <Tooltip title={t("web.month_grid.next_year")}>
               <IconButton aria-label={t("web.month_grid.next_year")} onClick={() => grid.stepYear(1)}>
-                <ChevronRight />
+                <ChevronRight sx={flipInRtl} />
               </IconButton>
             </Tooltip>
           </Stack>

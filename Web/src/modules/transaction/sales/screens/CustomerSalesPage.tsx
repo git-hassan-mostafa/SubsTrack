@@ -8,6 +8,7 @@ import Typography from "@mui/material/Typography";
 import ArrowBack from "@mui/icons-material/ArrowBack";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 import { createSalesTable, trackCustomerSalesTable } from "@/state/salesTable";
+import { flipInRtl } from "@/app/theme/flipInRtl";
 import { SalesTable } from "../components/SalesTable";
 
 export function CustomerSalesPage() {
@@ -34,7 +35,7 @@ function CustomerSales({ customerId }: { customerId: string }) {
       <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
         <Tooltip title={backLabel}>
           <IconButton href={`/customers/${customerId}`} aria-label={backLabel}>
-            <ArrowBack />
+            <ArrowBack sx={flipInRtl} />
           </IconButton>
         </Tooltip>
         <Typography variant="h5" component="h2" sx={{ fontWeight: 700, minWidth: 0 }} noWrap>

@@ -10,6 +10,7 @@ import { useWalletStore } from "@shared/modules/wallet/state/walletStore";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { WalletDetail } from "../components/WalletDetail";
 import { WalletHolderChips } from "../components/WalletHolderChips";
+import { flipInRtl } from "@/app/theme/flipInRtl";
 
 const WALLETS_PATH = "/admin/wallets";
 
@@ -39,7 +40,7 @@ export function WalletDetailPage() {
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", minWidth: 0 }}>
         <Tooltip title={backLabel}>
           <IconButton href={WALLETS_PATH} aria-label={backLabel}>
-            <ArrowBack />
+            <ArrowBack sx={flipInRtl} />
           </IconButton>
         </Tooltip>
         <Typography variant="h5" component="h2" sx={{ fontWeight: 700, minWidth: 0 }} noWrap>

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 import Stack from "@mui/material/Stack";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Collection, Customer } from "@shared/core/types";
+import { isolate } from "@shared/core/utils/bidi";
 import { formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { planSummary } from "@shared/modules/customer/customer-plans/utils/lineLabel";
@@ -212,6 +213,7 @@ export function CustomersPage() {
       headerName: t("customers.phone_label"),
       width: 160,
       valueGetter: (_value, row) => row.customer.phoneNumber ?? "",
+      renderCell: (params) => isolate(params.value ?? ""),
     },
     ...(branchColumn ? [branchColumn] : []),
     {

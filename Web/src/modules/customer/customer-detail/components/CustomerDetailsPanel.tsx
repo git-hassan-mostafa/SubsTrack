@@ -40,7 +40,7 @@ export function CustomerDetailsPanel({ customer }: { customer: Customer }) {
       <Paper variant="outlined" sx={{ overflow: "hidden" }}>
         <InfoRows
           rows={[
-            { label: t("customers.phone_label"), value: customer.phoneNumber, icon: PhoneOutlined },
+            { label: t("customers.phone_label"), value: isolate(customer.phoneNumber ?? ""), icon: PhoneOutlined },
             { label: t("branches.branch_label"), value: branchName, icon: AccountTreeOutlined },
             { label: t("customers.address_label"), value: customer.address, icon: HomeOutlined },
             { label: t("customers.area_label"), value: customer.area, icon: MapOutlined },

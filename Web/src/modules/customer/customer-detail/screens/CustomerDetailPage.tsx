@@ -28,6 +28,7 @@ import { MonthPanel } from "@/modules/customer/customer-payments/components/Mont
 import { CustomerDebtsPanel } from "@/modules/transaction/debts/components/CustomerDebtsPanel";
 import { CustomerSalesPanel } from "@/modules/transaction/sales/components/CustomerSalesPanel";
 import { useWhatsAppDoors } from "@/modules/whatsapp/hooks/useWhatsAppDoors";
+import { flipInRtl } from "@/app/theme/flipInRtl";
 import { CustomerDetailsPanel } from "../components/CustomerDetailsPanel";
 
 const CUSTOMERS_PATH = "/customers";
@@ -67,7 +68,7 @@ export function CustomerDetailPage() {
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1 }}>
         <Tooltip title={backLabel}>
           <IconButton href={CUSTOMERS_PATH} aria-label={backLabel}>
-            <ArrowBack />
+            <ArrowBack sx={flipInRtl} />
           </IconButton>
         </Tooltip>
         <Typography variant="h5" component="h2" sx={{ fontWeight: 700, flexGrow: 1, minWidth: 0 }} noWrap>

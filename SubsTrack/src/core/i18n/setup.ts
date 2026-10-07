@@ -8,8 +8,8 @@ import {
 import { getLocales } from "expo-localization";
 import i18n, {
   FALLBACK_LANGUAGE,
-  RTL_LANGUAGES,
-  SUPPORTED_LANGUAGES,
+  isRtlLanguage,
+  isSupportedLanguage,
   type SupportedLanguage,
 } from "@shared/core/i18n";
 import { resources } from "@shared/core/i18n/resources";
@@ -50,9 +50,7 @@ export async function reloadApp(): Promise<void> {
 export function getDeviceLanguage(): SupportedLanguage {
   const locales = getLocales();
   const code = locales[0]?.languageCode ?? FALLBACK_LANGUAGE;
-  return (SUPPORTED_LANGUAGES as readonly string[]).includes(code)
-    ? (code as SupportedLanguage)
-    : FALLBACK_LANGUAGE;
+  return isSupportedLanguage(code) ? code : FALLBACK_LANGUAGE;
 }
 
 export async function initI18n(): Promise<void> {
@@ -63,13 +61,11 @@ export async function initI18n(): Promise<void> {
     if (raw) {
       const persisted = JSON.parse(raw);
       const saved = persisted?.state?.language;
-      if (saved && (SUPPORTED_LANGUAGES as readonly string[]).includes(saved)) {
-        language = saved as SupportedLanguage;
-      }
+      if (isSupportedLanguage(saved)) language = saved;
     }
   } catch {}
 
-  const isRTL = (RTL_LANGUAGES as readonly string[]).includes(language);
+  const isRTL = isRtlLanguage(language);
 
   if (Platform.OS !== "web") {
     const rtlMismatch = I18nManager.isRTL !== isRTL;

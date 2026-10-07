@@ -7,6 +7,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Customer } from "@shared/core/types";
+import { isolate } from "@shared/core/utils/bidi";
 import { formatDate } from "@shared/core/utils/date";
 import { useReportView } from "@shared/modules/reports/hooks/useReportView";
 import { useReportsStore } from "@shared/modules/reports/state/reportsStore";
@@ -153,6 +154,7 @@ function CustomersDialog({ drill, format, currencies, onClose }: CustomersDialog
         headerName: t("web.users.phone"),
         width: 150,
         valueGetter: (_value, row) => row.phoneNumber ?? "",
+        renderCell: (params) => isolate(params.value ?? ""),
       },
       {
         field: "area",

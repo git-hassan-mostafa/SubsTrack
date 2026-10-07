@@ -9,18 +9,26 @@ import ListItemText from "@mui/material/ListItemText";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
 import AccountBalanceWalletOutlined from "@mui/icons-material/AccountBalanceWalletOutlined";
 import AccountCircleOutlined from "@mui/icons-material/AccountCircleOutlined";
+import Check from "@mui/icons-material/Check";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import LogoutOutlined from "@mui/icons-material/LogoutOutlined";
+import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, type SupportedLanguage } from "@shared/core/i18n";
+import { isolate } from "@shared/core/utils/bidi";
 import { roleLabelKey } from "@shared/modules/admin/users/utils/userRules";
 import { confirm } from "@shared/shared/lib/confirm";
 import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
 import { endWebSession } from "@/state/webSession";
+import { currentLanguage } from "@/core/i18n/language";
+import { switchLanguage } from "@/core/i18n/setup";
+import { flipInRtl } from "@/app/theme/flipInRtl";
 
 export function UserMenu() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const theme = useTheme();
   const user = useAuthSlice((s) => s.user);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const buttonId = useId();
@@ -29,6 +37,13 @@ export function UserMenu() {
   if (!user) return null;
 
   const close = () => setAnchor(null);
+  const language = currentLanguage(i18n.language);
+  const menuEdge = theme.direction === "rtl" ? "left" : "right";
+
+  const pickLanguage = (next: SupportedLanguage) => {
+    close();
+    if (next !== language) void switchLanguage(next);
+  };
 
   const openMyWallet = () => {
     close();
@@ -81,14 +96,14 @@ export function UserMenu() {
         anchorEl={anchor}
         open={anchor !== null}
         onClose={close}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        anchorOrigin={{ vertical: "bottom", horizontal: menuEdge }}
+        transformOrigin={{ vertical: "top", horizontal: menuEdge }}
         slotProps={{ list: { "aria-labelledby": buttonId } }}
       >
         <Box sx={{ px: 2, pt: 1, pb: 1.5, maxWidth: 300 }}>
           <Typography sx={{ fontWeight: 700 }}>{user.fullName}</Typography>
           <Typography variant="body2" color="text.secondary">
-            @{user.username} · {t(roleLabelKey(user.role))}
+            {isolate(`@${user.username}`)} · {t(roleLabelKey(user.role))}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {user.tenant.name} · {branchName}
@@ -101,9 +116,20 @@ export function UserMenu() {
           </ListItemIcon>
           <ListItemText>{t("wallet.my_title")}</ListItemText>
         </MenuItem>
+        <Divider />
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 2, pt: 0.5 }}>
+          {t("settings.language_section")}
+        </Typography>
+        {SUPPORTED_LANGUAGES.map((option) => (
+          <MenuItem key={option} selected={option === language} onClick={() => pickLanguage(option)}>
+            <ListItemIcon>{option === language ? <Check fontSize="small" /> : null}</ListItemIcon>
+            <ListItemText lang={option}>{LANGUAGE_NAMES[option]}</ListItemText>
+          </MenuItem>
+        ))}
+        <Divider />
         <MenuItem onClick={() => void logOut()} sx={{ color: "error.main" }}>
           <ListItemIcon>
-            <LogoutOutlined fontSize="small" color="error" />
+            <LogoutOutlined fontSize="small" color="error" sx={flipInRtl} />
           </ListItemIcon>
           <ListItemText>{t("settings.logout")}</ListItemText>
         </MenuItem>

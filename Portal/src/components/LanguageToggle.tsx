@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { SUPPORTED_LANGUAGES } from "@shared/core/i18n";
-import { isRtl } from "../core/i18n/setup";
+import { isRtlLanguage, SUPPORTED_LANGUAGES } from "@shared/core/i18n";
 
 // Sets `dir` on <html> as well as the language: SubsTrack restarts the app to
 // flip RTL, but a web page only needs the attribute.
@@ -10,7 +9,7 @@ export function LanguageToggle() {
   function switchTo(next: string) {
     void i18n.changeLanguage(next);
     document.documentElement.lang = next;
-    document.documentElement.dir = isRtl(next) ? "rtl" : "ltr";
+    document.documentElement.dir = isRtlLanguage(next) ? "rtl" : "ltr";
   }
 
   return (

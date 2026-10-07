@@ -1,5 +1,8 @@
-import { createTheme } from "@mui/material/styles";
+import { createTheme, type Theme, type ThemeOptions } from "@mui/material/styles";
 import type { LinkProps } from "@mui/material/Link";
+import { arSD as materialArabic } from "@mui/material/locale";
+import { arSD as gridArabic } from "@mui/x-data-grid/locales";
+import { isRtlLanguage, type SupportedLanguage } from "@shared/core/i18n";
 import { LinkBehavior } from "./LinkBehavior";
 
 const COLORS = {
@@ -25,8 +28,10 @@ const NO_MOTION = {
   leavingScreen: 0,
 };
 
+const LOCALES: Record<SupportedLanguage, object[]> = { en: [], ar: [materialArabic, gridArabic] };
+
 // Phone colours + font; zero durations kill transitions, spinners still turn.
-export const theme = createTheme({
+const BASE_THEME: ThemeOptions = {
   palette: {
     primary: { main: COLORS.primary, dark: COLORS.primaryDark, light: COLORS.primaryLight },
     success: { main: COLORS.success },
@@ -61,4 +66,9 @@ export const theme = createTheme({
       defaultProps: { displayEmpty: true },
     },
   },
-});
+};
+
+export function createAppTheme(language: SupportedLanguage): Theme {
+  const direction = isRtlLanguage(language) ? "rtl" : "ltr";
+  return createTheme({ ...BASE_THEME, direction }, ...LOCALES[language]);
+}

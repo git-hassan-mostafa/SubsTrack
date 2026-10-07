@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import type { Customer } from "@shared/core/types";
+import { isolate } from "@shared/core/utils/bidi";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import customerService from "@shared/modules/customer/customers/services/CustomerService";
 import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
@@ -38,7 +39,7 @@ export function CustomerPicker({
       value={value}
       onChange={onChange}
       search={search}
-      describe={(c) => ({ label: c.name, sublabel: c.phoneNumber ?? c.area ?? undefined })}
+      describe={(c) => ({ label: c.name, sublabel: c.phoneNumber ? isolate(c.phoneNumber) : (c.area ?? undefined) })}
       getKey={(c) => c.id}
       placeholder={placeholder}
       required={required}

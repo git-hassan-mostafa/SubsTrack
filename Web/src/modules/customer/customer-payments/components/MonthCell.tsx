@@ -16,6 +16,7 @@ import {
 import { isSelectableMonth } from "@shared/modules/customer/customer-payments/utils/monthView";
 import type { TableAction } from "@/shared/table/tableAction";
 import { RowActionsMenu } from "@/shared/table/RowActionsMenu";
+import { flipInRtl } from "@/app/theme/flipInRtl";
 import { monthCellLook } from "../utils/monthCellLook";
 import { monthStatusLook } from "../utils/monthStatusLook";
 
@@ -92,10 +93,10 @@ export function MonthCell({
           {badge ? t(CELL_BADGE_KEYS[badge]) : ""}
         </Typography>
         {join.wrapFromPrev ? (
-          <ChevronLeft aria-hidden sx={{ position: "absolute", insetInlineStart: 0, fontSize: 14 }} />
+          <ChevronLeft aria-hidden sx={[{ position: "absolute", insetInlineStart: 0, fontSize: 14 }, flipInRtl]} />
         ) : null}
         {join.wrapToNext ? (
-          <ChevronRight aria-hidden sx={{ position: "absolute", insetInlineEnd: 0, fontSize: 14 }} />
+          <ChevronRight aria-hidden sx={[{ position: "absolute", insetInlineEnd: 0, fontSize: 14 }, flipInRtl]} />
         ) : null}
       </ButtonBase>
       {selectable ? (
