@@ -1,11 +1,10 @@
-import { useState } from "react";
 import { View } from "react-native";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
-import { copyText } from "@/src/shared/lib/clipboard";
+import { useCopyText } from "@/src/shared/hooks/useCopyText";
 import { openLocation } from "@/src/shared/lib/maps";
 import type { Customer } from "@shared/core/types";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
@@ -32,18 +31,14 @@ export function CustomerDetailsCard({
     (state) => state.items.find((b) => b.id === customer.branchId) ?? null,
   );
   const portalBaseUrl = useCustomerPortalUrl();
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyText();
 
   const portalLink = customer.portalEnabled
     ? buildPortalLink(portalBaseUrl, customer.id)
     : null;
 
   async function handleCopyPortalLink() {
-    if (!portalLink) return;
-    if (await copyText(portalLink)) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    if (portalLink) await copy(portalLink);
   }
 
   async function handleToggleActive() {

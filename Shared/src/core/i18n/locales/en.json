@@ -249,6 +249,7 @@
     "portal_password_placeholder": "Password you give the customer",
     "portal_link_label": "Portal link",
     "portal_copy_link": "Copy link",
+    "portal_copy_password": "Copy password",
     "portal_copied": "Copied",
     "portal_link_after_save": "The link appears once the customer is saved.",
     "portal_password_generated_hint": "A strong password is filled in for you. You can change it.",

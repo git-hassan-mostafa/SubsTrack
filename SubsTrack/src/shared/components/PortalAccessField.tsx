@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { Switch, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -6,7 +6,7 @@ import { Text } from "@/src/shared/components/Text";
 import { Input } from "@/src/shared/components/Input";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
-import { copyText } from "@/src/shared/lib/clipboard";
+import { useCopyText } from "@/src/shared/hooks/useCopyText";
 import { buildPortalLink } from "@shared/core/utils/portalLink";
 import {
   generatePortalPassword,
@@ -34,7 +34,8 @@ export function PortalAccessField({
 }: Props) {
   const { t } = useTranslation();
   const [revealed, setRevealed] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyText();
+  const passwordCopy = useCopyText();
 
   if (!portalBaseUrl?.trim()) return null;
 
@@ -50,11 +51,7 @@ export function PortalAccessField({
   }
 
   async function handleCopy() {
-    if (!link) return;
-    if (await copyText(link)) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    if (link) await copy(link);
   }
 
   return (
@@ -83,29 +80,24 @@ export function PortalAccessField({
             secureTextEntry={!revealed}
             trailing={
               <View className="flex-row gap-2">
-                <PressableOpacity
+                <FieldIconButton
+                  icon="refresh-outline"
                   onPress={() => {
                     onPasswordChange(generatePortalPassword());
                     setRevealed(true);
                   }}
-                  className="w-12 h-12 rounded-xl border border-gray-200 bg-white items-center justify-center"
-                >
-                  <Ionicons
-                    name="refresh-outline"
-                    size={22}
-                    color={COLORS.primary}
-                  />
-                </PressableOpacity>
-                <PressableOpacity
+                />
+                <FieldIconButton
+                  icon={revealed ? "eye-off-outline" : "eye-outline"}
                   onPress={() => setRevealed((prev) => !prev)}
-                  className="w-12 h-12 rounded-xl border border-gray-200 bg-white items-center justify-center"
-                >
-                  <Ionicons
-                    name={revealed ? "eye-off-outline" : "eye-outline"}
-                    size={22}
-                    color={COLORS.primary}
-                  />
-                </PressableOpacity>
+                />
+                <FieldIconButton
+                  icon={passwordCopy.copied ? "checkmark-circle" : "copy-outline"}
+                  color={passwordCopy.copied ? COLORS.success : COLORS.primary}
+                  accessibilityLabel={t("customers.portal_copy_password")}
+                  disabled={!password}
+                  onPress={() => void passwordCopy.copy(password)}
+                />
               </View>
             }
           />
@@ -149,5 +141,32 @@ export function PortalAccessField({
         </>
       ) : null}
     </View>
+  );
+}
+
+interface FieldIconButtonProps {
+  icon: ComponentProps<typeof Ionicons>["name"];
+  onPress: () => void;
+  color?: string;
+  accessibilityLabel?: string;
+  disabled?: boolean;
+}
+
+function FieldIconButton({
+  icon,
+  onPress,
+  color = COLORS.primary,
+  accessibilityLabel,
+  disabled,
+}: FieldIconButtonProps) {
+  return (
+    <PressableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityLabel={accessibilityLabel}
+      className={`w-12 h-12 rounded-xl border border-gray-200 bg-white items-center justify-center ${disabled ? "opacity-40" : ""}`}
+    >
+      <Ionicons name={icon} size={22} color={color} />
+    </PressableOpacity>
   );
 }

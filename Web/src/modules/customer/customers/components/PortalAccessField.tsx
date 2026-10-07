@@ -43,6 +43,7 @@ export function PortalAccessField({
   const { t } = useTranslation();
   const [revealed, setRevealed] = useState(false);
   const { copied, copy } = useCopyText();
+  const passwordCopy = useCopyText();
 
   if (!portalBaseUrl?.trim()) return null;
   const link = customerId ? buildPortalLink(portalBaseUrl, customerId) : null;
@@ -58,6 +59,9 @@ export function PortalAccessField({
   };
 
   const revealLabel = revealed ? t("web.hide_password") : t("web.show_password");
+  const passwordCopyLabel = passwordCopy.copied
+    ? t("customers.portal_copied")
+    : t("customers.portal_copy_password");
 
   return (
     <Stack spacing={2}>
@@ -105,6 +109,18 @@ export function PortalAccessField({
                       <IconButton aria-label={revealLabel} onClick={() => setRevealed((prev) => !prev)}>
                         {revealed ? <VisibilityOffOutlined /> : <VisibilityOutlined />}
                       </IconButton>
+                    </Tooltip>
+                    <Tooltip title={passwordCopyLabel}>
+                      <span>
+                        <IconButton
+                          aria-label={passwordCopyLabel}
+                          color={passwordCopy.copied ? "success" : "default"}
+                          disabled={!password}
+                          onClick={() => void passwordCopy.copy(password)}
+                        >
+                          {passwordCopy.copied ? <CheckCircleOutlined /> : <ContentCopyOutlined />}
+                        </IconButton>
+                      </span>
                     </Tooltip>
                   </InputAdornment>
                 ),

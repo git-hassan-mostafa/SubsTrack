@@ -249,6 +249,7 @@
     "portal_password_placeholder": "كلمة المرور التي تعطيها للعميل",
     "portal_link_label": "رابط البوابة",
     "portal_copy_link": "نسخ الرابط",
+    "portal_copy_password": "نسخ كلمة المرور",
     "portal_copied": "تم النسخ",
     "portal_link_after_save": "يظهر الرابط بعد حفظ العميل.",
     "portal_password_generated_hint": "تم إنشاء كلمة مرور قوية تلقائياً. يمكنك تغييرها.",
