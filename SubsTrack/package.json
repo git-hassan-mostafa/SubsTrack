@@ -18,8 +18,8 @@
     "build-dev": "eas build --platform android --profile development",
     "build-preview": "eas build --platform android --profile preview",
     "build-prod": "eas build --platform android --profile production",
-    "ota-preview": "eas update --channel preview",
-    "ota-prod": "eas update --channel production",
+    "ota-preview": "eas update --channel preview --platform android",
+    "ota-prod": "eas update --channel production --platform android",
     "ota-fingerprint": "node ./scripts/print-fingerprint.js"
   },
   "dependencies": {
