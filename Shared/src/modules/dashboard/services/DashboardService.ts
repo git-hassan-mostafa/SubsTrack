@@ -65,7 +65,7 @@ class DashboardService {
       monthCounts,
       totalUsers,
       totalPlans,
-      debtsView,
+      owed,
       newCustomersThisMonth,
       cancelledThisMonth,
       prevMonth,
@@ -78,7 +78,7 @@ class DashboardService {
       repositories().customer.countUnpaidForMonth(billingMonth, branchFilter, unpaidRule),
       repositories().user.countAll(branchFilter),
       repositories().plan.countAll(branchFilter),
-      ledgerService.getDebtsView(branchFilter),
+      ledgerService.getOwedTotals(branchFilter, unpaidRule),
       repositories().customer.countCreatedInRange(
         monthStart,
         monthEndExclusive,
@@ -107,7 +107,7 @@ class DashboardService {
     const walletTransactions = wallets.reduce((sum, w) => sum + w.itemCount, 0);
 
     const debtOf = (kind: ChargeKind) =>
-      debtsView.customers.reduce(
+      owed.debts.customers.reduce(
         (sum, c) => sum + owedUsd(c.items.filter((i) => i.kind === kind)),
         0,
       );
@@ -127,7 +127,12 @@ class DashboardService {
       dueThisMonth: monthCounts.due,
       totalUsers,
       totalPlans,
-      totalDebt: debtsView.summary.totalUsd,
+      totalDebt: owed.debts.summary.totalUsd,
+      totalToCollect: owed.toCollect.totalUsd,
+      toCollectMonths: owed.toCollect.byKind.month,
+      toCollectSales: owed.toCollect.byKind.sale,
+      toCollectManual: owed.toCollect.byKind.manual,
+      unpricedLines: owed.toCollect.unpricedLines,
       monthsDebt: debtOf("month"),
       salesDebt: debtOf("sale"),
       manualDebt: debtOf("manual"),

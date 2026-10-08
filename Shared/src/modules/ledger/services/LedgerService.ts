@@ -9,8 +9,13 @@ import type {
   SkippedMonth,
   UnpaidStartRule,
 } from "@shared/core/types";
+import { repositories } from "@shared/core/runtime/repositories";
+import { mapDbCustomerToCustomer } from "@shared/modules/customer/customers/utils/mapper";
+import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
+import currencyService from "@shared/modules/admin/currencies/services/CurrencyService";
 import { chargeService } from "./ChargeService";
 import { mergeOwed } from "../utils/mergeOwed";
+import { collectTotal, type CollectTotal } from "../utils/collectTotal";
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { groupBy } from "@shared/core/utils/groupBy";
 import { inChunks } from "@shared/core/utils/chunk";
@@ -92,6 +97,36 @@ class LedgerService {
   async getDebtsView(branchFilter: BranchFilter = null): Promise<DebtsView> {
     const open = await chargeService.getOpenCharges({ branchFilter });
     return chargeService.buildDebtsView(open);
+  }
+
+  // Debts and Total to collect from one read of the open bills — gotcha #184.
+  async getOwedTotals(
+    branchFilter: BranchFilter,
+    unpaidRule: UnpaidStartRule,
+  ): Promise<{ debts: DebtsView; toCollect: CollectTotal }> {
+    const [stored, rows, skips, currencies] = await Promise.all([
+      chargeService.getOpenCharges({ branchFilter }),
+      repositories().customer.findAllForStatus(branchFilter),
+      skippedMonthService.getActiveSkips(),
+      currencyService.getCurrencies(),
+    ]);
+    const customers = rows.map(mapDbCustomerToCustomer);
+    const billsByLine = await this.getMonthBillsForLines(
+      customers.flatMap((c) =>
+        (c.customerPlans ?? []).filter((l) => l.active).map((l) => l.id),
+      ),
+    );
+    return {
+      debts: chargeService.buildDebtsView(stored),
+      toCollect: collectTotal({
+        customers,
+        stored,
+        billsByLine,
+        skips,
+        unpaidRule,
+        currencies,
+      }),
+    };
   }
 
   getMonthBillsForLines(

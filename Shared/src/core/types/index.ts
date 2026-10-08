@@ -256,6 +256,11 @@ export interface DashboardMetrics {
   totalUsers: number;
   totalPlans: number;
   totalDebt: number;
+  totalToCollect: number;
+  toCollectMonths: number;
+  toCollectSales: number;
+  toCollectManual: number;
+  unpricedLines: number;
   monthsDebt: number;
   salesDebt: number;
   manualDebt: number;

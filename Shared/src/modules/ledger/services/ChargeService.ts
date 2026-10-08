@@ -13,6 +13,7 @@ import type {
 import type { DbCharge } from "@shared/core/types/db";
 import { deterministicId, newId, nowIso } from "@shared/core/utils/ids";
 import { daysLate } from "@shared/core/utils/date";
+import { inChunks } from "@shared/core/utils/chunk";
 import type {
   ChargeHistoryPageQuery,
   DbChargeHistoryRow,
@@ -25,6 +26,8 @@ import {
   chargeLabel,
   openItemFromCharge,
 } from "@shared/modules/ledger/utils/openItems";
+
+const LINE_BATCH_SIZE = 200;
 
 export interface CreateManualChargeInput {
   tenantId: string;
@@ -63,10 +66,17 @@ class ChargeService {
     return row ? mapDbChargeToCharge(row) : null;
   }
 
+  // Chunked so a whole tenant's lines never build one oversized request.
   async getMonthBillsForLines(
     customerPlanIds: string[],
   ): Promise<Map<string, MonthBill[]>> {
-    const rows = await repositories().charge.findMonthChargesForLines(customerPlanIds);
+    const rows = (
+      await Promise.all(
+        inChunks(customerPlanIds, LINE_BATCH_SIZE).map((chunk) =>
+          repositories().charge.findMonthChargesForLines(chunk),
+        ),
+      )
+    ).flat();
     const byLine = new Map<string, MonthBill[]>();
     for (const { charge: row, paid } of rows) {
       const charge = mapDbChargeToCharge(row);

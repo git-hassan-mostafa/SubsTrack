@@ -72,7 +72,7 @@ export function RevenueHero({ metrics, isAdmin }: RevenueHeroProps) {
             ))}
           </Stack>
         ) : null}
-        {hero.showExpenses || hero.owedUsd > 0 ? (
+        {hero.showExpenses || hero.showToCollect ? (
           <Stack direction="row" spacing={3} sx={PANEL}>
             {hero.showExpenses ? (
               <Box>
@@ -90,12 +90,22 @@ export function RevenueHero({ metrics, isAdmin }: RevenueHeroProps) {
                 <Typography sx={{ fontWeight: 700 }}>{fmt(hero.netUsd)}</Typography>
               </Box>
             ) : null}
-            {hero.owedUsd > 0 ? (
+            {hero.showToCollect ? (
               <Box>
                 <Typography variant="body2" sx={{ color: ON_PRIMARY_MUTED }}>
-                  {t("dashboard.owed_by_customers")}
+                  {t("dashboard.total_to_collect")}
                 </Typography>
-                <Typography sx={{ fontWeight: 700 }}>{fmt(hero.owedUsd)}</Typography>
+                <Typography sx={{ fontWeight: 700 }}>{fmt(hero.toCollectUsd)}</Typography>
+                {hero.toCollectMix.length > 0 ? (
+                  <Typography variant="caption" sx={{ display: "block", color: ON_PRIMARY_MUTED }}>
+                    {hero.toCollectMix.map((part) => `${t(part.labelKey)} ${fmt(part.usd)}`).join(" · ")}
+                  </Typography>
+                ) : null}
+                {hero.unpricedLines > 0 ? (
+                  <Typography variant="caption" sx={{ display: "block", color: ON_PRIMARY_MUTED }}>
+                    {t("dashboard.unpriced_not_counted", { count: hero.unpricedLines })}
+                  </Typography>
+                ) : null}
               </Box>
             ) : null}
           </Stack>

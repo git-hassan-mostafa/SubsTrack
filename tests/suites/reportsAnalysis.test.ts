@@ -541,6 +541,11 @@ function metrics(over: Partial<DashboardMetrics> = {}): DashboardMetrics {
     totalUsers: 2,
     totalPlans: 1,
     totalDebt: 0,
+    totalToCollect: 0,
+    toCollectMonths: 0,
+    toCollectSales: 0,
+    toCollectManual: 0,
+    unpricedLines: 0,
     monthsDebt: 0,
     salesDebt: 0,
     manualDebt: 0,
@@ -576,6 +581,18 @@ describe("TC-RA-34..37 — dashboard", () => {
     expect(dashboardTiles(spent, true).map((t) => t.key)).toContain("net");
     expect(dashboardTiles(spent, false).map((t) => t.key)).not.toContain("net");
     expect(dashboardTiles(metrics(), true).map((t) => t.key)).not.toContain("expenses");
+  });
+
+  it("TC-RA-36b to collect splits by stream, adds up, and drops empty parts", () => {
+    const hero = revenueHero(
+      metrics({ totalToCollect: 140, toCollectMonths: 40, toCollectSales: 100 }),
+      true,
+    );
+    expect(hero.toCollectMix.map((p) => [p.key, p.usd])).toEqual([
+      ["subscriptions", 40],
+      ["sales", 100],
+    ]);
+    expect(hero.toCollectMix.reduce((sum, p) => sum + p.usd, 0)).toBe(hero.toCollectUsd);
   });
 
   it("TC-RA-37 a loss reads with a minus in front", () => {

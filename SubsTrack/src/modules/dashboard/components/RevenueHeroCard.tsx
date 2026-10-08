@@ -110,7 +110,7 @@ export function RevenueHeroCard({ metrics, isAdmin, displayCurrency, onPress }: 
         </View>
       ) : null}
 
-      {hero.showExpenses || hero.owedUsd > 0 ? (
+      {hero.showExpenses || hero.showToCollect ? (
         <View className="flex-row flex-wrap gap-2 mt-3">
           {hero.showExpenses ? (
             <OutflowChip
@@ -122,17 +122,31 @@ export function RevenueHeroCard({ metrics, isAdmin, displayCurrency, onPress }: 
               iconColor="#fcd34d"
             />
           ) : null}
-          {hero.owedUsd > 0 ? (
+          {hero.showToCollect ? (
             <OutflowChip
               icon="hourglass-outline"
-              label={t("dashboard.owed_by_customers")}
-              amount={fmt(hero.owedUsd)}
+              label={t("dashboard.total_to_collect")}
+              amount={fmt(hero.toCollectUsd)}
               className="bg-red-400/20"
               textClassName="text-red-100"
               iconColor="#fca5a5"
             />
           ) : null}
         </View>
+      ) : null}
+
+      {hero.toCollectMix.length > 0 ? (
+        <Text className="text-xs text-red-100 mt-2">
+          {hero.toCollectMix
+            .map((part) => `${t(part.labelKey)} ${fmt(part.usd)}`)
+            .join(" · ")}
+        </Text>
+      ) : null}
+
+      {hero.unpricedLines > 0 ? (
+        <Text className="text-xs text-indigo-200 mt-2">
+          {t("dashboard.unpriced_not_counted", { count: hero.unpricedLines })}
+        </Text>
       ) : null}
 
       {hero.showExpenses ? (

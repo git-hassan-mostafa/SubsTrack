@@ -15,7 +15,10 @@ export interface RevenueHero {
   mix: RevenueMixPart[];
   expensesUsd: number;
   showExpenses: boolean;
-  owedUsd: number;
+  toCollectUsd: number;
+  toCollectMix: RevenueMixPart[];
+  unpricedLines: number;
+  showToCollect: boolean;
   netUsd: number;
   collectedPct: number;
   paid: number;
@@ -45,6 +48,16 @@ export interface DashboardTile {
   wide: boolean;
 }
 
+// Cash in and cash still to collect split by the same three streams, zero parts dropped.
+function streamParts(subscriptions: number, sales: number, manual: number): RevenueMixPart[] {
+  const parts: RevenueMixPart[] = [
+    { key: "subscriptions", labelKey: "dashboard.subscriptions", usd: subscriptions },
+    { key: "sales", labelKey: "dashboard.sales_label", usd: sales },
+    { key: "manual", labelKey: "reports.stream_manual", usd: manual },
+  ];
+  return parts.filter((part) => part.usd > 0);
+}
+
 // Spending and net are admin-only figures, and hidden while there is nothing spent.
 function showsExpenses(metrics: DashboardMetrics, isAdmin: boolean): boolean {
   return isAdmin && metrics.monthlyExpenses > 0;
@@ -55,12 +68,11 @@ export function revenueHero(metrics: DashboardMetrics, isAdmin: boolean): Revenu
   const prev = metrics.prevMonthRevenue;
   const paid = Math.max(0, metrics.dueThisMonth - metrics.unpaidThisMonth);
   const due = metrics.dueThisMonth;
-  const parts: RevenueMixPart[] = [
-    { key: "subscriptions", labelKey: "dashboard.subscriptions", usd: metrics.subscriptionRevenue },
-    { key: "sales", labelKey: "dashboard.sales_label", usd: metrics.salesRevenue },
-    { key: "manual", labelKey: "reports.stream_manual", usd: metrics.manualRevenue },
-  ];
-  const earning = parts.filter((part) => part.usd > 0);
+  const earning = streamParts(
+    metrics.subscriptionRevenue,
+    metrics.salesRevenue,
+    metrics.manualRevenue,
+  );
   return {
     revenueUsd: metrics.monthlyRevenue,
     changePct:
@@ -68,7 +80,14 @@ export function revenueHero(metrics: DashboardMetrics, isAdmin: boolean): Revenu
     mix: earning.length > 1 ? earning : [],
     expensesUsd: metrics.monthlyExpenses,
     showExpenses: showsExpenses(metrics, isAdmin),
-    owedUsd: metrics.totalDebt,
+    toCollectUsd: metrics.totalToCollect,
+    toCollectMix: streamParts(
+      metrics.toCollectMonths,
+      metrics.toCollectSales,
+      metrics.toCollectManual,
+    ),
+    unpricedLines: metrics.unpricedLines,
+    showToCollect: metrics.totalToCollect > 0 || metrics.unpricedLines > 0,
     netUsd: metrics.netIncome,
     collectedPct: due > 0 ? Math.min(100, Math.round((paid / due) * 100)) : 100,
     paid,

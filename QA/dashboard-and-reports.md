@@ -6,8 +6,13 @@
 2. Dashboard Subscriptions + Sales + Custom = the revenue headline, to the cent.
 3. Reports "Collected" for this month = dashboard revenue, to the cent.
 4. Void a payment → revenue drops by exactly that amount.
-5. Collect a debt → revenue goes up and "Owed by customers" goes down by the same amount.
-6. "Owed by customers" on the dashboard = the Debts page total.
+5. Collect a debt → revenue goes up and "Total to collect" goes down by the same amount.
+6. "Debts" tile on the dashboard = the Debts page total.
+6a. A customer 4 months behind who paid nothing → "Total to collect" includes all 4 months; "Debts" does not move.
+6b. "Total to collect" = the sum of what the collect sheet asks every active regular customer, plus the Debts of everyone else (inactive, non-regular, walk-in).
+6c. Skip a month, cancel a plan, or change the "when a month becomes unpaid" setting → "Total to collect" follows, like the month grid.
+6d. The line under "Total to collect" (Subscriptions · Sales · Manual charges) → adds up to the total exactly.
+6e. A plan with no set price → adds nothing; the note says how many plans were left out.
 7. Pick a branch → every figure is for that branch; all branches added up = the All branches total.
 
 ## Expenses and net
