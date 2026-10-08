@@ -10,7 +10,7 @@ import type {
 import type { Page } from "@shared/core/types";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, updateDirty } from "@/src/core/offline/db/dml";
-import { nowIso } from "@shared/core/utils/ids";
+import { newId, nowIso } from "@shared/core/utils/ids";
 import type {
   ChargeHistoryPageQuery,
   CreateChargePayload,
@@ -20,8 +20,13 @@ import type {
   FindChargesOptions,
   IChargeRepository,
   UpdateChargePayload,
+  WriteOffMark,
 } from "@shared/modules/ledger/repository/IChargeRepository";
-import { writeOffRevertPatch } from "@shared/modules/ledger/repository/chargeRevive";
+import {
+  patchForWriteOff,
+  writeOffRevertPatch,
+} from "@shared/modules/ledger/repository/chargeRevive";
+import { billTargetIn, paidOnIn } from "./billOwners.offline";
 
 const PAID_SUM = `COALESCE(SUM(CASE WHEN co.id IS NOT NULL AND co.voided_at IS NULL
                      THEN CAST(i.amount AS REAL) ELSE 0 END), 0)`;
@@ -448,6 +453,78 @@ export class OfflineChargeRepository
       }
     });
     return live.map((p) => ({ ...p, ...changes }) as DbCharge);
+  }
+
+  async writeOffMonths(
+    bills: CreateChargePayload[],
+    mark: WriteOffMark,
+  ): Promise<DbCharge[]> {
+    if (bills.length === 0) return [];
+    const customerIds = [
+      ...new Set(bills.flatMap((b) => (b.customer_id ? [b.customer_id] : []))),
+    ];
+    const audits = new Map(
+      await Promise.all(
+        customerIds.map(
+          async (id) => [id, await this.customerAudit(id)] as const,
+        ),
+      ),
+    );
+    const auditOf = (row: Pick<DbCharge, "customer_id" | "branch_id">) =>
+      (row.customer_id ? audits.get(row.customer_id) : undefined) ?? {
+        branchId: row.branch_id,
+      };
+
+    return this.write(async (db) => {
+      const written: DbCharge[] = [];
+      for (const next of bills) {
+        const now = nowIso();
+        const target = await billTargetIn(db, next);
+        if ("reuse" in target) {
+          const before = target.reuse;
+          const patch = patchForWriteOff(
+            before,
+            next,
+            await paidOnIn(db, before.id),
+            mark,
+          );
+          if (!patch) continue;
+          const changes = { ...patch, updated_at: now };
+          const after = { ...before, ...changes } as DbCharge;
+          await updateDirty(db, "charges", before.id, changes);
+          await this.auditIn(db, {
+            table: "charges",
+            recordId: before.id,
+            action: "update",
+            before,
+            after,
+            ...auditOf(before),
+          });
+          written.push(after);
+          continue;
+        }
+        const row: DbCharge = {
+          ...next,
+          id: target.idTaken ? newId() : next.id,
+          created_at: now,
+          updated_at: now,
+          voided_at: null,
+          voided_by: null,
+          void_reason: null,
+          ...mark,
+        };
+        await insertDirty(db, "charges", row);
+        await this.auditIn(db, {
+          table: "charges",
+          recordId: row.id,
+          action: "create",
+          after: row,
+          ...auditOf(row),
+        });
+        written.push(row);
+      }
+      return written;
+    });
   }
 
   async revertWriteOff(id: string): Promise<DbCharge> {

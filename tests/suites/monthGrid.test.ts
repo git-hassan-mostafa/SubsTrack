@@ -307,14 +307,15 @@ describe("buildMonthGrid: a WRITTEN-OFF month bill", () => {
   const writtenOff = (month: string, collected: number) =>
     bill(month, collected, { writtenOffAt: "2026-06-01T00:00:00.000Z" });
 
-  it("TC-MG-42 an UNCOLLECTED written-off month still reads unpaid", () => {
+  it("TC-MG-42 an UNCOLLECTED written-off month reads written_off, not unpaid (#186)", () => {
     const grid = buildMonthGrid(
       L,
       [writtenOff("2026-02-01", 0)],
       [],
       2026,
     );
-    expect(at(grid, 2).status).toBe("unpaid");
+    expect(at(grid, 2).status).toBe("written_off");
+    expect(at(grid, 2).balance).toBe(0);
   });
 
   it("TC-MG-43 a PART-PAID written-off month still reads paid — money outranks the write-off", () => {
@@ -340,13 +341,35 @@ describe("buildMonthGrid: a WRITTEN-OFF month bill", () => {
     }
   });
 
-  it("TC-MG-45 a write-off invents no MonthStatus of its own", () => {
+  it("TC-MG-45 a write-off outranks a skip on the same month", () => {
+    const grid = buildMonthGrid(
+      L,
+      [writtenOff("2026-02-01", 0)],
+      [skip("2026-02-01")],
+      2026,
+    );
+    expect(at(grid, 2).status).toBe("written_off");
+  });
+
+  it("TC-MG-46 a written-off multi-month bill gives up EVERY month it covers", () => {
+    const grid = buildMonthGrid(
+      L,
+      [bill("2026-02-01", 0, { durationMonths: 3, writtenOffAt: "2026-06-01T00:00:00.000Z" })],
+      [],
+      2026,
+    );
+    expect(statuses(grid).slice(1, 4)).toEqual(["written_off", "written_off", "written_off"]);
+    expect(at(grid, 5).status).toBe("unpaid");
+  });
+
+  it("TC-MG-47 only the written-off month changes; its neighbours stay unpaid", () => {
     const grid = buildMonthGrid(
       L,
       [writtenOff("2026-02-01", 0)],
       [],
       2026,
     );
-    expect(statuses(grid)).not.toContain("written_off");
+    expect(at(grid, 1).status).toBe("unpaid");
+    expect(at(grid, 3).status).toBe("unpaid");
   });
 });

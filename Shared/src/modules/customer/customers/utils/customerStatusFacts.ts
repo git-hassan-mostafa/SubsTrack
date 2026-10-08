@@ -28,6 +28,7 @@ export type WireBill = [
   durationMonths: number,
   amount: number,
   paid: number,
+  writtenOffAt?: string | null,
 ];
 
 export type WireLine = [
@@ -120,7 +121,13 @@ export function readCustomerStatusFacts(
     customers
       .get(customerId)
       ?.customerPlans.push({ id, startDate, active, planId });
-    for (const [billingMonth, durationMonths, amount, paid] of lineBills) {
+    for (const [
+      billingMonth,
+      durationMonths,
+      amount,
+      paid,
+      writtenOffAt = null,
+    ] of lineBills) {
       bills.push({
         charge: {
           customerId,
@@ -129,6 +136,7 @@ export function readCustomerStatusFacts(
           durationMonths,
           amount: Number(amount),
           voidedAt: null,
+          writtenOffAt,
         },
         collected: Number(paid),
       });

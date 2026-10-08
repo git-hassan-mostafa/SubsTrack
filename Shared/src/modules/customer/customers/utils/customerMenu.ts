@@ -10,7 +10,7 @@ export type CustomerActionKey =
   | "record_sale"
   | "add_custom_debt"
   | "collect"
-  | "write_off_all"
+  | "write_off_everything"
   | "whatsapp_chat"
   | "edit"
   | "history"
@@ -36,10 +36,10 @@ const MENU: MenuTable<CustomerActionKey> = {
   record_sale: { group: "create", labelKey: "sales.record_button" },
   add_custom_debt: { group: "create", labelKey: "debts.add_custom_debt" },
   collect: { group: "money", labelKey: "ledger.collect_money" },
-  write_off_all: {
+  write_off_everything: {
     group: "danger",
-    labelKey: "ledger.write_off_all",
-    captionKey: "ledger.write_off_all_caption",
+    labelKey: "ledger.write_off_everything",
+    captionKey: "ledger.write_off_everything_caption",
     destructive: true,
   },
   whatsapp_chat: { group: "send", labelKey: "invoice.open_whatsapp_chat" },
@@ -65,7 +65,7 @@ export function customerMenuItems(
     }
   }
   keys.push("record_sale", "add_custom_debt");
-  if (hasAnythingOwed(money.status, money.debtUsd)) keys.push("collect", "write_off_all");
+  if (hasAnythingOwed(money.status, money.debtUsd)) keys.push("collect", "write_off_everything");
   if (sendable) keys.push("whatsapp_chat");
   keys.push("edit", "history");
   const items = pickMenu(MENU, keys).map((item) => {
@@ -78,6 +78,11 @@ export function customerMenuItems(
     return item;
   });
   return [...items, ...customerStatusItems(customer, viewer)];
+}
+
+// The customer page reads no badge, so it always offers the write-off.
+export function customerPageMoneyItems(): CustomerMenuItem[] {
+  return pickMenu(MENU, ["write_off_everything"]);
 }
 
 // Pausing and deleting a customer are admin-only, wherever they are offered.

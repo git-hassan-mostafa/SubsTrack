@@ -12,6 +12,7 @@ import type {
   DbChargeWithPaid,
   FindChargesOptions,
   UpdateChargePayload,
+  WriteOffMark,
 } from "@shared/modules/ledger/repository/IChargeRepository";
 import type {
   CollectionPageQuery,
@@ -24,6 +25,7 @@ import { receivedCustody } from "@shared/modules/wallet/utils/custodyValues";
 import {
   monthBillKey,
   patchForIncomingCash,
+  patchForWriteOff,
   resolveBillTarget,
 } from "@shared/modules/ledger/repository/chargeRevive";
 import { collectionKind } from "@shared/modules/ledger/utils/collectionKind";
@@ -335,6 +337,42 @@ export const fakeChargeRepository = {
       });
     }
     return live.map((r) => hydrateCharge(r));
+  },
+  async writeOffMonths(
+    bills: CreateChargePayload[],
+    mark: WriteOffMark,
+  ): Promise<DbCharge[]> {
+    const written: DbCharge[] = [];
+    for (const next of bills) {
+      const key = monthBillKey(next);
+      const target = resolveBillTarget(
+        next,
+        key ? charges.find((c) => monthBillKey(c) === key) : null,
+        charges.find((c) => c.id === next.id),
+      );
+      if ("reuse" in target) {
+        const patch = patchForWriteOff(
+          target.reuse,
+          next,
+          paidOn(target.reuse.id),
+          mark,
+        );
+        if (!patch) continue;
+        Object.assign(target.reuse, patch, {
+          updated_at: new Date().toISOString(),
+        });
+        written.push(hydrateCharge(target.reuse));
+        continue;
+      }
+      written.push(
+        store.seedCharge({
+          ...next,
+          ...(target.idTaken ? { id: nextId("chg") } : {}),
+          ...mark,
+        }),
+      );
+    }
+    return written;
   },
   async writtenOffInRange(
     startIso: string,

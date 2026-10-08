@@ -8,7 +8,7 @@ export const CUSTOMER_ACTION_ICONS: Record<CustomerActionKey, Glyph> = {
   record_sale: "receipt-outline",
   add_custom_debt: "document-text-outline",
   collect: "cash-outline",
-  write_off_all: "remove-circle-outline",
+  write_off_everything: "remove-circle-outline",
   whatsapp_chat: "logo-whatsapp",
   edit: "create-outline",
   history: "time-outline",

@@ -152,6 +152,7 @@ function monthCells(line, bills, skips, year, unpaidRule = DEFAULT_UNPAID_START_
 		const skip = skipByMonth.get(billingMonth) ?? null;
 		let status;
 		if (isEffectivelyPaid) status = "paid";
+		else if (bill?.charge.writtenOffAt) status = "written_off";
 		else if (skip) status = "skipped";
 		else if (year > cy || year === cy && month > cm) status = "future";
 		else if (isNotDueYet(unpaidRule, year, month, line.startDate)) status = "future";
@@ -170,6 +171,9 @@ function monthCells(line, bills, skips, year, unpaidRule = DEFAULT_UNPAID_START_
 			skip: status === "skipped" ? skip : null
 		};
 	});
+}
+function isSettledStatus(status) {
+	return status === "paid" || status === "written_off";
 }
 function buildCustomerStatus(lines, bills, skips, unpaidRule = DEFAULT_UNPAID_START_RULE) {
 	const { year: currentYear, month: currentMonth } = getCurrentYearMonth();
@@ -192,7 +196,7 @@ function buildCustomerStatus(lines, bills, skips, unpaidRule = DEFAULT_UNPAID_ST
 		let lineRequired = 0;
 		let lineUnpaid = 0;
 		for (let year = startYear; year <= currentYear; year++) for (const entry of monthCells(line, lineBills, lineSkips, year, unpaidRule)) {
-			if (entry.status === "paid" || entry.status === "unpaid") lineRequired++;
+			if (isSettledStatus(entry.status) || entry.status === "unpaid") lineRequired++;
 			if (entry.status === "unpaid") {
 				lineUnpaid++;
 				unpaidMonths.add(entry.billingMonth);
@@ -219,7 +223,7 @@ function buildCustomerStatus(lines, bills, skips, unpaidRule = DEFAULT_UNPAID_ST
 		}
 		if (current.status === "future") continue;
 		dueThisMonth++;
-		if (current.status === "paid") notDueLineIds.push(line.id);
+		if (isSettledStatus(current.status)) notDueLineIds.push(line.id);
 	}
 	return {
 		status: settled === inPlay ? dueThisMonth === 0 ? anySkipped ? "skipped" : "not_due_yet" : "paid" : settled > 0 ? "mixed" : "unpaid",
@@ -277,14 +281,15 @@ function readCustomerStatusFacts(wire, unpaidRule) {
 			active,
 			planId
 		});
-		for (const [billingMonth, durationMonths, amount, paid] of lineBills) bills.push({
+		for (const [billingMonth, durationMonths, amount, paid, writtenOffAt = null] of lineBills) bills.push({
 			charge: {
 				customerId,
 				customerPlanId: id,
 				billingMonth,
 				durationMonths,
 				amount: Number(amount),
-				voidedAt: null
+				voidedAt: null,
+				writtenOffAt
 			},
 			collected: Number(paid)
 		});

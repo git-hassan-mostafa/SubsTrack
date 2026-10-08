@@ -30,11 +30,8 @@ import type {
   ICollectionRepository,
 } from "@shared/modules/ledger/repository/ICollectionRepository";
 import type { CreateChargePayload } from "@shared/modules/ledger/repository/IChargeRepository";
-import {
-  monthBillKey,
-  patchForIncomingCash,
-  resolveBillTarget,
-} from "@shared/modules/ledger/repository/chargeRevive";
+import { patchForIncomingCash } from "@shared/modules/ledger/repository/chargeRevive";
+import { billTargetIn, paidOnIn } from "./billOwners.offline";
 import { collectionPlanId } from "@shared/modules/ledger/utils/collectionPlan";
 import { sumByMonth } from "@shared/modules/ledger/utils/monthTotals";
 
@@ -225,7 +222,7 @@ export class OfflineCollectionRepository
     const patch = patchForIncomingCash(
       before,
       next,
-      await this.paidOn(db, chargeId),
+      await paidOnIn(db, chargeId),
     );
     if (Object.keys(patch).length === 0) return before;
     const after = { ...before, ...patch } as DbCharge;
@@ -239,16 +236,6 @@ export class OfflineCollectionRepository
       ...audit,
     });
     return after;
-  }
-
-  private async paidOn(db: SQLiteDatabase, chargeId: string): Promise<number> {
-    const row = await db.getFirstAsync<{ total: number | null }>(
-      "SELECT SUM(ci.amount) AS total FROM collection_items ci " +
-        "JOIN collections c ON c.id = ci.collection_id " +
-        "WHERE ci.charge_id = ? AND c.voided_at IS NULL",
-      [chargeId] as never[],
-    );
-    return Number(row?.total ?? 0);
   }
 
   async create(payload: CreateCollectionPayload): Promise<DbCollection> {
@@ -288,23 +275,7 @@ export class OfflineCollectionRepository
     const settled = new Map<string, DbCharge>();
 
     for (const charge of charges) {
-      const byKey = monthBillKey(charge)
-        ? this.decodeOne<DbCharge>(
-            "charges",
-            await db.getFirstAsync<Record<string, unknown>>(
-              "SELECT * FROM charges WHERE customer_plan_id = ? AND billing_month = ?",
-              [charge.customer_plan_id, charge.billing_month] as never[],
-            ),
-          )
-        : null;
-      const byId = this.decodeOne<DbCharge>(
-        "charges",
-        await db.getFirstAsync<Record<string, unknown>>(
-          "SELECT * FROM charges WHERE id = ?",
-          [charge.id] as never[],
-        ),
-      );
-      const target = resolveBillTarget(charge, byKey, byId);
+      const target = await billTargetIn(db, charge);
       if ("reuse" in target) {
         targets.set(
           charge.id,

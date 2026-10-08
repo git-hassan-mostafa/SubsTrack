@@ -14,6 +14,8 @@ import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useBranchSlice } from "@shared/state/hooks/useBranchSlice";
 import { useCustomerStatusActions } from "@shared/modules/customer/customers/hooks/useCustomerStatusActions";
 import { useCustomerPortalUrl } from "@shared/state/hooks/useOptionSlice";
+import { useWriteOffEverything } from "@shared/modules/ledger/hooks/useWriteOffEverything";
+import { confirm } from "@shared/shared/lib/confirm";
 
 interface CustomerDetailsCardProps {
   customer: Customer;
@@ -26,6 +28,7 @@ export function CustomerDetailsCard({
 }: CustomerDetailsCardProps) {
   const { t } = useTranslation();
   const customerStatus = useCustomerStatusActions();
+  const writeOffEverything = useWriteOffEverything();
   const { isAdmin } = useAuth();
   const branch = useBranchSlice(
     (state) => state.items.find((b) => b.id === customer.branchId) ?? null,
@@ -43,6 +46,16 @@ export function CustomerDetailsCard({
 
   async function handleToggleActive() {
     await customerStatus.toggleActive(customer);
+  }
+
+  async function handleWriteOffEverything() {
+    if ((await writeOffEverything(customer)) !== "nothing") return;
+    await confirm({
+      title: t("common.not_available"),
+      message: t("ledger.nothing_to_write_off"),
+      confirmLabel: t("common.close"),
+      hideCancel: true,
+    });
   }
 
   async function handleDelete() {
@@ -257,6 +270,29 @@ export function CustomerDetailsCard({
               />
             )}
           </View>
+        </PressableOpacity>
+
+        <PressableOpacity
+          onPress={() => void handleWriteOffEverything()}
+          className={`flex-row items-center justify-between px-4 py-3.5 ${
+            isAdmin ? "border-b border-gray-100" : ""
+          }`}
+        >
+          <View className="flex-row items-center gap-3">
+            <Ionicons
+              name="remove-circle-outline"
+              size={16}
+              color={COLORS.danger}
+            />
+            <Text className="text-sm" style={{ color: COLORS.danger }}>
+              {t("ledger.write_off_everything")}
+            </Text>
+          </View>
+          <DirectionalIcon
+            name="chevron-forward"
+            size={14}
+            color={COLORS.danger}
+          />
         </PressableOpacity>
 
         {isAdmin && (

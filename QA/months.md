@@ -26,7 +26,12 @@ What a month shows after money moves. A month is Paid as soon as **any** money r
 
 15. Pay $20 of a $60 month, then write it off → month still reads Paid with the ring (20/60); not in Debts.
 16. Collect the remaining $40 on that written-off month → the write-off is undone; the month is 60/60; Reports no longer counts it as written off.
-17. A written-off month with $0 paid → the cell is Unpaid, but tapping opens the bill (with Undo write-off), never the collect form.
+17. A written-off month with $0 paid → the cell reads "Written off" (grey); tapping opens the bill (with Undo write-off), never the collect form.
+17a. Write off one red month nobody paid (month ⋮ → Write off) → the cell reads "Written off"; the month is no longer counted as unpaid or overdue anywhere (customer pill, dashboard "Total to collect", collect form, WhatsApp reminder); Reports counts that month's price as lost.
+17b. The written-off month was priced $20 and today's price is $25 → it is written off at $20 (its own month's price).
+17c. Write off January, then pay February → allowed; January does not block it.
+17d. Undo the write-off on that month → it is red again and asks its own price; Reports no longer counts it as lost; only one bill exists for that month.
+17e. A month on a line with no set price → Write off says there is nothing to write off.
 
 ## Skipped months
 

@@ -28,6 +28,7 @@ import {
   patchForIncomingCash,
   resolveBillTarget,
 } from "@shared/modules/ledger/repository/chargeRevive";
+import { findBillOwners } from "@shared/modules/ledger/repository/billOwners";
 import { collectionPlanId } from "@shared/modules/ledger/utils/collectionPlan";
 import { sumByMonth } from "@shared/modules/ledger/utils/monthTotals";
 
@@ -238,39 +239,6 @@ export class CollectionRepository
     return (data ?? []) as DbCollectionItem[];
   }
 
-  /** Both sides `resolveBillTarget` weighs: who holds the month, who holds the id. */
-  private async findBillOwners(
-    charges: CreateChargePayload[],
-  ): Promise<{ byKey: Map<string, DbCharge>; byId: Map<string, DbCharge> }> {
-    const { data: idRows, error: idError } = await this.db
-      .from("charges")
-      .select("*")
-      .in(
-        "id",
-        charges.map((c) => c.id),
-      );
-    if (idError) this.handleError(idError);
-    const byId = new Map(((idRows ?? []) as DbCharge[]).map((r) => [r.id, r]));
-
-    const byKey = new Map<string, DbCharge>();
-    const keyed = charges.filter((c) => monthBillKey(c) !== null);
-    if (keyed.length === 0) return { byKey, byId };
-
-    const { data: keyRows, error: keyError } = await this.db
-      .from("charges")
-      .select("*")
-      .in("customer_plan_id", [
-        ...new Set(keyed.map((c) => c.customer_plan_id as string)),
-      ])
-      .in("billing_month", [
-        ...new Set(keyed.map((c) => c.billing_month as string)),
-      ]);
-    if (keyError) this.handleError(keyError);
-    for (const row of (keyRows ?? []) as DbCharge[])
-      byKey.set(monthBillKey(row) as string, row);
-    return { byKey, byId };
-  }
-
   private async reviveTargetBill(
     row: DbCharge,
     next: CreateChargePayload,
@@ -337,7 +305,9 @@ export class CollectionRepository
     const resolved = new Map<string, DbCharge>();
     if (charges.length === 0) return resolved;
 
-    const { byKey, byId } = await this.findBillOwners(charges);
+    const { byKey, byId } = await findBillOwners(this.db, charges, (e) =>
+      this.handleError(e),
+    );
     const paidById = await this.paidByCharge([
       ...new Set([...byKey.values(), ...byId.values()].map((r) => r.id)),
     ]);

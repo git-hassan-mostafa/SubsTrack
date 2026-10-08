@@ -112,7 +112,7 @@ describe("customer menus", () => {
         "record_sale",
         "add_custom_debt",
         "collect",
-        "write_off_all",
+        "write_off_everything",
         "whatsapp_chat",
         "edit",
         "history",
@@ -191,7 +191,14 @@ describe("sale receipt", () => {
 
 describe("debtorActions", () => {
   it("TC-RM-17 billed debts collect and write off together", () => {
-    expect(keysOf(debtorActions([openItem({ kind: "manual" })]))).toEqual(["collect_all", "write_off_all"]);
+    expect(keysOf(debtorActions([openItem({ kind: "manual", isDebt: true })]))).toEqual([
+      "collect_all",
+      "write_off_all",
+    ]);
+  });
+
+  it("TC-RM-18b an unpaid month is owed, not a debt, so the debtor write-off never reaches it (#186)", () => {
+    expect(keysOf(debtorActions([openItem({ paid: 0, isDebt: false })]))).toEqual(["collect_all"]);
   });
 
   it("TC-RM-18 a virtual month has no bill, so it collects but never writes off", () => {

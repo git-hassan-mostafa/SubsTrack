@@ -9,6 +9,7 @@ const REGULAR_BG: Record<MonthStatus, string> = {
   future: "bg-gray-100",
   before_start: "bg-gray-100",
   skipped: "bg-gray-500",
+  written_off: "bg-gray-200",
 };
 
 const NON_REGULAR_BG: Record<MonthStatus, string> = {
@@ -17,6 +18,7 @@ const NON_REGULAR_BG: Record<MonthStatus, string> = {
   future: "bg-gray-100",
   before_start: "bg-gray-100",
   skipped: "bg-gray-500",
+  written_off: "bg-gray-200",
 };
 
 const REGULAR_TEXT: Record<MonthStatus, string> = {
@@ -25,6 +27,7 @@ const REGULAR_TEXT: Record<MonthStatus, string> = {
   future: "text-gray-500",
   before_start: "text-gray-400",
   skipped: "text-white",
+  written_off: "text-orange-700",
 };
 
 const NON_REGULAR_TEXT: Record<MonthStatus, string> = {
@@ -33,6 +36,7 @@ const NON_REGULAR_TEXT: Record<MonthStatus, string> = {
   future: "text-gray-500",
   before_start: "text-gray-400",
   skipped: "text-white",
+  written_off: "text-orange-700",
 };
 
 interface Props {
@@ -115,6 +119,7 @@ function sublabel(
   if (partial) return t("portal.partial");
   if (entry.status === "paid") return `✓ ${t("portal.paid")}`;
   if (entry.status === "skipped") return t("portal.paused");
+  if (entry.status === "written_off") return t("portal.written_off");
   if (entry.status === "unpaid") return t("portal.not_paid");
   return t("portal.not_due_yet");
 }

@@ -41,6 +41,7 @@ import {
 import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 import { earlierPriceNotes } from "@shared/modules/ledger/utils/earlierPriceNotes";
 import { monthItemFromEntry } from "@shared/modules/ledger/utils/openItems";
+import { writeOffItems } from "@shared/modules/ledger/utils/writeOffItems";
 import { isEarlierPrice } from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { groupBy } from "@shared/core/utils/groupBy";
@@ -324,6 +325,17 @@ export function useCustomerMonthGrid({
   const writeOff = (charge: Charge, balance: number) =>
     writeOffActions.writeOff(writeOffTargetOf(charge, balance, customer.name));
 
+  const writeOffEntries = async (entries: MonthEntry[]) => {
+    const items = itemsFor(entries);
+    if (writeOffItems(items, "everything").length === 0) {
+      notAvailable(t("ledger.nothing_to_write_off"));
+      return;
+    }
+    if (await writeOffActions.writeOffMonths(customer.name, items)) {
+      clearSelection();
+    }
+  };
+
   const revertWriteOff = (charge: Charge, balance: number) =>
     writeOffActions.revert(writeOffTargetOf(charge, balance, customer.name));
 
@@ -375,6 +387,14 @@ export function useCustomerMonthGrid({
       case "history":
         void openHistory(entry);
         return;
+      case "write-off":
+        void writeOffEntries([entry]);
+        return;
+      case "revert-write-off":
+        if (entry.charge) {
+          void revertWriteOff(entry.charge, entry.charge.amount - entry.collected);
+        }
+        return;
       case "void-month":
         voidBill(entry);
     }
@@ -408,6 +428,9 @@ export function useCustomerMonthGrid({
         return;
       case "unskip":
         setSkipRequest({ entries: groups.skipped, mode: "unskip" });
+        return;
+      case "write-off":
+        void writeOffEntries(groups.writeOffable);
     }
   };
 

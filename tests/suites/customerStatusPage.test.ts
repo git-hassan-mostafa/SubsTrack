@@ -192,7 +192,13 @@ function toWire(f: Fixture): CustomerStatusFactsWire {
         f.bills
           .filter((b) => b.charge.customerPlanId === l.id)
           .sort((a, b) => a.charge.billingMonth!.localeCompare(b.charge.billingMonth!))
-          .map((b): WireBill => [b.charge.billingMonth!, b.charge.durationMonths, b.charge.amount, b.collected]),
+          .map((b): WireBill => [
+            b.charge.billingMonth!,
+            b.charge.durationMonths,
+            b.charge.amount,
+            b.collected,
+            b.charge.writtenOffAt,
+          ]),
         f.skips.filter((s) => s.customerPlanId === l.id && s.skipped).map((s) => s.billingMonth),
         l.planId,
       ]),
@@ -403,6 +409,39 @@ describe("pageCustomerStatuses — server filters equal the phone list", () => {
       lastPaidAt: null,
       customerPlans: [{ id: "l1", planId: null }],
     });
+  });
+});
+
+describe("customerStatusPage — a written-off month on the server", () => {
+  afterEach(unfreeze);
+
+  it("TC-CT-24 a never-paid written-off month reaches the server and stops counting as unpaid (#186)", () => {
+    freezeToday(2026, 3, 15);
+    const facts = readCustomerStatusFacts(
+      {
+        customers: [["c1", "Ali", null, null, null, true, true]],
+        lines: [
+          [
+            "l1",
+            "c1",
+            "2026-01-01",
+            true,
+            [["2026-01-01", 1, 20, 0, "2026-02-10T00:00:00.000Z"]],
+            [],
+          ],
+        ],
+        debts: [],
+      },
+      "month_start",
+    );
+    expect(facts.bills[0].charge.writtenOffAt).toBe("2026-02-10T00:00:00.000Z");
+    const status = buildCustomerStatus(
+      facts.customers[0].customerPlans,
+      facts.bills,
+      facts.skips,
+      "month_start",
+    );
+    expect(status.unpaidMonths).toBe(2);
   });
 });
 

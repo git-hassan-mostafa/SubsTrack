@@ -69,6 +69,8 @@ const MENU_ICONS: Record<MonthMenuKey, Glyph> = {
   bill: "receipt-outline",
   "collect-remaining": "cash-outline",
   history: "time-outline",
+  "write-off": "remove-circle-outline",
+  "revert-write-off": "arrow-undo-outline",
   "void-month": "close-circle-outline",
 };
 
@@ -77,6 +79,7 @@ const SELECTION_ICONS: Record<MonthSelectionKey, Glyph> = {
   "pay-whatsapp": "logo-whatsapp",
   skip: "play-skip-forward-outline",
   unskip: "refresh-outline",
+  "write-off": "remove-circle-outline",
 };
 
 // The deep-linked collect sheet waits for the screen push to finish.

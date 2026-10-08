@@ -98,7 +98,7 @@ describe("monthTap: what a click on a cell does", () => {
     const s = setup([
       bill("2026-01-01", 0, { writtenOffAt: "2026-02-01T00:00:00.000Z" }),
     ]);
-    expect(month(s, 1).status).toBe("unpaid");
+    expect(month(s, 1).status).toBe("written_off");
     expect(monthTap(month(s, 1), s.gates)).toEqual({ kind: "bill" });
   });
 
@@ -127,7 +127,7 @@ describe("monthTap: what a click on a cell does", () => {
 });
 
 describe("monthMenuItems: the ⋮ menu of one month", () => {
-  it("TC-MA-10 an open priced month offers pay, pay + send, part pay and skip", () => {
+  it("TC-MA-10 an open priced month offers pay, pay + send, part pay, skip and write-off", () => {
     const s = setup();
     expect(keys(monthMenuItems(month(s, 1), s.gates, STAFF))).toEqual([
       "open",
@@ -135,6 +135,7 @@ describe("monthMenuItems: the ⋮ menu of one month", () => {
       "quick-pay-whatsapp",
       "collect-part",
       "skip",
+      "write-off",
     ]);
   });
 
@@ -155,9 +156,13 @@ describe("monthMenuItems: the ⋮ menu of one month", () => {
     expect(send).toMatchObject({ disabled: true, captionKey: "invoice.no_phone" });
   });
 
-  it("TC-MA-13 a blocked later month offers no pay rows, only skip", () => {
+  it("TC-MA-13 a blocked later month offers no pay rows, only skip and write-off", () => {
     const s = setup();
-    expect(keys(monthMenuItems(month(s, 3), s.gates, STAFF))).toEqual(["open", "skip"]);
+    expect(keys(monthMenuItems(month(s, 3), s.gates, STAFF))).toEqual([
+      "open",
+      "skip",
+      "write-off",
+    ]);
   });
 
   it("TC-MA-14 a part-paid month offers its bill, the rest, and the void", () => {
@@ -176,6 +181,42 @@ describe("monthMenuItems: the ⋮ menu of one month", () => {
     expect(keys(monthMenuItems(month(s, 1), s.gates, STAFF))).not.toContain(
       "collect-remaining",
     );
+  });
+
+  it("TC-MA-15b a never-paid written-off month offers its bill and Undo only: no pay, skip, write-off or void (#186)", () => {
+    const s = setup([bill("2026-01-01", 0, { writtenOffAt: "2026-02-01T00:00:00.000Z" })]);
+    expect(keys(monthMenuItems(month(s, 1), s.gates, ADMIN))).toEqual([
+      "open",
+      "bill",
+      "revert-write-off",
+      "history",
+    ]);
+  });
+
+  it("TC-MA-15e a part-paid written-off month offers Undo too, never on a live month", () => {
+    const s = setup([bill("2026-01-01", 5, { writtenOffAt: "2026-02-01T00:00:00.000Z" })]);
+    expect(keys(monthMenuItems(month(s, 1), s.gates, STAFF))).toContain("revert-write-off");
+    const live = setup([bill("2026-01-01", 5)]);
+    expect(keys(monthMenuItems(month(live, 1), live.gates, STAFF))).not.toContain("revert-write-off");
+  });
+
+  it("TC-MA-15c a month not due yet, or after the line stopped, cannot be written off", () => {
+    const s = setup();
+    expect(keys(monthMenuItems(month(s, 7), s.gates, STAFF))).not.toContain("write-off");
+    const stopped = line({
+      id: "line-1",
+      startDate: "2026-01-01",
+      active: false,
+      cancelledAt: "2026-03-10T00:00:00.000Z",
+    });
+    const t = setup([], [], { on: stopped });
+    expect(keys(monthMenuItems(month(t, 3), t.gates, STAFF))).toContain("write-off");
+    expect(keys(monthMenuItems(month(t, 4), t.gates, STAFF))).not.toContain("write-off");
+  });
+
+  it("TC-MA-15d a written-off month no longer blocks paying a later one", () => {
+    const s = setup([bill("2026-01-01", 0, { writtenOffAt: "2026-02-01T00:00:00.000Z" })]);
+    expect(canQuickPayMonth(month(s, 2), s.gates)).toBe(true);
   });
 
   it("TC-MA-16 history is admin-only and never on a month before the start", () => {
@@ -211,8 +252,15 @@ describe("selection: several months at once", () => {
       "pay-whatsapp",
       "skip",
       "unskip",
+      "write-off",
     ]);
-    expect(keys(monthSelectionItems(groups, false))).toEqual(["pay", "skip", "unskip"]);
+    expect(keys(monthSelectionItems(groups, false))).toEqual([
+      "pay",
+      "skip",
+      "unskip",
+      "write-off",
+    ]);
+    expect(groups.writeOffable.map((e) => e.month)).toEqual([1]);
   });
 
   it("TC-MA-22 a ticked checkbox brings its whole bundle; unticking drops it whole", () => {

@@ -8,6 +8,33 @@ import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { owedUsd } from "@shared/modules/ledger/utils/debtRule";
+import {
+  writeOffItems,
+  type WriteOffReach,
+} from "@shared/modules/ledger/utils/writeOffItems";
+
+type WriteOffWording = WriteOffReach | "months";
+
+const WORDING: Record<
+  WriteOffWording,
+  { title: string; message: string; confirm: string }
+> = {
+  debts: {
+    title: "ledger.write_off_all_title",
+    message: "ledger.write_off_all_message",
+    confirm: "ledger.write_off_all",
+  },
+  everything: {
+    title: "ledger.write_off_everything_title",
+    message: "ledger.write_off_everything_message",
+    confirm: "ledger.write_off_everything",
+  },
+  months: {
+    title: "ledger.write_off_months_title",
+    message: "ledger.write_off_months_message",
+    confirm: "ledger.write_off",
+  },
+};
 
 export interface WriteOffTarget {
   chargeId: string | null;
@@ -30,7 +57,7 @@ export function useWriteOffActions() {
   const { user } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
   const writeOffCharge = useLedgerSlice((s) => s.writeOffCharge);
-  const writeOffCharges = useLedgerSlice((s) => s.writeOffCharges);
+  const writeOffOwed = useLedgerSlice((s) => s.writeOffOwed);
   const revertWriteOff = useLedgerSlice((s) => s.revertWriteOff);
 
   const target = useDisplayCurrency();
@@ -76,31 +103,59 @@ export function useWriteOffActions() {
     [currencies, target, t, revertWriteOff],
   );
 
-  const writeOffAll = useCallback(
-    async (customerName: string, items: OpenItem[]): Promise<boolean> => {
+  const confirmWriteOff = useCallback(
+    async (
+      customerName: string,
+      items: OpenItem[],
+      wording: WriteOffWording,
+    ): Promise<boolean> => {
       if (!user) return false;
-      const billed = items.filter((i) => !!i.chargeId);
-      const ids = [...new Set(billed.map((i) => i.chargeId as string))];
-      if (ids.length === 0) return false;
-      const totalUsd = owedUsd(billed);
+      const picked = writeOffItems(
+        items,
+        wording === "debts" ? "debts" : "everything",
+      );
+      if (picked.length === 0) return false;
+      const text = WORDING[wording];
       let wrote = false;
       await confirm({
-        title: t("ledger.write_off_all_title"),
-        message: t("ledger.write_off_all_message", {
-          amount: formatMoney(totalUsd, null, target),
+        title: t(text.title, { count: picked.length }),
+        message: t(text.message, {
+          amount: formatMoney(owedUsd(picked), null, target),
           customer: customerName,
-          count: ids.length,
+          count: picked.length,
         }),
-        confirmLabel: t("ledger.write_off_all"),
+        confirmLabel: t(text.confirm),
         destructive: true,
         onConfirm: async () => {
-          wrote = await writeOffCharges(ids, user.id, null);
+          wrote = await writeOffOwed(
+            picked,
+            { tenantId: user.tenantId, userId: user.id },
+            null,
+          );
         },
       });
       return wrote;
     },
-    [user, target, t, writeOffCharges],
+    [user, target, t, writeOffOwed],
   );
 
-  return { writeOff, revert, writeOffAll };
+  const writeOffAll = useCallback(
+    (customerName: string, items: OpenItem[]) =>
+      confirmWriteOff(customerName, items, "debts"),
+    [confirmWriteOff],
+  );
+
+  const writeOffEverything = useCallback(
+    (customerName: string, items: OpenItem[]) =>
+      confirmWriteOff(customerName, items, "everything"),
+    [confirmWriteOff],
+  );
+
+  const writeOffMonths = useCallback(
+    (customerName: string, items: OpenItem[]) =>
+      confirmWriteOff(customerName, items, "months"),
+    [confirmWriteOff],
+  );
+
+  return { writeOff, revert, writeOffAll, writeOffEverything, writeOffMonths };
 }

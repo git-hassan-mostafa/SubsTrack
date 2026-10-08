@@ -9,13 +9,20 @@ export interface CellJoin {
   wrapToNext: boolean;
 }
 
-export type CellBadge = "included" | "partial" | "paid" | "skipped" | "this_month";
+export type CellBadge =
+  | "included"
+  | "partial"
+  | "paid"
+  | "skipped"
+  | "written_off"
+  | "this_month";
 
 export const CELL_BADGE_KEYS: Record<CellBadge, string> = {
   included: "payments.included_label",
   partial: "payments.partial_badge",
   paid: "common.paid",
   skipped: "payments.skip.skipped_label",
+  written_off: "payments.written_off_badge",
   this_month: "payments.this_month",
 };
 
@@ -77,6 +84,7 @@ export function cellBadge(entry: MonthEntry): CellBadge | null {
   if (isPartialMonth(entry)) return "partial";
   if (entry.status === "paid") return "paid";
   if (entry.status === "skipped") return "skipped";
+  if (entry.status === "written_off") return "written_off";
   if (isCurrentMonth(entry)) return "this_month";
   return null;
 }

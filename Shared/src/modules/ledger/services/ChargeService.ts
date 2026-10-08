@@ -16,10 +16,13 @@ import { daysLate } from "@shared/core/utils/date";
 import { inChunks } from "@shared/core/utils/chunk";
 import type {
   ChargeHistoryPageQuery,
+  CreateChargePayload,
   DbChargeHistoryRow,
   FindChargeHistoryOptions,
   WriteOffScope,
 } from "@shared/modules/ledger/repository/IChargeRepository";
+import { writeOffMark } from "@shared/modules/ledger/repository/chargeRevive";
+import { isWriteOffMonth } from "@shared/modules/ledger/utils/writeOffItems";
 import { mapDbChargeToCharge } from "@shared/modules/ledger/utils/mapper";
 import { balanceUsd } from "@shared/modules/ledger/utils/debtRule";
 import {
@@ -376,6 +379,57 @@ class ChargeService {
       reason,
     );
     return rows.map(mapDbChargeToCharge);
+  }
+
+  // An unpaid month has no row yet, so its bill is raised already written off.
+  async writeOffOwed(
+    items: OpenItem[],
+    tenantId: string,
+    writtenOffBy: string,
+    reason: string | null,
+  ): Promise<Charge[]> {
+    const billed = items.flatMap((i) => (i.chargeId ? [i.chargeId] : []));
+    const months = await Promise.all(
+      items
+        .filter(isWriteOffMonth)
+        .map((item) => this.monthBillOf(item, tenantId, writtenOffBy)),
+    );
+    const stored = await this.writeOffMany(billed, writtenOffBy, reason);
+    const raised = await repositories().charge.writeOffMonths(
+      [...new Map(months.map((m) => [m.id, m])).values()],
+      writeOffMark(nowIso(), writtenOffBy, reason),
+    );
+    return [...stored, ...raised.map(mapDbChargeToCharge)];
+  }
+
+  // Same id a collect would raise, so two offline phones make ONE row (#186).
+  private async monthBillOf(
+    item: OpenItem,
+    tenantId: string,
+    recordedBy: string,
+  ): Promise<CreateChargePayload> {
+    const customerPlanId = item.customerPlanId as string;
+    const billingMonth = item.billingMonth as string;
+    return {
+      id: await this.monthChargeId(customerPlanId, billingMonth),
+      tenant_id: tenantId,
+      branch_id: item.branchId,
+      customer_id: item.customerId,
+      kind: "month",
+      customer_plan_id: customerPlanId,
+      billing_month: billingMonth,
+      duration_months: item.durationMonths,
+      plan_id: item.planId,
+      sale_id: null,
+      description: null,
+      amount: item.amount,
+      currency_id: item.currencyId,
+      rate_per_usd_snapshot: item.ratePerUsdSnapshot,
+      issued_at: nowIso(),
+      due_date: item.dueDate,
+      recorded_by_user_id: recordedBy,
+      notes: null,
+    };
   }
 
   // Refuses a LIVE bill rather than no-opping: nothing was given up to undo.

@@ -14,7 +14,8 @@ export type MonthCellTone =
   | "current_unpaid"
   | "future"
   | "before_start"
-  | "skipped";
+  | "skipped"
+  | "written_off";
 
 // A non-regular customer is never chased, so an empty month stays plain grey.
 export function monthCellTone(entry: MonthEntry, isRegular: boolean): MonthCellTone {
@@ -33,7 +34,7 @@ export function isSelectableMonth(entry: MonthEntry): boolean {
   return entry.status !== "before_start";
 }
 
-export type MonthRowStatus = MonthStatus | "partial" | "written_off";
+export type MonthRowStatus = MonthStatus | "partial";
 
 // A write-off outranks the money on the bill, and partial outranks plain paid.
 export function monthRowStatus(entry: MonthEntry): MonthRowStatus {

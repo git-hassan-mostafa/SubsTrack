@@ -1,5 +1,5 @@
 import type { DbCharge } from "@shared/core/types/db";
-import type { CreateChargePayload } from "./IChargeRepository";
+import type { CreateChargePayload, WriteOffMark } from "./IChargeRepository";
 
 /**
  * A bill that is no longer owed — and therefore invisible to the grid, the
@@ -90,6 +90,26 @@ export function patchForIncomingCash(
         }
       : {};
   return { ...revive, ...reprice };
+}
+
+export function writeOffMark(
+  at: string,
+  by: string,
+  reason: string | null,
+): WriteOffMark {
+  return { written_off_at: at, written_off_by: by, write_off_reason: reason };
+}
+
+// The month's row, as giving it up leaves it; null = nothing left to give up.
+export function patchForWriteOff(
+  row: DbCharge,
+  next: CreateChargePayload,
+  paid: number,
+  mark: WriteOffMark,
+): Partial<DbCharge> | null {
+  if (row.written_off_at) return null;
+  if (paid > 0) return row.voided_at ? null : { ...mark };
+  return { ...patchForIncomingCash(row, next, paid), ...mark };
 }
 
 /**

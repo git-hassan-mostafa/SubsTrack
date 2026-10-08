@@ -24,6 +24,12 @@ export type CreateChargePayload = Omit<
   | "sales"
 >;
 
+export interface WriteOffMark {
+  written_off_at: string;
+  written_off_by: string;
+  write_off_reason: string | null;
+}
+
 /** The editable face of a bill. Its kind, its keys and its dates never move. */
 export type UpdateChargePayload = Partial<
   Pick<
@@ -123,6 +129,11 @@ export interface IChargeRepository {
     ids: string[],
     writtenOffBy: string,
     reason: string | null,
+  ): Promise<DbCharge[]>;
+  // A month with no row yet is raised already written off — gotcha #186.
+  writeOffMonths(
+    bills: CreateChargePayload[],
+    mark: WriteOffMark,
   ): Promise<DbCharge[]>;
   revertWriteOff(id: string): Promise<DbCharge>;
 

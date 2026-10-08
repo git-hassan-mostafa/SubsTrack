@@ -2210,7 +2210,7 @@ AS $$
     line_bills AS (
         SELECT ch.customer_plan_id,
                json_agg(json_build_array(ch.billing_month, ch.duration_months,
-                                         ch.amount, b.paid)
+                                         ch.amount, b.paid, ch.written_off_at)
                         ORDER BY ch.billing_month) AS bills
           FROM charges ch
           JOIN charge_balances b ON b.id = ch.id

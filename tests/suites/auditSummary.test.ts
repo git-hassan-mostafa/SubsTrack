@@ -460,6 +460,37 @@ describe("buildAuditSummary", () => {
     expect(sentence(e)).toContain("re-opened the September 2026 bill");
   });
 
+  it("TC-AS-30d a never-paid month raised already written off reads as a write-off, not a new bill (#186)", () => {
+    const e = entry({
+      table: "charges",
+      action: "create",
+      subject: "Donald Trump",
+      context: {
+        kind: "month",
+        billing_month: "2026-09-01",
+        written_off_at: "2026-10-01T10:00:00.000Z",
+      },
+    });
+    expect(sentence(e)).toBe(
+      "Super Admin wrote off the September 2026 bill for Donald Trump",
+    );
+  });
+
+  it("TC-AS-30e a VOIDED month bill written off reads as a write-off, not a re-open", () => {
+    const e = entry({
+      table: "charges",
+      subject: "Donald Trump",
+      changes: [
+        change("voided_at", "2026-08-20T10:00:00.000Z", null),
+        change("written_off_at", null, "2026-10-01T10:00:00.000Z"),
+      ],
+      context: { kind: "month", billing_month: "2026-09-01" },
+    });
+    expect(sentence(e)).toBe(
+      "Super Admin wrote off the September 2026 bill for Donald Trump",
+    );
+  });
+
   it("TC-AS-31 a real void is still a void, not a re-open", () => {
     const e = entry({
       table: "charges",

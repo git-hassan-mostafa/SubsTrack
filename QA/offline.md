@@ -11,3 +11,4 @@ Turn on airplane mode, do the action, turn the network back on and sync. Then ch
 7. Two phones correct the same payment offline → after sync there is one live corrected payment, not two.
 8. Two admins receive the same cash offline → after sync it sits with exactly one of them.
 9. Collect money offline, then reopen the app the same day (sync not due yet) → the payment is still pushed to the server.
+10. Two phones write off the same unpaid month offline → after sync there is one written-off bill for that month, not two.

@@ -104,9 +104,9 @@ export interface LedgerSlice {
     writtenOffBy: string,
     reason: string | null,
   ) => Promise<boolean>;
-  writeOffCharges: (
-    ids: string[],
-    writtenOffBy: string,
+  writeOffOwed: (
+    items: OpenItem[],
+    author: { tenantId: string; userId: string },
     reason: string | null,
   ) => Promise<boolean>;
   revertWriteOff: (id: string) => Promise<boolean>;
@@ -373,9 +373,14 @@ export const createLedgerSlice: StateCreator<
       return result !== null;
     },
 
-    writeOffCharges: async (ids, writtenOffBy, reason) => {
+    writeOffOwed: async (items, author, reason) => {
       const result = await run("loading", () =>
-        chargeService.writeOffMany(ids, writtenOffBy, reason),
+        chargeService.writeOffOwed(
+          items,
+          author.tenantId,
+          author.userId,
+          reason,
+        ),
       );
       if (result !== null) {
         for (const charge of result) {

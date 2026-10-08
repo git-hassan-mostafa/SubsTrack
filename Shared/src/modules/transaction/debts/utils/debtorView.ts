@@ -1,5 +1,6 @@
 import type { CustomerDebts, OpenItem } from "@shared/core/types";
 import { pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
+import { writeOffItems } from "@shared/modules/ledger/utils/writeOffItems";
 
 // What collecting "everything" pours over: the debts AND the part-paid months.
 export function debtorOwedItems(debtor: CustomerDebts): OpenItem[] {
@@ -37,10 +38,10 @@ const MENU: MenuTable<DebtorActionKey> = {
   },
 };
 
-// A virtual month has no bill to write off, so only billed rows offer it.
+// Writing off a debtor gives up DEBTS only; an unpaid month is not one (#186).
 export function debtorActions(items: readonly OpenItem[]): DebtorMenuItem[] {
   const keys: DebtorActionKey[] = [];
   if (items.length > 0) keys.push("collect_all");
-  if (items.some((item) => item.chargeId !== null)) keys.push("write_off_all");
+  if (writeOffItems([...items], "debts").length > 0) keys.push("write_off_all");
   return pickMenu(MENU, keys);
 }

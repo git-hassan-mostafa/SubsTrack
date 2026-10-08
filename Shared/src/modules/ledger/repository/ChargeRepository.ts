@@ -11,8 +11,16 @@ import type {
   FindChargesOptions,
   IChargeRepository,
   UpdateChargePayload,
+  WriteOffMark,
 } from "@shared/modules/ledger/repository/IChargeRepository";
-import { writeOffRevertPatch } from "@shared/modules/ledger/repository/chargeRevive";
+import {
+  monthBillKey,
+  patchForWriteOff,
+  resolveBillTarget,
+  writeOffRevertPatch,
+} from "@shared/modules/ledger/repository/chargeRevive";
+import { findBillOwners } from "@shared/modules/ledger/repository/billOwners";
+import { newId } from "@shared/core/utils/ids";
 
 const CHARGE_SELECT = "*, customers(*), customer_plans(*, plans(*)), sales(*)";
 const CHARGE_SELECT_LEAN = "*, customers(*)";
@@ -343,6 +351,70 @@ export class ChargeRepository
       });
     }
     return written;
+  }
+
+  async writeOffMonths(
+    bills: CreateChargePayload[],
+    mark: WriteOffMark,
+  ): Promise<DbCharge[]> {
+    if (bills.length === 0) return [];
+    const { byKey, byId } = await findBillOwners(this.db, bills, (e) =>
+      this.handleError(e),
+    );
+    const owners = [...byKey.values(), ...byId.values()].map((r) => r.id);
+    const paid = new Map(
+      (await this.balances([...new Set(owners)])).map((b) => [
+        b.id,
+        Number(b.paid),
+      ]),
+    );
+
+    const written: DbCharge[] = [];
+    const raise: CreateChargePayload[] = [];
+    for (const next of bills) {
+      const key = monthBillKey(next);
+      const target = resolveBillTarget(
+        next,
+        key ? byKey.get(key) : null,
+        byId.get(next.id),
+      );
+      if (!("reuse" in target)) {
+        raise.push(target.idTaken ? { ...next, id: newId() } : next);
+        continue;
+      }
+      const row = target.reuse;
+      const patch = patchForWriteOff(row, next, paid.get(row.id) ?? 0, mark);
+      if (patch) written.push(await this.patch(row.id, patch, "update"));
+    }
+    return [...written, ...(await this.raiseWrittenOff(raise, mark))];
+  }
+
+  private async raiseWrittenOff(
+    bills: CreateChargePayload[],
+    mark: WriteOffMark,
+  ): Promise<DbCharge[]> {
+    if (bills.length === 0) return [];
+    const { data, error } = await this.db
+      .from("charges")
+      .upsert(
+        bills.map((bill) => ({ ...bill, ...mark })),
+        { onConflict: "id", ignoreDuplicates: true },
+      )
+      .select(CHARGE_SELECT_LEAN);
+    if (error) this.handleError(error);
+    const rows = (data ?? []) as DbCharge[];
+    for (const row of rows) {
+      this.audit({
+        table: "charges",
+        recordId: row.id,
+        action: "create",
+        after: row,
+        customerId: row.customer_id ?? undefined,
+        branchId: row.branch_id,
+        subject: row.customers?.name ?? null,
+      });
+    }
+    return rows;
   }
 
   async revertWriteOff(id: string): Promise<DbCharge> {

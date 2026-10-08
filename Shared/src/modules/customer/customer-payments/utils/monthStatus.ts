@@ -97,6 +97,8 @@ function monthCells<C extends StatusCharge, S extends StatusSkip>(
     let status: MonthStatus;
     if (isEffectivelyPaid) {
       status = "paid";
+    } else if (bill?.charge.writtenOffAt) {
+      status = "written_off";
     } else if (skip) {
       status = "skipped";
     } else if (year > cy || (year === cy && month > cm)) {
@@ -122,6 +124,11 @@ function monthCells<C extends StatusCharge, S extends StatusSkip>(
       skip: status === "skipped" ? skip : null,
     };
   });
+}
+
+// A written-off month owes nothing, so it settles a line exactly like money.
+function isSettledStatus(status: MonthStatus): boolean {
+  return status === "paid" || status === "written_off";
 }
 
 // The only place a customer list badge is decided; "paid" means owes nothing.
@@ -160,7 +167,7 @@ export function buildCustomerStatus(
         year,
         unpaidRule,
       )) {
-        if (entry.status === "paid" || entry.status === "unpaid") {
+        if (isSettledStatus(entry.status) || entry.status === "unpaid") {
           lineRequired++;
         }
         if (entry.status === "unpaid") {
@@ -194,7 +201,7 @@ export function buildCustomerStatus(
     if (current.status === "future") continue;
 
     dueThisMonth++;
-    if (current.status === "paid") notDueLineIds.push(line.id);
+    if (isSettledStatus(current.status)) notDueLineIds.push(line.id);
   }
 
   const status: CustomerMonthStatus =

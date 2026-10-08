@@ -14,7 +14,11 @@ import EditOutlined from "@mui/icons-material/EditOutlined";
 import HistoryOutlined from "@mui/icons-material/HistoryOutlined";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import type { Customer } from "@shared/core/types";
-import { customerStatusItems } from "@shared/modules/customer/customers/utils/customerMenu";
+import {
+  customerPageMoneyItems,
+  customerStatusItems,
+} from "@shared/modules/customer/customers/utils/customerMenu";
+import { useWriteOffEverything } from "@shared/modules/ledger/hooks/useWriteOffEverything";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
@@ -47,7 +51,9 @@ export function CustomerDetailPage() {
   const adminActions = useCustomerAdminActions();
   const history = useCustomerHistoryAction();
   const whatsapp = useWhatsAppDoors();
+  const writeOffEverything = useWriteOffEverything();
   const [editing, setEditing] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [readId, setReadId] = useState<string | null>(null);
   const read = readId === id;
 
@@ -57,6 +63,13 @@ export function CustomerDetailPage() {
   }, [id, fetchCustomer]);
 
   const backLabel = t("web.customer_detail.back");
+
+  const writeOffOwed = async (target: Customer) => {
+    setNotice(null);
+    if ((await writeOffEverything(target)) === "nothing") {
+      setNotice(t("ledger.nothing_to_write_off"));
+    }
+  };
 
   const removeCustomer = async (target: Customer) => {
     const { hardDeleted } = await adminActions.remove([target]);
@@ -86,9 +99,10 @@ export function CustomerDetailPage() {
               rowLabel={customer.name}
               actions={[
                 ...whatsapp.rowActions(customer),
-                ...toTableActions(customerStatusItems(customer, { isAdmin }), t, {
+                ...toTableActions([...customerPageMoneyItems(), ...customerStatusItems(customer, { isAdmin })], t, {
                   icons: CUSTOMER_ACTION_ICONS,
                   run: {
+                    write_off_everything: () => void writeOffOwed(customer),
                     deactivate: () => void adminActions.toggleActive(customer),
                     reactivate: () => void adminActions.toggleActive(customer),
                     delete: () => void removeCustomer(customer),
@@ -101,6 +115,7 @@ export function CustomerDetailPage() {
       </Stack>
 
       <ErrorBanner message={editing ? null : error} onDismiss={clearError} />
+      <ErrorBanner message={notice} onDismiss={() => setNotice(null)} severity="info" />
 
       {customer ? (
         <Stack key={customer.id} spacing={4}>

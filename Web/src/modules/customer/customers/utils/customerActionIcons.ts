@@ -18,7 +18,7 @@ export const CUSTOMER_ACTION_ICONS: Record<CustomerActionKey, SvgIconComponent> 
   record_sale: PointOfSaleOutlined,
   add_custom_debt: NoteAddOutlined,
   collect: PaymentsOutlined,
-  write_off_all: RemoveCircleOutlineOutlined,
+  write_off_everything: RemoveCircleOutlineOutlined,
   whatsapp_chat: WhatsApp,
   edit: EditOutlined,
   history: HistoryOutlined,

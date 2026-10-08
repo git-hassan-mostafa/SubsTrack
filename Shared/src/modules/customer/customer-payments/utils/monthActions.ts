@@ -51,12 +51,16 @@ export function isPayableStatus(entry: MonthEntry, gates: LineGates): boolean {
   );
 }
 
-// A written-off month reads "unpaid" by the money rule, yet HAS a bill (#152).
 export function hasViewableBill(entry: MonthEntry): boolean {
   return (
     !!entry.charge &&
-    (entry.status === "paid" || entry.charge.writtenOffAt !== null)
+    (entry.status === "paid" || entry.status === "written_off")
   );
+}
+
+// Only a month already due can be given up on; a stopped line owes no later one.
+export function canWriteOffMonth(entry: MonthEntry, gates: LineGates): boolean {
+  return entry.status === "unpaid" && !isPayBlocked(entry, gates);
 }
 
 // A custom-price line qualifies too — it opens the collect form instead.
@@ -106,6 +110,8 @@ export type MonthMenuKey =
   | "bill"
   | "collect-remaining"
   | "history"
+  | "write-off"
+  | "revert-write-off"
   | "void-month";
 
 export type MonthMenuItem = MenuItem<MonthMenuKey>;
@@ -162,6 +168,14 @@ export function monthMenuItems(
   }
   if (hasViewableBill(entry)) {
     items.push({ key: "bill", group: "open", labelKey: "ledger.view_bill" });
+    if (entry.charge?.writtenOffAt) {
+      items.push({
+        key: "revert-write-off",
+        group: "manage",
+        labelKey: "ledger.revert_write_off",
+        captionKey: "ledger.revert_write_off_caption",
+      });
+    }
     if (entry.balance > 0 && entry.charge?.writtenOffAt == null) {
       items.push({
         key: "collect-remaining",
@@ -173,7 +187,16 @@ export function monthMenuItems(
   if (viewer.isAdmin && entry.status !== "before_start") {
     items.push({ key: "history", group: "history", labelKey: "audit.history" });
   }
-  if (entry.charge) {
+  if (canWriteOffMonth(entry, gates)) {
+    items.push({
+      key: "write-off",
+      group: "danger",
+      labelKey: "ledger.write_off",
+      captionKey: "ledger.write_off_month_caption",
+      destructive: true,
+    });
+  }
+  if (entry.charge && !entry.charge.writtenOffAt) {
     items.push({
       key: "void-month",
       group: "danger",
@@ -188,6 +211,7 @@ export interface MonthSelectionGroups {
   payable: MonthEntry[];
   skippable: MonthEntry[];
   skipped: MonthEntry[];
+  writeOffable: MonthEntry[];
 }
 
 // A part-paid month is payable too: its rest is collected with the others.
@@ -207,10 +231,16 @@ export function monthSelectionGroups(
     skipped: entries.filter(
       (e) => e.status === "skipped" && !isLockedSkipped(e, gates),
     ),
+    writeOffable: entries.filter((e) => canWriteOffMonth(e, gates)),
   };
 }
 
-export type MonthSelectionKey = "pay" | "pay-whatsapp" | "skip" | "unskip";
+export type MonthSelectionKey =
+  | "pay"
+  | "pay-whatsapp"
+  | "skip"
+  | "unskip"
+  | "write-off";
 
 export type MonthSelectionItem = MenuItem<MonthSelectionKey>;
 
@@ -241,6 +271,14 @@ export function monthSelectionItems(
       key: "unskip",
       group: "manage",
       labelKey: "payments.skip.unskip_action",
+    });
+  }
+  if (groups.writeOffable.length > 0) {
+    items.push({
+      key: "write-off",
+      group: "danger",
+      labelKey: "ledger.write_off",
+      destructive: true,
     });
   }
   return items;

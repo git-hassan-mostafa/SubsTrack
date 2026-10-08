@@ -50,6 +50,7 @@ const TONE_LOOK: Record<
   future: { bg: "bg-gray-100", text: "text-gray-400", icon: COLORS.gray500 },
   before_start: { bg: "bg-gray-100", text: "text-gray-300", icon: COLORS.gray500 },
   skipped: { bg: "bg-gray-400", text: "text-white", icon: COLORS.white },
+  written_off: { bg: "bg-gray-200", text: "text-orange-700", icon: COLORS.gray500 },
 };
 
 export const MonthCell = memo(function MonthCell({

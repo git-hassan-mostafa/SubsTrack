@@ -742,6 +742,8 @@ Kept mutually exclusive by `chk_charges_void_xor_write_off`:
 |**void** (`voided_at`)|a MISTAKE — never existed|gone from every figure. `voidCharge` refused once money sits on it; `voidChargeWithPayments` = deliberate "take the cash with it" door (below)|
 |**write off** (`written_off_at`)|REAL but will never be paid|leaves "still owed", reported as **loss** in Reports → Debts|
 
+**Writing off unpaid months** (#186): a never-paid month has no row → `writeOffOwed` raises its bill already written off (deterministic id, month's own price); grid cell reads `"written_off"` (grey, orange "Written off"), owes nothing. Doors: month ⋮ / multi-select **Write off** (red months only); customer list ⋮ + customer page **Write off everything** (debts + unpaid months, no set price skipped); debtor sheet / Debts panel **Write off all** = debts only. Undo from the month's bill or the Written off tab → month red again at its price.
+
 Voiding a **collection** is a third thing: cash was real but shouldn't have been recorded. Each touched bill gets its balance back on its own (balance = sum over live items).
 
 **A dead bill still owns its month (`charges` unique on `(customer_plan_id, billing_month)`), so collecting REVIVES it**: `reviveTargetBill(s)` INDEPENDENTLY clears all six void/write-off columns unconditionally + re-prices an EMPTY month bill; re-price paid check sums `collection_items`; `charge_balances` excludes **only** voided; "no longer owed" decided only in `ChargeRepository.find` → #115.

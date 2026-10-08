@@ -1,14 +1,14 @@
 import type { BranchFilter } from "@shared/core/constants";
 
 export type UserRole = "superadmin" | "admin" | "user";
-// A partially-paid month (a payment exists but `balance > 0`) is reported as
-// `paid` — the remaining amount is tracked as a debt, not as a month status.
-// The owed amount still rides along on `MonthEntry.balance` for drill-in views.
-// `skipped` = the user marked the month as "nothing expected here". It ranks
-// below `paid` (money always wins) and above `future`/`unpaid`, and it is never
-// payable — the month must be unskipped first.
+// Order and meaning of each status — see docs/month-grid.md.
 export type MonthStatus =
-  "paid" | "unpaid" | "future" | "before_start" | "skipped";
+  | "paid"
+  | "unpaid"
+  | "future"
+  | "before_start"
+  | "skipped"
+  | "written_off";
 
 // The bill is planAllowance's unit, not customerAllowance's — see gotcha #149.
 export interface Tenant {
@@ -197,6 +197,7 @@ export type StatusCharge = Pick<
   | "durationMonths"
   | "amount"
   | "voidedAt"
+  | "writtenOffAt"
 >;
 
 export interface StatusBill<C extends StatusCharge = StatusCharge> {

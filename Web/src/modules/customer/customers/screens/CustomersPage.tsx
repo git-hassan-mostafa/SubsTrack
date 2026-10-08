@@ -18,7 +18,7 @@ import {
 import { hasCustomerFilters } from "@shared/modules/customer/customers/utils/customerFilters";
 import type { QuickPayTarget } from "@shared/modules/customer/customers/utils/quickPay";
 import { useLoadOwed } from "@shared/modules/ledger/hooks/useLoadOwed";
-import { useWriteOffActions } from "@shared/modules/ledger/hooks/useWriteOffActions";
+import { useWriteOffEverything } from "@shared/modules/ledger/hooks/useWriteOffEverything";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
@@ -60,7 +60,7 @@ export function CustomersPage() {
   const ledgerError = useLedgerSlice((s) => s.error);
   const clearLedgerError = useLedgerSlice((s) => s.clearError);
   const loadOwed = useLoadOwed();
-  const { writeOffAll } = useWriteOffActions();
+  const writeOffEverything = useWriteOffEverything();
   const sendReceipt = useSendCollectionReceipt();
   const currencies = useCurrencySlice((s) => s.items);
   const display = useDisplayCurrency();
@@ -125,14 +125,10 @@ export function CustomersPage() {
   };
 
   const writeOffOwed = async (customer: Customer) => {
-    const owed = await readOwed(customer);
-    if (!owed) return;
-    const billed = owed.filter((item) => !!item.chargeId);
-    if (billed.length === 0) {
-      setNotice(t("ledger.nothing_to_write_off"));
-      return;
-    }
-    await writeOffAll(customer.name, billed);
+    setNotice(null);
+    setLoadingOwedFor(customer.id);
+    const result = await writeOffEverything(customer).finally(() => setLoadingOwedFor(null));
+    if (result === "nothing") setNotice(t("ledger.nothing_to_write_off"));
   };
 
   const runFor = (row: CustomerRow): Record<CustomerActionKey, () => void> => {
@@ -143,7 +139,7 @@ export function CustomersPage() {
       record_sale: () => sale.recordSale(customer),
       add_custom_debt: () => debts.addCustomDebt(customer),
       collect: () => void collectOwed(customer),
-      write_off_all: () => void writeOffOwed(customer),
+      write_off_everything: () => void writeOffOwed(customer),
       whatsapp_chat: () => void openWhatsApp(customer.phoneNumber),
       edit: () => setForm({ customer }),
       history: () => history.open(customer),

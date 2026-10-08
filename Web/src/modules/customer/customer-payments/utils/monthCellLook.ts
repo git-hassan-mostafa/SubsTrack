@@ -18,6 +18,7 @@ const TONE_LOOK: Record<MonthCellTone, MonthCellLook> = {
   future: { bg: "#f3f4f6", fg: "#6b7280", ring: null },
   before_start: { bg: "#f3f4f6", fg: "#9ca3af", ring: null },
   skipped: { bg: "#6b7280", fg: "#ffffff", ring: null },
+  written_off: { bg: "#e5e7eb", fg: "#c2410c", ring: null },
 };
 
 const PARTIAL_RING = "#f59e0b";

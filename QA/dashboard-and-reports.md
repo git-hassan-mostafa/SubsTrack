@@ -13,6 +13,7 @@
 6c. Skip a month, cancel a plan, or change the "when a month becomes unpaid" setting → "Total to collect" follows, like the month grid.
 6d. The line under "Total to collect" (Subscriptions · Sales · Manual charges) → adds up to the total exactly.
 6e. A plan with no set price → adds nothing; the note says how many plans were left out.
+6f. Write off 2 unpaid months ($20 each) → "Total to collect" drops by $40; the "Debts" tile does not move; Reports "Written off" rises by $40.
 7. Pick a branch → every figure is for that branch; all branches added up = the All branches total.
 
 ## Expenses and net

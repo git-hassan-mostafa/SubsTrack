@@ -212,15 +212,25 @@ function specialSentence(
     }
   }
 
+  if (
+    entry.table === "charges" &&
+    entry.action === "create" &&
+    !isBlank(entry.context.written_off_at)
+  ) {
+    return t("audit.summary.special.written_off", {
+      actor,
+      record: recordPhrase({ ...entry, action: "update" }, ctx, detail, type),
+    });
+  }
+
   const unvoided = changeOf(entry, "voided_at");
   const writeOff = changeOf(entry, "written_off_at");
-
-  // Money on a dead bill clears BOTH death marks and re-stamps issued_at
-  // (reviveTargetBill) — a diff of that reads as a void, the exact opposite.
+  const wroteOff = !!writeOff && !isBlank(writeOff.after);
   const reRaised = !!changeOf(entry, "issued_at");
   const revived =
-    wasCleared(unvoided) ||
-    (wasCleared(writeOff) && (reRaised || wasCleared(unvoided)));
+    !wroteOff &&
+    (wasCleared(unvoided) ||
+      (wasCleared(writeOff) && (reRaised || wasCleared(unvoided))));
   if (revived) return t("audit.summary.special.revived", { actor, record });
 
   if (writeOff) {

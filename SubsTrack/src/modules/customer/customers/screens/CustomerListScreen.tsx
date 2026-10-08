@@ -50,9 +50,9 @@ import { CustomerFilterChips } from "../components/CustomerFilterChips";
 import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomDebtFormSheet } from "@/src/modules/transaction/debts/components/CustomDebtFormSheet";
-import { useDebtRowActions } from "@/src/modules/transaction/debts/hooks/useDebtRowActions";
 import { useCollectSheet } from "@/src/modules/ledger";
 import { useLoadOwed } from "@shared/modules/ledger/hooks/useLoadOwed";
+import { useWriteOffEverything } from "@shared/modules/ledger/hooks/useWriteOffEverything";
 import { useQuickPay } from "@shared/modules/customer/customers/hooks/useQuickPay";
 import { getStore } from "@shared/state/globalStore";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
@@ -106,7 +106,7 @@ export function CustomerListScreen() {
   const { sendCollectionInvoice } = useSendInvoice();
   const { openChat } = useWhatsApp();
   const whatsappActions = useWhatsAppActions();
-  const { writeOffAll } = useDebtRowActions();
+  const writeOffEverything = useWriteOffEverything();
   const customerStatus = useCustomerStatusActions();
   const displayCurrency = useDisplayCurrency();
   const [formVisible, setFormVisible] = useState(false);
@@ -375,17 +375,12 @@ export function CustomerListScreen() {
     }
   }
 
-  async function handleWriteOffAll(customer: Customer) {
+  async function handleWriteOffEverything(customer: Customer) {
     setCollectBusyId(customer.id);
     try {
-      const owed = await loadOwed(customer);
-      if (!owed) return;
-      const billed = owed.filter((i) => !!i.chargeId);
-      if (billed.length === 0) {
-        setBulkNotice(t("ledger.nothing_to_write_off"));
-        return;
-      }
-      if (!(await writeOffAll(customer.name, billed))) return;
+      const result = await writeOffEverything(customer);
+      if (result === "nothing") setBulkNotice(t("ledger.nothing_to_write_off"));
+      if (result !== "written") return;
       void syncCustomerStatus(customer.id, customer.customerPlans ?? []);
       void fetchNetDebtByCustomer(branchFilter);
     } finally {
@@ -417,7 +412,7 @@ export function CustomerListScreen() {
           record_sale: () => setSaleCustomer(customer),
           add_custom_debt: () => setCustomDebtCustomer(customer),
           collect: () => void handleCollectDebt(customer),
-          write_off_all: () => void handleWriteOffAll(customer),
+          write_off_everything: () => void handleWriteOffEverything(customer),
           whatsapp_chat: () => void openChat(customer.phoneNumber),
           edit: () => setEditingCustomer(customer),
           history: () => setHistoryCustomer(customer),
