@@ -19,6 +19,13 @@ export class PlanRepository extends BaseRepository implements IPlanRepository {
     return (data ?? []) as DbPlan[];
   }
 
+  async findByIds(ids: string[]): Promise<DbPlan[]> {
+    if (ids.length === 0) return [];
+    const { data, error } = await this.db.from("plans").select("*").in("id", ids);
+    if (error) this.handleError(error);
+    return (data ?? []) as DbPlan[];
+  }
+
   async findPage(query: PlanPageQuery): Promise<Page<DbPlan>> {
     let request = this.db
       .from("plans")

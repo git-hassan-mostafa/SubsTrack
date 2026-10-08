@@ -9,6 +9,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
+import { PriceStartPicker } from "@/src/shared/components/PriceStartPicker";
 import type { Plan } from "@shared/core/types";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
@@ -25,6 +26,10 @@ import {
   planInput,
   withPlanDuration,
 } from "@shared/modules/admin/plans/utils/planForm";
+import {
+  currentBillingMonth,
+  planPriceChanged,
+} from "@shared/modules/customer/customer-plans/utils/priceHistory";
 
 interface Props {
   plan?: Plan | null;
@@ -50,6 +55,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
     planDraftOf(plan ?? null, defaultNewBranchId(user, activeBranches)),
   );
 
+  const [priceFrom, setPriceFrom] = useState(currentBillingMonth);
   const dirty = useDirtyForm(form, ["currencyId"]);
 
   useEffect(() => {
@@ -57,6 +63,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
   }, [clearError]);
 
   const isMultiMonth = isMultiMonthPlan(form);
+  const priceChanged = plan ? planPriceChanged(plan, planInput(form)) : false;
 
   function setDuration(months: number) {
     setForm((prev) => withPlanDuration(prev, months));
@@ -66,7 +73,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
     if (!user || !canSavePlan(form)) return;
     const data = planInput(form);
     const saved = plan
-      ? await updatePlan(plan.id, data)
+      ? await updatePlan(plan, data, priceFrom)
       : await createPlan(data, user.tenantId);
     if (saved) onDismiss();
   }
@@ -180,6 +187,10 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
           placeholder="0.00"
           onFocus={clearError}
         />
+      ) : null}
+
+      {priceChanged ? (
+        <PriceStartPicker value={priceFrom} onChange={setPriceFrom} />
       ) : null}
 
       {!isMultiMonth ? (

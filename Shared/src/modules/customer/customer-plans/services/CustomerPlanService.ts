@@ -5,6 +5,11 @@ import i18n from "@shared/core/i18n";
 import billingService from "@shared/modules/admin/billing/services/BillingService";
 import type { QuotaPair } from "@shared/modules/admin/billing/utils/types";
 import { mapDbCustomerPlanToCustomerPlan } from "@shared/modules/customer/customer-plans/utils/mapper";
+import { priceHistoryService } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
+import {
+  currentBillingMonth,
+  linePriceChanged,
+} from "@shared/modules/customer/customer-plans/utils/priceHistory";
 
 // A new / edited service line. planId null = custom/occasional line (ad-hoc
 // amounts, no fixed plan).
@@ -24,6 +29,7 @@ export type LineDraft = {
   startDate: string;
   customPrice: number | null;
   customCurrencyId: string | null;
+  priceFrom?: string;
 };
 
 // A line the user removed in the form. `hardDelete` = permanently delete the
@@ -114,7 +120,7 @@ class CustomerPlanService {
     );
 
     const upserts = Promise.all(
-      lines.map((line) => {
+      lines.map(async (line) => {
         if (!line.id) {
           return this.createLine(
             {
@@ -137,7 +143,14 @@ class CustomerPlanService {
           prev.customPrice === line.customPrice &&
           prev.customCurrencyId === line.customCurrencyId
         ) {
-          return Promise.resolve(prev);
+          return prev;
+        }
+        if (prev && linePriceChanged(prev, line)) {
+          await priceHistoryService.recordLineChange(
+            prev,
+            line,
+            line.priceFrom ?? currentBillingMonth(),
+          );
         }
         return this.updateLine(
           line.id,

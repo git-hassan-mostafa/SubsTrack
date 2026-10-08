@@ -10,7 +10,8 @@ import {
 } from "@shared/modules/customer/customer-payments/utils/gridSummary";
 import type { LineGates } from "@shared/modules/customer/customer-payments/utils/monthActions";
 import { lastBillableMonth } from "@shared/modules/customer/customer-payments/utils/payWindow";
-import { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
+import { resolveLinePrice, type LinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
+import { linePriceAt } from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import { pricePerPeriod } from "@shared/modules/admin/plans/utils/planLabels";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
@@ -26,6 +27,7 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
   const { t } = useTranslation();
   const bills = usePaymentSlice((s) => s.bills);
   const skips = usePaymentSlice((s) => s.skips);
+  const prices = usePaymentSlice((s) => s.prices);
   const monthGridsByLine = usePaymentSlice((s) => s.monthGridsByLine);
   const uncoveredMonthsByLine = usePaymentSlice((s) => s.uncoveredMonthsByLine);
   const paidMonthsByLine = usePaymentSlice((s) => s.paidMonthsByLine);
@@ -61,12 +63,12 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
   }, [linesKey, lines, selectedLineId]);
 
   useEffect(() => {
-    if (lines.length > 0) void fetchBills(customer.id);
-  }, [customer.id, lines.length, fetchBills, refreshToken]);
+    if (lines.length > 0) void fetchBills(customer.id, lines);
+  }, [customer.id, lines, fetchBills, refreshToken]);
 
   const reloadBills = useCallback(() => {
-    if (lines.length > 0) void fetchBills(customer.id);
-  }, [customer.id, lines.length, fetchBills]);
+    if (lines.length > 0) void fetchBills(customer.id, lines);
+  }, [customer.id, lines, fetchBills]);
   useOwedChanged(reloadBills);
 
   useEffect(() => {
@@ -79,6 +81,8 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
 
   const selectedLine = lines.find((l) => l.id === selectedLineId) ?? null;
   const linePrice = resolveLinePrice(selectedLine ?? NO_PRICE);
+  const priceAt = (billingMonth: string): LinePrice =>
+    selectedLine ? linePriceAt(selectedLine, billingMonth, prices) : linePrice;
   const grid = selectedLine
     ? (monthGridsByLine[selectedLine.id] ?? EMPTY_GRID)
     : EMPTY_GRID;
@@ -136,6 +140,7 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
     billsReady,
     gates,
     linePrice,
+    priceAt,
     priceLabel,
     summary,
     collectedLabel: formatMoney(summary.collectedUsd, null, displayCurrency),

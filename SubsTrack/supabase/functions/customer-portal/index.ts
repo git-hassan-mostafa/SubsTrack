@@ -274,7 +274,7 @@ async function data(reqId: string, db, body: Record<string, unknown>) {
     return fail(reqId, 403, "This page is not available", "unavailable");
   }
 
-  const [lines, charges, collections, skips, currencies, settings] =
+  const [lines, charges, collections, skips, currencies, settings, lineChanges] =
     await Promise.all([
       db
         .from("customer_plans")
@@ -307,16 +307,33 @@ async function data(reqId: string, db, body: Record<string, unknown>) {
         .select("key, value")
         .eq("tenant_id", tenantId)
         .in("key", ["UnpaidStartRule", "DisplayCurrencyId"]),
+      db
+        .from("line_price_changes")
+        .select("*")
+        .eq("customer_id", customerId)
+        .eq("tenant_id", tenantId),
     ]);
 
   const chargeRows = charges.data ?? [];
   const chargeIds = chargeRows.map((row) => row.id);
   const saleIds = chargeRows.map((row) => row.sale_id).filter(Boolean);
   const collectionRows = collections.data ?? [];
+  const lineChangeRows = lineChanges.data ?? [];
+  const currentPlanIds = new Set(
+    (lines.data ?? []).map((row) => row.plan_id).filter(Boolean),
+  );
+  const leftPlanIds = [
+    ...new Set(
+      lineChangeRows
+        .map((row) => row.plan_id)
+        .filter((id) => id && !currentPlanIds.has(id)),
+    ),
+  ];
+  const pricedPlanIds = [...currentPlanIds, ...leftPlanIds];
 
   // `paid` is never a column — it is SUM(collection_items), exposed by the
   // charge_balances view, which is also what excludes voided hand-overs.
-  const [balances, sales, collectors] = await Promise.all([
+  const [balances, sales, collectors, planChanges, leftPlans] = await Promise.all([
     chargeIds.length
       ? db.from("charge_balances").select("id, paid").in("id", chargeIds)
       : Promise.resolve({ data: [] }),
@@ -329,6 +346,16 @@ async function data(reqId: string, db, body: Record<string, unknown>) {
           .is("voided_at", null)
       : Promise.resolve({ data: [] }),
     collectorNames(db, tenantId, collectionRows),
+    pricedPlanIds.length
+      ? db
+          .from("plan_price_changes")
+          .select("*")
+          .in("plan_id", pricedPlanIds)
+          .eq("tenant_id", tenantId)
+      : Promise.resolve({ data: [] }),
+    leftPlanIds.length
+      ? db.from("plans").select("*").in("id", leftPlanIds).eq("tenant_id", tenantId)
+      : Promise.resolve({ data: [] }),
   ]);
 
   const paidByCharge: Record<string, number> = {};
@@ -361,6 +388,9 @@ async function data(reqId: string, db, body: Record<string, unknown>) {
     skips: skips.data ?? [],
     currencies: currencies.data ?? [],
     collectors,
+    planChanges: planChanges.data ?? [],
+    lineChanges: lineChangeRows,
+    leftPlans: leftPlans.data ?? [],
     settings: Object.fromEntries(
       (settings.data ?? []).map((row) => [row.key, row.value]),
     ),

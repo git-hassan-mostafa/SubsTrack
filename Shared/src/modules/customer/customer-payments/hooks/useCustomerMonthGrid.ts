@@ -39,7 +39,9 @@ import {
   writeOffTargetOf,
 } from "@shared/modules/ledger/hooks/useWriteOffActions";
 import { chargeService } from "@shared/modules/ledger/services/ChargeService";
+import { earlierPriceNotes } from "@shared/modules/ledger/utils/earlierPriceNotes";
 import { monthItemFromEntry } from "@shared/modules/ledger/utils/openItems";
+import { isEarlierPrice } from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { groupBy } from "@shared/core/utils/groupBy";
 import { useSelection } from "@shared/shared/hooks/useSelection";
@@ -88,7 +90,7 @@ export function useCustomerMonthGrid({
   const { t } = useTranslation();
   const { user, isAdmin } = useAuth();
   const line = useLineGrid(customer, refreshToken);
-  const { grid, gates, linePrice, selectedLine, year } = line;
+  const { grid, gates, linePrice, lines, priceAt, selectedLine, year } = line;
   const writeOffActions = useWriteOffActions();
   const fetchBills = usePaymentSlice((s) => s.fetchBills);
   const voidMonthBill = usePaymentSlice((s) => s.voidMonthBill);
@@ -149,6 +151,7 @@ export function useCustomerMonthGrid({
 
   const itemFor = (entry: MonthEntry): OpenItem | null => {
     if (!selectedLine) return null;
+    const price = priceAt(entry.billingMonth);
     return monthItemFromEntry({
       entry,
       customerId: customer.id,
@@ -158,11 +161,12 @@ export function useCustomerMonthGrid({
       planId: selectedLine.planId,
       label: monthLabelOf(entry),
       price: {
-        amount: linePrice.amount,
-        currencyId: linePrice.currencyId,
-        durationMonths: linePrice.durationMonths,
+        amount: price.amount,
+        currencyId: price.currencyId,
+        durationMonths: price.durationMonths,
       },
-      ratePerUsd: findCurrency(currencies, linePrice.currencyId)?.ratePerUsd ?? 1,
+      ratePerUsd: findCurrency(currencies, price.currencyId)?.ratePerUsd ?? 1,
+      earlierPrice: isEarlierPrice(price, linePrice),
     });
   };
 
@@ -256,20 +260,31 @@ export function useCustomerMonthGrid({
       const created = await collect(input).finally(() => setBusyMonth(null));
       if (created && send) await sendReceipt(created);
     };
+    const priceNote = earlierPriceNotes([item], currencies)[0] ?? null;
     if (linePrice.durationMonths <= 1) {
-      await pay();
+      if (!priceNote) {
+        await pay();
+        return;
+      }
+      await confirm({
+        title: t("ledger.earlier_price_title"),
+        message: priceNote,
+        confirmLabel: t("payments.quick_pay.confirm"),
+        onConfirm: pay,
+      });
       return;
     }
+    const blockMessage = t("payments.quick_pay.confirm_multi_month_message", {
+      amount: formatMoney(
+        item.balance,
+        findCurrency(currencies, item.currencyId),
+        displayCurrency,
+      ),
+      months: getBlockRangeLabel(item.billingMonth!, item.durationMonths, t),
+    });
     await confirm({
       title: t("payments.quick_pay.confirm_multi_month_title"),
-      message: t("payments.quick_pay.confirm_multi_month_message", {
-        amount: formatMoney(
-          item.balance,
-          findCurrency(currencies, item.currencyId),
-          displayCurrency,
-        ),
-        months: getBlockRangeLabel(item.billingMonth!, item.durationMonths, t),
-      }),
+      message: priceNote ? `${blockMessage}\n\n${priceNote}` : blockMessage,
       confirmLabel: t("payments.quick_pay.confirm"),
       onConfirm: pay,
     });
@@ -302,7 +317,7 @@ export function useCustomerMonthGrid({
       return;
     }
     if (!result.ok) return;
-    await fetchBills(customer.id);
+    await fetchBills(customer.id, lines);
     setVoidEntry(null);
   };
 

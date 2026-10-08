@@ -82,6 +82,15 @@ export function CollectSheet({
       <View>
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
+        {form.priceNotes.map((note) => (
+          <Text
+            key={note}
+            className={`${CARD_SURFACE} mb-4 px-4 py-3 text-sm text-gray-600`}
+          >
+            {note}
+          </Text>
+        ))}
+
         {single ? (
           <>
             {openItem ? (

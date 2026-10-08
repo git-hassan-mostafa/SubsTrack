@@ -147,6 +147,38 @@ export const TABLES: TableSpec[] = [
     constraints: ["UNIQUE (customer_plan_id, billing_month)"],
   },
   {
+    name: "plan_price_changes",
+    scope: "tenant",
+    columns: {
+      id: "text",
+      tenant_id: "text",
+      plan_id: "text",
+      from_month: "text",
+      price: "num",
+      currency_id: "text",
+      duration_months: "int",
+      is_custom_price: "bool",
+      created_at: "text",
+      updated_at: "text",
+    },
+  },
+  {
+    name: "line_price_changes",
+    scope: "tenant",
+    columns: {
+      id: "text",
+      tenant_id: "text",
+      customer_id: "text",
+      customer_plan_id: "text",
+      from_month: "text",
+      plan_id: "text",
+      custom_price: "num",
+      custom_currency_id: "text",
+      created_at: "text",
+      updated_at: "text",
+    },
+  },
+  {
     name: "products",
     scope: "tenant",
     columns: {
@@ -416,13 +448,20 @@ export const PUSH_WAVES: readonly (readonly string[])[] = [
   ["users", "plans", "customers", "products", "services"],
   [
     "customer_plans",
+    "plan_price_changes",
     "sales",
     "expenses",
     "collections",
     "exception_logs",
     "audit_logs",
   ],
-  ["charges", "skipped_months", "sale_items", "stock_movements"],
+  [
+    "charges",
+    "skipped_months",
+    "line_price_changes",
+    "sale_items",
+    "stock_movements",
+  ],
   ["collection_items"],
 ];
 

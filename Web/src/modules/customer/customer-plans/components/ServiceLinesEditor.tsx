@@ -22,6 +22,7 @@ import type { LineRow } from "@shared/modules/customer/customer-plans/utils/line
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { DateField } from "@/shared/components/DateField";
+import { PriceStartField } from "@/shared/components/PriceStartField";
 import { PlanFormDialog } from "@/modules/admin/plans/components/PlanFormDialog";
 import { LinePriceField } from "./LinePriceField";
 import { PlanPicker } from "./PlanPicker";
@@ -148,6 +149,15 @@ function ServiceLineRow({ row, drafts, branchId, onAddPlan }: ServiceLineRowProp
           currencies={currencies}
           disabled={cancelled}
         />
+        {drafts.priceChanged(row) ? (
+          <Box sx={{ mt: 1.5 }}>
+            <PriceStartField
+              value={row.priceFrom}
+              onChange={(month) => drafts.setPriceFrom(row.key, month)}
+              size="small"
+            />
+          </Box>
+        ) : null}
       </TableCell>
       <TableCell align="right">
         {cancelled ? (

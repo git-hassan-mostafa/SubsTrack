@@ -5,6 +5,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { PlanPicker } from "@/src/shared/components/PlanPicker";
+import { PriceStartPicker } from "@/src/shared/components/PriceStartPicker";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency, Plan } from "@shared/core/types";
 import { PlanLinePriceField } from "./PlanLinePriceField";
@@ -20,6 +21,8 @@ interface Props {
   showHeader: boolean;
   canRemove: boolean;
   removing: boolean;
+  priceChanged: boolean;
+  onPriceFromChange: (month: string) => void;
   onPlanChange: (planId: string | null) => void;
   onStartDateChange: (date: string) => void;
   onPriceChange: (amount: number | null, currencyId: string | null) => void;
@@ -39,6 +42,8 @@ export function PlanLineCard({
   showHeader,
   canRemove,
   removing,
+  priceChanged,
+  onPriceFromChange,
   onPlanChange,
   onStartDateChange,
   onPriceChange,
@@ -144,6 +149,12 @@ export function PlanLineCard({
         currencies={currencies}
         disabled={cancelled}
       />
+
+      {priceChanged ? (
+        <View className="mt-3 -mb-4">
+          <PriceStartPicker value={row.priceFrom} onChange={onPriceFromChange} />
+        </View>
+      ) : null}
     </View>
   );
 }

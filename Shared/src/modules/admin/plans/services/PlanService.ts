@@ -3,6 +3,11 @@ import type { Page, Plan } from "@shared/core/types";
 import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
 import { mapDbPlanToPlan } from "@shared/modules/admin/plans/utils/mapper";
+import { priceHistoryService } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
+import {
+  currentBillingMonth,
+  planPriceChanged,
+} from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import type {
   PlanInput,
   PlanPageQuery,
@@ -37,10 +42,18 @@ class PlanService {
     }
   }
 
-  async updatePlan(id: string, data: PlanInput): Promise<Plan> {
+  // `priceFrom` = first month the new price applies to — gotcha #185.
+  async updatePlan(
+    previous: Plan,
+    data: PlanInput,
+    priceFrom: string = currentBillingMonth(),
+  ): Promise<Plan> {
     this.validate(data);
     try {
-      const row = await repositories().plan.update(id, {
+      if (planPriceChanged(previous, data)) {
+        await priceHistoryService.recordPlanChange(previous, data, priceFrom);
+      }
+      const row = await repositories().plan.update(previous.id, {
         name: data.name.trim(),
         price: data.isCustomPrice ? null : data.price,
         is_custom_price: data.isCustomPrice,

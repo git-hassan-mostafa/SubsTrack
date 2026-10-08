@@ -34,7 +34,7 @@ interface MonthsTableProps {
 export function MonthsTable({ grid, menuActions }: MonthsTableProps) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const { linePrice, selection } = grid;
+  const { priceAt, selection } = grid;
   const rows: MonthRow[] = grid.grid.map((entry) => ({ ...entry, id: entry.billingMonth }));
 
   const monthName = (entry: MonthEntry) => `${t(`months.${entry.label}`)} ${entry.year}`;
@@ -42,7 +42,7 @@ export function MonthsTable({ grid, menuActions }: MonthsTableProps) {
   const money = (amount: number, currency: Currency | null) => formatMoney(amount, currency, currency);
 
   const billCell = (entry: MonthEntry) => {
-    const figure = monthBillFigure(entry, linePrice);
+    const figure = monthBillFigure(entry, priceAt(entry.billingMonth));
     if (!figure) return null;
     if (figure.from === "bill") {
       return <MoneyText primary={money(figure.charge.amount, snapshotCurrency(figure.charge, currencies))} />;

@@ -4,6 +4,7 @@ import type {
   Customer,
   MonthBill,
   OpenItem,
+  PriceHistory,
   SkippedMonth,
   UnpaidStartRule,
 } from "@shared/core/types";
@@ -21,6 +22,7 @@ export interface CollectTotalArgs {
   customers: Customer[];
   stored: OpenItem[];
   billsByLine: Map<string, MonthBill[]>;
+  prices?: PriceHistory;
   skips: SkippedMonth[];
   unpaidRule: UnpaidStartRule;
   currencies: Currency[];
@@ -51,6 +53,7 @@ export function collectTotal(args: CollectTotalArgs): CollectTotal {
         currencies: args.currencies,
         stored: storedByCustomer.get(customer.id) ?? [],
         billsByLine: args.billsByLine,
+        prices: args.prices,
         today: args.today,
         withOpenMonths,
       });

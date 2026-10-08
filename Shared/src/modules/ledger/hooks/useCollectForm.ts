@@ -18,6 +18,7 @@ import {
   totalCollectingUsd,
   type CurrencyPlan,
 } from "@shared/modules/ledger/utils/currencyGroups";
+import { earlierPriceNotes } from "@shared/modules/ledger/utils/earlierPriceNotes";
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
@@ -59,6 +60,7 @@ export interface CollectForm {
   pickReceivedAt: (value: string) => void;
   notes: string;
   setNotes: (value: string) => void;
+  priceNotes: string[];
   dirty: boolean;
   canSubmit: boolean;
   submission: () => CollectSubmission | null;
@@ -192,6 +194,10 @@ export function useCollectForm(owed: OpenItem[], singleItem: OpenItem | null): C
     },
     notes,
     setNotes,
+    priceNotes: earlierPriceNotes(
+      singleItem ? [singleItem] : owed.filter((item) => !excluded.has(keyOf(item))),
+      currencies,
+    ),
     dirty,
     canSubmit,
     submission: () => {

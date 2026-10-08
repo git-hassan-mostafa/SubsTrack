@@ -13,6 +13,7 @@ import { AuthRepository } from "@shared/modules/authentication/auth/repository/A
 import { SignupRepository } from "@shared/modules/authentication/signup/repository/SignupRepository";
 import { SkippedMonthRepository } from "@shared/modules/customer/customer-payments/repository/SkippedMonthRepository";
 import { CustomerPlanRepository } from "@shared/modules/customer/customer-plans/repository/CustomerPlanRepository";
+import { PriceHistoryRepository } from "@shared/modules/customer/customer-plans/repository/PriceHistoryRepository";
 import { CustomerRepository } from "@shared/modules/customer/customers/repository/CustomerRepository";
 import { CustomerStatusRepository } from "@shared/modules/customer/customers/repository/CustomerStatusRepository";
 import { ChargeRepository } from "@shared/modules/ledger/repository/ChargeRepository";
@@ -39,6 +40,7 @@ export function createSupabaseRepositories(): Repositories {
     signup: new SignupRepository(),
     skippedMonth: new SkippedMonthRepository(),
     customerPlan: new CustomerPlanRepository(),
+    priceHistory: new PriceHistoryRepository(),
     customer: new CustomerRepository(),
     customerStatus: new CustomerStatusRepository(),
     charge: new ChargeRepository(),

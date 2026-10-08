@@ -23,6 +23,10 @@ export class OfflinePlanRepository
     return this.decodeAll<DbPlan>("plans", rows);
   }
 
+  async findByIds(ids: string[]): Promise<DbPlan[]> {
+    return [...(await this.rowsById<DbPlan>("plans", ids)).values()];
+  }
+
   async findPage(query: PlanPageQuery): Promise<Page<DbPlan>> {
     const where = this.combineWhere([
       this.branchWhere(query.branch, this.BRANCH_SCOPES.plans, "plans"),

@@ -90,16 +90,18 @@ Client-generated ids (`newId()`) → push upsert-by-id idempotent. **Determinist
 
 **Pull needs no ordering** (why it fans out): mirror has **no foreign keys** (`PRAGMA foreign_keys` off, see `db/schema.ts`), each table's pull touches only its own table. `SYNC_TABLES` order meaningless to pull; shared `last_pulled_at` read **once** before fan-out, advances only when every table succeeded — same semantics as old sequential loop.
 
-**Push needs ordering** — server FKs are real (child before parent = 23503). `PUSH_WAVES` (`db/tables.ts`) = **dependency levels**: a wave in parallel, waves sequential (22 steps → 5):
+**Push needs ordering** — server FKs are real (child before parent = 23503). `PUSH_WAVES` (`db/tables.ts`) = **dependency levels**: a wave in parallel, waves sequential (24 steps → 5):
 
 |Wave|Tables|
 |-|-|
 |0|`tenants` (+ read-only global `app_options`, push skips on `scope`)|
 |1|`tenant_settings`, `currencies`, `branches`|
 |2|`users`, `plans`, `customers`, `products`, `services`|
-|3|`customer_plans`, `sales`, `expenses`, `collections`, `exception_logs`, `audit_logs`|
-|4|`charges`, `skipped_months`, `sale_items`, `stock_movements`|
+|3|`customer_plans`, `plan_price_changes`, `sales`, `expenses`, `collections`, `exception_logs`, `audit_logs`|
+|4|`charges`, `skipped_months`, `line_price_changes`, `sale_items`, `stock_movements`|
 |5|`collection_items`|
+
+**Price changes** (`plan_price_changes` / `line_price_changes`, gotcha #185): append-only, upsert on `id`; the `from_month NULL` row has a deterministic id → two devices' first edits converge; `OfflinePriceHistoryRepository` writes it insert-if-absent + the new row in ONE transaction.
 
 **`SYNC_TABLES` derived from `PUSH_WAVES`** (`.flat()`) — two lists would let a table be silently never pushed/pulled. One list; a table must sit below every table it references.
 

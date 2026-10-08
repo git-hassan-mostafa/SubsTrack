@@ -1781,6 +1781,66 @@ CREATE INDEX IF NOT EXISTS idx_skipped_months_active_month
     WHERE skipped;
 
 -- ============================================================
+-- PRICE CHANGES — append-only month prices, see gotcha #185
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS plan_price_changes ();
+
+ALTER TABLE plan_price_changes ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE plan_price_changes ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_plan_price_changes_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE plan_price_changes ADD COLUMN IF NOT EXISTS plan_id UUID NOT NULL
+    CONSTRAINT fk_plan_price_changes_plan REFERENCES plans(id) ON DELETE CASCADE;
+ALTER TABLE plan_price_changes ADD COLUMN IF NOT EXISTS from_month DATE
+    CONSTRAINT chk_plan_price_changes_from_month_first_day
+    CHECK (from_month IS NULL OR EXTRACT(DAY FROM from_month) = 1);
+ALTER TABLE plan_price_changes ADD COLUMN IF NOT EXISTS price NUMERIC(20,8)
+    CHECK (price IS NULL OR price > 0);
+ALTER TABLE plan_price_changes ADD COLUMN IF NOT EXISTS currency_id UUID
+    CONSTRAINT fk_plan_price_changes_currency REFERENCES currencies(id) ON DELETE RESTRICT;
+ALTER TABLE plan_price_changes ADD COLUMN IF NOT EXISTS duration_months INTEGER NOT NULL DEFAULT 1
+    CHECK (duration_months >= 1);
+ALTER TABLE plan_price_changes ADD COLUMN IF NOT EXISTS is_custom_price BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE plan_price_changes ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE plan_price_changes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE INDEX IF NOT EXISTS idx_plan_price_changes_tenant_id
+    ON plan_price_changes (tenant_id);
+
+CREATE INDEX IF NOT EXISTS idx_plan_price_changes_plan_id
+    ON plan_price_changes (plan_id);
+
+CREATE TABLE IF NOT EXISTS line_price_changes ();
+
+ALTER TABLE line_price_changes ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE line_price_changes ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_line_price_changes_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE line_price_changes ADD COLUMN IF NOT EXISTS customer_id UUID NOT NULL
+    CONSTRAINT fk_line_price_changes_customer REFERENCES customers(id) ON DELETE CASCADE;
+ALTER TABLE line_price_changes ADD COLUMN IF NOT EXISTS customer_plan_id UUID NOT NULL
+    CONSTRAINT fk_line_price_changes_customer_plan REFERENCES customer_plans(id) ON DELETE CASCADE;
+ALTER TABLE line_price_changes ADD COLUMN IF NOT EXISTS from_month DATE
+    CONSTRAINT chk_line_price_changes_from_month_first_day
+    CHECK (from_month IS NULL OR EXTRACT(DAY FROM from_month) = 1);
+ALTER TABLE line_price_changes ADD COLUMN IF NOT EXISTS plan_id UUID
+    CONSTRAINT fk_line_price_changes_plan REFERENCES plans(id) ON DELETE SET NULL;
+ALTER TABLE line_price_changes ADD COLUMN IF NOT EXISTS custom_price NUMERIC(20,8)
+    CHECK (custom_price IS NULL OR custom_price > 0);
+ALTER TABLE line_price_changes ADD COLUMN IF NOT EXISTS custom_currency_id UUID
+    CONSTRAINT fk_line_price_changes_currency REFERENCES currencies(id) ON DELETE RESTRICT;
+ALTER TABLE line_price_changes ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE line_price_changes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE INDEX IF NOT EXISTS idx_line_price_changes_tenant_id
+    ON line_price_changes (tenant_id);
+
+CREATE INDEX IF NOT EXISTS idx_line_price_changes_customer_id
+    ON line_price_changes (customer_id);
+
+CREATE INDEX IF NOT EXISTS idx_line_price_changes_customer_plan_id
+    ON line_price_changes (customer_plan_id);
+
+-- ============================================================
 -- EXCEPTION LOGS
 -- Local-first crash/error log written by the native app's global error
 -- logger (React ErrorBoundary, RN ErrorUtils global handler, repository
@@ -1931,6 +1991,8 @@ ALTER TABLE collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE skipped_months ENABLE ROW LEVEL SECURITY;
+ALTER TABLE plan_price_changes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE line_price_changes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exception_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
@@ -2914,6 +2976,87 @@ DO $$ BEGIN
             );
     END IF;
 
+    -- ── PLAN PRICE CHANGES ───────────────────────────────────
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'plan_price_changes' AND policyname = 'plan_price_changes_select'
+    ) THEN
+        CREATE POLICY plan_price_changes_select ON plan_price_changes
+            FOR SELECT USING (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM plans p
+                    WHERE p.id = plan_price_changes.plan_id
+                      AND (
+                          current_branch_id() IS NULL
+                          OR p.branch_id IS NULL
+                          OR p.branch_id = current_branch_id()
+                      )
+                )
+            );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'plan_price_changes' AND policyname = 'plan_price_changes_modify'
+    ) THEN
+        CREATE POLICY plan_price_changes_modify ON plan_price_changes
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM plans p
+                    WHERE p.id = plan_price_changes.plan_id
+                      AND (
+                          current_branch_id() IS NULL
+                          OR p.branch_id = current_branch_id()
+                      )
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM plans p
+                    WHERE p.id = plan_price_changes.plan_id
+                      AND (
+                          current_branch_id() IS NULL
+                          OR p.branch_id = current_branch_id()
+                      )
+                )
+            );
+    END IF;
+
+    -- ── LINE PRICE CHANGES ───────────────────────────────────
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'line_price_changes' AND policyname = 'line_price_changes_all'
+    ) THEN
+        CREATE POLICY line_price_changes_all ON line_price_changes
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM customers c
+                        WHERE c.id = line_price_changes.customer_id
+                          AND c.branch_id = current_branch_id()
+                    )
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM customers c
+                        WHERE c.id = line_price_changes.customer_id
+                          AND c.branch_id = current_branch_id()
+                    )
+                )
+            );
+    END IF;
+
     -- ── EXCEPTION LOGS ───────────────────────────────────────
     -- Flat debug/audit log, not branch-owned. Tenant-scoped read/write;
     -- rows with a NULL tenant_id (pre-auth errors) are also visible/insertable
@@ -3118,6 +3261,16 @@ CREATE OR REPLACE TRIGGER trg_expenses_updated_at
 
 CREATE OR REPLACE TRIGGER trg_skipped_months_updated_at
     BEFORE UPDATE ON skipped_months
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_plan_price_changes_updated_at
+    BEFORE UPDATE ON plan_price_changes
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_line_price_changes_updated_at
+    BEFORE UPDATE ON line_price_changes
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 

@@ -14,7 +14,7 @@ Link carries no secret of its own — v4 uuid is already 122 bits → no code co
 
 ## Reimplements no rule
 
-Main screen is computed, not stored: months are never rows; `monthStatus.buildMonthGrid()` (`Shared/src/modules/customer/customer-payments/utils/monthStatus.ts`) = single source of truth for their status. Portal imports staff app's logic from `Shared/` via `@shared/*`, never copies: `buildMonthGrid`, `buildCustomerStatus`, `mergeOwed`, `resolveLinePrice`, the waterfall, every `Db* → domain` mapper, money formatters. A figure disagreeing w/ staff app = a rule restated somewhere instead of imported.
+Main screen is computed, not stored: months are never rows; `monthStatus.buildMonthGrid()` (`Shared/src/modules/customer/customer-payments/utils/monthStatus.ts`) = single source of truth for their status. Portal imports staff app's logic from `Shared/` via `@shared/*`, never copies: `buildMonthGrid`, `buildCustomerStatus`, `mergeOwed`, `resolveLinePrice`, `priceHistoryOf` / `linePriceAt` (each month at its own price, `customer-portal` returns `lineChanges` / `planChanges` / `leftPlans`, gotcha #185), the waterfall, every `Db* → domain` mapper, money formatters. A figure disagreeing w/ staff app = a rule restated somewhere instead of imported.
 
 **No stubs**: Shared never imports React Native, Expo or app code (`tests/suites/sharedBoundary.test.ts` enforces), and the pure files portal reaches never read Shared's runtime → portal calls no `configureShared()`. **Import deep paths** — Shared has no barrels; each import names the defining file; `npm run typecheck` catches a wrong one. Only other alias `@edge/*`, for zero-import WhatsApp files under `SubsTrack/supabase/functions/_shared/`.
 

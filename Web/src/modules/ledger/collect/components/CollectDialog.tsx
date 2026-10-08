@@ -255,6 +255,11 @@ export function CollectDialog({ target, onClose, onCollected, header }: CollectD
       maxWidth={form.single ? "sm" : "lg"}
     >
       {header ? <Box sx={{ maxWidth: 480 }}>{header}</Box> : null}
+      {form.priceNotes.map((note) => (
+        <Typography key={note} variant="body2" color="text.secondary">
+          {note}
+        </Typography>
+      ))}
       {form.single ? <SingleFields form={form} /> : <PoolFields form={form} />}
     </FormDialog>
   );

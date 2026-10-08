@@ -64,6 +64,7 @@ export function virtualMonthItem(args: {
   ratePerUsdSnapshot: number;
   dueDate: string;
   openAmount?: boolean;
+  earlierPrice?: boolean;
 }): OpenItem {
   return {
     chargeId: null,
@@ -87,6 +88,7 @@ export function virtualMonthItem(args: {
     createdAt: args.dueDate,
     isDebt: false,
     openAmount: args.openAmount ?? false,
+    earlierPrice: args.earlierPrice ?? false,
   };
 }
 
@@ -135,6 +137,7 @@ export function monthItemFromEntry(args: {
     durationMonths: number;
   };
   ratePerUsd: number;
+  earlierPrice?: boolean;
 }): OpenItem | null {
   const { entry } = args;
   if (entry.charge && entry.collected > 0) {
@@ -160,6 +163,7 @@ export function monthItemFromEntry(args: {
     ratePerUsdSnapshot: args.ratePerUsd,
     dueDate: entry.billingMonth,
     openAmount: !priced,
+    earlierPrice: priced && (args.earlierPrice ?? false),
   });
 }
 

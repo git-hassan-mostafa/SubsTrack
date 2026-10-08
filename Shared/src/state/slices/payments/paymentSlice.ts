@@ -6,11 +6,14 @@ import type {
   CustomerStatus,
   MonthBill,
   MonthEntry,
+  PriceHistory,
   SkippedMonth,
 } from "@shared/core/types";
 import paymentService from "@shared/modules/customer/customer-payments/services/PaymentService";
 import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
 import type { SetSkipInput } from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
+import { priceHistoryService } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
+import { EMPTY_PRICE_HISTORY } from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
 import type { GlobalState } from "@shared/state/globalStore";
@@ -34,6 +37,7 @@ import {
 export interface PaymentSlice {
   bills: MonthBill[];
   skips: SkippedMonth[];
+  prices: PriceHistory;
   monthGridsByLine: Record<string, MonthEntry[]>;
   uncoveredMonthsByLine: Record<string, string[]>;
   paidMonthsByLine: Record<string, string[]>;
@@ -44,7 +48,7 @@ export interface PaymentSlice {
   error: string | null;
 
   fetchCustomerStatuses: (customers: Customer[]) => Promise<void>;
-  fetchBills: (customerId: string) => Promise<void>;
+  fetchBills: (customerId: string, lines: CustomerPlan[]) => Promise<void>;
   // No-op unless that hand-over belongs to the customer whose bills are loaded.
   applyCollection: (collection: Collection, sign?: 1 | -1) => void;
   buildGrids: (lines: CustomerPlan[], year: number) => void;
@@ -75,6 +79,7 @@ export const createPaymentSlice: StateCreator<
 > = (set, get) => ({
   bills: [],
   skips: [],
+  prices: EMPTY_PRICE_HISTORY,
   monthGridsByLine: {},
   uncoveredMonthsByLine: {},
   paidMonthsByLine: {},
@@ -106,21 +111,23 @@ export const createPaymentSlice: StateCreator<
     });
   },
 
-  fetchBills: async (customerId) => {
+  fetchBills: async (customerId, lines) => {
     const epoch = currentDataEpoch();
     set((state) => {
       state.payments.loading = true;
       state.payments.error = null;
     });
     try {
-      const [bills, skips] = await Promise.all([
+      const [bills, skips, prices] = await Promise.all([
         chargeService.getMonthBillsForCustomer(customerId),
         skippedMonthService.getSkipsForCustomer(customerId),
+        priceHistoryService.getForLines(lines),
       ]);
       if (isStaleEpoch(epoch)) return;
       set((state) => {
         state.payments.bills = bills;
         state.payments.skips = skips;
+        state.payments.prices = prices;
         state.payments.billsCustomerId = customerId;
         state.payments.loading = false;
       });
@@ -236,6 +243,7 @@ export const createPaymentSlice: StateCreator<
     set((state) => {
       state.payments.bills = [];
       state.payments.skips = [];
+      state.payments.prices = EMPTY_PRICE_HISTORY;
       state.payments.monthGridsByLine = {};
       state.payments.uncoveredMonthsByLine = {};
       state.payments.paidMonthsByLine = {};

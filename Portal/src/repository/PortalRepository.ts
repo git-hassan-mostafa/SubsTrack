@@ -4,6 +4,9 @@ import type {
   DbCurrency,
   DbCustomer,
   DbCustomerPlan,
+  DbLinePriceChange,
+  DbPlan,
+  DbPlanPriceChange,
   DbSale,
   DbSkippedMonth,
 } from "@shared/core/types/db";
@@ -24,6 +27,9 @@ export interface PortalPayload {
   currencies: DbCurrency[];
   collectors: { id: string; full_name: string }[];
   settings: Record<string, string | null>;
+  planChanges?: DbPlanPriceChange[];
+  lineChanges?: DbLinePriceChange[];
+  leftPlans?: DbPlan[];
 }
 
 // Mirrors the function's own `code` values so the UI can pick a message without

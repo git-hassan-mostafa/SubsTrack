@@ -53,6 +53,8 @@ export function CustomerPlansEditor({ drafts, branchId }: Props) {
           showHeader={multiple}
           canRemove={drafts.activeCount > 1}
           removing={drafts.removingKey === row.key}
+          priceChanged={drafts.priceChanged(row)}
+          onPriceFromChange={(month) => drafts.setPriceFrom(row.key, month)}
           onPlanChange={(v) => drafts.setPlan(row.key, v)}
           onStartDateChange={(v) => drafts.setStartDate(row.key, v)}
           onPriceChange={(amount, currencyId) =>

@@ -125,6 +125,33 @@ export interface DbSkippedMonth {
   updated_at: string;
 }
 
+// from_month NULL = the price before the first change — gotcha #185.
+export interface DbPlanPriceChange {
+  id: string;
+  tenant_id: string;
+  plan_id: string;
+  from_month: string | null;
+  price: number | null;
+  currency_id: string | null;
+  duration_months: number;
+  is_custom_price: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbLinePriceChange {
+  id: string;
+  tenant_id: string;
+  customer_id: string;
+  customer_plan_id: string;
+  from_month: string | null;
+  plan_id: string | null;
+  custom_price: number | null;
+  custom_currency_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DbProduct {
   id: string;
   tenant_id: string;

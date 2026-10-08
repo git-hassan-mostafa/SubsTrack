@@ -14,7 +14,7 @@ export interface PlanSlice {
   getPlans: () => Promise<void>;
   fetchPlans: () => Promise<void>;
   createPlan: (data: PlanInput, tenantId: string) => Promise<Plan | null>;
-  updatePlan: (id: string, data: PlanInput) => Promise<Plan | null>;
+  updatePlan: (previous: Plan, data: PlanInput, priceFrom?: string) => Promise<Plan | null>;
   deletePlan: (id: string) => Promise<boolean>;
   bulkDeletePlans: (ids: string[]) => Promise<boolean>;
   clearError: () => void;
@@ -83,15 +83,15 @@ export const createPlanSlice: StateCreator<
     }
   },
 
-  updatePlan: async (id, data) => {
+  updatePlan: async (previous, data, priceFrom) => {
     set((state) => {
       state.plans.loading = true;
       state.plans.error = null;
     });
     try {
-      const updated = await planService.updatePlan(id, data);
+      const updated = await planService.updatePlan(previous, data, priceFrom);
       set((state) => {
-        const i = state.plans.items.findIndex((p) => p.id === id);
+        const i = state.plans.items.findIndex((p) => p.id === previous.id);
         if (i !== -1) state.plans.items[i] = updated;
         state.plans.loading = false;
       });

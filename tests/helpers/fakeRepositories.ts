@@ -4,6 +4,8 @@ const FAKES: Partial<Record<keyof Repositories, () => unknown>> = {
   charge: () => require("./fakeLedger").fakeChargeRepository,
   collection: () => require("./fakeLedger").fakeCollectionRepository,
   sale: () => require("./fakeSales").fakeSaleRepository,
+  priceHistory: () => require("./fakePriceHistory").fakePriceHistoryRepository,
+  plan: () => require("./fakePriceHistory").fakePlanRepository,
 };
 
 // Required lazily so the setup file loads nothing a suite may jest.mock later.

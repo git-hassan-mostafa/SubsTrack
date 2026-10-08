@@ -4,10 +4,16 @@ import type {
   CustomerPlan,
   MonthBill,
   OpenItem,
+  PriceHistory,
   SkippedMonth,
   UnpaidStartRule,
 } from "@shared/core/types";
 import { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
+import {
+  EMPTY_PRICE_HISTORY,
+  isEarlierPrice,
+  linePriceAt,
+} from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import { findCurrency } from "@shared/core/utils/currency";
 import {
   buildMonthGrid,
@@ -23,6 +29,7 @@ export interface MergeOwedArgs {
   currencies: Currency[];
   stored: OpenItem[];
   billsByLine: Map<string, MonthBill[]>;
+  prices?: PriceHistory;
   today?: Date;
   withOpenMonths?: boolean;
 }
@@ -46,6 +53,7 @@ export function mergeOwed(args: MergeOwedArgs): OpenItem[] {
     unpaidRule,
     currencies,
     alreadyBilled: billed,
+    prices: args.prices ?? EMPTY_PRICE_HISTORY,
     today: args.today ?? new Date(),
     withOpenMonths: args.withOpenMonths ?? false,
   });
@@ -63,6 +71,7 @@ export function mergeOwed(args: MergeOwedArgs): OpenItem[] {
   return sortByDue([...kept, ...virtual]);
 }
 
+// Each month priced as it stood IN that month — gotcha #185.
 function virtualUnpaidMonths(args: {
   customer: Customer;
   activeLines: CustomerPlan[];
@@ -71,6 +80,7 @@ function virtualUnpaidMonths(args: {
   unpaidRule: UnpaidStartRule;
   currencies: Currency[];
   alreadyBilled: ReadonlySet<string>;
+  prices: PriceHistory;
   today: Date;
   withOpenMonths: boolean;
 }): OpenItem[] {
@@ -82,20 +92,14 @@ function virtualUnpaidMonths(args: {
     unpaidRule,
     currencies,
     alreadyBilled,
+    prices,
     today,
     withOpenMonths,
   } = args;
   const out: OpenItem[] = [];
 
   for (const line of activeLines) {
-    const price = resolveLinePrice(line);
-    const priced =
-      price.isFixed && price.amount !== null && price.amount > 0;
-    if (!priced && !withOpenMonths) continue;
-    const ratePerUsd = priced
-      ? (findCurrency(currencies, price.currencyId)?.ratePerUsd ?? 1)
-      : 1;
-
+    const todayPrice = resolveLinePrice(line);
     const bills = billsByLine.get(line.id) ?? [];
     const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
     const startYear = new Date(line.startDate).getFullYear();
@@ -110,6 +114,10 @@ function virtualUnpaidMonths(args: {
       )) {
         if (entry.status !== "unpaid") continue;
         if (alreadyBilled.has(`${line.id}:${entry.billingMonth}`)) continue;
+        const price = linePriceAt(line, entry.billingMonth, prices);
+        const priced =
+          price.isFixed && price.amount !== null && price.amount > 0;
+        if (!priced && !withOpenMonths) continue;
         out.push(
           virtualMonthItem({
             customerId: customer.id,
@@ -122,9 +130,12 @@ function virtualUnpaidMonths(args: {
             label: `${entry.label} ${entry.year}${line.plan?.name ? ` · ${line.plan.name}` : ""}`,
             amount: priced ? price.amount! : 0,
             currencyId: priced ? price.currencyId : null,
-            ratePerUsdSnapshot: ratePerUsd,
+            ratePerUsdSnapshot: priced
+              ? (findCurrency(currencies, price.currencyId)?.ratePerUsd ?? 1)
+              : 1,
             dueDate: entry.billingMonth,
             openAmount: !priced,
+            earlierPrice: isEarlierPrice(price, todayPrice),
           }),
         );
       }

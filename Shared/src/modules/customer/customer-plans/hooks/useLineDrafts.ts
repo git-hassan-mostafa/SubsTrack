@@ -11,6 +11,7 @@ import {
   lineRowsChanged,
   newLineRow,
   nextLineStartDate,
+  rowPriceChanged,
   rowsFromCustomer,
   toLineDrafts,
   type LineRow,
@@ -42,6 +43,8 @@ export interface LineDrafts {
   setPlan: (key: string, planId: string | null) => void;
   setPrice: (key: string, amount: number | null, currencyId: string | null) => void;
   setStartDate: (key: string, date: string) => void;
+  priceChanged: (row: LineRow) => boolean;
+  setPriceFrom: (key: string, month: string) => void;
   addRow: () => void;
   removeRow: (key: string) => Promise<void>;
   reactivateRow: (key: string) => void;
@@ -167,6 +170,8 @@ export function useLineDrafts({
     setPrice: (key, customPrice, customCurrencyId) =>
       patchRow(key, { customPrice, customCurrencyId }),
     setStartDate: (key, startDate) => patchRow(key, { startDate }),
+    priceChanged: (row) => rowPriceChanged(initialRows, row),
+    setPriceFrom: (key, priceFrom) => patchRow(key, { priceFrom }),
     addRow: () => {
       rowKey.current += 1;
       const suffix = rowKey.current;

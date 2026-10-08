@@ -18,6 +18,10 @@ import {
   type PlanDraft,
 } from "@shared/modules/admin/plans/utils/planForm";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
+import {
+  currentBillingMonth,
+  planPriceChanged,
+} from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { planDurationLabel } from "@shared/modules/admin/plans/utils/planLabels";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
@@ -25,6 +29,7 @@ import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { BranchPicker } from "@/shared/components/BranchPicker";
 import { CurrencyInput } from "@/shared/components/CurrencyInput";
 import { FormDialog } from "@/shared/components/FormDialog";
+import { PriceStartField } from "@/shared/components/PriceStartField";
 import { markCustomersTableStale } from "@/state/customersTable";
 
 const DURATIONS = Array.from({ length: MAX_PLAN_DURATION }, (_, i) => i + 1);
@@ -47,8 +52,10 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
   const [form, setForm] = useState(() =>
     planDraftOf(plan, defaultNewBranchId(user, activeBranches)),
   );
+  const [priceFrom, setPriceFrom] = useState(currentBillingMonth);
   const dirty = useDirtyForm(form, ["currencyId"]);
   const isMultiMonth = isMultiMonthPlan(form);
+  const priceChanged = plan ? planPriceChanged(plan, planInput(form)) : false;
 
   useEffect(() => {
     clearError();
@@ -69,7 +76,7 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
     if (!user || !canSavePlan(form)) return;
     const data = planInput(form);
     const saved = plan
-      ? await updatePlan(plan.id, data)
+      ? await updatePlan(plan, data, priceFrom)
       : await createPlan(data, user.tenantId);
     if (!saved) return;
     if (plan) markCustomersTableStale();
@@ -146,6 +153,7 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
           required
         />
       )}
+      {priceChanged ? <PriceStartField value={priceFrom} onChange={setPriceFrom} /> : null}
     </FormDialog>
   );
 }

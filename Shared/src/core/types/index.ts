@@ -156,6 +156,36 @@ export interface SkippedMonth {
   updatedAt: string;
 }
 
+// One price edit, effective from `fromMonth`; null = the price before any edit.
+export interface PlanPriceChange {
+  id: string;
+  planId: string;
+  fromMonth: string | null;
+  price: number | null;
+  currencyId: string | null;
+  durationMonths: number;
+  isCustomPrice: boolean;
+  createdAt: string;
+}
+
+export interface LinePriceChange {
+  id: string;
+  customerId: string;
+  customerPlanId: string;
+  fromMonth: string | null;
+  planId: string | null;
+  customPrice: number | null;
+  customCurrencyId: string | null;
+  createdAt: string;
+}
+
+// Indexed for month lookups; `planById` holds plans a line has left — gotcha #185.
+export interface PriceHistory {
+  lines: Map<string, LinePriceChange[]>;
+  plans: Map<string, PlanPriceChange[]>;
+  planById: Map<string, Plan>;
+}
+
 // The fields the month rules read, so a server can feed them compact facts.
 export type StatusLine = Pick<CustomerPlan, "id" | "startDate" | "active">;
 
@@ -518,6 +548,7 @@ export interface OpenItem {
   createdAt: string;
   isDebt: boolean;
   openAmount?: boolean;
+  earlierPrice?: boolean;
   charge?: Charge | null;
 }
 

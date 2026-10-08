@@ -1,5 +1,9 @@
 import type { Customer, Plan } from "@shared/core/types";
 import type { LineDraft } from "@shared/modules/customer/customer-plans/services/CustomerPlanService";
+import {
+  linePriceChanged,
+  type LinePriceFields,
+} from "@shared/modules/customer/customer-plans/utils/priceHistory";
 
 // `id` = a saved line; "cancelled" rows stay read-only until reactivated.
 export interface LineRow {
@@ -10,6 +14,7 @@ export interface LineRow {
   customPrice: number | null;
   customCurrencyId: string | null;
   status: "active" | "cancelled";
+  priceFrom?: string;
 }
 
 export function newLineRow(suffix: number, startDate: string): LineRow {
@@ -47,19 +52,31 @@ export function nextLineStartDate(rows: LineRow[], today: string): string {
 }
 
 // A plan-price row keeps no currency; a zero special price means "none".
+function priceOf(row: LineRow): LinePriceFields {
+  const special = row.customPrice !== null && row.customPrice > 0;
+  return {
+    planId: row.planId,
+    customPrice: special ? row.customPrice : null,
+    customCurrencyId: special ? row.customCurrencyId : null,
+  };
+}
+
 export function toLineDrafts(rows: LineRow[]): LineDraft[] {
   return rows
     .filter((row) => row.status === "active")
-    .map((row) => {
-      const special = row.customPrice !== null && row.customPrice > 0;
-      return {
-        id: row.id,
-        planId: row.planId,
-        startDate: row.startDate,
-        customPrice: special ? row.customPrice : null,
-        customCurrencyId: special ? row.customCurrencyId : null,
-      };
-    });
+    .map((row) => ({
+      id: row.id,
+      startDate: row.startDate,
+      ...priceOf(row),
+      priceFrom: row.priceFrom,
+    }));
+}
+
+// Only a line saved active has an old price the new one replaces — #185.
+export function rowPriceChanged(initial: readonly LineRow[], row: LineRow): boolean {
+  const saved = row.id ? initial.find((r) => r.key === row.key) : undefined;
+  if (!saved || saved.status !== "active" || row.status !== "active") return false;
+  return linePriceChanged(priceOf(saved), priceOf(row));
 }
 
 // A branch change drops plans owned by another branch; `cleared` keeps it clean.

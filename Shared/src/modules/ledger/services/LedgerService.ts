@@ -13,6 +13,7 @@ import { repositories } from "@shared/core/runtime/repositories";
 import { mapDbCustomerToCustomer } from "@shared/modules/customer/customers/utils/mapper";
 import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
 import currencyService from "@shared/modules/admin/currencies/services/CurrencyService";
+import { priceHistoryService } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
 import { chargeService } from "./ChargeService";
 import { mergeOwed } from "../utils/mergeOwed";
 import { collectTotal, type CollectTotal } from "../utils/collectTotal";
@@ -45,13 +46,14 @@ class LedgerService {
   }): Promise<OpenItem[]> {
     const { customer, lines } = args;
     const active = lines.filter((l) => l.active);
-    const [open, billsByLine] = await Promise.all([
+    const [open, billsByLine, prices] = await Promise.all([
       chargeService.getOpenCharges({ customerId: customer.id }),
       active.length > 0
         ? chargeService.getMonthBillsForLines(active.map((l) => l.id))
         : Promise.resolve(new Map<string, MonthBill[]>()),
+      priceHistoryService.getForLines(active),
     ]);
-    return mergeOwed({ ...args, stored: open, billsByLine });
+    return mergeOwed({ ...args, stored: open, billsByLine, prices });
   }
 
   // getOwed for many customers: the same merge, one read per chunk of 100.
@@ -65,14 +67,16 @@ class LedgerService {
     const owed = new Map<string, OpenItem[]>();
     const skipsByCustomer = groupBy(args.skips, (s) => s.customerId);
     for (const chunk of inChunks(args.customers, OWED_BATCH_SIZE)) {
-      const lineIds = chunk.flatMap((c) =>
-        (c.customerPlans ?? []).filter((l) => l.active).map((l) => l.id),
+      const lines = chunk.flatMap((c) =>
+        (c.customerPlans ?? []).filter((l) => l.active),
       );
-      const [open, billsByLine] = await Promise.all([
+      const lineIds = lines.map((l) => l.id);
+      const [open, billsByLine, prices] = await Promise.all([
         chargeService.getOpenCharges({ customerIds: chunk.map((c) => c.id) }),
         lineIds.length > 0
           ? chargeService.getMonthBillsForLines(lineIds)
           : Promise.resolve(new Map<string, MonthBill[]>()),
+        priceHistoryService.getForLines(lines),
       ]);
       const openByCustomer = groupBy(open, (item) => item.customerId);
       for (const customer of chunk) {
@@ -86,6 +90,7 @@ class LedgerService {
             currencies: args.currencies,
             stored: openByCustomer.get(customer.id) ?? [],
             billsByLine,
+            prices,
             today: args.today,
           }),
         );
@@ -111,17 +116,20 @@ class LedgerService {
       currencyService.getCurrencies(),
     ]);
     const customers = rows.map(mapDbCustomerToCustomer);
-    const billsByLine = await this.getMonthBillsForLines(
-      customers.flatMap((c) =>
-        (c.customerPlans ?? []).filter((l) => l.active).map((l) => l.id),
-      ),
+    const lines = customers.flatMap((c) =>
+      (c.customerPlans ?? []).filter((l) => l.active),
     );
+    const [billsByLine, prices] = await Promise.all([
+      this.getMonthBillsForLines(lines.map((l) => l.id)),
+      priceHistoryService.getForLines(lines),
+    ]);
     return {
       debts: chargeService.buildDebtsView(stored),
       toCollect: collectTotal({
         customers,
         stored,
         billsByLine,
+        prices,
         skips,
         unpaidRule,
         currencies,
