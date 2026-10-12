@@ -1,5 +1,10 @@
-import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import {
+  isAuthRetryableFetchError,
+  type Session,
+  type SupabaseClient,
+} from "@supabase/supabase-js";
 import { BaseRepository } from "@shared/core/utils/BaseRepository";
+import { readSavedSession } from "@shared/modules/authentication/auth/repository/savedSession";
 import { runtime } from "@shared/core/runtime/runtime";
 import type { DbTenant, DbUser } from "@shared/core/types/db";
 import type { IAuthRepository } from "@shared/modules/authentication/auth/repository/IAuthRepository";
@@ -30,13 +35,13 @@ export class AuthRepository
     await storage.removeItem(authStorageKey);
   }
 
+  // A network failure keeps the session; only a dead refresh token logs out (#192)
   async getSession(): Promise<Session | null> {
     const { data, error } = await this.db.auth.getSession();
-    if (error) {
-      await this.signOut().catch(() => {});
-      return null;
-    }
-    return data.session;
+    if (!error) return data.session;
+    if (isAuthRetryableFetchError(error)) return readSavedSession();
+    await this.signOut().catch(() => {});
+    return null;
   }
 
   async getUserProfile(userId: string): Promise<DbUser | null> {

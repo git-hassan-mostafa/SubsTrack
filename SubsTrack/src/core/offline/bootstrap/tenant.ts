@@ -32,6 +32,43 @@ export async function hasUnsyncedWrites(db: SQLiteDatabase): Promise<boolean> {
   return false;
 }
 
+interface ActiveScope {
+  tenantId: string | null;
+  branchScope: string | null;
+  roleScope: string | null;
+}
+
+async function readActiveScope(db: SQLiteDatabase): Promise<ActiveScope> {
+  return {
+    tenantId: await getMeta(db, META_ACTIVE_TENANT),
+    branchScope: await getMeta(db, META_ACTIVE_BRANCH_SCOPE),
+    roleScope: await getMeta(db, META_ACTIVE_ROLE_SCOPE),
+  };
+}
+
+// A null role scope predates role scoping, so it still matches (#154)
+function scopeMatches(
+  active: ActiveScope,
+  tenantId: string,
+  branchId: string | null,
+  role: UserRole,
+): boolean {
+  return (
+    active.tenantId === tenantId &&
+    active.branchScope === scopeKeyOf(branchId) &&
+    (active.roleScope === null || active.roleScope === roleScopeOf(role))
+  );
+}
+
+// Read-only twin of ensureTenantScope's match test — never wipes
+export async function holdsTenantScope(
+  tenantId: string,
+  branchId: string | null,
+  role: UserRole,
+): Promise<boolean> {
+  return scopeMatches(await readActiveScope(getDb()), tenantId, branchId, role);
+}
+
 /** Wipe unless tenant + branch + role all match — see gotcha #154. */
 export async function ensureTenantScope(
   tenantId: string,
@@ -39,26 +76,22 @@ export async function ensureTenantScope(
   role: UserRole,
 ): Promise<TenantScopeResult> {
   const db = getDb();
-  const current = await getMeta(db, META_ACTIVE_TENANT);
-  const currentScope = await getMeta(db, META_ACTIVE_BRANCH_SCOPE);
-  const currentRole = await getMeta(db, META_ACTIVE_ROLE_SCOPE);
-  const scope = scopeKeyOf(branchId);
+  const active = await readActiveScope(db);
   const roleScope = roleScopeOf(role);
 
   const write = async () => {
     await setMeta(db, META_ACTIVE_TENANT, tenantId);
-    await setMeta(db, META_ACTIVE_BRANCH_SCOPE, scope);
+    await setMeta(db, META_ACTIVE_BRANCH_SCOPE, scopeKeyOf(branchId));
     await setMeta(db, META_ACTIVE_ROLE_SCOPE, roleScope);
   };
 
-  const roleMatches = currentRole === null || currentRole === roleScope;
-  if (current === tenantId && currentScope === scope && roleMatches) {
-    if (currentRole === null) {
+  if (scopeMatches(active, tenantId, branchId, role)) {
+    if (active.roleScope === null) {
       await setMeta(db, META_ACTIVE_ROLE_SCOPE, roleScope);
     }
     return { wiped: false, blockedByPending: false };
   }
-  if (!current) {
+  if (!active.tenantId) {
     await write();
     return { wiped: false, blockedByPending: false };
   }
