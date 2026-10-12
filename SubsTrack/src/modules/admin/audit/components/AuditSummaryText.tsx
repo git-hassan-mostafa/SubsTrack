@@ -16,7 +16,7 @@ export function AuditSummaryText({
   return (
     <Text className={className} numberOfLines={numberOfLines}>
       {parts.map((part, i) => (
-        <Text key={i} fontWeight={part.bold ? "SemiBold" : "Regular"}>
+        <Text key={i} fontWeight={part.bold ? "Bold" : "Regular"}>
           {part.text}
         </Text>
       ))}
