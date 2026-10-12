@@ -32,6 +32,7 @@ import { useExpensesList } from "@shared/modules/transaction/expenses/hooks/useE
 import { ExpenseCard } from "../components/ExpenseCard";
 import { ExpenseFormSheet } from "../components/ExpenseFormSheet";
 import { EXPENSE_FILTER_CATEGORIES } from "@shared/modules/transaction/expenses/utils/expenseCategories";
+import { KEYBOARD_SAFE_LIST } from "@/src/shared/lib/keyboardSafeList";
 
 interface Props {
   filterRowRef?: RefObject<ScrollView | null>;
@@ -161,6 +162,7 @@ export function ExpensesPanel({ filterRowRef }: Props = {}) {
           </View>
         ) : (
           <SectionList
+            {...KEYBOARD_SAFE_LIST}
             sections={sections}
             keyExtractor={(i) => i.id}
             stickySectionHeadersEnabled={false}

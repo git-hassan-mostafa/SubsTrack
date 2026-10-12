@@ -48,6 +48,7 @@ import {
   type SaleStatus,
 } from "@shared/modules/transaction/sales/utils/saleFilters";
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
+import { KEYBOARD_SAFE_LIST } from "@/src/shared/lib/keyboardSafeList";
 
 interface Props {
   filterRowRef?: RefObject<ScrollView | null>;
@@ -284,6 +285,7 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
           </View>
         ) : (
           <SectionList
+            {...KEYBOARD_SAFE_LIST}
             sections={sections}
             keyExtractor={(s) => s.id}
             stickySectionHeadersEnabled={false}

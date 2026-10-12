@@ -49,6 +49,7 @@ import { useSelection } from "@shared/shared/hooks/useSelection";
 import {
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelectionBackHandler";
+import { KEYBOARD_SAFE_LIST } from "@/src/shared/lib/keyboardSafeList";
 
 const USER_ACTION_ICONS: Record<UserActionKey, Glyph> = {
   edit: "create-outline",
@@ -309,6 +310,7 @@ export function UserListScreen() {
           </View>
         ) : (
           <FlatList
+            {...KEYBOARD_SAFE_LIST}
             data={filtered}
             keyExtractor={(u) => u.id}
             contentContainerStyle={{

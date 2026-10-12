@@ -37,6 +37,7 @@ import { DebtorDetailSheet } from "../components/DebtorDetailSheet";
 import { CustomDebtFormSheet } from "../components/CustomDebtFormSheet";
 import { AllDebtsSheet } from "../components/AllDebtsSheet";
 import { DebtHistorySheet } from "../components/DebtHistorySheet";
+import { KEYBOARD_SAFE_LIST } from "@/src/shared/lib/keyboardSafeList";
 
 interface Props {
   onOpenSale?: (saleId: string) => Promise<void> | void;
@@ -172,6 +173,7 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
           </View>
         ) : (
           <FlatList
+            {...KEYBOARD_SAFE_LIST}
             data={visibleDebtors}
             keyExtractor={(d) => d.customerId}
             contentContainerStyle={{

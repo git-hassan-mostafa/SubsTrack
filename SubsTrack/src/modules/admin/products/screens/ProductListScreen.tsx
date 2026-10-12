@@ -50,6 +50,7 @@ import { ProductFormSheet } from "../components/ProductFormSheet";
 import { ProductStockSheet } from "../components/ProductStockSheet";
 import { ProductBatchRestockSheet } from "../components/ProductBatchRestockSheet";
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
+import { KEYBOARD_SAFE_LIST } from "@/src/shared/lib/keyboardSafeList";
 
 export function ProductListScreen() {
   const { t } = useTranslation();
@@ -266,6 +267,7 @@ export function ProductListScreen() {
           </View>
         ) : (
           <FlatList
+            {...KEYBOARD_SAFE_LIST}
             data={filtered}
             keyExtractor={(p) => p.id}
             contentContainerStyle={{

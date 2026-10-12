@@ -30,6 +30,7 @@ import type { SaleVoidResult } from "@shared/modules/transaction/sales/utils/typ
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import { useSaleActions } from "../hooks/useSaleActions";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
+import { KEYBOARD_SAFE_LIST } from "@/src/shared/lib/keyboardSafeList";
 
 // Full-page list of every sale for a single customer. Reachable from the
 // "Show all" button on CustomerSalesPanel. Mirrors SalesListScreen (search +
@@ -162,6 +163,7 @@ export function CustomerSalesListScreen() {
           </View>
         ) : (
           <FlatList
+            {...KEYBOARD_SAFE_LIST}
             data={items}
             keyExtractor={(s) => s.id}
             contentContainerStyle={{

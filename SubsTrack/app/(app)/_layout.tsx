@@ -6,7 +6,9 @@ import GlobalConfirmDialog from "@/src/shared/components/GlobalConfirmDialog";
 import { SyncIndicator } from "@/src/shared/components/SyncIndicator";
 import { UpdateBanner } from "@/src/shared/components/UpdateBanner";
 import { QuickActionSheets } from "@/src/modules/quick-actions";
+import { useDismissKeyboardOnNavigate } from "@/src/shared/hooks/useDismissKeyboardOnNavigate";
 export default function AppLayout() {
+  useDismissKeyboardOnNavigate();
   const user = useAuthSlice((s) => s.user);
   const tenantActive = useAuthSlice((s) => s.tenantActive);
   const loading = useAuthSlice((s) => s.loading);

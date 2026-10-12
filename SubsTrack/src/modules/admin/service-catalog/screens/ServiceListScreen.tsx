@@ -45,6 +45,7 @@ import {
 import { ServiceCard } from "../components/ServiceCard";
 import { ServiceFormSheet } from "../components/ServiceFormSheet";
 import { useServiceSlice } from "@shared/state/hooks/useServiceSlice";
+import { KEYBOARD_SAFE_LIST } from "@/src/shared/lib/keyboardSafeList";
 
 export function ServiceListScreen() {
   const { t } = useTranslation();
@@ -230,6 +231,7 @@ export function ServiceListScreen() {
           </View>
         ) : (
           <FlatList
+            {...KEYBOARD_SAFE_LIST}
             data={filtered}
             keyExtractor={(s) => s.id}
             contentContainerStyle={{

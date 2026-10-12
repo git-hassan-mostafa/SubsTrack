@@ -77,6 +77,7 @@ import {
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelectionBackHandler";
 import { SaleFormSheet } from "@/src/modules/transaction/sales";
+import { KEYBOARD_SAFE_LIST } from "@/src/shared/lib/keyboardSafeList";
 
 export function CustomerListScreen() {
   const { t } = useTranslation();
@@ -430,6 +431,7 @@ export function CustomerListScreen() {
   const listElement = useMemo(
     () => (
       <FlatList
+        {...KEYBOARD_SAFE_LIST}
         data={filtered}
         keyExtractor={(c) => c.id}
         contentContainerStyle={{

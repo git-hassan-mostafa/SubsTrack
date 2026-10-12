@@ -33,6 +33,7 @@ import {
 import { useAllDebtsList } from "@shared/modules/transaction/debts/hooks/useAllDebtsList";
 import type { DebtScope } from "@shared/modules/transaction/debts/hooks/useWrittenOffDebts";
 import { DebtItemCard } from "./DebtItemCard";
+import { KEYBOARD_SAFE_LIST } from "@/src/shared/lib/keyboardSafeList";
 
 interface Props {
   view: DebtsView | null;
@@ -220,6 +221,7 @@ export function AllDebtsSheet({
             ) : null}
 
             <BottomSheetFlatList
+              {...KEYBOARD_SAFE_LIST}
               data={rows}
               keyExtractor={keyOf}
               contentContainerStyle={{

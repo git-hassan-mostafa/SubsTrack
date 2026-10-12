@@ -45,6 +45,7 @@ import { useSelection } from "@shared/shared/hooks/useSelection";
 import {
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelectionBackHandler";
+import { KEYBOARD_SAFE_LIST } from "@/src/shared/lib/keyboardSafeList";
 
 export function PlanListScreen() {
   const { t } = useTranslation();
@@ -220,6 +221,7 @@ export function PlanListScreen() {
           </View>
         ) : (
           <FlatList
+            {...KEYBOARD_SAFE_LIST}
             data={filtered}
             keyExtractor={(p) => p.id}
             contentContainerStyle={{
