@@ -4,6 +4,8 @@ import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 
 const DAY_FORMAT = "YYYY-MM-DD";
 const DAY_TIME_FORMAT = "YYYY-MM-DD HH:mm";
+const SHOWN_DAY_FORMAT = "DD/MM/YYYY";
+const SHOWN_DAY_TIME_FORMAT = "DD/MM/YYYY HH:mm";
 
 interface DateFieldProps {
   label: string;
@@ -75,10 +77,19 @@ export function DateField({
     },
   };
 
-  if (withTime) return <DateTimePicker {...common} ampm={false} />;
+  if (withTime) {
+    return (
+      <DateTimePicker
+        {...common}
+        ampm={false}
+        format={SHOWN_DAY_TIME_FORMAT}
+      />
+    );
+  }
   return (
     <DatePicker
       {...common}
+      format={monthOnly ? undefined : SHOWN_DAY_FORMAT}
       views={monthOnly ? ["month", "year"] : undefined}
       openTo={monthOnly ? "month" : undefined}
     />

@@ -1,5 +1,11 @@
 import i18n from "@shared/core/i18n";
 import type { CsvTable, CsvValue } from "@shared/shared/lib/csv";
+import {
+  formatDate,
+  formatDateTime,
+  isInstantString,
+  isValidDateString,
+} from "@shared/core/utils/date";
 
 export type ExportRow = Record<string, unknown>;
 
@@ -59,7 +65,10 @@ function scalar(value: unknown): string {
   if (typeof value === "boolean") {
     return i18n.t(value ? "common.yes" : "common.no");
   }
-  return String(value);
+  const text = String(value);
+  if (isValidDateString(text)) return formatDate(text);
+  if (isInstantString(text)) return formatDateTime(text);
+  return text;
 }
 
 /** One cell's value, keeping a number a number so the sheet can sum it. */

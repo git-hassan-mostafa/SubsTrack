@@ -11,6 +11,10 @@ import {
 import {
   dayToInstantIso,
   daysLate,
+  formatDate,
+  formatDateTime,
+  formatDateTimeShort,
+  formatPickedDay,
   getTodayDateString,
   localMonthKey,
   toBillingMonth,
@@ -133,6 +137,24 @@ describe("dates", () => {
     expect(daysLate("2026-03-20", today)).toBe(0);
     expect(daysLate("2026-03-14", today)).toBe(1);
     expect(daysLate("2026-01-15", today)).toBe(59);
+  });
+
+  it("TC-DT-07 dates show as dd/MM/yyyy, a bare day never shifted", () => {
+    expect(formatDate("2026-03-05")).toBe("05/03/2026");
+    expect(formatDate(new Date(2026, 2, 5, 23, 30).toISOString())).toBe(
+      "05/03/2026",
+    );
+    expect(formatPickedDay("2026-03-05")).toBe("05/03/2026");
+    expect(formatPickedDay("2026-03-05 14:30")).toBe("05/03/2026 14:30");
+  });
+
+  it("TC-DT-08 date + time keeps dd/MM/yyyy and drops the year only this year", () => {
+    freezeToday(2026, 6, 15);
+    const instant = new Date(2026, 2, 5, 14, 30).toISOString();
+    expect(formatDateTime(instant)).toMatch(/^05\/03\/2026 2:30\sPM$/);
+    expect(formatDateTimeShort(instant)).toMatch(/^05\/03 2:30\sPM$/);
+    const lastYear = new Date(2025, 2, 5, 14, 30).toISOString();
+    expect(formatDateTimeShort(lastYear)).toMatch(/^05\/03\/2025 /);
   });
 });
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import type { ExpenseCategory } from "@shared/core/types";
 import { findCurrency } from "@shared/core/utils/currency";
+import { billingMonthLabel } from "@shared/core/utils/billingMonth";
 import { formatDate } from "@shared/core/utils/date";
 import { NO_KEY } from "@shared/modules/reports/utils/analysis";
 import { CUSTOM_PRICE_KEY } from "@shared/modules/reports/utils/customersView";
@@ -31,7 +32,6 @@ const NONE_LABEL_KEY: Partial<Record<ReportDimension, string>> = {
   line_type: "reports.no_items",
 };
 
-const localDay = (day: string) => `${day}T00:00:00`;
 
 // Group keys are ids and codes; this is the one place that turns them into words.
 export function useReportLabels(): ReportLabeler {
@@ -76,11 +76,10 @@ export function useReportLabels(): ReportLabeler {
         case "category":
           return t(expenseCategoryLabelKey(key as ExpenseCategory));
         case "time":
-          if (grain === "month")
-            return formatDate(localDay(key), { month: "short", year: "numeric" });
+          if (grain === "month") return billingMonthLabel(key);
           if (grain === "week")
-            return t("reports.week_of", { date: formatDate(localDay(key)) });
-          return formatDate(localDay(key));
+            return t("reports.week_of", { date: formatDate(key) });
+          return formatDate(key);
         case "area":
           return key;
         default:

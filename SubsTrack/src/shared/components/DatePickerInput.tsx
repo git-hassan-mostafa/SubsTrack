@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
 import { SheetDragArea } from "./SheetDragArea";
 import { confirm } from "@shared/shared/lib/confirm";
+import { formatPickedDay } from "@shared/core/utils/date";
 
 // "default" — full-width form field with label, used inside form sheets.
 // "chip"    — compact fit-content pill, used in filter bars alongside other chips.
@@ -283,10 +284,11 @@ export function DatePickerInput({
 
   const displayValue = value || null;
   const isActive = !!displayValue;
-  const formattedValue =
-    monthOnly && parsed
+  const formattedValue = !parsed
+    ? displayValue
+    : monthOnly
       ? `${MONTH_NAMES[parsed.month - 1]} ${parsed.year}`
-      : displayValue;
+      : formatPickedDay(value);
 
   const picker = (
     <BottomSheetScaffold visible={open} onDismiss={() => setOpen(false)}>

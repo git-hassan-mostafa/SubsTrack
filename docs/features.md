@@ -606,7 +606,7 @@ Stacked, not side-by-side: `Button` takes no `className`; long label (+ Arabic) 
 
 **A receipt is ONE hand-over** (`buildCollectionInvoiceText`, replaced the multi-row payment builder): one currency → one amount, one date, one customer (no mixed refusal). One settled bill is named above the amount; several = bullets under **"This pays"**, oldest bill first.
 
-**Message format** (owned by `invoiceText.ts`): `*Org name*` bold header + receipt title, `Label: value` lines, list rows prefixed w/ literal `•`, `invoice.thank_you` footer. Amounts = `formatMoney(v, source, source)`, `source = snapshotCurrency(row, currencies)` — literal cash at the row's frozen rate — with ` (≈ …)` display-currency suffix on the **one** headline amount only. Date uses `getDateLocale(language)`, always `en-US`: `formatMoney` hardcodes Latin digits, so an `"ar"` date would mix numeral systems.
+**Message format** (owned by `invoiceText.ts`): `*Org name*` bold header + receipt title, `Label: value` lines, list rows prefixed w/ literal `•`, `invoice.thank_you` footer. Amounts = `formatMoney(v, source, source)`, `source = snapshotCurrency(row, currencies)` — literal cash at the row's frozen rate — with ` (≈ …)` display-currency suffix on the **one** headline amount only. Date = `formatDate` (`core/utils/date.ts`), dd/MM/yyyy, Latin digits in every language: `formatMoney` hardcodes Latin digits, so an `"ar"` date would mix numeral systems.
 
 **Multi-plan / multi-month collection = one message** (one row). `CustomerListScreen` "collect all due" groups a customer's lines **by currency**, one collection per group, so a two-currency customer gets two receipts — correct (two piles of cash).
 

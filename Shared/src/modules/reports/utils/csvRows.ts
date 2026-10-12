@@ -1,6 +1,7 @@
 import i18n from "@shared/core/i18n";
 import type { Currency } from "@shared/core/types";
 import { findCurrency } from "@shared/core/utils/currency";
+import { formatDate } from "@shared/core/utils/date";
 import { expenseCategoryLabelKey } from "@shared/modules/transaction/expenses/utils/expenseCategories";
 import type { CsvTable } from "@shared/shared/lib/csv";
 import type { ReportGroup } from "./analysis";
@@ -67,7 +68,7 @@ export function recordsCsv(rows: readonly RecordRow[], currencies: Currency[]): 
       t("reports.col_usd"),
     ],
     rows: rows.map((r) => [
-      r.date.slice(0, 10),
+      formatDate(r.date),
       r.title,
       r.subtitle ?? "",
       num(r.amount),

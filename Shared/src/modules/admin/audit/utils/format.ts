@@ -1,6 +1,11 @@
 import type { TFunction } from "i18next";
 import type { AuditAction, AuditEntry, AuditTable } from "@shared/core/types";
-import { formatDateTime, isValidDateString } from "@shared/core/utils/date";
+import {
+  formatDate,
+  formatDateTime,
+  isInstantString,
+  isValidDateString,
+} from "@shared/core/utils/date";
 import {
   displayFieldLabel,
   displayValue,
@@ -95,7 +100,7 @@ export function formatValue(t: TFunction, value: unknown): string {
   if (typeof value === "object") return t("audit.structured_value");
 
   const s = String(value);
-  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return formatDateTime(s);
-  if (isValidDateString(s)) return s;
+  if (isInstantString(s)) return formatDateTime(s);
+  if (isValidDateString(s)) return formatDate(s);
   return s;
 }

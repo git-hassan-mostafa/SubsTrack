@@ -16,6 +16,7 @@ import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { confirm } from "@shared/shared/lib/confirm";
 import { resetAllDomainStores } from "@shared/shared/lib/storeReset";
 import { refreshActiveData } from "@shared/state/refreshActiveData";
+import { formatDateTime } from "@shared/core/utils/date";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import {
   FileTooLargeError,
@@ -294,7 +295,7 @@ export function DeveloperScreen() {
 
     const warnings = warningText(check.warnings);
     const exportedAt = check.backup.exportedAt
-      ? new Date(check.backup.exportedAt).toLocaleString()
+      ? formatDateTime(check.backup.exportedAt)
       : "—";
     const details = [
       t("settings.developer_import_source", {
