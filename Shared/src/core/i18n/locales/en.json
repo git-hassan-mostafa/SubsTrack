@@ -241,7 +241,14 @@
     "delete_message": "Delete {{name}}? If they have no payment history they will be permanently removed, otherwise they will be deactivated.",
     "bulk_pay_message": "Pay {{count}} customer(s) now?",
     "bulk_pay_warn_multi": "{{count}} on multi-month plans will be charged for their full duration.",
-    "bulk_pay_skip_custom": "{{count}} on custom plans will be skipped.",
+    "bulk_pay_skipped_note": "{{count}} will not be paid. See why below.",
+    "bulk_pay_skip": {
+      "custom_price": { "title": "No set price", "hint": "Open the customer and type the amount." },
+      "older_unpaid": { "title": "Older months unpaid", "hint": "Open the customer and pay the oldest month first." },
+      "already_paid": { "title": "Already paid", "hint": "This month is paid or skipped." },
+      "no_plan": { "title": "No plan", "hint": "Add a plan to the customer first." },
+      "inactive": { "title": "Inactive", "hint": "Activate the customer first." }
+    },
     "bulk_pay_none": "None of the selected customers can be quick-paid.",
     "bulk_pay_summary": "Paid {{ok}} · {{failed}} failed.",
     "bulk_delete_title": "Delete {{count}} customers",
@@ -606,6 +613,7 @@
     "logout": "Log Out",
     "logout_confirm": "Are you sure you want to log out?",
     "developer": "Developer",
+    "developer_web_unavailable": "The developer tools are only available on the mobile app.",
     "developer_admin_only": "Only an administrator can use the developer tools.",
     "developer_tables_section": "Local database tables",
     "developer_export": "Export to file",

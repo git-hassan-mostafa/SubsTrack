@@ -137,8 +137,43 @@ describe("bulkQuickPayPlan", () => {
         "c-a:l-usd",
         "c-b:l-3m",
       ]);
-      expect(plan.typedCount).toBe(1);
+      expect(plan.skipped.filter((s) => s.reason === "custom_price").map((s) => s.customerId)).toEqual(["c-a"]);
       expect(plan.multiCount).toBe(1);
+    }));
+
+  it("TC-QP-13 every customer left out is named with its reason", () =>
+    on(() => {
+      const plan = bulkQuickPayPlan(
+        [
+          { customer: customer({ id: "c-pay", customerPlans: [usdLine] }), status: status() },
+          { customer: customer({ id: "c-none", customerPlans: [] }), status: status() },
+          { customer: customer({ id: "c-later", customerPlans: [laterLine] }), status: status() },
+          { customer: customer({ id: "c-off", active: false, customerPlans: [usdLine] }), status: status() },
+          { customer: customer({ id: "c-walk", isRegular: false, customerPlans: [usdLine] }), status: status() },
+          {
+            customer: customer({ id: "c-old", customerPlans: [bundleLine] }),
+            status: status({ uncoveredLineIds: ["l-3m"] }),
+          },
+          {
+            customer: customer({ id: "c-done", customerPlans: [usdLine] }),
+            status: status({ notDueLineIds: ["l-usd"] }),
+          },
+          { customer: customer({ id: "c-typed", customerPlans: [typedLine] }), status: status() },
+        ],
+        currencies,
+      );
+      expect(plan.requests.map((r) => r.customerId)).toEqual(["c-pay"]);
+      expect(plan.skipped.map((s) => `${s.customerId}:${s.reason}`)).toEqual([
+        "c-none:no_plan",
+        "c-later:no_plan",
+        "c-off:inactive",
+        "c-walk:no_plan",
+        "c-old:older_unpaid",
+        "c-done:already_paid",
+        "c-typed:custom_price",
+      ]);
+      expect(plan.skipped.find((s) => s.customerId === "c-old")?.line).toEqual({ planName: "Quarter" });
+      expect(plan.skipped.find((s) => s.customerId === "c-none")?.line).toBeNull();
     }));
 
   it("TC-QP-10 nothing to pay when every selected customer is covered", () =>
@@ -148,6 +183,7 @@ describe("bulkQuickPayPlan", () => {
         currencies,
       );
       expect(plan.requests).toEqual([]);
+      expect(plan.skipped.map((s) => s.reason)).toEqual(["already_paid"]);
     }));
 });
 

@@ -19,9 +19,23 @@ export interface QuickPayTarget {
   status: CustomerStatus | null;
 }
 
+export type QuickPaySkipReason =
+  | "inactive"
+  | "no_plan"
+  | "already_paid"
+  | "older_unpaid"
+  | "custom_price";
+
+export interface QuickPaySkip {
+  customerId: string;
+  customerName: string;
+  line: { planName: string | null } | null;
+  reason: QuickPaySkipReason;
+}
+
 export interface BulkQuickPayPlan {
   requests: OpenItem[];
-  typedCount: number;
+  skipped: QuickPaySkip[];
   multiCount: number;
 }
 
@@ -36,10 +50,22 @@ export function isMultiPlan(customer: Customer): boolean {
 }
 
 // An older uncovered month sends a line to the grid: months settle oldest first.
+function lineBlockReason(
+  line: CustomerPlan,
+  status: CustomerStatus | null,
+): "already_paid" | "older_unpaid" | null {
+  if (status?.notDueLineIds.includes(line.id)) return "already_paid";
+  if (status?.uncoveredLineIds.includes(line.id)) return "older_unpaid";
+  return null;
+}
+
 function linesDueThisMonth(customer: Customer, status: CustomerStatus | null): CustomerPlan[] {
-  const notDue = new Set(status?.notDueLineIds);
-  const uncovered = new Set(status?.uncoveredLineIds);
-  return startedActiveLines(customer).filter((l) => !notDue.has(l.id) && !uncovered.has(l.id));
+  return startedActiveLines(customer).filter((l) => lineBlockReason(l, status) === null);
+}
+
+function isPricedLine(line: CustomerPlan): boolean {
+  const price = resolveLinePrice(line);
+  return price.isFixed && price.amount !== null && price.amount > 0;
 }
 
 function monthLabel(line: CustomerPlan, billingMonth: string): string {
@@ -57,7 +83,7 @@ export function currentMonthItems(
   const billingMonth = toBillingMonth(year, month);
   return linesDueThisMonth(customer, status).map((l) => {
     const price = resolveLinePrice(l);
-    const priced = price.isFixed && price.amount !== null && price.amount > 0;
+    const priced = isPricedLine(l);
     return virtualMonthItem({
       customerId: customer.id,
       customerName: customer.name,
@@ -91,15 +117,31 @@ export function canQuickPay(customer: Customer, status: CustomerStatus | null): 
   return linesDueThisMonth(customer, status).length > 0;
 }
 
-// Counted per LINE: a customer with one priced and one typed line is part-skipped.
+// Why a customer, or one of its lines, is left out — the confirm names each.
+function skipsOf(customer: Customer, status: CustomerStatus | null): QuickPaySkip[] {
+  const skip = (reason: QuickPaySkipReason, line?: CustomerPlan): QuickPaySkip => ({
+    customerId: customer.id,
+    customerName: customer.name,
+    line: line ? { planName: line.plan?.name ?? null } : null,
+    reason,
+  });
+  if (!customer.active) return [skip("inactive")];
+  const lines = startedActiveLines(customer);
+  if (!customer.isRegular || lines.length === 0) return [skip("no_plan")];
+  return lines.flatMap((line) => {
+    const reason = lineBlockReason(line, status) ?? (isPricedLine(line) ? null : "custom_price");
+    return reason ? [skip(reason, line)] : [];
+  });
+}
+
+// Per LINE: a customer with one priced and one typed line is part-skipped.
 export function bulkQuickPayPlan(targets: QuickPayTarget[], currencies: Currency[]): BulkQuickPayPlan {
-  const items = targets
+  const requests = targets
     .filter((target) => canQuickPay(target.customer, target.status))
-    .flatMap((target) => currentMonthItems(target.customer, target.status, currencies));
-  const requests = items.filter((i) => !i.openAmount);
+    .flatMap((target) => fixedMonthItems(target.customer, target.status, currencies));
   return {
     requests,
-    typedCount: items.length - requests.length,
+    skipped: targets.flatMap((target) => skipsOf(target.customer, target.status)),
     multiCount: requests.filter((r) => r.durationMonths > 1).length,
   };
 }

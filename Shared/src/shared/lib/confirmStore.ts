@@ -2,9 +2,22 @@ import type { ReactNode } from "react";
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 
+export interface ConfirmSectionItem {
+  primary: string;
+  secondary?: string;
+}
+
+// Plain data, so Shared can list details that each app draws its own way.
+export interface ConfirmSection {
+  title: string;
+  hint?: string;
+  items: ConfirmSectionItem[];
+}
+
 export interface ConfirmOptions {
   title: string;
   message: string;
+  sections?: ConfirmSection[];
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;

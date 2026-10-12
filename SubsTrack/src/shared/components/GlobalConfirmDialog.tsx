@@ -1,5 +1,6 @@
 import { useConfirmStore } from "@shared/shared/lib/confirmStore";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { ConfirmSections } from "./ConfirmSections";
 
 export default function GlobalConfirmDialog() {
   const visible = useConfirmStore((s) => s.visible);
@@ -34,6 +35,7 @@ export default function GlobalConfirmDialog() {
       onConfirm={work ? () => runThenClose(work) : () => settle(true)}
       onCancel={() => settle(false)}
     >
+      {options.sections?.length ? <ConfirmSections sections={options.sections} /> : null}
       {content ? content() : null}
     </ConfirmDialog>
   );

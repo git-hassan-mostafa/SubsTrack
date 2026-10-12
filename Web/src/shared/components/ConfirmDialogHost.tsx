@@ -8,6 +8,7 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import { reportException } from "@shared/core/runtime/reportException";
 import { useConfirmStore } from "@shared/shared/lib/confirmStore";
+import { ConfirmSections } from "./ConfirmSections";
 
 async function runQuietly(work: () => Promise<void>): Promise<void> {
   try {
@@ -68,7 +69,10 @@ export function ConfirmDialogHost() {
         {options.title}
       </DialogTitle>
       <DialogContent>
-        <DialogContentText id={messageId}>{options.message}</DialogContentText>
+        <DialogContentText id={messageId} sx={{ whiteSpace: "pre-line" }}>
+          {options.message}
+        </DialogContentText>
+        {options.sections?.length ? <ConfirmSections sections={options.sections} /> : null}
         {content ? content() : null}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>

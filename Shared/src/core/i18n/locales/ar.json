@@ -245,7 +245,14 @@
     "delete_message": "هل تريد حذف {{name}}؟ إذا لم يكن لديه سجل دفعات سيتم حذفه نهائياً، وإلا سيتم تعطيله.",
     "bulk_pay_message": "هل تريد دفع {{count}} عميل الآن؟",
     "bulk_pay_warn_multi": "{{count}} على خطط متعددة الأشهر سيتم تحصيل كامل مدتها.",
-    "bulk_pay_skip_custom": "{{count}} على خطط مخصصة سيتم تخطيهم.",
+    "bulk_pay_skipped_note": "{{count}} لن يتم دفعهم. السبب أدناه.",
+    "bulk_pay_skip": {
+      "custom_price": { "title": "بدون سعر محدد", "hint": "افتح العميل واكتب المبلغ." },
+      "older_unpaid": { "title": "أشهر سابقة غير مدفوعة", "hint": "افتح العميل وادفع أقدم شهر أولاً." },
+      "already_paid": { "title": "مدفوع مسبقاً", "hint": "هذا الشهر مدفوع أو متخطى." },
+      "no_plan": { "title": "بدون خطة", "hint": "أضف خطة للعميل أولاً." },
+      "inactive": { "title": "غير نشط", "hint": "فعّل العميل أولاً." }
+    },
     "bulk_pay_none": "لا يمكن الدفع السريع لأي من العملاء المحددين.",
     "bulk_pay_summary": "تم الدفع لـ {{ok}} · فشل {{failed}}.",
     "bulk_delete_title": "حذف {{count}} عملاء",
@@ -614,6 +621,7 @@
     "logout": "تسجيل الخروج",
     "logout_confirm": "هل أنت متأكد من تسجيل الخروج؟",
     "developer": "أدوات المطور",
+    "developer_web_unavailable": "أدوات المطور متوفرة فقط في تطبيق الهاتف.",
     "developer_admin_only": "أدوات المطور متاحة للمدير فقط.",
     "developer_tables_section": "جداول قاعدة البيانات المحلية",
     "developer_export": "تصدير إلى ملف",

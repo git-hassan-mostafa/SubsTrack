@@ -6,9 +6,12 @@ import {
   bulkQuickPayPlan,
   currentMonthItems,
   quickPayInputs,
+  type QuickPaySkip,
+  type QuickPaySkipReason,
   type QuickPayTarget,
 } from "@shared/modules/customer/customers/utils/quickPay";
 import { confirm } from "@shared/shared/lib/confirm";
+import type { ConfirmSection } from "@shared/shared/lib/confirmStore";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 
@@ -19,6 +22,14 @@ export interface QuickPayOptions {
   sendReceipt: (customer: Customer, collection: Collection) => Promise<unknown>;
   onNotice: (message: string) => void;
 }
+
+const SKIP_ORDER: QuickPaySkipReason[] = [
+  "custom_price",
+  "older_unpaid",
+  "already_paid",
+  "no_plan",
+  "inactive",
+];
 
 export interface QuickPay {
   busyCustomerId: string | null;
@@ -61,6 +72,22 @@ export function useQuickPay({
     t("customers.bulk_pay_lines_message", { count }) +
     (warnings.length > 0 ? "\n\n" + warnings.join("\n") : "");
 
+  const skipSections = (skipped: QuickPaySkip[]): ConfirmSection[] =>
+    SKIP_ORDER.flatMap((reason) => {
+      const rows = skipped.filter((s) => s.reason === reason);
+      if (rows.length === 0) return [];
+      return [
+        {
+          title: t(`customers.bulk_pay_skip.${reason}.title`),
+          hint: t(`customers.bulk_pay_skip.${reason}.hint`),
+          items: rows.map((s) => ({
+            primary: s.customerName,
+            secondary: s.line ? (s.line.planName ?? t("common.no_plan")) : undefined,
+          })),
+        },
+      ];
+    });
+
   const quickPay = async ({ customer, status }: QuickPayTarget, send = false) => {
     const items = currentMonthItems(customer, status, currencies);
     if (items.length === 0) return;
@@ -97,22 +124,23 @@ export function useQuickPay({
 
   const bulkQuickPay = async (targets: QuickPayTarget[]) => {
     if (bulkBusy || targets.length === 0 || !user) return;
-    const { requests, typedCount, multiCount } = bulkQuickPayPlan(targets, currencies);
+    const { requests, skipped, multiCount } = bulkQuickPayPlan(targets, currencies);
     if (requests.length === 0) {
       await confirm({
         title: t("payments.quick_pay.pay_now"),
         message: t("customers.bulk_pay_none"),
+        sections: skipSections(skipped),
         confirmLabel: t("common.ok"),
         hideCancel: true,
       });
       return;
     }
-    const warnings: string[] = [];
-    if (multiCount > 0) warnings.push(t("customers.bulk_pay_warn_multi", { count: multiCount }));
-    if (typedCount > 0) warnings.push(t("customers.bulk_pay_skip_custom", { count: typedCount }));
+    const warnings = multiCount > 0 ? [t("customers.bulk_pay_warn_multi", { count: multiCount })] : [];
+    if (skipped.length > 0) warnings.push(t("customers.bulk_pay_skipped_note", { count: skipped.length }));
     await confirm({
       title: t("payments.quick_pay.pay_now"),
       message: payMessage(requests.length, warnings),
+      sections: skipSections(skipped),
       confirmLabel: t("payments.quick_pay.pay_now"),
       onConfirm: async () => {
         setBulkBusy(true);
