@@ -57,6 +57,7 @@ export function SaleDetailSheet({
   const { sendSales } = useSendInvoice();
   const { isAdmin } = useAuth();
   const userName = useUserNames();
+  const target = useDisplayCurrency();
 
   const [voidMode, setVoidMode] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -65,7 +66,6 @@ export function SaleDetailSheet({
   if (!sale) return null;
 
   const source = snapshotCurrency(sale, currencies);
-  const target = useDisplayCurrency();
   const fmtSource = (v: number) => formatMoney(v, source, source);
   const fmtTarget = (v: number) => formatMoney(v, source, target);
   const showEquivalent = (source?.id ?? null) !== (target?.id ?? null);

@@ -10,19 +10,12 @@ interface Props {
   bills: SharedBill[];
 }
 
-/**
- * The bills that get un-paid as collateral, named.
- *
- * A hand-over is always voided WHOLE (`collection_items` has no void of its
- * own), so undoing one month can un-pay a sale and another month that shared
- * the same cash. Prose alone read as boilerplate, so this names them.
- */
+// a hand-over is voided whole, so it can un-pay other bills — name them
 export function SharedBillsWarning({ bills }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  if (bills.length === 0) return null;
-
   const display = useDisplayCurrency();
+  if (bills.length === 0) return null;
 
   return (
     <View>

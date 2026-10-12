@@ -69,6 +69,7 @@ export function BillSheet({
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
+  const display = useDisplayCurrency();
   const userName = useUserNames();
   const { isAdmin } = useAuth();
   const { sendBillInvoice } = useSendInvoice();
@@ -92,7 +93,6 @@ export function BillSheet({
   if (!charge) return null;
 
   const source = snapshotCurrency(charge, currencies);
-  const display = useDisplayCurrency();
   const money = (v: number) => formatMoney(v, source, source);
 
   const facts = billFacts(charge, collected);
