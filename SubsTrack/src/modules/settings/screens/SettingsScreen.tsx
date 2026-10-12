@@ -22,6 +22,7 @@ import { endSession } from "@shared/shared/lib/session";
 import { IS_OFFLINE_CAPABLE, syncNow } from "@/src/core/offline";
 import { useSyncStatus } from "@/src/shared/hooks/useSyncStatus";
 import { refreshActiveData } from "@shared/state/refreshActiveData";
+import { formatDateTimeShort } from "@shared/core/utils/date";
 
 function SettingsRow({
   icon,
@@ -68,13 +69,41 @@ function SettingsRow({
   );
 }
 
+function SyncTimeRow({
+  icon,
+  label,
+  at,
+  last,
+}: {
+  icon: string;
+  label: string;
+  at: string | null;
+  last?: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View
+      className={`flex-row items-center justify-between px-4 py-3 ${last ? "" : "border-b border-gray-100"}`}
+    >
+      <View className="flex-row items-center gap-3">
+        <Ionicons name={icon as any} size={18} color={COLORS.gray500} />
+        <Text className="text-sm text-gray-600">{label}</Text>
+      </View>
+      <Text className="text-sm text-gray-400">
+        {at ? formatDateTimeShort(at) : t("settings.sync_never")}
+      </Text>
+    </View>
+  );
+}
+
 export function SettingsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { user, isAdmin } = useAuth();
   const { language, setLanguage } = useLanguageStore();
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
-  const { syncing } = useSyncStatus();
+  const { lastPushAt, lastPullAt, lastManualSyncAt } = useSyncStatus();
+  const [manualSyncing, setManualSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<
     "done" | "offline" | "failed" | null
   >(null);
@@ -93,11 +122,16 @@ export function SettingsScreen() {
   }
 
   async function handleSyncPress() {
-    if (syncing) return;
+    if (manualSyncing) return;
     setSyncResult(null);
-    const { ok, offline } = await syncNow();
-    flashResult(offline ? "offline" : ok ? "done" : "failed");
-    refreshActiveData();
+    setManualSyncing(true);
+    try {
+      const { ok, offline } = await syncNow();
+      flashResult(offline ? "offline" : ok ? "done" : "failed");
+      refreshActiveData();
+    } finally {
+      setManualSyncing(false);
+    }
   }
 
   const languageOptions = SUPPORTED_LANGUAGES.map((lang) => ({
@@ -241,7 +275,6 @@ export function SettingsScreen() {
             </View>
           </View>
 
-          {/* Data / sync — native only (web talks to Supabase directly) */}
           {IS_OFFLINE_CAPABLE ? (
             <View className="mx-4 mb-5">
               <Text
@@ -253,7 +286,7 @@ export function SettingsScreen() {
               <View className={`${CARD_SURFACE} overflow-hidden`}>
                 <PressableOpacity
                   onPress={() => void handleSyncPress()}
-                  disabled={syncing}
+                  disabled={manualSyncing}
                   className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100"
                 >
                   <View className="flex-row items-center gap-3">
@@ -266,7 +299,7 @@ export function SettingsScreen() {
                       {t("settings.sync_now")}
                     </Text>
                   </View>
-                  {syncing ? (
+                  {manualSyncing ? (
                     <ActivityIndicator size="small" color={COLORS.gray400} />
                   ) : (
                     <DirectionalIcon
@@ -276,6 +309,22 @@ export function SettingsScreen() {
                     />
                   )}
                 </PressableOpacity>
+                <SyncTimeRow
+                  icon="cloud-upload-outline"
+                  label={t("settings.last_push")}
+                  at={lastPushAt}
+                />
+                <SyncTimeRow
+                  icon="cloud-download-outline"
+                  label={t("settings.last_pull")}
+                  at={lastPullAt}
+                />
+                <SyncTimeRow
+                  icon="time-outline"
+                  label={t("settings.last_manual_sync")}
+                  at={lastManualSyncAt}
+                  last={!isAdmin}
+                />
                 {isAdmin ? (
                   <SettingsRow
                     icon="code-slash-outline"
@@ -304,8 +353,6 @@ export function SettingsScreen() {
           </View>
         </ScrollView>
 
-        {/* Manual-sync result flash (the "syncing" state itself is shown by the
-            global SyncIndicator, so this only covers the one-off outcome). */}
         {IS_OFFLINE_CAPABLE && syncResult ? (
           <View className="absolute inset-x-0 bottom-0 px-4 pb-4">
             <View

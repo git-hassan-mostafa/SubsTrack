@@ -20,7 +20,7 @@ Layers L1 Presentation → L2 State → L3 Services → L4 Repository → DB, L5
 
 Core rules in CLAUDE.md §5. Extras:
 - Supabase class `Shared/src/modules/**/repository/XxxRepository.ts` (class only) + `OfflineXxxRepository` (SubsTrack `XxxRepository.offline.ts`); shared `implements IXxxRepository` → compiler keeps lockstep. Phone passes `createOfflineRepositories()`; Expo web gets `createSupabaseRepositories()` via the one temporary `Platform.OS` check in `configurePhone.ts`.
-- Mirror = `expo-sqlite`. `runSyncIfDue()` serves both app-open triggers (cold start + session restore), measuring durable `sync_meta.last_sync_at`. Pull order meaningless b/c mirror has no FKs; push goes in `PUSH_WAVES` b/c server FKs are real; `withDbLock` b/c one connection → concurrent transactions interleave and fail.
+- Mirror = `expo-sqlite`. `runSyncIfDue()` serves both app-open triggers (cold start + session restore), measuring durable `sync_meta.last_sync_at` against the 10-min pull timer; `startSync` then runs push every 5 min + full cycle every 10 min. Pull order meaningless b/c mirror has no FKs; push goes in `PUSH_WAVES` b/c server FKs are real; `withDbLock` b/c one connection → concurrent transactions interleave and fail.
 - Online-only also covers every `CustomerRequest.*` (table not mirrored); `User.*` ones are edge fns.
 - Requires `sql scripts/script.sql` (`updated_at` + BEFORE UPDATE triggers on every synced table) + **dev-client rebuild** (native module).
 

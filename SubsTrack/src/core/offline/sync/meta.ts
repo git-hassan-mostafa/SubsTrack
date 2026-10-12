@@ -5,6 +5,8 @@ export const META_ACTIVE_BRANCH_SCOPE = "active_branch_scope";
 export const META_ACTIVE_ROLE_SCOPE = "active_role_scope";
 export const META_LAST_PULLED_AT = "last_pulled_at";
 export const META_LAST_SYNC_AT = "last_sync_at";
+export const META_LAST_PUSH_AT = "last_push_at";
+export const META_LAST_MANUAL_SYNC_AT = "last_manual_sync_at";
 
 /** Read a meta value (null if unset). */
 export async function getMeta(

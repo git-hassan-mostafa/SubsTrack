@@ -8,12 +8,7 @@ import { useAppUpdate } from "@/src/shared/hooks/useAppUpdate";
 
 const TAB_BAR_HEIGHT = 64;
 
-/**
- * Global "a newer version is ready" prompt. Mounted once in the authenticated
- * app layout, and renders nothing until an OTA update has finished downloading.
- * Sits at the bottom so it never collides with the top-centered SyncIndicator
- * on launch, when both are likely to appear at once.
- */
+// Renders nothing until an OTA update has finished downloading.
 export function UpdateBanner() {
   const { t } = useTranslation();
   const { bottom } = useSafeAreaInsets();

@@ -145,15 +145,20 @@ Read single `last_pulled_at`, pull every table **concurrently**, paging `updated
 
 ## Triggers — when a cycle runs
 
-**Push → pull → prune**, serialized (second `runSync()` returns running promise), **gated on signed-in session**. Deliberately calm: not after writes, not on resume-from-RAM, **no interval timer, no connectivity-returned trigger**:
+**Push → pull → prune**, serialized (second `runSync()` returns running promise), **gated on signed-in session + connection**. Not after writes, not on resume-from-RAM, no connectivity-returned trigger:
 
-- **Cold start** — `startSync(cb)` in `app/_layout.tsx` seeds `SyncStatus.lastSyncAt` from durable stamp (in-memory starts blank), awaits `runSyncIfDue()`, calls `refreshActiveData`.
+- **Cold start** — `startSync(cb)` in `app/_layout.tsx` seeds `SyncStatus.lastPushAt`/`lastPullAt`/`lastManualSyncAt` from durable stamps (in-memory starts blank), awaits `runSyncIfDue()`, starts the timers, calls `refreshActiveData`.
+- **Timers** (`engine.ts`, `setInterval`, started by `startSync`) — **push-only every 5 min** (`PUSH_EVERY_MS` → `flushPendingWrites()`), **full cycle every 10 min** (`PULL_EVERY_MS` → `runSync()`). No-op offline/signed out. Silent: **no global loader** (old `SyncIndicator` pill removed).
 - **Session restore / login** — `OfflineAuthRepository.getUserProfile`: **empty** mirror (first login / just-wiped scope switch) **blocks** on full `runSync()` so screens don't mount on nothing; else fires `runSyncIfDue()` in background.
-- **Manual** — Settings → "Sync now" (`syncNow()`), Settings → Developer → "Full re-pull" (`resyncFromScratch()`).
+- **Manual** — Settings → "Sync now" (`syncNow()`), Settings → Developer → "Full re-pull" (`resyncFromScratch()`). Both go through `runManualSync()`: cycle, then **restart both timers** (next push 5 min / pull 10 min after the manual sync), stamp `last_manual_sync_at` on success.
 
-**`runSyncIfDue()` = THE app-open trigger, 24-hour staleness gate.** Cold start and every `getUserProfile` restore go through it; only **manual** ignores it. Stamp = **`sync_meta.last_sync_at`** (survives restart), not in-memory `SyncStatus.lastSyncAt`; only a **complete** cycle writes it (partial retried at next open). `wipeOfflineData()` clears `last_sync_at` w/ `last_pulled_at`, else a wiped mirror reads fresh and new tenant sits on empty screen for a day.
+**Push-only vs cycle serialization**: `flushPendingWrites()` joins a running cycle (`running`) or push (`pushing`); `runSync()` first awaits a running push → never two `pushDirty()` at once.
 
-**Fresh enough skips PULL, never PUSH.** "Not due" still calls `flushPendingWrites()`: un-pushed row = only copy of that money; waiting a day keeps collector payments off server (invisible to admin) though online. Free when nothing dirty (`pushTable` returns on empty select); `try/catch`-wrapped b/c call sites fire-and-forget.
+**Stamps** (`sync_meta`, survive restart, mirrored into `SyncStatus`): `last_push_at` = every finished push (cycle or push-only, even when nothing was dirty); `last_sync_at` = last **complete** cycle = last pull (partial not stamped); `last_manual_sync_at` = last successful manual sync. Settings shows all three.
+
+**`runSyncIfDue()` = THE app-open trigger, 10-minute pull gate (`PULL_EVERY_MS`).** Cold start and every `getUserProfile` restore go through it; only **manual** ignores it. Reads **`sync_meta.last_sync_at`**. `wipeOfflineData()` clears `last_sync_at` w/ `last_pulled_at`, else a wiped mirror reads fresh and new tenant sits on empty screen.
+
+**Fresh enough skips PULL, never PUSH.** "Not due" still calls `flushPendingWrites()`: un-pushed row = only copy of that money. Free when nothing dirty (`pushTable` returns on empty select); `try/catch`-wrapped b/c call sites fire-and-forget.
 
 ## Refreshing the stores after a sync (UI refresh)
 
@@ -162,14 +167,14 @@ Sync fills SQLite, but **Zustand stores** hold old data. `refreshActiveData()` (
 - **Cold start** — `app/_layout.tsx` passes it to `startSync(cb)`, called after first cycle.
 - **Manual sync** — `SettingsScreen` calls it after `syncNow()` resolves.
 
-Nothing fires it on background `runSyncIfDue()` (reloading under user's fingers worse than a few stale rows; next focus re-fetches). It always refreshes dashboard, re-fetches every list slice already holding data (= only what's on screen), current-month payment flags / net-debt when customers loaded, and tenant-wide active customer + service-line counts (allowances). List fetches reset to page 1.
+Nothing fires it on background `runSyncIfDue()` or the timers (reloading under user's fingers worse than a few stale rows; next focus re-fetches). It always refreshes dashboard, re-fetches every list slice already holding data (= only what's on screen), current-month payment flags / net-debt when customers loaded, and tenant-wide active customer + service-line counts (allowances). List fetches reset to page 1.
 
 ## Manual sync + observable status
 
-`sync/status.ts`: `SyncStatus = { syncing, lastSyncAt, lastError }` via `getSyncStatus()` / `subscribeSyncStatus()`; `runSync()` broadcasts, so **every** cycle flips `syncing`. `syncNow()` = manual entry (probes connectivity first, returns `{ ok, offline }` to tell "reached server" from "no connection"). Re-exported from `src/core/offline/index.ts`; components read via `useSyncStatus()` (`src/shared/hooks/`, `useSyncExternalStore`).
+`sync/status.ts`: `SyncStatus = { syncing, lastPushAt, lastPullAt, lastManualSyncAt, lastError }` via `getSyncStatus()` / `subscribeSyncStatus()`; `runSync()` broadcasts, so **every** cycle flips `syncing` (Developer screen reads it; no UI shows it). `syncNow()` = manual entry (probes connectivity first, returns `{ ok, offline }` to tell "reached server" from "no connection"). Re-exported from `src/core/offline/index.ts`; components read via `useSyncStatus()` (`src/shared/hooks/`, `useSyncExternalStore`).
 
-- **Global marker** — `SyncIndicator` (`src/shared/components/`) mounted once in `app/(app)/_layout.tsx` → top-center "Syncing data…" pill on **all pages** while `syncing`. Nothing when idle or on web.
-- **Settings** — "Sync now" row (native only) → `syncNow()`; brief bottom flash reports outcome (done / offline / failed).
+- **No global marker** — automatic syncs show nothing anywhere.
+- **Settings** (native only) — "Sync now" row → `syncNow()`, spinner from local `manualSyncing` state (never `status.syncing`, else a timer cycle would spin it); then Last upload / Last download / Last manual sync rows (`SyncTimeRow`, `formatDateTimeShort`, "Not yet" when null); brief bottom flash reports outcome (done / offline / failed).
 
 ## Conflict policy
 

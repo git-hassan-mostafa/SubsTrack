@@ -1,11 +1,19 @@
 /** What the UI can show about the last/ongoing sync. */
 export interface SyncStatus {
   syncing: boolean;
-  lastSyncAt: string | null;
+  lastPushAt: string | null;
+  lastPullAt: string | null;
+  lastManualSyncAt: string | null;
   lastError: string | null;
 }
 
-let status: SyncStatus = { syncing: false, lastSyncAt: null, lastError: null };
+let status: SyncStatus = {
+  syncing: false,
+  lastPushAt: null,
+  lastPullAt: null,
+  lastManualSyncAt: null,
+  lastError: null,
+};
 const listeners = new Set<(s: SyncStatus) => void>();
 
 /** Update the status and notify subscribers. */

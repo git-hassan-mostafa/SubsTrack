@@ -5,19 +5,32 @@ import { isOnline } from "../net/connectivity";
 import { IS_OFFLINE_CAPABLE } from "../platform";
 import {
   getMeta,
+  META_LAST_MANUAL_SYNC_AT,
   META_LAST_PULLED_AT,
+  META_LAST_PUSH_AT,
   META_LAST_SYNC_AT,
   setMeta,
 } from "./meta";
 import { pruneWindowedTables, pullChanges } from "./pull";
 import { pushDirty } from "./push";
-import { getSyncStatus, setStatus } from "./status";
+import { getSyncStatus, setStatus, type SyncStatus } from "./status";
 
-const SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const PUSH_EVERY_MS = 5 * 60 * 1000;
+const PULL_EVERY_MS = 10 * 60 * 1000;
+
+type SyncStamp = "lastPushAt" | "lastPullAt" | "lastManualSyncAt";
+
+const STAMP_KEYS: Record<SyncStamp, string> = {
+  lastPushAt: META_LAST_PUSH_AT,
+  lastPullAt: META_LAST_SYNC_AT,
+  lastManualSyncAt: META_LAST_MANUAL_SYNC_AT,
+};
 
 let running: Promise<void> | null = null;
+let pushing: Promise<void> | null = null;
 let started = false;
 let suspended = false;
+let timers: ReturnType<typeof setInterval>[] = [];
 
 /** Hold every cycle off during a restore — the pull releases the lock per page. */
 export function suspendSync(): void {
@@ -29,24 +42,38 @@ export function resumeSync(): void {
   suspended = false;
 }
 
+// A signed-out pull returns empty rows and would wipe the mirror — see docs/offline.md
+async function canReachServer(): Promise<boolean> {
+  if (!(await isOnline())) return false;
+  const { data } = await supabase.auth.getSession();
+  return !!data.session;
+}
+
+async function stamp(field: SyncStamp): Promise<void> {
+  const at = nowIso();
+  await setMeta(getDb(), STAMP_KEYS[field], at);
+  const patch: Partial<SyncStatus> = {};
+  patch[field] = at;
+  setStatus(patch);
+}
+
 /** One sync cycle: push local changes up, then pull server changes down. Serialized. */
 export async function runSync(): Promise<void> {
   if (!IS_OFFLINE_CAPABLE) return;
   if (suspended) return;
   if (running) return running;
   running = (async () => {
-    if (!(await isOnline())) return;
-    const { data: sess } = await supabase.auth.getSession();
-    if (!sess.session) return;
+    await pushing?.catch(() => undefined);
+    if (!(await canReachServer())) return;
     setStatus({ syncing: true, lastError: null });
     try {
       await pushDirty();
+      await stamp("lastPushAt");
       const complete = await pullChanges();
       await pruneWindowedTables(getDb());
-      if (complete) await setMeta(getDb(), META_LAST_SYNC_AT, nowIso());
+      if (complete) await stamp("lastPullAt");
       setStatus({
         syncing: false,
-        lastSyncAt: complete ? nowIso() : getSyncStatus().lastSyncAt,
         lastError: complete ? null : "sync_incomplete",
       });
     } catch (e) {
@@ -60,19 +87,11 @@ export async function runSync(): Promise<void> {
   return running;
 }
 
-/**
- * THE APP-OPEN TRIGGER — a cycle only when the mirror is a day stale. Both halves
- * of "the app was opened" go through it: `startSync` at cold start and
- * `getUserProfile` on every session restore, so an unconditional cycle would
- * re-sync several times a day for nothing. The stamp lives in `sync_meta`, not in
- * the in-memory status, so it survives a restart; `wipeOfflineData` clears it
- * together with the pull cursor so a just-wiped mirror can never read as fresh.
- * Manual sync (`syncNow` / `resyncFromScratch`) ignores this gate entirely.
- */
+/** App-open trigger: pulls only when the last pull is older than the pull timer. */
 export async function runSyncIfDue(): Promise<void> {
   if (!IS_OFFLINE_CAPABLE || !isOfflineDbReady()) return;
   const last = await getMeta(getDb(), META_LAST_SYNC_AT);
-  if (last && Date.now() - Date.parse(last) < SYNC_INTERVAL_MS) {
+  if (last && Date.now() - Date.parse(last) < PULL_EVERY_MS) {
     try {
       await flushPendingWrites();
     } catch {}
@@ -81,39 +100,48 @@ export async function runSyncIfDue(): Promise<void> {
   await runSync();
 }
 
-/**
- * Manual trigger (the Settings "Sync now" button). Probes connectivity first so
- * the UI can tell "offline" apart from "nothing to do".
- */
+function restartTimers(): void {
+  for (const timer of timers) clearInterval(timer);
+  timers = [
+    setInterval(
+      () => void flushPendingWrites().catch(() => undefined),
+      PUSH_EVERY_MS,
+    ),
+    setInterval(() => void runSync(), PULL_EVERY_MS),
+  ];
+}
+
+async function runManualSync(): Promise<{ ok: boolean; offline: boolean }> {
+  await runSync();
+  if (started) restartTimers();
+  const ok = getSyncStatus().lastError === null;
+  if (ok) await stamp("lastManualSyncAt");
+  return { ok, offline: false };
+}
+
+/** The Settings "Sync now" button — probes first so "offline" differs from "nothing to do". */
 export async function syncNow(): Promise<{ ok: boolean; offline: boolean }> {
   if (!IS_OFFLINE_CAPABLE) return { ok: true, offline: false };
   if (!(await isOnline())) return { ok: false, offline: true };
-  await runSync();
-  return { ok: getSyncStatus().lastError === null, offline: false };
+  return runManualSync();
 }
 
-/**
- * Push-only flush — used on logout to send un-pushed local writes up while the
- * session is still valid, WITHOUT pulling. Pulling here would be wrong: during a
- * blocked tenant switch the session is already the new tenant's, so a pull would
- * merge the new tenant's rows into the old tenant's mirror. Best-effort and quiet:
- * offline / signed-out → no-op; a rejected row simply stays `_dirty` for later.
- */
+/** Push-only, never pulls: on logout the session may already be another tenant's. */
 export async function flushPendingWrites(): Promise<void> {
   if (!IS_OFFLINE_CAPABLE || suspended) return;
-  if (!(await isOnline())) return;
-  const { data: sess } = await supabase.auth.getSession();
-  if (!sess.session) return;
-  await pushDirty();
+  if (running) return running;
+  if (pushing) return pushing;
+  pushing = (async () => {
+    if (!(await canReachServer())) return;
+    await pushDirty();
+    await stamp("lastPushAt");
+  })().finally(() => {
+    pushing = null;
+  });
+  return pushing;
 }
 
-/**
- * Recovery: forget the pull position and pull the whole tenant again. The normal
- * cycle still runs push→pull, so un-synced local writes go up first; then, with
- * the cursor cleared, the pull re-fetches and re-merges every row. Non-destructive
- * — `_dirty` local rows still win the merge. Use it to repair a mirror whose
- * incremental pull skipped rows. Same return shape as `syncNow()`.
- */
+/** Repair a mirror that skipped rows: clear the pull cursor, run a normal cycle. */
 export async function resyncFromScratch(): Promise<{
   ok: boolean;
   offline: boolean;
@@ -124,22 +152,22 @@ export async function resyncFromScratch(): Promise<{
   await db.runAsync("DELETE FROM sync_meta WHERE key = ?", [
     META_LAST_PULLED_AT,
   ] as never[]);
-  await runSync();
-  return { ok: getSyncStatus().lastError === null, offline: false };
+  return runManualSync();
 }
 
-/**
- * Register the sync triggers (idempotent). Deliberately calm: one cycle at cold
- * start, and only when the mirror is a day stale (`runSyncIfDue` — the app-open
- * gate; the session restore behind it hits the same one). Local writes land
- * durably in SQLite; the next trigger pushes them.
- */
+/** Cold start: one due-gated cycle, then push every 5 min and pull every 10 min. */
 export async function startSync(cb: () => void): Promise<void> {
   if (!IS_OFFLINE_CAPABLE || started) return;
   started = true;
   if (isOfflineDbReady()) {
-    setStatus({ lastSyncAt: await getMeta(getDb(), META_LAST_SYNC_AT) });
+    const db = getDb();
+    setStatus({
+      lastPushAt: await getMeta(db, META_LAST_PUSH_AT),
+      lastPullAt: await getMeta(db, META_LAST_SYNC_AT),
+      lastManualSyncAt: await getMeta(db, META_LAST_MANUAL_SYNC_AT),
+    });
   }
   await runSyncIfDue();
+  restartTimers();
   cb();
 }

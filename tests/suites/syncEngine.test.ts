@@ -1,10 +1,6 @@
 import { FakeDb, mirrorRow } from "../helpers/fakeSqlite";
 import { FakeSupabase } from "../helpers/fakeSupabase";
 
-// The cycle gate. "Fresh enough" may skip the PULL, never the PUSH: an un-pushed
-// row is the only copy of that money, so making it wait out the day keeps a
-// collector's cash off the server while the phone is online.
-
 const mockServer = new FakeSupabase();
 let mockDb = new FakeDb({});
 let mockOnline = true;
@@ -39,11 +35,13 @@ import {
   flushPendingWrites,
   runSync,
   runSyncIfDue,
+  startSync,
   syncNow,
 } from "@/src/core/offline/sync/engine";
 import { getSyncStatus } from "@/src/core/offline/sync/status";
 
-const DAY = 24 * 60 * 60 * 1000;
+const MINUTE = 60 * 1000;
+const PULL_EVERY = 10 * MINUTE;
 
 const stamped = (ageMs: number) => [
   { key: "last_sync_at", value: new Date(Date.now() - ageMs).toISOString() },
@@ -52,21 +50,24 @@ const stamped = (ageMs: number) => [
 const pulled = () => mockServer.selects.length > 0;
 const pushed = () => mockServer.upserts.length > 0;
 
+const metaStamp = (key: string) =>
+  mockDb.rows("sync_meta").find((r) => r.key === key);
+
 beforeEach(() => {
   mockServer.reset();
   mockOnline = true;
   mockDb = new FakeDb({});
 });
 
-describe("TC-SY-70..74 — the 24-hour gate skips the pull, never the push", () => {
+describe("TC-SY-70..74 — the 10-minute pull gate skips the pull, never the push", () => {
   it("TC-SY-70 runs a full cycle when the mirror has never synced", async () => {
     await runSyncIfDue();
 
     expect(pulled()).toBe(true);
   });
 
-  it("TC-SY-71 runs a full cycle once the stamp is a day old", async () => {
-    mockDb = new FakeDb({ sync_meta: stamped(DAY + 60_000) });
+  it("TC-SY-71 runs a full cycle once the last pull is 10 minutes old", async () => {
+    mockDb = new FakeDb({ sync_meta: stamped(PULL_EVERY + MINUTE) });
 
     await runSyncIfDue();
 
@@ -127,7 +128,7 @@ describe("TC-SY-75..79 — a cycle needs a session and a connection", () => {
     await expect(syncNow()).resolves.toEqual({ ok: false, offline: true });
   });
 
-  it("TC-SY-78 syncNow ignores the 24h gate entirely", async () => {
+  it("TC-SY-78 syncNow ignores the pull gate entirely", async () => {
     mockDb = new FakeDb({ sync_meta: stamped(60_000) });
 
     await syncNow();
@@ -205,5 +206,72 @@ describe("TC-SY-84..85 — one cycle at a time", () => {
     await runSync();
 
     expect(getSyncStatus().syncing).toBe(false);
+  });
+});
+
+describe("TC-SY-86..88 — last push, pull and manual sync times", () => {
+  it("TC-SY-86 a push-only flush stamps the push, not the pull", async () => {
+    await flushPendingWrites();
+
+    expect(metaStamp("last_push_at")).toBeDefined();
+    expect(metaStamp("last_sync_at")).toBeUndefined();
+    expect(getSyncStatus().lastPushAt).toBe(metaStamp("last_push_at")?.value);
+  });
+
+  it("TC-SY-87 only a manual sync stamps the manual time", async () => {
+    await runSync();
+    expect(metaStamp("last_manual_sync_at")).toBeUndefined();
+
+    await syncNow();
+    expect(metaStamp("last_manual_sync_at")).toBeDefined();
+  });
+
+  it("TC-SY-88 a failed manual sync does not stamp the manual time", async () => {
+    mockServer.failTables.add("currencies");
+
+    await syncNow();
+
+    expect(metaStamp("last_manual_sync_at")).toBeUndefined();
+  });
+});
+
+describe("TC-SY-89..90 — push every 5 minutes, pull every 10", () => {
+  beforeAll(() => {
+    jest.useFakeTimers();
+  });
+
+  afterAll(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
+  });
+
+  it("TC-SY-89 the push timer never pulls; the pull timer does", async () => {
+    mockDb = new FakeDb({ sync_meta: stamped(MINUTE) });
+    await startSync(() => undefined);
+    mockServer.reset();
+    const startupPush = getSyncStatus().lastPushAt;
+
+    await jest.advanceTimersByTimeAsync(5 * MINUTE);
+    expect(getSyncStatus().lastPushAt).not.toBe(startupPush);
+    expect(pulled()).toBe(false);
+
+    await jest.advanceTimersByTimeAsync(5 * MINUTE);
+    expect(pulled()).toBe(true);
+  });
+
+  it("TC-SY-90 a manual sync restarts both timers", async () => {
+    await jest.advanceTimersByTimeAsync(2 * MINUTE);
+    await syncNow();
+    const manualPush = getSyncStatus().lastPushAt;
+    mockServer.reset();
+
+    await jest.advanceTimersByTimeAsync(4 * MINUTE);
+    expect(getSyncStatus().lastPushAt).toBe(manualPush);
+
+    await jest.advanceTimersByTimeAsync(5 * MINUTE);
+    expect(pulled()).toBe(false);
+
+    await jest.advanceTimersByTimeAsync(MINUTE);
+    expect(pulled()).toBe(true);
   });
 });
