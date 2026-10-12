@@ -1,8 +1,8 @@
 import type { Currency, Customer, CustomerStatus } from "@shared/core/types";
 import { canSendWhatsApp } from "@shared/core/utils/whatsappLink";
-import { pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
+import { ADMIN_ONLY, pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
 import { hasAnythingOwed } from "./customerFlags";
-import { canQuickPay, fixedMonthItems, isMultiPlan } from "./quickPay";
+import { fixedMonthItems, isMultiPlan, quickPayBlockKey } from "./quickPay";
 
 export type CustomerActionKey =
   | "quick_pay"
@@ -56,27 +56,34 @@ export function customerMenuItems(
   money: CustomerMoneyFacts,
   viewer: CustomerMenuViewer,
 ): CustomerMenuItem[] {
-  const sendable = canSendWhatsApp(customer.phoneNumber);
-  const keys: CustomerActionKey[] = [];
-  if (canQuickPay(customer, money.status)) {
-    keys.push("quick_pay");
-    if (fixedMonthItems(customer, money.status, money.currencies).length > 0) {
-      keys.push("quick_pay_whatsapp");
-    }
-  }
-  keys.push("record_sale", "add_custom_debt");
-  if (hasAnythingOwed(money.status, money.debtUsd)) keys.push("collect", "write_off_everything");
-  if (sendable) keys.push("whatsapp_chat");
-  keys.push("edit", "history");
-  const items = pickMenu(MENU, keys).map((item) => {
-    if (item.key === "quick_pay_whatsapp" && !sendable) {
-      return { ...item, disabled: true, captionKey: "invoice.no_phone" };
-    }
-    if (item.key === "quick_pay" && isMultiPlan(customer)) {
-      return { ...item, labelKey: "payments.quick_pay.pay_unpaid_plans" };
-    }
-    return item;
-  });
+  const noPhone = !canSendWhatsApp(customer.phoneNumber) && "invoice.no_phone";
+  const payBlock = quickPayBlockKey(customer, money.status);
+  const typedOnly =
+    !payBlock && fixedMonthItems(customer, money.status, money.currencies).length === 0;
+  const nothingOwed =
+    !hasAnythingOwed(money.status, money.debtUsd) && "why_disabled.nothing_owed";
+  const keys: CustomerActionKey[] = [
+    "quick_pay",
+    "quick_pay_whatsapp",
+    "record_sale",
+    "add_custom_debt",
+    "collect",
+    "write_off_everything",
+    "whatsapp_chat",
+    "edit",
+    "history",
+  ];
+  const items = pickMenu(MENU, keys, {
+    quick_pay: payBlock,
+    quick_pay_whatsapp: payBlock || (typedOnly && "why_disabled.no_set_price") || noPhone,
+    collect: nothingOwed,
+    write_off_everything: nothingOwed,
+    whatsapp_chat: noPhone,
+  }).map((item) =>
+    item.key === "quick_pay" && isMultiPlan(customer)
+      ? { ...item, labelKey: "payments.quick_pay.pay_unpaid_plans" }
+      : item,
+  );
   return [...items, ...customerStatusItems(customer, viewer)];
 }
 
@@ -85,13 +92,17 @@ export function customerPageMoneyItems(): CustomerMenuItem[] {
   return pickMenu(MENU, ["write_off_everything"]);
 }
 
-// Pausing and deleting a customer are admin-only, wherever they are offered.
+// Pausing and deleting a customer are admin-only; staff see them greyed.
 export function customerStatusItems(
   customer: Customer,
   viewer: Pick<CustomerMenuViewer, "isAdmin">,
 ): CustomerMenuItem[] {
-  if (!viewer.isAdmin) return [];
-  return pickMenu(MENU, [customer.active ? "deactivate" : "reactivate", "delete"]);
+  const adminOnly = !viewer.isAdmin && ADMIN_ONLY;
+  return pickMenu(MENU, [customer.active ? "deactivate" : "reactivate", "delete"], {
+    deactivate: adminOnly,
+    reactivate: adminOnly,
+    delete: adminOnly,
+  });
 }
 
 // Edit and the active toggle need ONE customer; quick pay runs on many.

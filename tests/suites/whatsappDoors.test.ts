@@ -15,7 +15,7 @@ import {
   recentlySentCustomers,
   skipReasonCounts,
 } from "@shared/modules/whatsapp/utils/whatsappView";
-import type { MenuItem } from "@shared/shared/lib/menuItem";
+import { ADMIN_ONLY, type MenuItem } from "@shared/shared/lib/menuItem";
 import { customer } from "../helpers/factories";
 
 // TC-WA-D-* — the WhatsApp doors both apps draw, and the signup page's trust rules.
@@ -50,8 +50,10 @@ function message(over: Partial<WhatsAppMessage> = {}): WhatsAppMessage {
 }
 
 describe("WhatsApp customer menu", () => {
-  it("TC-WA-D-01 a non-admin sees no WhatsApp door", () => {
-    expect(whatsAppCustomerItems(customer(), { ...CONNECTED, isAdmin: false })).toEqual([]);
+  it("TC-WA-D-01 a non-admin sees every WhatsApp door greyed as admin-only", () => {
+    const items = whatsAppCustomerItems(customer(), { ...CONNECTED, isAdmin: false });
+    expect(keysOf(items)).toEqual(["whatsapp_reminder", "whatsapp_message", "whatsapp_stop"]);
+    expect(items.every((item) => item.disabled && item.captionKey === ADMIN_ONLY)).toBe(true);
     expect(whatsAppSelectionItems([customer()], { ...CONNECTED, isAdmin: false })).toEqual([]);
   });
 
@@ -61,7 +63,9 @@ describe("WhatsApp customer menu", () => {
     expect(keysOf(items)).toEqual(["whatsapp_reminder"]);
     expect(items[0]).toMatchObject({ captionKey: "whatsapp.opens_whatsapp" });
     expect(items[0].disabled).toBeFalsy();
-    expect(whatsAppCustomerItems(customer({ phoneNumber: null }), offline)).toEqual([]);
+    expect(whatsAppCustomerItems(customer({ phoneNumber: null }), offline)).toEqual([
+      expect.objectContaining({ key: "whatsapp_reminder", disabled: true, captionKey: "invoice.no_phone" }),
+    ]);
     expect(whatsAppSelectionItems([customer()], offline)).toEqual([]);
   });
 
@@ -76,7 +80,7 @@ describe("WhatsApp customer menu", () => {
     expect(keysOf(items)).toEqual(["whatsapp_reminder", "whatsapp_message", "whatsapp_allow"]);
     expect(items[0]).toMatchObject({ disabled: true, captionKey: "whatsapp.opted_out_caption" });
     expect(items[1]).toMatchObject({ disabled: true, captionKey: "whatsapp.opted_out_caption" });
-    expect(items[2].disabled).toBe(false);
+    expect(items[2].disabled).toBeFalsy();
   });
 
   it("TC-WA-D-05 no phone blocks every send and the stop toggle", () => {
@@ -88,7 +92,7 @@ describe("WhatsApp customer menu", () => {
   it("TC-WA-D-06 the reminder waits for Meta's approval; a free message does not", () => {
     const items = whatsAppCustomerItems(customer(), { ...CONNECTED, reminderReady: false });
     expect(items[0]).toMatchObject({ disabled: true, captionKey: "whatsapp.template_pending" });
-    expect(items[1].disabled).toBe(false);
+    expect(items[1].disabled).toBeFalsy();
   });
 
   it("TC-WA-D-07 a selection sends only when connected and not empty", () => {

@@ -113,8 +113,17 @@ export function fixedMonthItems(
 }
 
 export function canQuickPay(customer: Customer, status: CustomerStatus | null): boolean {
-  if (!customer.active || !customer.isRegular) return false;
-  return linesDueThisMonth(customer, status).length > 0;
+  return quickPayBlockKey(customer, status) === null;
+}
+
+// Why the customer's quick pay is greyed; null when it can run.
+export function quickPayBlockKey(customer: Customer, status: CustomerStatus | null): string | null {
+  if (!customer.active) return "why_disabled.customer_inactive";
+  const lines = startedActiveLines(customer);
+  if (!customer.isRegular || lines.length === 0) return "why_disabled.no_plan";
+  const reasons = lines.map((line) => lineBlockReason(line, status));
+  if (reasons.includes(null)) return null;
+  return reasons.includes("older_unpaid") ? "why_disabled.pay_older_first" : "why_disabled.month_paid";
 }
 
 // Why a customer, or one of its lines, is left out — the confirm names each.

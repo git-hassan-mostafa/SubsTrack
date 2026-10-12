@@ -23,7 +23,9 @@ import {
 import type { CreateSaleInput } from "@shared/modules/transaction/sales/utils/types";
 import { store } from "../helpers/fakeLedger";
 import { saleStore } from "../helpers/fakeSales";
+import { ADMIN_ONLY } from "@shared/shared/lib/menuItem";
 import { charge, customer, sale } from "../helpers/factories";
+import { enabledKeys, greyed, keysOf } from "../helpers/menus";
 
 // TC-SG-* — the Sales page rules both apps run: filters, menus, void target, receipt.
 const AT = "2026-02-01T10:00:00.000Z";
@@ -31,7 +33,6 @@ const t = (key: string) => key;
 const ADMIN: SaleMenuViewer = { isAdmin: true };
 const STAFF: SaleMenuViewer = { isAdmin: false };
 const ali = customer({ id: "cust-1", name: "Ali", phoneNumber: "+96170000000" });
-const keysOf = (items: ReturnType<typeof saleMenuItems>) => items.map((item) => item.key);
 
 describe("saleFindOptions", () => {
   it("TC-SG-01 the default reads live sales only, every branch filter passed through", () => {
@@ -90,16 +91,18 @@ describe("saleMenuItems", () => {
     expect(keysOf(saleMenuItems(owing, ADMIN))).toEqual(["view", "edit", "collect", "invoice", "history", "void"]);
   });
 
-  it("TC-SG-07 History is admin-only: the audit trail is", () => {
-    expect(keysOf(saleMenuItems(owing, STAFF))).not.toContain("history");
+  it("TC-SG-07 History is admin-only: staff see it greyed", () => {
+    expect(greyed(saleMenuItems(owing, STAFF))).toEqual({ history: ADMIN_ONLY });
   });
 
   it("TC-SG-08 a paid sale has nothing to collect", () => {
-    expect(keysOf(saleMenuItems({ ...owing, amountPaid: 30 }, ADMIN))).not.toContain("collect");
+    expect(greyed(saleMenuItems({ ...owing, amountPaid: 30 }, ADMIN)).collect).toBe("why_disabled.fully_paid");
   });
 
   it("TC-SG-09 a voided sale only opens (and shows its history)", () => {
-    expect(keysOf(saleMenuItems({ ...owing, voidedAt: AT }, ADMIN))).toEqual(["view", "history"]);
+    const items = saleMenuItems({ ...owing, voidedAt: AT }, ADMIN);
+    expect(enabledKeys(items)).toEqual(["view", "history"]);
+    expect(greyed(items).edit).toBe("why_disabled.sale_voided");
   });
 
   it("TC-SG-10 the invoice row is disabled with the reason it cannot be sent", () => {
@@ -113,7 +116,8 @@ describe("saleMenuItems", () => {
   });
 
   it("TC-SG-11 a walk-in sale is never collected later", () => {
-    expect(keysOf(saleMenuItems({ ...owing, customerId: null, customer: null }, ADMIN))).not.toContain("collect");
+    const walkIn = saleMenuItems({ ...owing, customerId: null, customer: null }, ADMIN);
+    expect(greyed(walkIn).collect).toBe("why_disabled.walk_in");
   });
 });
 

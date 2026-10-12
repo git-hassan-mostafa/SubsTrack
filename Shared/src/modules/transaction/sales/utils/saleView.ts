@@ -8,7 +8,7 @@ import {
 } from "@shared/modules/ledger/utils/billView";
 import { openItemFromCharge } from "@shared/modules/ledger/utils/openItems";
 import { saleRecipient, sendBlockedKey } from "@shared/modules/invoicing/utils/invoiceRecipient";
-import { pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
+import { ADMIN_ONLY, pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
 
 type Translate = (key: string, opts?: Record<string, unknown>) => string;
 
@@ -20,19 +20,30 @@ export interface SaleFacts {
   fullyPaid: boolean;
   owed: number;
   canCollect: boolean;
+  collectBlockKey: string | null;
 }
 
+const SALE_VOIDED = "why_disabled.sale_voided";
+
 // A walk-in sale has no customer to owe, so it is never collected later.
+function collectBlockKey(sale: Sale, voided: boolean, owed: number): string | null {
+  if (voided) return SALE_VOIDED;
+  if (!sale.customerId) return "why_disabled.walk_in";
+  if (owed <= MONEY_EPSILON) return "why_disabled.fully_paid";
+  return sale.charge ? null : "why_disabled.nothing_owed";
+}
+
 export function saleFacts(sale: Sale): SaleFacts {
   const voided = sale.voidedAt !== null;
   const owed = sale.totalAmount - sale.amountPaid;
+  const blockKey = collectBlockKey(sale, voided, owed);
   return {
     voided,
     writtenOff: !voided && sale.charge?.writtenOffAt != null,
     fullyPaid: sale.amountPaid >= sale.totalAmount,
     owed,
-    canCollect:
-      !voided && owed > MONEY_EPSILON && !!sale.customerId && !!sale.charge,
+    canCollect: blockKey === null,
+    collectBlockKey: blockKey,
   };
 }
 
@@ -90,17 +101,14 @@ export function saleMenuItems(
   sale: Sale,
   viewer: SaleMenuViewer,
 ): SaleMenuItem[] {
-  const { voided, canCollect } = saleFacts(sale);
-  const keys: SaleActionKey[] = ["view"];
-  if (!voided) keys.push("edit");
-  if (canCollect) keys.push("collect");
-  if (!voided) keys.push("invoice");
-  if (viewer.isAdmin) keys.push("history");
-  if (!voided) keys.push("void");
-  const blockedKey = sendBlockedKey(saleRecipient(sale));
-  return pickMenu(MENU, keys).map((item) => {
-    if (item.key !== "invoice" || !blockedKey) return item;
-    return { ...item, disabled: true, captionKey: blockedKey };
+  const facts = saleFacts(sale);
+  const voided = facts.voided && SALE_VOIDED;
+  return pickMenu(MENU, ["view", "edit", "collect", "invoice", "history", "void"], {
+    edit: voided,
+    collect: facts.collectBlockKey,
+    invoice: voided || sendBlockedKey(saleRecipient(sale)),
+    history: !viewer.isAdmin && ADMIN_ONLY,
+    void: voided,
   });
 }
 
@@ -115,12 +123,12 @@ export function saleReceiptActions(
   sale: Sale,
   viewer: Pick<SaleMenuViewer, "isAdmin">,
 ): SaleMenuItem[] {
-  const voided = sale.voidedAt !== null;
-  const keys: SaleActionKey[] = [];
-  if (!voided) keys.push("edit");
-  if (viewer.isAdmin) keys.push("history");
-  if (!voided) keys.push("void");
-  return pickMenu(MENU, keys);
+  const voided = sale.voidedAt !== null && SALE_VOIDED;
+  return pickMenu(MENU, ["edit", "history", "void"], {
+    edit: voided,
+    history: !viewer.isAdmin && ADMIN_ONLY,
+    void: voided,
+  });
 }
 
 export interface SaleReceiptFacts extends BillFacts {

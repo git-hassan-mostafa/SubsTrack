@@ -52,9 +52,10 @@ const STOCK_ENTRY_MENU: MenuTable<StockEntryActionKey> = {
 export function stockEntryActions(
   movement: Pick<StockMovement, "voidedAt" | "reason">,
 ): StockEntryMenuItem[] {
-  if (movement.reason === "sale") return [];
-  const keys: StockEntryActionKey[] = movement.voidedAt
-    ? ["history"]
-    : ["edit", "history", "revert"];
-  return pickMenu(STOCK_ENTRY_MENU, keys);
+  const fromSale = movement.reason === "sale";
+  const locked =
+    (fromSale && "why_disabled.sale_stock_entry") ||
+    (!!movement.voidedAt && "why_disabled.stock_reverted");
+  const keys: StockEntryActionKey[] = fromSale ? ["edit", "revert"] : ["edit", "history", "revert"];
+  return pickMenu(STOCK_ENTRY_MENU, keys, { edit: locked, revert: locked });
 }

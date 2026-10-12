@@ -109,9 +109,16 @@ describe("wallet doors", () => {
   });
 
   it("TC-WD-03 a look-only wallet still opens a payment, but moves nothing", () => {
-    expect(walletItemMenuItems("view").map((m) => m.key)).toEqual(["details"]);
+    const [, blocked] = walletItemMenuItems(wallet({ receiveBlock: "branch" }));
+    expect(blocked).toMatchObject({
+      key: "act",
+      disabled: true,
+      labelKey: "wallet.receive",
+      captionKey: "wallet.cannot_receive_branch",
+    });
+    expect(walletItemMenuItems(null).map((m) => m.key)).toEqual(["details"]);
     expect(walletSelectionItems("view")).toEqual([]);
-    expect(walletItemMenuItems("receive").map((m) => m.key)).toEqual(["details", "act"]);
+    expect(walletItemMenuItems(wallet()).map((m) => m.key)).toEqual(["details", "act"]);
     expect(walletSelectionItems("close_out")[0].labelKey).toBe("wallet.close_out");
   });
 

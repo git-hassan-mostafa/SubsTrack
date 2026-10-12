@@ -30,12 +30,12 @@ import {
   saleSelectionItems,
 } from "@shared/modules/transaction/sales/utils/saleView";
 import { catalogRowActions, catalogSelectionActions } from "@shared/shared/lib/catalogMenu";
-import type { MenuItem } from "@shared/shared/lib/menuItem";
+import { ADMIN_ONLY } from "@shared/shared/lib/menuItem";
 import { quickActionItems } from "@shared/shared/lib/quickActions";
 import { charge, collection, customer, line, openItem, plan, sale } from "../helpers/factories";
+import { enabledKeys, greyed, keysOf } from "../helpers/menus";
 
-// TC-RM-* — every row menu both apps draw: which rows show, for whom, in which state.
-const keysOf = <K extends string>(items: MenuItem<K>[]) => items.map((item) => item.key);
+// TC-RM-* — every row menu both apps draw: which rows work, which are greyed and why.
 const AT = "2026-02-01T10:00:00.000Z";
 const TODAY = "2026-03-10";
 const on = <T>(rule: () => T): T => onCalendarDay(TODAY, rule);
@@ -43,39 +43,52 @@ const on = <T>(rule: () => T): T => onCalendarDay(TODAY, rule);
 describe("billMenuItems", () => {
   const all = { revertWriteOff: true, writeOff: true, void: true };
 
-  it("TC-RM-01 a live part-paid bill offers write-off and void; history is admin-only", () => {
+  it("TC-RM-01 a live part-paid bill offers write-off and void; staff see history greyed", () => {
     const facts = billFacts(charge({ amount: 30 }), 10);
-    expect(keysOf(billMenuItems(facts, { isAdmin: true }, all))).toEqual(["history", "write_off", "void"]);
-    expect(keysOf(billMenuItems(facts, { isAdmin: false }, all))).toEqual(["write_off", "void"]);
+    expect(enabledKeys(billMenuItems(facts, { isAdmin: true }, all))).toEqual(["history", "write_off", "void"]);
+    const staff = billMenuItems(facts, { isAdmin: false }, all);
+    expect(enabledKeys(staff)).toEqual(["write_off", "void"]);
+    expect(greyed(staff)).toEqual({ history: ADMIN_ONLY });
   });
 
   it("TC-RM-02 a written-off bill offers the undo, never a second write-off", () => {
     const facts = billFacts(charge({ amount: 30, writtenOffAt: AT }), 0);
-    expect(keysOf(billMenuItems(facts, { isAdmin: false }, all))).toEqual(["revert_write_off", "void"]);
+    expect(keysOf(billMenuItems(facts, { isAdmin: true }, all))).toEqual(["history", "revert_write_off", "void"]);
   });
 
-  it("TC-RM-03 a voided bill offers no money door at all", () => {
+  it("TC-RM-03 a voided bill greys every money door, saying it is voided", () => {
     const facts = billFacts(charge({ amount: 30, voidedAt: AT }), 0);
-    expect(keysOf(billMenuItems(facts, { isAdmin: false }, all))).toEqual([]);
+    const items = billMenuItems(facts, { isAdmin: true }, all);
+    expect(enabledKeys(items)).toEqual(["history"]);
+    expect(greyed(items)).toEqual({ write_off: "why_disabled.bill_voided", void: "why_disabled.bill_voided" });
+  });
+
+  it("TC-RM-03b a fully paid bill greys the write-off", () => {
+    const facts = billFacts(charge({ amount: 30 }), 30);
+    expect(greyed(billMenuItems(facts, { isAdmin: true }, all))).toEqual({ write_off: "why_disabled.fully_paid" });
   });
 
   it("TC-RM-04 a door the surface did not open stays out of the menu", () => {
     const facts = billFacts(charge({ amount: 30 }), 0);
     const doors = { revertWriteOff: false, writeOff: false, void: true };
-    expect(keysOf(billMenuItems(facts, { isAdmin: false }, doors))).toEqual(["void"]);
+    expect(keysOf(billMenuItems(facts, { isAdmin: true }, doors))).toEqual(["history", "void"]);
   });
 });
 
 describe("paymentMenuItems", () => {
   it("TC-RM-05 a live payment opens, sends (with a phone), corrects and voids", () => {
     const live = collection();
-    expect(keysOf(paymentMenuItems(live, { sendable: true }))).toEqual(["details", "invoice", "correct", "void"]);
-    expect(keysOf(paymentMenuItems(live, { sendable: false }))).toEqual(["details", "correct", "void"]);
+    expect(enabledKeys(paymentMenuItems(live, { sendable: true }))).toEqual(["details", "invoice", "correct", "void"]);
+    expect(greyed(paymentMenuItems(live, { sendable: false }))).toEqual({ invoice: "invoice.no_phone" });
   });
 
   it("TC-RM-06 a voided payment, or one on a voided bill, only opens (#109)", () => {
-    expect(keysOf(paymentMenuItems(collection({ voidedAt: AT }), { sendable: true }))).toEqual(["details"]);
-    expect(keysOf(paymentMenuItems(collection(), { sendable: true, billVoided: true }))).toEqual(["details"]);
+    const voided = paymentMenuItems(collection({ voidedAt: AT }), { sendable: true });
+    expect(enabledKeys(voided)).toEqual(["details"]);
+    expect(greyed(voided).void).toBe("why_disabled.payment_voided");
+    const onVoidedBill = paymentMenuItems(collection(), { sendable: true, billVoided: true });
+    expect(enabledKeys(onVoidedBill)).toEqual(["details"]);
+    expect(greyed(onVoidedBill).correct).toBe("why_disabled.bill_voided");
   });
 
   it("TC-RM-07 a bulk void takes only the live hand-overs of a pick", () => {
@@ -121,10 +134,28 @@ describe("customer menus", () => {
       ]);
     }));
 
-  it("TC-RM-09 a paid customer with no debt owes nothing: no quick pay, collect or write-off", () =>
+  it("TC-RM-09 a paid customer with no debt owes nothing: quick pay, collect and write-off are greyed", () =>
     on(() => {
-      const keys = keysOf(customerMenuItems(aliNoPhone, { status: paid, debtUsd: 0, currencies: [] }, staff));
-      expect(keys).toEqual(["record_sale", "add_custom_debt", "edit", "history"]);
+      const items = customerMenuItems(aliNoPhone, { status: paid, debtUsd: 0, currencies: [] }, staff);
+      expect(enabledKeys(items)).toEqual(["record_sale", "add_custom_debt", "edit", "history"]);
+      expect(greyed(items)).toEqual({
+        quick_pay: "why_disabled.month_paid",
+        quick_pay_whatsapp: "why_disabled.month_paid",
+        collect: "why_disabled.nothing_owed",
+        write_off_everything: "why_disabled.nothing_owed",
+        whatsapp_chat: "invoice.no_phone",
+        deactivate: ADMIN_ONLY,
+        delete: ADMIN_ONLY,
+      });
+    }));
+
+  it("TC-RM-09b quick pay says why: inactive, no plan, or an older month first", () =>
+    on(() => {
+      const reasonFor = (who: typeof ali, status: CustomerStatus) =>
+        greyed(customerMenuItems(who, { status, debtUsd: 0, currencies: [] }, admin)).quick_pay;
+      expect(reasonFor({ ...ali, active: false }, unpaid)).toBe("why_disabled.customer_inactive");
+      expect(reasonFor({ ...ali, customerPlans: [] }, unpaid)).toBe("why_disabled.no_plan");
+      expect(reasonFor(ali, { ...unpaid, uncoveredLineIds: ["l-usd"] })).toBe("why_disabled.pay_older_first");
     }));
 
   it("TC-RM-10 without a phone, pay-and-send stays visible but disabled with a reason", () =>
@@ -134,19 +165,19 @@ describe("customer menus", () => {
         disabled: true,
         captionKey: "invoice.no_phone",
       });
-      expect(keysOf(items)).not.toContain("whatsapp_chat");
+      expect(greyed(items).whatsapp_chat).toBe("invoice.no_phone");
     }));
 
-  it("TC-RM-11 a typed-price line has nothing priced to send, so no pay-and-send", () =>
+  it("TC-RM-11 a typed-price line has nothing priced to send, so pay-and-send is greyed", () =>
     on(() => {
       const typedOnly = customer({ customerPlans: [line({ id: "l-typed", plan: typed, planId: typed.id })] });
-      const keys = keysOf(customerMenuItems(typedOnly, { status: unpaid, debtUsd: 0, currencies: [] }, admin));
-      expect(keys).toContain("quick_pay");
-      expect(keys).not.toContain("quick_pay_whatsapp");
+      const items = customerMenuItems(typedOnly, { status: unpaid, debtUsd: 0, currencies: [] }, admin);
+      expect(enabledKeys(items)).toContain("quick_pay");
+      expect(greyed(items).quick_pay_whatsapp).toBe("why_disabled.no_set_price");
     }));
 
   it("TC-RM-12 pausing and deleting are admin-only; a paused customer resumes", () => {
-    expect(customerStatusItems(ali, { isAdmin: false })).toEqual([]);
+    expect(greyed(customerStatusItems(ali, { isAdmin: false }))).toEqual({ deactivate: ADMIN_ONLY, delete: ADMIN_ONLY });
     expect(keysOf(customerStatusItems(ali, { isAdmin: true }))).toEqual(["deactivate", "delete"]);
     expect(keysOf(customerStatusItems({ ...ali, active: false }, { isAdmin: true }))).toEqual(["reactivate", "delete"]);
   });
@@ -161,9 +192,12 @@ describe("customer menus", () => {
 
 describe("sale receipt", () => {
   it("TC-RM-14 a live receipt edits and voids; history is admin-only; a voided one only reads history", () => {
-    expect(keysOf(saleReceiptActions(sale(), { isAdmin: true }))).toEqual(["edit", "history", "void"]);
-    expect(keysOf(saleReceiptActions(sale(), { isAdmin: false }))).toEqual(["edit", "void"]);
-    expect(keysOf(saleReceiptActions(sale({ voidedAt: AT }), { isAdmin: true }))).toEqual(["history"]);
+    expect(enabledKeys(saleReceiptActions(sale(), { isAdmin: true }))).toEqual(["edit", "history", "void"]);
+    expect(greyed(saleReceiptActions(sale(), { isAdmin: false }))).toEqual({ history: ADMIN_ONLY });
+    expect(greyed(saleReceiptActions(sale({ voidedAt: AT }), { isAdmin: true }))).toEqual({
+      edit: "why_disabled.sale_voided",
+      void: "why_disabled.sale_voided",
+    });
   });
 
   it("TC-RM-15 the receipt judges the LIVE cash: part-paid is collectable only with a customer and a bill", () => {
@@ -198,15 +232,20 @@ describe("debtorActions", () => {
   });
 
   it("TC-RM-18b an unpaid month is owed, not a debt, so the debtor write-off never reaches it (#186)", () => {
-    expect(keysOf(debtorActions([openItem({ paid: 0, isDebt: false })]))).toEqual(["collect_all"]);
+    const items = debtorActions([openItem({ paid: 0, isDebt: false })]);
+    expect(enabledKeys(items)).toEqual(["collect_all"]);
+    expect(greyed(items)).toEqual({ write_off_all: "why_disabled.no_debts" });
   });
 
   it("TC-RM-18 a virtual month has no bill, so it collects but never writes off", () => {
-    expect(keysOf(debtorActions([openItem({ chargeId: null })]))).toEqual(["collect_all"]);
+    expect(enabledKeys(debtorActions([openItem({ chargeId: null })]))).toEqual(["collect_all"]);
   });
 
-  it("TC-RM-19 nothing owed, nothing offered", () => {
-    expect(debtorActions([])).toEqual([]);
+  it("TC-RM-19 nothing owed: both rows greyed", () => {
+    expect(greyed(debtorActions([]))).toEqual({
+      collect_all: "why_disabled.nothing_owed",
+      write_off_all: "why_disabled.no_debts",
+    });
   });
 });
 
@@ -218,7 +257,9 @@ describe("catalog menus", () => {
 
   it("TC-RM-21 a product's delete IS its pause: a deleted one only comes back", () => {
     expect(keysOf(catalogRowActions("product", { active: true }))).toEqual(["edit", "stock", "history", "delete"]);
-    expect(keysOf(catalogRowActions("product", { active: false }))).toEqual(["edit", "history", "reactivate"]);
+    const deleted = catalogRowActions("product", { active: false });
+    expect(keysOf(deleted)).toEqual(["edit", "stock", "history", "reactivate"]);
+    expect(greyed(deleted)).toEqual({ stock: "why_disabled.inactive_item" });
     expect(keysOf(catalogRowActions("service", { active: true }))).toEqual(["edit", "history", "delete"]);
   });
 
@@ -249,9 +290,18 @@ describe("user menus", () => {
   const otherBranch = user({ id: "staff-2", branchId: "b2" });
 
   it("TC-RM-25 an admin manages staff in its branch, never itself or another branch", () => {
-    expect(keysOf(userRowActions(branchAdmin, staff))).toEqual(["edit", "history", "deactivate", "delete"]);
-    expect(keysOf(userRowActions(branchAdmin, branchAdmin))).toEqual(["edit", "history"]);
-    expect(keysOf(userRowActions(branchAdmin, otherBranch))).toEqual(["history"]);
+    expect(enabledKeys(userRowActions(branchAdmin, staff))).toEqual(["edit", "history", "deactivate", "delete"]);
+    expect(greyed(userRowActions(branchAdmin, branchAdmin))).toEqual({
+      deactivate: "why_disabled.own_account",
+      delete: "why_disabled.own_account",
+    });
+    expect(greyed(userRowActions(branchAdmin, otherBranch))).toEqual({
+      edit: "why_disabled.other_branch",
+      deactivate: "why_disabled.other_branch",
+      delete: "why_disabled.other_branch",
+    });
+    const peer = user({ id: "admin-2", role: "admin" });
+    expect(greyed(userRowActions(branchAdmin, peer)).delete).toBe("why_disabled.user_rank");
     expect(keysOf(userRowActions(branchAdmin, { ...staff, active: false }))).toContain("reactivate");
   });
 
@@ -284,10 +334,15 @@ describe("stock entries", () => {
     ...over,
   });
 
-  it("TC-RM-27 a manual entry edits and reverts; a reverted one keeps history; a sale's has no menu", () => {
-    expect(keysOf(stockEntryActions(movement({})))).toEqual(["edit", "history", "revert"]);
-    expect(keysOf(stockEntryActions(movement({ voidedAt: AT })))).toEqual(["history"]);
-    expect(stockEntryActions(movement({ reason: "sale", quantityDelta: -1 }))).toEqual([]);
+  it("TC-RM-27 a manual entry edits and reverts; a reverted one keeps history; a sale's is fixed on the sale", () => {
+    expect(enabledKeys(stockEntryActions(movement({})))).toEqual(["edit", "history", "revert"]);
+    const reverted = stockEntryActions(movement({ voidedAt: AT }));
+    expect(enabledKeys(reverted)).toEqual(["history"]);
+    expect(greyed(reverted).revert).toBe("why_disabled.stock_reverted");
+    expect(greyed(stockEntryActions(movement({ reason: "sale", quantityDelta: -1 })))).toEqual({
+      edit: "why_disabled.sale_stock_entry",
+      revert: "why_disabled.sale_stock_entry",
+    });
   });
 
   it("TC-RM-28 a restock costs money, a removal gives it back, a reversed entry costs nothing", () => {
@@ -306,10 +361,11 @@ describe("quick actions and page access", () => {
     ...over,
   });
 
-  it("TC-RM-29 expense and restock shortcuts are admin-only", () => {
-    expect(keysOf(quickActionItems({ isAdmin: false }))).toEqual(["collect", "customer", "sale", "customDebt", "moneyReceived"]);
-    expect(keysOf(quickActionItems({ isAdmin: true }))).toContain("expense");
-    expect(keysOf(quickActionItems({ isAdmin: true }))).toContain("batchRestock");
+  it("TC-RM-29 expense and restock shortcuts are admin-only: staff see them greyed", () => {
+    const staff = quickActionItems({ isAdmin: false });
+    expect(enabledKeys(staff)).toEqual(["collect", "customer", "sale", "customDebt", "moneyReceived"]);
+    expect(greyed(staff)).toEqual({ expense: ADMIN_ONLY, batchRestock: ADMIN_ONLY });
+    expect(greyed(quickActionItems({ isAdmin: true }))).toEqual({});
   });
 
   it("TC-RM-30 staff land on customers, admins on the dashboard", () => {

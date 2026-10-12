@@ -1,4 +1,4 @@
-import { pickMenu, type MenuItem, type MenuTable } from "./menuItem";
+import { ADMIN_ONLY, pickMenu, type MenuItem, type MenuTable } from "./menuItem";
 
 export type QuickActionKey =
   | "collect"
@@ -21,10 +21,12 @@ const MENU: MenuTable<QuickActionKey> = {
   moneyReceived: { group: "history", labelKey: "ledger.history_title" },
 };
 
-// Expenses and stock are admin-only, so their shortcuts are too.
+// Expenses and stock are admin-only, so staff see their shortcuts greyed.
 export function quickActionItems(viewer: { isAdmin: boolean }): QuickActionItem[] {
-  const keys: QuickActionKey[] = ["collect", "customer", "sale", "customDebt"];
-  if (viewer.isAdmin) keys.push("expense", "batchRestock");
-  keys.push("moneyReceived");
-  return pickMenu(MENU, keys);
+  const adminOnly = !viewer.isAdmin && ADMIN_ONLY;
+  return pickMenu(
+    MENU,
+    ["collect", "customer", "sale", "customDebt", "expense", "batchRestock", "moneyReceived"],
+    { expense: adminOnly, batchRestock: adminOnly },
+  );
 }

@@ -1,6 +1,12 @@
 import type { Customer, WhatsAppMessage } from "@shared/core/types";
 import { canSendWhatsApp } from "@shared/core/utils/whatsappLink";
-import { pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
+import {
+  ADMIN_ONLY,
+  pickMenu,
+  withReason,
+  type MenuItem,
+  type MenuTable,
+} from "@shared/shared/lib/menuItem";
 
 export type WhatsAppActionKey =
   | "whatsapp_reminder"
@@ -31,34 +37,35 @@ function blockedCaptionKey(hasPhone: boolean, optedOut: boolean): string | undef
   return optedOut ? "whatsapp.opted_out_caption" : undefined;
 }
 
-// Not connected leaves only the wa.me reminder; connected, the server sends.
+// Staff see the admin's WhatsApp rows greyed, so they know the door exists.
 export function whatsAppCustomerItems(
   customer: Customer,
   facts: WhatsAppMenuFacts,
 ): WhatsAppMenuItem[] {
-  if (!facts.isAdmin) return [];
+  const items = adminWhatsAppItems(customer, facts);
+  return facts.isAdmin ? items : items.map((item) => withReason(item, ADMIN_ONLY));
+}
+
+// Not connected leaves only the wa.me reminder; connected, the server sends.
+function adminWhatsAppItems(customer: Customer, facts: WhatsAppMenuFacts): WhatsAppMenuItem[] {
   const hasPhone = canSendWhatsApp(customer.phoneNumber);
+  const noPhone = !hasPhone && "invoice.no_phone";
   if (!facts.ready) {
-    if (!hasPhone) return [];
-    const [reminder] = pickMenu(MENU, ["whatsapp_reminder"]);
-    return [{ ...reminder, captionKey: "whatsapp.opens_whatsapp" }];
+    const [reminder] = pickMenu(MENU, ["whatsapp_reminder"], { whatsapp_reminder: noPhone });
+    return [{ ...reminder, captionKey: reminder.captionKey ?? "whatsapp.opens_whatsapp" }];
   }
   const optedOut = facts.optedOutIds.has(customer.id);
   const blockedKey = blockedCaptionKey(hasPhone, optedOut);
-  const [reminder, message, toggle] = pickMenu(MENU, [
-    "whatsapp_reminder",
-    "whatsapp_message",
-    optedOut ? "whatsapp_allow" : "whatsapp_stop",
-  ]);
-  return [
+  return pickMenu(
+    MENU,
+    ["whatsapp_reminder", "whatsapp_message", optedOut ? "whatsapp_allow" : "whatsapp_stop"],
     {
-      ...reminder,
-      disabled: !!blockedKey || !facts.reminderReady,
-      captionKey: blockedKey ?? (facts.reminderReady ? undefined : "whatsapp.template_pending"),
+      whatsapp_reminder: blockedKey || (!facts.reminderReady && "whatsapp.template_pending"),
+      whatsapp_message: blockedKey,
+      whatsapp_allow: noPhone,
+      whatsapp_stop: noPhone,
     },
-    { ...message, disabled: !!blockedKey, captionKey: blockedKey },
-    { ...toggle, disabled: !hasPhone },
-  ];
+  );
 }
 
 export function whatsAppSelectionItems(

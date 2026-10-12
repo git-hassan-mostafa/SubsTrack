@@ -87,7 +87,7 @@ export function WalletDetail({
 
   const rowActions = useCallback(
     (row: WalletItem): TableAction[] =>
-      toTableActions(walletItemMenuItems(mode), t, {
+      toTableActions(walletItemMenuItems(detail), t, {
         icons: WALLET_ITEM_ACTION_ICONS,
         run: {
           details: () => setOpenedId(row.id),
@@ -97,7 +97,7 @@ export function WalletDetail({
         },
         disabled: busy ? ["act"] : undefined,
       }),
-    [actOnItems, busy, detail, mode, t],
+    [actOnItems, busy, detail, t],
   );
 
   const bulkActions =

@@ -2024,5 +2024,33 @@
       "invalid_phone": "This customer's phone number is not valid.",
       "server_error": "Something went wrong. Please try again."
     }
+  },
+  "why_disabled": {
+    "admin_only": "Only admins can do this",
+    "customer_inactive": "This customer is not active",
+    "no_plan": "This customer has no plan",
+    "pay_older_first": "Pay the older months first",
+    "month_paid": "This month is already paid",
+    "no_set_price": "No set price to send",
+    "nothing_owed": "Nothing owed",
+    "no_debts": "No debts to write off",
+    "written_off": "Written off — undo the write-off first",
+    "not_billed": "Write it off from the customer's months",
+    "custom_debt_only": "Only custom debts can be changed here",
+    "payment_voided": "This payment is voided",
+    "bill_voided": "This bill is voided",
+    "fully_paid": "Already paid in full",
+    "sale_voided": "This sale is voided",
+    "walk_in": "Walk-in sale — no customer to collect from",
+    "inactive_item": "Reactivate it first",
+    "own_account": "You can't do this to your own account",
+    "other_branch": "This user is in another branch",
+    "user_rank": "Only someone above this user can do this",
+    "stock_expense": "Fix it on the product's stock entry",
+    "sale_stock_entry": "Change it on the sale",
+    "stock_reverted": "This entry is already reversed",
+    "line_stopped": "This service stopped before this month",
+    "month_skipped": "This month is skipped — unskip it first",
+    "later_month_paid": "A later month is paid — collect this month instead"
   }
 }

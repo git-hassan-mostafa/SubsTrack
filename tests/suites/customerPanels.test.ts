@@ -3,10 +3,10 @@ import { balanceUsd, owedUsd } from "@shared/modules/ledger/utils/debtRule";
 import { debtItemActions, debtItemFacts } from "@shared/modules/transaction/debts/utils/debtItemView";
 import { saleFacts } from "@shared/modules/transaction/sales/utils/saleView";
 import { charge, openItem, sale } from "../helpers/factories";
+import { enabledKeys, greyed } from "../helpers/menus";
 
 // TC-CP-* — the customer page's debts and sales rules, decided once for both apps.
 const AT = "2026-02-01T10:00:00.000Z";
-const keysOf = (item: Parameters<typeof debtItemActions>[0]) => debtItemActions(item).map((a) => a.key);
 
 describe("owedUsd", () => {
   it("TC-CP-01 sums each bill at its OWN frozen rate", () => {
@@ -46,22 +46,39 @@ describe("debtItemFacts", () => {
 });
 
 describe("debtItemActions", () => {
-  it("TC-CP-06 a live month bill: collect and write off, never edit or remove", () => {
-    expect(keysOf(openItem({ kind: "month", paid: 5 }))).toEqual(["collect", "write_off"]);
+  it("TC-CP-06 a live month bill: collect and write off; edit and remove greyed", () => {
+    const items = debtItemActions(openItem({ kind: "month", paid: 5 }));
+    expect(enabledKeys(items)).toEqual(["collect", "write_off"]);
+    expect(greyed(items)).toEqual({
+      edit: "why_disabled.custom_debt_only",
+      remove: "why_disabled.custom_debt_only",
+    });
   });
 
   it("TC-CP-07 a live custom debt also offers edit and remove", () => {
-    expect(keysOf(openItem({ kind: "manual" }))).toEqual(["collect", "edit", "write_off", "remove"]);
+    expect(enabledKeys(debtItemActions(openItem({ kind: "manual" })))).toEqual([
+      "collect",
+      "write_off",
+      "edit",
+      "remove",
+    ]);
   });
 
   it("TC-CP-08 REGRESSION: a written-off bill offers only the undo, even a custom debt", () => {
     const writtenOff = charge({ writtenOffAt: AT });
-    expect(keysOf(openItem({ kind: "sale", charge: writtenOff }))).toEqual(["revert_write_off"]);
-    expect(keysOf(openItem({ kind: "manual", charge: writtenOff }))).toEqual(["revert_write_off"]);
+    for (const kind of ["sale", "manual"] as const) {
+      const items = debtItemActions(openItem({ kind, charge: writtenOff }));
+      expect(enabledKeys(items)).toEqual(["revert_write_off"]);
+      expect(greyed(items)).toEqual({
+        collect: "why_disabled.written_off",
+        edit: "why_disabled.written_off",
+        remove: "why_disabled.written_off",
+      });
+    }
   });
 
   it("TC-CP-09 a row with no bill yet can only be collected", () => {
-    expect(keysOf(openItem({ chargeId: null, kind: "manual" }))).toEqual(["collect"]);
+    expect(enabledKeys(debtItemActions(openItem({ chargeId: null, kind: "manual" })))).toEqual(["collect"]);
   });
 
   it("TC-CP-10 every item carries its label key and menu band", () => {
@@ -83,6 +100,7 @@ describe("saleFacts", () => {
       fullyPaid: false,
       owed: 20,
       canCollect: true,
+      collectBlockKey: null,
     });
   });
 

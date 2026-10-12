@@ -12,10 +12,14 @@ export function canEditUser(viewer: UserActor, target: UserActor): boolean {
   return viewer.branchId === null || target.branchId === viewer.branchId;
 }
 
-/** Deactivate / delete: never your own account, and only someone you outrank. */
 export function canManageUser(viewer: UserActor, target: UserActor): boolean {
-  if (target.id === viewer.id) return false;
-  if (!canEditUser(viewer, target)) return false;
-  if (viewer.role === "superadmin") return true;
-  return viewer.role === "admin" && target.role === "user";
+  return manageBlockKey(viewer, target) === null;
+}
+
+// Deactivate / delete: never your own account, and only someone you outrank.
+export function manageBlockKey(viewer: UserActor, target: UserActor): string | null {
+  if (target.id === viewer.id) return "why_disabled.own_account";
+  if (!canEditUser(viewer, target)) return "why_disabled.other_branch";
+  if (viewer.role === "superadmin") return null;
+  return viewer.role === "admin" && target.role === "user" ? null : "why_disabled.user_rank";
 }

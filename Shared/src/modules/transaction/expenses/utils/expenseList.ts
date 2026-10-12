@@ -74,6 +74,6 @@ export function expenseMenuItems(
 ): MenuItem<ExpenseActionKey>[] {
   const keys: ExpenseActionKey[] = [];
   if (item.source === "stock" && item.productId) keys.push("product");
-  if (item.canVoid) keys.push("remove");
-  return pickMenu(EXPENSE_MENU, keys);
+  keys.push("remove");
+  return pickMenu(EXPENSE_MENU, keys, { remove: !item.canVoid && "why_disabled.stock_expense" });
 }

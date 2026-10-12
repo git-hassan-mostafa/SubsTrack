@@ -1,5 +1,5 @@
 import type { ReceiveBlock, UserWallet, WalletSource } from "@shared/core/types";
-import type { MenuItem } from "@shared/shared/lib/menuItem";
+import { withReason, type MenuItem } from "@shared/shared/lib/menuItem";
 
 export type WalletActionMode = "view" | "receive" | "close_out";
 
@@ -77,15 +77,23 @@ export function walletMenuItems(wallet: WalletRights): MenuItem<WalletActionKey>
   return [{ key: "act_all", group: "money", labelKey: walletActLabelKey(mode, true) }];
 }
 
+// A look-only wallet still shows Receive, greyed, with the reason from custody.
 export function walletItemMenuItems(
-  mode: WalletActionMode,
+  wallet: WalletRights | null,
 ): MenuItem<WalletItemActionKey>[] {
+  const mode = walletActionMode(wallet);
   const details: MenuItem<WalletItemActionKey> = {
     key: "details",
     group: "open",
     labelKey: "ledger.payment_details",
   };
-  return mode === "view" ? [details] : [details, ...walletSelectionItems(mode)];
+  if (mode !== "view") return [details, ...walletSelectionItems(mode)];
+  if (!wallet) return [details];
+  const blocked = withReason<WalletItemActionKey>(
+    { key: "act", group: "money", labelKey: walletActLabelKey("receive", false) },
+    receiveBlockLabelKey(wallet.receiveBlock),
+  );
+  return [details, blocked];
 }
 
 export function walletSelectionItems(

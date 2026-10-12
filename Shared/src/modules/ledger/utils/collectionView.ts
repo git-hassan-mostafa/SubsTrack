@@ -74,12 +74,14 @@ export function paymentMenuItems(
   payment: Voidable,
   options: { sendable: boolean; billVoided?: boolean },
 ): PaymentMenuItem[] {
-  const keys: PaymentActionKey[] = ["details"];
-  if (!options.billVoided && payment.voidedAt === null) {
-    if (options.sendable) keys.push("invoice");
-    keys.push("correct", "void");
-  }
-  return pickMenu(PAYMENT_MENU, keys);
+  const voidedKey =
+    (options.billVoided && "why_disabled.bill_voided") ||
+    (payment.voidedAt !== null && "why_disabled.payment_voided");
+  return pickMenu(PAYMENT_MENU, ["details", "invoice", "correct", "void"], {
+    invoice: voidedKey || (!options.sendable && "invoice.no_phone"),
+    correct: voidedKey,
+    void: voidedKey,
+  });
 }
 
 // A voided bill takes every payment on it down with it (gotcha #109).

@@ -28,8 +28,10 @@ import {
 import { applySelectionChange } from "@shared/modules/customer/customer-payments/utils/monthSelection";
 import { lastBillableMonth } from "@shared/modules/customer/customer-payments/utils/payWindow";
 import { buildGridsFor } from "@shared/state/slices/payments/utils/buildGrids";
+import { ADMIN_ONLY } from "@shared/shared/lib/menuItem";
 import { bill, customer, line, plan, skip } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
+import { enabledKeys, greyed } from "../helpers/menus";
 
 // TC-MA-* — the month grid doors both apps run (tap, menu, selection, link).
 const LINE = line({ id: "line-1", startDate: "2026-01-01", plan: plan({ id: "p1" }) });
@@ -129,7 +131,8 @@ describe("monthTap: what a click on a cell does", () => {
 describe("monthMenuItems: the ⋮ menu of one month", () => {
   it("TC-MA-10 an open priced month offers pay, pay + send, part pay, skip and write-off", () => {
     const s = setup();
-    expect(keys(monthMenuItems(month(s, 1), s.gates, STAFF))).toEqual([
+    const items = monthMenuItems(month(s, 1), s.gates, STAFF);
+    expect(enabledKeys(items)).toEqual([
       "open",
       "quick-pay",
       "quick-pay-whatsapp",
@@ -137,6 +140,7 @@ describe("monthMenuItems: the ⋮ menu of one month", () => {
       "skip",
       "write-off",
     ]);
+    expect(greyed(items)).toEqual({ history: ADMIN_ONLY });
   });
 
   it("TC-MA-11 a line with no set price asks for the amount and has no part pay", () => {
@@ -156,13 +160,11 @@ describe("monthMenuItems: the ⋮ menu of one month", () => {
     expect(send).toMatchObject({ disabled: true, captionKey: "invoice.no_phone" });
   });
 
-  it("TC-MA-13 a blocked later month offers no pay rows, only skip and write-off", () => {
+  it("TC-MA-13 a blocked later month greys Pay now, saying the older months go first", () => {
     const s = setup();
-    expect(keys(monthMenuItems(month(s, 3), s.gates, STAFF))).toEqual([
-      "open",
-      "skip",
-      "write-off",
-    ]);
+    const items = monthMenuItems(month(s, 3), s.gates, ADMIN);
+    expect(enabledKeys(items)).toEqual(["open", "skip", "history", "write-off"]);
+    expect(greyed(items)).toEqual({ "quick-pay": "why_disabled.pay_older_first" });
   });
 
   it("TC-MA-14 a part-paid month offers its bill, the rest, and the void", () => {
@@ -176,10 +178,10 @@ describe("monthMenuItems: the ⋮ menu of one month", () => {
     ]);
   });
 
-  it("TC-MA-15 a written-off month hides 'collect the rest'", () => {
+  it("TC-MA-15 a written-off month greys 'collect the rest'", () => {
     const s = setup([bill("2026-01-01", 5, { writtenOffAt: "2026-02-01T00:00:00.000Z" })]);
-    expect(keys(monthMenuItems(month(s, 1), s.gates, STAFF))).not.toContain(
-      "collect-remaining",
+    expect(greyed(monthMenuItems(month(s, 1), s.gates, STAFF))["collect-remaining"]).toBe(
+      "why_disabled.written_off",
     );
   });
 
@@ -210,8 +212,10 @@ describe("monthMenuItems: the ⋮ menu of one month", () => {
       cancelledAt: "2026-03-10T00:00:00.000Z",
     });
     const t = setup([], [], { on: stopped });
-    expect(keys(monthMenuItems(month(t, 3), t.gates, STAFF))).toContain("write-off");
-    expect(keys(monthMenuItems(month(t, 4), t.gates, STAFF))).not.toContain("write-off");
+    expect(enabledKeys(monthMenuItems(month(t, 3), t.gates, STAFF))).toContain("write-off");
+    const afterStop = monthMenuItems(month(t, 4), t.gates, STAFF);
+    expect(greyed(afterStop)["write-off"]).toBe("why_disabled.line_stopped");
+    expect(greyed(afterStop)["quick-pay"]).toBe("why_disabled.line_stopped");
   });
 
   it("TC-MA-15d a written-off month no longer blocks paying a later one", () => {
@@ -222,16 +226,23 @@ describe("monthMenuItems: the ⋮ menu of one month", () => {
   it("TC-MA-16 history is admin-only and never on a month before the start", () => {
     const s = setup([], [], { on: line({ id: "line-1", startDate: "2026-04-01" }) });
     expect(keys(monthMenuItems(month(s, 2), s.gates, ADMIN))).toEqual(["open"]);
-    expect(keys(monthMenuItems(month(s, 4), s.gates, STAFF))).not.toContain("history");
-    expect(keys(monthMenuItems(month(s, 4), s.gates, ADMIN))).toContain("history");
+    expect(greyed(monthMenuItems(month(s, 4), s.gates, STAFF)).history).toBe(ADMIN_ONLY);
+    expect(enabledKeys(monthMenuItems(month(s, 4), s.gates, ADMIN))).toContain("history");
   });
 
-  it("TC-MA-17 a locked skip offers pay rows and no unskip", () => {
+  it("TC-MA-17 a locked skip offers pay rows; unskip is greyed", () => {
     const s = setup([bill("2026-02-01", 20)], [skip("2026-01-01")]);
-    const items = keys(monthMenuItems(month(s, 1), s.gates, STAFF));
-    expect(items).toContain("quick-pay");
-    expect(items).not.toContain("unskip");
+    const items = monthMenuItems(month(s, 1), s.gates, STAFF);
+    expect(enabledKeys(items)).toContain("quick-pay");
+    expect(greyed(items).unskip).toBe("why_disabled.later_month_paid");
     expect(canQuickPayMonth(month(s, 1), s.gates)).toBe(true);
+  });
+
+  it("TC-MA-17b an open skip greys Pay now until it is unskipped", () => {
+    const s = setup([], [skip("2026-01-01")]);
+    const items = monthMenuItems(month(s, 1), s.gates, STAFF);
+    expect(enabledKeys(items)).toContain("unskip");
+    expect(greyed(items)["quick-pay"]).toBe("why_disabled.month_skipped");
   });
 });
 

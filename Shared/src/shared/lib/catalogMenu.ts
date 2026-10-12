@@ -75,10 +75,10 @@ export function catalogRowActions(kind: CatalogKind, row: object): CatalogMenuIt
   const rules = RULES[kind];
   const active = isActive(row);
   const keys: CatalogActionKey[] = ["edit"];
-  if (rules.stock && active) keys.push("stock");
+  if (rules.stock) keys.push("stock");
   keys.push("history", ...statusKeys(rules, active));
   if (rules.status !== "restore" || active) keys.push("delete");
-  return pickMenu(menuOf(kind), keys);
+  return pickMenu(menuOf(kind), keys, { stock: !active && "why_disabled.inactive_item" });
 }
 
 // A pick of several only deletes; one row also edits and changes status.

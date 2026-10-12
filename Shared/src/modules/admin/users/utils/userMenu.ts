@@ -1,5 +1,5 @@
 import { pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
-import { canEditUser, canManageUser, type UserActor } from "./userPermissions";
+import { canEditUser, canManageUser, manageBlockKey, type UserActor } from "./userPermissions";
 
 export type UserActionKey = "edit" | "history" | "deactivate" | "reactivate" | "delete";
 
@@ -23,11 +23,13 @@ function statusKey(target: UserTarget): UserActionKey {
 
 // A row outside the viewer's branch is readable but never writable (RLS).
 export function userRowActions(viewer: UserActor, target: UserTarget): UserMenuItem[] {
-  const keys: UserActionKey[] = [];
-  if (canEditUser(viewer, target)) keys.push("edit");
-  keys.push("history");
-  if (canManageUser(viewer, target)) keys.push(statusKey(target), "delete");
-  return pickMenu(MENU, keys);
+  const manageBlock = manageBlockKey(viewer, target);
+  return pickMenu(MENU, ["edit", "history", statusKey(target), "delete"], {
+    edit: !canEditUser(viewer, target) && "why_disabled.other_branch",
+    deactivate: manageBlock,
+    reactivate: manageBlock,
+    delete: manageBlock,
+  });
 }
 
 export function userSelectionActions(

@@ -40,8 +40,8 @@ const MENU: MenuTable<DebtorActionKey> = {
 
 // Writing off a debtor gives up DEBTS only; an unpaid month is not one (#186).
 export function debtorActions(items: readonly OpenItem[]): DebtorMenuItem[] {
-  const keys: DebtorActionKey[] = [];
-  if (items.length > 0) keys.push("collect_all");
-  if (writeOffItems([...items], "debts").length > 0) keys.push("write_off_all");
-  return pickMenu(MENU, keys);
+  return pickMenu(MENU, ["collect_all", "write_off_all"], {
+    collect_all: items.length === 0 && "why_disabled.nothing_owed",
+    write_off_all: writeOffItems([...items], "debts").length === 0 && "why_disabled.no_debts",
+  });
 }

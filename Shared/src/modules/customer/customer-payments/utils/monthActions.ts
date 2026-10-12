@@ -1,5 +1,5 @@
 import type { Charge, MonthEntry } from "@shared/core/types";
-import type { MenuItem } from "@shared/shared/lib/menuItem";
+import { ADMIN_ONLY, withReason, type MenuItem } from "@shared/shared/lib/menuItem";
 import {
   blockingPaidMonths,
   blockingUnpaidMonths,
@@ -122,6 +122,16 @@ export interface MonthMenuViewer {
   canSend: boolean;
 }
 
+// Why Pay now is greyed on a month that still owes; null when it can run.
+function monthPayBlockKey(entry: MonthEntry, gates: LineGates): string | null {
+  if (entry.status === "skipped" && !isLockedSkipped(entry, gates)) {
+    return "why_disabled.month_skipped";
+  }
+  if (!isPayableStatus(entry, gates)) return null;
+  if (isPayBlocked(entry, gates)) return "why_disabled.line_stopped";
+  return payOrderBlocker(gates, [entry.billingMonth]) ? "why_disabled.pay_older_first" : null;
+}
+
 export function monthMenuItems(
   entry: MonthEntry,
   gates: LineGates,
@@ -130,7 +140,15 @@ export function monthMenuItems(
   const items: MonthMenuItem[] = [
     { key: "open", group: "open", labelKey: "common.open" },
   ];
-  if (canQuickPayMonth(entry, gates)) {
+  const payBlock = monthPayBlockKey(entry, gates);
+  if (payBlock) {
+    items.push(
+      withReason<MonthMenuKey>(
+        { key: "quick-pay", group: "money", labelKey: "payments.quick_pay.pay_now" },
+        payBlock,
+      ),
+    );
+  } else if (canQuickPayMonth(entry, gates)) {
     items.push({
       key: "quick-pay",
       group: "money",
@@ -159,12 +177,13 @@ export function monthMenuItems(
       labelKey: "payments.skip.skip_action",
     });
   }
-  if (entry.status === "skipped" && !isLockedSkipped(entry, gates)) {
-    items.push({
-      key: "unskip",
-      group: "manage",
-      labelKey: "payments.skip.unskip_action",
-    });
+  if (entry.status === "skipped") {
+    items.push(
+      withReason<MonthMenuKey>(
+        { key: "unskip", group: "manage", labelKey: "payments.skip.unskip_action" },
+        isLockedSkipped(entry, gates) && "why_disabled.later_month_paid",
+      ),
+    );
   }
   if (hasViewableBill(entry)) {
     items.push({ key: "bill", group: "open", labelKey: "ledger.view_bill" });
@@ -176,25 +195,36 @@ export function monthMenuItems(
         captionKey: "ledger.revert_write_off_caption",
       });
     }
-    if (entry.balance > 0 && entry.charge?.writtenOffAt == null) {
-      items.push({
-        key: "collect-remaining",
-        group: "money",
-        labelKey: "ledger.collect_rest",
-      });
+    if (entry.balance > 0) {
+      items.push(
+        withReason<MonthMenuKey>(
+          { key: "collect-remaining", group: "money", labelKey: "ledger.collect_rest" },
+          entry.charge?.writtenOffAt != null && "why_disabled.written_off",
+        ),
+      );
     }
   }
-  if (viewer.isAdmin && entry.status !== "before_start") {
-    items.push({ key: "history", group: "history", labelKey: "audit.history" });
+  if (entry.status !== "before_start") {
+    items.push(
+      withReason<MonthMenuKey>(
+        { key: "history", group: "history", labelKey: "audit.history" },
+        !viewer.isAdmin && ADMIN_ONLY,
+      ),
+    );
   }
-  if (canWriteOffMonth(entry, gates)) {
-    items.push({
-      key: "write-off",
-      group: "danger",
-      labelKey: "ledger.write_off",
-      captionKey: "ledger.write_off_month_caption",
-      destructive: true,
-    });
+  if (entry.status === "unpaid") {
+    items.push(
+      withReason<MonthMenuKey>(
+        {
+          key: "write-off",
+          group: "danger",
+          labelKey: "ledger.write_off",
+          captionKey: "ledger.write_off_month_caption",
+          destructive: true,
+        },
+        !canWriteOffMonth(entry, gates) && "why_disabled.line_stopped",
+      ),
+    );
   }
   if (entry.charge && !entry.charge.writtenOffAt) {
     items.push({

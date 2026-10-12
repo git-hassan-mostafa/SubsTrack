@@ -137,8 +137,10 @@ describe("expense list", () => {
 
   it("TC-EX-10 a typed expense can be removed; a stock row only opens its product", () => {
     expect(expenseMenuItems(item()).map((m) => m.key)).toEqual(["remove"]);
-    expect(expenseMenuItems(stock()).map((m) => m.key)).toEqual(["product"]);
-    expect(expenseMenuItems(stock({ productId: null }))).toEqual([]);
+    const stockRow = expenseMenuItems(stock());
+    expect(stockRow.map((m) => m.key)).toEqual(["product", "remove"]);
+    expect(stockRow[1]).toMatchObject({ disabled: true, captionKey: "why_disabled.stock_expense" });
+    expect(expenseMenuItems(stock({ productId: null })).map((m) => m.key)).toEqual(["remove"]);
   });
 
   it("TC-EX-11 removing a row voids the stored expense by its own id", () => {

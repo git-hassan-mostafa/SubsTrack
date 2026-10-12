@@ -1,7 +1,7 @@
 import type { Charge, ChargeStatus, Collection, Currency } from "@shared/core/types";
 import { formatMoney, formatPaidFraction } from "@shared/core/utils/currency";
 import { formatDate, formatDateTime } from "@shared/core/utils/date";
-import { pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
+import { ADMIN_ONLY, pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
 import { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/utils/blockRangeLabel";
 import { chargeStatusOf } from "./billState";
 import { roundMoney } from "./waterfall";
@@ -192,10 +192,14 @@ export function billMenuItems(
   viewer: { isAdmin: boolean },
   doors: BillMenuDoors,
 ): BillMenuItem[] {
-  const keys: BillActionKey[] = [];
-  if (viewer.isAdmin) keys.push("history");
+  const keys: BillActionKey[] = ["history"];
   if (doors.revertWriteOff && facts.canRevertWriteOff) keys.push("revert_write_off");
-  if (doors.writeOff && facts.canWriteOff) keys.push("write_off");
-  if (doors.void && facts.canVoid) keys.push("void");
-  return pickMenu(BILL_MENU, keys);
+  if (doors.writeOff && !facts.writtenOff) keys.push("write_off");
+  if (doors.void) keys.push("void");
+  const voided = facts.voided && "why_disabled.bill_voided";
+  return pickMenu(BILL_MENU, keys, {
+    history: !viewer.isAdmin && ADMIN_ONLY,
+    write_off: voided || (facts.settled && "why_disabled.fully_paid"),
+    void: voided,
+  });
 }

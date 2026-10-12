@@ -30,6 +30,8 @@ export function debtItemFacts(
 
 export type DebtMenuItem = MenuItem<DebtItemActionKey>;
 
+const WRITTEN_OFF = "why_disabled.written_off";
+
 const MENU: MenuTable<DebtItemActionKey> = {
   collect: { group: "money", labelKey: "payments.collect" },
   revert_write_off: {
@@ -47,14 +49,20 @@ const MENU: MenuTable<DebtItemActionKey> = {
 };
 
 export function debtItemActions(item: OpenItem): DebtMenuItem[] {
-  const writtenOff = item.charge?.writtenOffAt != null;
+  const writtenOff = item.charge?.writtenOffAt != null && WRITTEN_OFF;
   const billed = item.chargeId !== null;
-  const custom = isEditableCustomDebt(item);
-  const keys: DebtItemActionKey[] = [];
-  if (!writtenOff) keys.push("collect");
-  if (writtenOff && billed) keys.push("revert_write_off");
-  if (custom) keys.push("edit");
-  if (billed && !writtenOff) keys.push("write_off");
-  if (custom) keys.push("remove");
-  return pickMenu(MENU, keys);
+  const notCustom =
+    !isEditableCustomDebt(item) && (writtenOff || "why_disabled.custom_debt_only");
+  const keys: DebtItemActionKey[] = [
+    "collect",
+    writtenOff ? "revert_write_off" : "write_off",
+    "edit",
+    "remove",
+  ];
+  return pickMenu(MENU, keys, {
+    collect: writtenOff,
+    write_off: !billed && "why_disabled.not_billed",
+    edit: notCustom,
+    remove: notCustom,
+  });
 }
