@@ -298,7 +298,7 @@ describe("pageCustomerStatuses — server filters equal the phone list", () => {
     expect(total({})).toBe(10);
     expect(total({ status: "active" })).toBe(9);
     expect(total({ status: "inactive" })).toBe(1);
-    expect(PAYMENTS.map((payment) => total({ payment }))).toEqual([1, 2, 1, 2, 2]);
+    expect(PAYMENTS.map((payment) => total({ payment }))).toEqual([3, 2, 1, 2, 2]);
     expect(total({ debt: "yes" })).toBe(3);
     expect(total({ debt: "no" })).toBe(7);
     expect(total({ planId: PLAN_10A })).toBe(2);
@@ -554,11 +554,11 @@ describe("matchesCustomerFilters", () => {
     ...over,
   });
 
-  it("TC-CT-17 an overdue customer is not also listed under Unpaid", () => {
+  it("TC-CT-17 an overdue customer is also listed under Unpaid", () => {
     const c = customer();
     const status = buildCustomerStatus([line({ startDate: "2020-01-01" })], [], []);
     expect(matchesCustomerFilters(c, facts({ status }), pick({ payment: "overdue" }))).toBe(true);
-    expect(matchesCustomerFilters(c, facts({ status }), pick({ payment: "unpaid" }))).toBe(false);
+    expect(matchesCustomerFilters(c, facts({ status }), pick({ payment: "unpaid" }))).toBe(true);
   });
 
   it("TC-CT-18 no status means no payment filter; debt alone decides Has debts", () => {

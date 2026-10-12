@@ -16,6 +16,7 @@ var MONTHS = [
 var BRANCH_FILTER_UNASSIGNED = "unassigned";
 //#endregion
 //#region ../Shared/src/core/utils/date.ts
+var BARE_DAY = /^\d{4}-\d{2}-\d{2}$/;
 function toBillingMonth(year, month) {
 	return `${year}-${String(month).padStart(2, "0")}-01`;
 }
@@ -41,7 +42,7 @@ function getCurrentYearMonth() {
 	};
 }
 function isValidDateString(s) {
-	return /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s));
+	return BARE_DAY.test(s) && !isNaN(Date.parse(s));
 }
 //#endregion
 //#region ../Shared/src/core/utils/searchTerm.ts
@@ -380,10 +381,18 @@ function labelKeysOf(labels) {
 function matchesYesNo(choice, fact) {
 	return choice === null || choice === "yes" === fact;
 }
+var PAYMENT_FILTER_FLAGS = {
+	paid: ["paid"],
+	unpaid: ["unpaid", "overdue"],
+	overdue: ["overdue"],
+	mixed: ["mixed"],
+	not_due_yet: ["not_due_yet"]
+};
 function matchesPayment(customer, status, payment) {
 	if (payment === null) return true;
 	if (!customer.active || !customer.isRegular) return false;
-	return customerFlags(status).includes(payment);
+	const wanted = PAYMENT_FILTER_FLAGS[payment];
+	return customerFlags(status).some((flag) => wanted.includes(flag));
 }
 function matchesPlan(customer, planId) {
 	if (planId === null) return true;

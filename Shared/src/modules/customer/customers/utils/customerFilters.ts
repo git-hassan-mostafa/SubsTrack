@@ -141,7 +141,16 @@ function matchesYesNo(choice: YesNoFilter | null, fact: boolean): boolean {
   return choice === null || (choice === "yes") === fact;
 }
 
-// A payment pick shows only cards that carry that pill — gotcha #56.
+// Unpaid also takes Overdue cards, whose Unpaid pill is folded into Overdue.
+const PAYMENT_FILTER_FLAGS: Record<PaymentFilter, readonly CustomerFlag[]> = {
+  paid: ["paid"],
+  unpaid: ["unpaid", "overdue"],
+  overdue: ["overdue"],
+  mixed: ["mixed"],
+  not_due_yet: ["not_due_yet"],
+};
+
+// A payment pick shows only cards carrying one of its pills — gotcha #56.
 function matchesPayment(
   customer: FilterableCustomer,
   status: CustomerStatus | null,
@@ -149,7 +158,8 @@ function matchesPayment(
 ): boolean {
   if (payment === null) return true;
   if (!customer.active || !customer.isRegular) return false;
-  return customerFlags(status).includes(payment);
+  const wanted = PAYMENT_FILTER_FLAGS[payment];
+  return customerFlags(status).some((flag) => wanted.includes(flag));
 }
 
 function matchesPlan(customer: FilterableCustomer, planId: string | null): boolean {
