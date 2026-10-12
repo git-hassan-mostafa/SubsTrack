@@ -53,7 +53,9 @@
     "complete_message": "Mark this as fully paid? The {{amount}} still owed is added to the amount paid. No debt payment is recorded.",
     "save": "Save",
     "unknown": "Unknown",
-    "copy": "Copy"
+    "copy": "Copy",
+    "copied": "Copied",
+    "crash_hint": "The app hit an error. The full details are below and were saved to the error log."
   },
   "auth": {
     "title": "Sijil",

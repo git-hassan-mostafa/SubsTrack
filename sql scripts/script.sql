@@ -1864,7 +1864,7 @@ ALTER TABLE exception_logs ADD COLUMN IF NOT EXISTS user_id UUID
 -- Snapshot so the log stays readable if the user row is later deleted.
 ALTER TABLE exception_logs ADD COLUMN IF NOT EXISTS username TEXT;
 
--- Where the error was caught: 'boundary' | 'global_handler' | 'repository' | 'service'.
+-- Where the error was caught: 'boundary' | 'global_handler' | 'unhandled_rejection' | 'repository' | 'service'.
 ALTER TABLE exception_logs ADD COLUMN IF NOT EXISTS source TEXT NOT NULL;
 ALTER TABLE exception_logs ADD COLUMN IF NOT EXISTS message TEXT NOT NULL;
 ALTER TABLE exception_logs ADD COLUMN IF NOT EXISTS stack TEXT;

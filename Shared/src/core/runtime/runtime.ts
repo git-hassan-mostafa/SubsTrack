@@ -19,6 +19,7 @@ export type RuntimeActor = Pick<AuthUser, "id" | "tenantId" | "username">;
 export type ExceptionSource =
   | "boundary"
   | "global_handler"
+  | "unhandled_rejection"
   | "repository"
   | "service";
 

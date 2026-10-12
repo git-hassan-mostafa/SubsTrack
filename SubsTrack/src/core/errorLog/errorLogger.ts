@@ -1,6 +1,7 @@
 import { IS_OFFLINE_CAPABLE } from "../offline/platform";
 import { getDb } from "../offline/db/sqlite";
 import { insertDirty } from "../offline/db/dml";
+import { withDbLock } from "../offline/dbLock";
 import { newId, nowIso } from "@shared/core/utils/ids";
 import { runtime, type ExceptionInput } from "@shared/core/runtime/runtime";
 
@@ -23,7 +24,7 @@ export async function logException(input: ExceptionInput): Promise<void> {
       created_at: nowIso(),
       updated_at: nowIso(),
     };
-    await insertDirty(getDb(), "exception_logs", row);
+    await withDbLock(() => insertDirty(getDb(), "exception_logs", row));
   } catch (loggingError) {
     console.error("[errorLogger] failed to log exception:", loggingError);
   }

@@ -3,7 +3,7 @@ import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
 import { initI18n } from "@/src/core/i18n/setup";
 import { useOptionSlice } from "@shared/state/hooks/useOptionSlice";
 import { resetAllDomainStores } from "@shared/shared/lib/storeReset";
-import { ErrorBoundary } from "@/src/shared/components/ErrorBoundary";
+import { CrashGate } from "@/src/shared/components/CrashGate";
 import { LoadingScreen } from "@/src/shared/components/LoadingScreen";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -82,12 +82,12 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <KeyboardProvider>
-        <BottomSheetModalProvider>
-          <StatusBar style="dark" />
-          <ErrorBoundary>
+        <CrashGate>
+          <BottomSheetModalProvider>
+            <StatusBar style="dark" />
             <Slot />
-          </ErrorBoundary>
-        </BottomSheetModalProvider>
+          </BottomSheetModalProvider>
+        </CrashGate>
       </KeyboardProvider>
     </GestureHandlerRootView>
   );
