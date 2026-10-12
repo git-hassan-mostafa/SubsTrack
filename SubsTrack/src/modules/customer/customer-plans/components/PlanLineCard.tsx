@@ -122,7 +122,11 @@ export function PlanLineCard({
             label={t("customers.plan_label")}
             onAddNew={onAddPlan}
             disabled={cancelled || branchId === null}
-            disabledHint={t("subscriptions.select_branch_first")}
+            disabledHint={
+              branchId === null
+                ? t("subscriptions.select_branch_first")
+                : undefined
+            }
           />
         </View>
         <View className="w-36">

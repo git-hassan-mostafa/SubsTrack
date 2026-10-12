@@ -106,7 +106,7 @@ export function Dropdown<T extends string | number | null = string>({
 
   return (
     <View className="mb-4">
-      {label || onAddNew ? (
+      {label || (onAddNew && !disabled) ? (
         <View className="flex-row items-center justify-between mb-1.5">
           {label ? (
             <Text
@@ -118,7 +118,7 @@ export function Dropdown<T extends string | number | null = string>({
           ) : (
             <View />
           )}
-          {onAddNew ? (
+          {onAddNew && !disabled ? (
             <PressableOpacity
               onPress={onAddNew}
               hitSlop={8}
@@ -147,9 +147,10 @@ export function Dropdown<T extends string | number | null = string>({
                 : "text-gray-400"
           }`}
         >
-          {disabled
-            ? (disabledHint ?? placeholder ?? t("customers.select_plan"))
-            : (displayLabel ?? placeholder ?? t("customers.select_plan"))}
+          {(disabled ? disabledHint : undefined) ??
+            displayLabel ??
+            placeholder ??
+            t("customers.select_plan")}
         </Text>
         <Ionicons name="chevron-down" size={16} color={COLORS.gray400} />
       </PressableOpacity>
