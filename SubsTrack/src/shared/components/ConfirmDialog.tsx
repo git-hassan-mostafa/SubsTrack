@@ -1,6 +1,6 @@
 import { ActivityIndicator, Modal, View } from "react-native";
 import { PressableOpacity } from "./PressableOpacity";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { useTranslation } from "react-i18next";
@@ -38,10 +38,12 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
+  const [shownVisible, setShownVisible] = useState(visible);
 
-  useEffect(() => {
+  if (visible !== shownVisible) {
+    setShownVisible(visible);
     if (!visible) setLoading(false);
-  }, [visible]);
+  }
 
   async function handleConfirm() {
     if (loading || confirmDisabled) return;

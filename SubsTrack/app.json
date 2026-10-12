@@ -13,7 +13,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "sijil",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
     },
@@ -23,7 +22,6 @@
         "foregroundImage": "./assets/images/icon-android-fg.png",
         "monochromeImage": "./assets/images/icon-android-mono.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.hassanmostafaexpo.Sijil"
     },
@@ -47,7 +45,9 @@
       ],
       "expo-font",
       "expo-localization",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-sharing",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true,

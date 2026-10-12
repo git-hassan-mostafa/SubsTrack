@@ -12,7 +12,6 @@ import { COLORS } from "@/src/shared/constants";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { formatDate } from "@shared/core/utils/date";
 import { CustomerPaymentPanel } from "@/src/modules/customer/customer-payments";
 import {
   CustomerSalesPanel,
@@ -30,7 +29,11 @@ export function CustomerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
-  const customerStore = useCustomerSlice();
+  const getCustomer = useCustomerSlice((state) => state.getCustomer);
+  const fetchCustomer = useCustomerSlice((state) => state.fetchCustomer);
+  const error = useCustomerSlice((state) => state.error);
+  const loading = useCustomerSlice((state) => state.loading);
+  const clearError = useCustomerSlice((state) => state.clearError);
   const customer = useCustomerSlice(
     (state) => state.items.find((c) => c.id === id) ?? null,
   );
@@ -47,21 +50,13 @@ export function CustomerDetailScreen() {
     : undefined;
 
   useEffect(() => {
-    getSelectedCustomer();
-  }, [id]);
-
-  async function getSelectedCustomer() {
-    if (id) await customerStore.getCustomer(id);
-  }
-
-  async function fetchSelectedCustomer() {
-    if (id) await customerStore.fetchCustomer(id);
-  }
+    if (id) void getCustomer(id);
+  }, [id, getCustomer]);
 
   const handleRefresh = useCallback(() => {
-    fetchSelectedCustomer();
+    if (id) void fetchCustomer(id);
     setRefreshToken((n) => n + 1);
-  }, [id]);
+  }, [id, fetchCustomer]);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -101,16 +96,13 @@ export function CustomerDetailScreen() {
       />
 
       <ResponsiveContainer className="flex-1">
-        {customerStore.error ? (
+        {error ? (
           <View className="px-4 pt-4">
-            <ErrorBanner
-              message={customerStore.error}
-              onDismiss={customerStore.clearError}
-            />
+            <ErrorBanner message={error} onDismiss={clearError} />
           </View>
         ) : null}
 
-        {customerStore.loading && !customer ? (
+        {loading && !customer ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator color={COLORS.primary} />
           </View>
@@ -119,7 +111,7 @@ export function CustomerDetailScreen() {
             className="flex-1"
             refreshControl={
               <RefreshControl
-                refreshing={customerStore.loading}
+                refreshing={loading}
                 onRefresh={handleRefresh}
                 tintColor={COLORS.primary}
               />

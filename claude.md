@@ -100,9 +100,9 @@ End every task with `## Changes Made`: **3–5 bullets**, one short sentence eac
 
 **Nothing may be added to `SubsTrack/package.json`** for the portal or `Web/` — its `scripts` + dependency tree feed the OTA fingerprint (gotcha #53). Portal is its own root-level package; the edge-function deploy script lives in `Portal/package.json`.
 
-**Stack**: RN 0.81.5 + Expo SDK 54 · Expo Router 6 (file-based, typed routes) · Zustand 5.0.12 + immer · NativeWind 4.2.3 · Supabase (PostgreSQL + RLS + Auth) · TS strict · i18next (en/ar, RTL) · @gorhom/bottom-sheet · alias `@/*` → repo root. `react-native-gesture-handler` intentionally **3.x**, ahead of the SDK 54 pin, guarded by `expo.install.exclude` (gotcha #140).
+**Stack**: RN 0.86.3 + Expo SDK 57 (React 19.2, Hermes v1, New Architecture only) · Expo Router 57 (file-based, typed routes; never import `@react-navigation/*` — use `expo-router/react-navigation`) · Zustand 5.0.12 + immer · NativeWind 4.2.3 · Supabase (PostgreSQL + RLS + Auth) · TS 6 strict · i18next (en/ar, RTL) · @gorhom/bottom-sheet · alias `@/*` → repo root. `react-native-gesture-handler` intentionally **3.x**, ahead of the SDK 57 pin (2.32), guarded by `expo.install.exclude` (gotcha #140). SubsTrack tsconfig `paths` pins `i18next` + `@supabase/supabase-js` to its own `node_modules` (gotcha #188). SuperAdmin still SDK 54.
 
-Commands (detail `docs/build-and-release.md`): `npm install` → `npx expo run:android` — **dev client required, Expo Go redboxes** (native keyboard-controller module). OTA: `npm run ota-prod`. Rebuild only when something **native** changed. Each app's `.env`: `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+Commands (detail `docs/build-and-release.md`): `npm install` → `npx expo run:android` — **dev client required, Expo Go redboxes** (native keyboard-controller module). OTA: `npm run ota-prod`. Rebuild only when something **native** changed. Each app's `.env`: `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY` — local dev only; EAS Build + `eas update` read the EAS environment's variables, never `.env` (gotcha #187).
 
 ## 5. Architecture (MANDATORY)
 Strict layers, dependencies **downward only**: Presentation → State → Business Logic → Repository → Database; Core (types/constants/utils) imported by all.

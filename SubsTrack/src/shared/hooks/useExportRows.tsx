@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import {
@@ -37,8 +37,6 @@ export function useExportRows(
   const [error, setError] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
-  const rowsAtPress = useRef(rows);
-  rowsAtPress.current = rows;
 
   const write = async (toWrite: readonly object[]): Promise<void> => {
     if (toWrite.length === 0) {
@@ -61,7 +59,7 @@ export function useExportRows(
       await write(
         loadFirst && options.loadMore
           ? await options.loadMore.loadAll()
-          : rowsAtPress.current,
+          : rows,
       );
     } catch (e) {
       setError((e as Error).message);

@@ -78,6 +78,18 @@ function stamp(): string {
     .replace("T", "-");
 }
 
+async function countTableRows(): Promise<Record<string, number>> {
+  const db = getDb();
+  const counts: Record<string, number> = {};
+  for (const name of ALL_TABLE_NAMES) {
+    const row = await db.getFirstAsync<{ n: number }>(
+      `SELECT COUNT(*) AS n FROM ${name}`,
+    );
+    counts[name] = row?.n ?? 0;
+  }
+  return counts;
+}
+
 export function DeveloperScreen() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -92,21 +104,13 @@ export function DeveloperScreen() {
   const [flash, setFlash] = useState<string | null>(null);
 
   const refreshCounts = useCallback(async () => {
-    const db = getDb();
-    const next: Record<string, number> = {};
-    for (const name of ALL_TABLE_NAMES) {
-      const row = await db.getFirstAsync<{ n: number }>(
-        `SELECT COUNT(*) AS n FROM ${name}`,
-      );
-      next[name] = row?.n ?? 0;
-    }
-    setCounts(next);
+    setCounts(await countTableRows());
   }, []);
 
   useEffect(() => {
     if (!IS_OFFLINE_CAPABLE || !isAdmin) return;
-    void refreshCounts();
-  }, [refreshCounts, isAdmin]);
+    void countTableRows().then(setCounts);
+  }, [isAdmin]);
 
   if (!IS_OFFLINE_CAPABLE || !isAdmin) {
     return (

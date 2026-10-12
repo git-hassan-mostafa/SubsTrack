@@ -437,7 +437,7 @@ Changeable: **quantity**, **cost + currency**, **note** only; `occurred_at` (dec
 
 Audit: why `stock_movements` is audited (see Audit Trail) — only **edit** / **revert** logged, filed under parent product's branch + name (`auditedUpdate` `audit` option); readable via row's **History**.
 
-**UI.** One form for add + edit (like `SaleFormSheet`): Edit fills qty / cost / note, "Editing this entry" banner (direction locked, Cancel ✕, note on when edit is wrong tool), button "Save Changes". Edit **scrolls body to top** (`scrollBody.current?.(0)` via `FormSheet` `scrollRef` prop — ref, not context, gotcha #102), else form looks dead. Save **keeps sheet open**, reloads history (correction believable beside rows it fixed), resets form to first-render state (unsaved-changes guard quiet).
+**UI.** One form for add + edit (like `SaleFormSheet`): Edit fills qty / cost / note, "Editing this entry" banner (direction locked, Cancel ✕, note on when edit is wrong tool), button "Save Changes". Edit **scrolls body to top** (`useSheetScrollTop()` → `scrollRef` to `FormSheet`, `scrollToTop()` from the handler — ref, not context, gotcha #102), else form looks dead. Save **keeps sheet open**, reloads history (correction believable beside rows it fixed), resets form to first-render state (unsaved-changes guard quiet).
 
 #### Reverting a stock entry
 

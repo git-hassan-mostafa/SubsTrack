@@ -153,10 +153,15 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
   } = selection;
   useSelectionBackHandler(selectionActive, clearSelection);
 
+  const [shownBranch, setShownBranch] = useState(branchFilter);
+  if (branchFilter !== shownBranch) {
+    setShownBranch(branchFilter);
+    setReady(false);
+  }
+
   useEffect(() => {
     let active = true;
     clearSelection();
-    setReady(false);
     void fetchCollections().finally(() => {
       if (active) setReady(true);
     });

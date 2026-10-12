@@ -25,12 +25,27 @@ yarn start
 
 **SubsTrack needs a dev client — NOT Expo Go** (redboxes: native `react-native-keyboard-controller`). Local dev: `npx expo run:android` / `npx expo run:ios` (or add `expo-dev-client`, build once); distributables: EAS profiles `npm run build-preview` / `build-prod`. After pulling run `npm install` first — project uses `package-lock.json`; `yarn` labels above are legacy, map 1:1 to `npm`.
 
-**Env vars** (`.env` in each app folder):
+**Env vars** (`.env` in each app folder; local dev only — EAS Build + `eas update` read the EAS environment's variables, #187):
 
 ```
 EXPO_PUBLIC_SUPABASE_URL=<your-supabase-url>
 EXPO_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
 ```
+
+### Upgrading the Expo SDK (SubsTrack)
+
+One SDK changelog per SDK crossed (expo.dev/changelog/sdk-NN, "Breaking changes" + "Deprecations"). AV blocks `npx` + install scripts on the dev laptop → run every CLI through `node`:
+
+```bash
+npm install expo@^NN.0.0 --ignore-scripts --no-audit --no-fund
+node node_modules/expo/bin/cli install --fix -- --ignore-scripts --no-audit --no-fund   # args after -- go to npm
+node <tmp>/node_modules/expo-doctor/bin/expo-doctor.js                                    # npm install expo-doctor into a temp folder first
+node node_modules/typescript/bin/tsc --noEmit -p .
+node node_modules/eslint/bin/eslint.js .
+node node_modules/expo/bin/cli export -p android --no-bytecode --clear --output-dir <tmp>  # hermesc blocked by AV
+```
+
+`--fix` skips `react-native-gesture-handler` (`expo.install.exclude`) → bump it by hand to the newest 3.x (#140). `--fix` may add config plugins to `app.json` `plugins`. SDK upgrade = native → new EAS build, never OTA. SDK 57 state: RN 0.86.3, React 19.2.3, TS 6.0.3, Reanimated 4.5 / worklets 0.10, `eslint-config-expo` 57 (`eslint-plugin-react-hooks` 7 → React Compiler lint rules on, #52).
 
 ### Web (`Web/`)
 
@@ -80,7 +95,7 @@ npm install --ignore-scripts   # types for tsc and the editor only — no app lo
 npx tsc --noEmit
 ```
 
-Source only — nothing builds/publishes it. SubsTrack's Metro bundles straight from `../Shared/src` (Shared change ships OTA like any `src/` change); Vite does same for Portal + `Web/`. **Adding a library Shared imports:** list it in `Shared/package.json` `peerDependencies` **and** `devDependencies` (pinned to SubsTrack's version), install it in every app reaching that file. Metro resolves bare imports only from `SubsTrack/node_modules` and blocks `Shared/node_modules`; Vite dedupes the peer list → each app gets ONE copy. Never make `Shared/` an npm workspace — hoisting changes OTA fingerprint (#53). NOT fingerprint inputs: `Shared/package.json` (outside Expo project), `metro.config.js`, `babel.config.js`, `tsconfig.json`.
+Source only — nothing builds/publishes it. SubsTrack's Metro bundles straight from `../Shared/src` (Shared change ships OTA like any `src/` change); Vite does same for Portal + `Web/`. **Adding a library Shared imports:** list it in `Shared/package.json` `peerDependencies` **and** `devDependencies` (pinned to SubsTrack's version), install it in every app reaching that file. Metro resolves bare imports only from `SubsTrack/node_modules` and blocks `Shared/node_modules`; Vite dedupes the peer list → each app gets ONE copy. `tsc` has no blockList: each app's tsconfig `paths` pins `i18next` + `@supabase/supabase-js` to its own `node_modules` (#188). Never make `Shared/` an npm workspace — hoisting changes OTA fingerprint (#53). NOT fingerprint inputs: `Shared/package.json` (outside Expo project), `metro.config.js`, `babel.config.js`, `tsconfig.json`.
 
 ### Releasing SubsTrack — OTA updates (EAS Update)
 
@@ -98,7 +113,9 @@ npm run build-preview / build-prod      # full rebuild — only when the table b
 |-|-|
 |anything in `src/`, `app/`, `../Shared/src/`, locale JSON, Tailwind styles, bundled `assets/`|new/upgraded **native** library or config plugin|
 |additive columns in SQLite mirror `tables.ts` (`applySchema.ts` `ALTER`s them in)|Expo SDK / React Native upgrade|
-|new Supabase queries + edge-function call sites|app icon, splash, permissions, `android.package`, `newArchEnabled`|
+|new Supabase queries + edge-function call sites|app icon, splash, permissions, `android.package`|
+
+Both OTA scripts pass `--environment` (= channel name; required since SDK 55) → the update inlines ONLY that EAS environment's variables, never `.env`. Empty EAS environment = app throws at start on every phone (#187).
 
 Postgres changes are server-side, unrelated — but run `script.sql` **before** publishing an update that reads a new column. Non-additive local-schema changes still not reconciled on either side.
 

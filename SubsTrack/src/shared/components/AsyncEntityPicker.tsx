@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from "react";
 import { ActivityIndicator, View } from "react-native";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
@@ -209,24 +215,18 @@ function AsyncPickerModal<T>({
 
   const requestTokenRef = useRef(0);
 
-  const loadFirstPage = useCallback(async (term: string) => {
-    const token = ++requestTokenRef.current;
+  const [shownSearch, setShownSearch] = useState<string | null>(null);
+  if (debouncedSearch !== shownSearch) {
+    setShownSearch(debouncedSearch);
     setItems([]);
     setLoading(true);
     setError(null);
     setPage(0);
-    try {
-      const next = await loadPage(term, 0);
-      if (requestTokenRef.current !== token) return setLoading(false);
-      setItems(next);
-      setHasMore(next.length === pageSize);
-    } catch (e) {
-      if (requestTokenRef.current !== token) return setLoading(false);
-      setError((e as Error).message);
-    } finally {
-      if (requestTokenRef.current === token) setLoading(false);
-    }
-  }, []);
+  }
+
+  const fetchFirstPage = useEffectEvent(async (term: string) =>
+    loadPage(term, 0),
+  );
 
   const loadNextPage = useCallback(async () => {
     if (loadingMore || !hasMore || loading) return;
@@ -247,8 +247,18 @@ function AsyncPickerModal<T>({
   }, [debouncedSearch, hasMore, loading, loadingMore, page]);
 
   useEffect(() => {
-    loadFirstPage(debouncedSearch);
-  }, [debouncedSearch, loadFirstPage]);
+    const token = ++requestTokenRef.current;
+    fetchFirstPage(debouncedSearch)
+      .then((next) => {
+        if (requestTokenRef.current !== token) return;
+        setItems(next);
+        setHasMore(next.length === pageSize);
+      })
+      .catch((e: unknown) => {
+        if (requestTokenRef.current === token) setError((e as Error).message);
+      })
+      .finally(() => setLoading(false));
+  }, [debouncedSearch, pageSize]);
 
   function handleClose() {
     setSearch("");

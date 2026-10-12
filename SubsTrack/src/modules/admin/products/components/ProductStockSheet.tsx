@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
-import {
-  FormSheet,
-  type SheetScrollTo,
-} from "@/src/shared/components/FormSheet";
+import { FormSheet } from "@/src/shared/components/FormSheet";
+import { useSheetScrollTop } from "@/src/shared/hooks/useSheetScrollTop";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
@@ -80,7 +78,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   const { history, reload: loadHistory } = useStockMovements(product.id);
   const [menuFor, setMenuFor] = useState<StockMovement | null>(null);
   const recordHistory = useHistoryDoor("stock_movements");
-  const scrollBody = useRef<SheetScrollTo | null>(null);
+  const { scrollRef, scrollToTop } = useSheetScrollTop();
 
   useEffect(() => {
     clearError();
@@ -92,7 +90,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   function startEdit(m: StockMovement) {
     form.startEdit(m);
     clearError();
-    scrollBody.current?.(0);
+    scrollToTop();
   }
 
   async function handleRevert(m: StockMovement) {
@@ -155,7 +153,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
       onDismiss={onDismiss}
       dirty={form.dirty}
       title={t("products.adjust_stock_title")}
-      scrollRef={scrollBody}
+      scrollRef={scrollRef}
     >
       {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 

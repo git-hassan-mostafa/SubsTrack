@@ -10,21 +10,20 @@ interface DbTableViewerProps {
   tableName: string;
 }
 
-/**
- * Read-only local-SQLite table grid for the Developer screen. Deliberately
- * self-contained (queries the DB itself, derives its own columns) instead of
- * going through the app's normal service/repository layering — this is a
- * debug-only tool nobody but a developer ever sees, so it isn't worth the
- * usual layering ceremony. Never call this pattern from real app screens.
- */
+// debug tool, deliberately skips the repository layer — docs/offline.md
 export function DbTableViewer({ tableName }: DbTableViewerProps) {
   const [rows, setRows] = useState<Record<string, unknown>[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [shownTable, setShownTable] = useState(tableName);
+
+  if (tableName !== shownTable) {
+    setShownTable(tableName);
+    setRows(null);
+    setError(null);
+  }
 
   useEffect(() => {
     let cancelled = false;
-    setRows(null);
-    setError(null);
     (async () => {
       try {
         const result = await getDb().getAllAsync<Record<string, unknown>>(

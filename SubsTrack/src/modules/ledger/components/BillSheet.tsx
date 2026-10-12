@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { FormSheet } from "@/src/shared/components/FormSheet";
@@ -84,11 +84,13 @@ export function BillSheet({
   const handleLoading = useCallback((v: boolean) => setPaymentsLoading(v), []);
 
   const chargeId = charge?.id ?? null;
-  useEffect(() => {
+  const [shownChargeId, setShownChargeId] = useState(chargeId);
+  if (chargeId !== shownChargeId) {
+    setShownChargeId(chargeId);
     setCollected(0);
     setPayments([]);
     setPaymentsLoading(true);
-  }, [chargeId]);
+  }
 
   if (!charge) return null;
 

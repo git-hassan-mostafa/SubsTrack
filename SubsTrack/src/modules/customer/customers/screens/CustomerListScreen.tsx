@@ -180,7 +180,9 @@ export function CustomerListScreen() {
   );
 
   const filterRef = useRef(applyFilters);
-  filterRef.current = applyFilters;
+  useEffect(() => {
+    filterRef.current = applyFilters;
+  }, [applyFilters]);
 
   const loadAllCustomers = useCallback(async () => {
     const all = await loadAllPages(

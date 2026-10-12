@@ -1,10 +1,8 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  FormSheet,
-  type SheetScrollTo,
-} from "@/src/shared/components/FormSheet";
+import { FormSheet } from "@/src/shared/components/FormSheet";
+import { useSheetScrollTop } from "@/src/shared/hooks/useSheetScrollTop";
 import { toActionMenuItems } from "@/src/shared/lib/menuActions";
 import { SALE_ACTION_ICONS } from "../hooks/saleActionIcons";
 import { useTranslation } from "react-i18next";
@@ -61,7 +59,7 @@ export function SaleDetailSheet({
 
   const [voidMode, setVoidMode] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const scrollBody = useRef<SheetScrollTo | null>(null);
+  const { scrollRef, scrollToTop } = useSheetScrollTop();
 
   if (!sale) return null;
 
@@ -88,7 +86,7 @@ export function SaleDetailSheet({
           void: onVoided
             ? () => {
                 setVoidMode(true);
-                scrollBody.current?.(0);
+                scrollToTop();
               }
             : undefined,
         },
@@ -109,7 +107,7 @@ export function SaleDetailSheet({
       title={t("sales.receipt_title")}
       subject={sale.customer?.name ?? t("sales.walk_in")}
       menuActions={menuActions}
-      scrollRef={scrollBody}
+      scrollRef={scrollRef}
     >
       <BillHero
         state={state}

@@ -4,6 +4,8 @@
     "strict": true,
     "paths": {
       "@/*": ["./*"],
+      "@supabase/supabase-js": ["./node_modules/@supabase/supabase-js"],
+      "i18next": ["./node_modules/i18next"],
       "@shared/*": ["../Shared/src/*"],
       "@edge/*": ["./supabase/functions/_shared/*"]
     }

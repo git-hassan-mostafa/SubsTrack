@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Platform,
   StyleSheet,
@@ -47,7 +47,7 @@ export function AppTextInput({
   ...props
 }: AppTextInputProps) {
   const insideSheet = useBottomSheetInternal(true) !== null;
-  const ref = useRef<TextInput>(null);
+  const [field, setField] = useState<TextInput | null>(null);
   const [focused, setFocused] = useState(false);
 
   const Field = (insideSheet && Platform.OS !== "web"
@@ -61,16 +61,16 @@ export function AppTextInput({
     () =>
       Gesture.Tap()
         .maxDistance(TAP_SLOP)
-        .onEnd(() => ref.current?.focus())
+        .onEnd(() => field?.focus())
         .runOnJS(true),
-    [],
+    [field],
   );
 
   return (
     <View className={containerClassName}>
       <Field
         {...props}
-        ref={ref}
+        ref={setField}
         style={[BASE_TEXT_STYLE, style]}
         onFocus={(event) => {
           setFocused(true);

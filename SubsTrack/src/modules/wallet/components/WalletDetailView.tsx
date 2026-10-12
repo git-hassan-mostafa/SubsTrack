@@ -1,9 +1,4 @@
-import {
-  useEffect,
-  useState,
-  type ComponentType,
-  type ReactNode,
-} from "react";
+import { useState, type ComponentType, type ReactNode } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -113,10 +108,12 @@ export function WalletDetailView({
 
   const clearItemSelection = selection.clear;
 
-  useEffect(() => {
+  const [shownHolderId, setShownHolderId] = useState(holderId);
+  if (holderId !== shownHolderId) {
+    setShownHolderId(holderId);
     setFiltersOpen(false);
     clearItemSelection();
-  }, [holderId, clearItemSelection]);
+  }
 
   const inOwnCurrency = (amount: number, currencyId: string | null) => {
     const cur = findCurrency(currencies, currencyId);

@@ -100,11 +100,10 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     ? seededStaffBranchId(form, editing, activeBranches)
     : null;
 
-  useEffect(() => {
-    if (seededBranchId === null) return;
+  if (seededBranchId !== null) {
     setBranchAutoSeeded(true);
     setForm((prev) => ({ ...prev, branchId: seededBranchId }));
-  }, [seededBranchId]);
+  }
 
   async function handleSubmit() {
     if (!currentUser || !canSubmit) return;
