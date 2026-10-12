@@ -1,5 +1,5 @@
 import "react-native-url-polyfill/auto";
-import { AppState } from "react-native";
+import { AppState, Platform } from "react-native";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseStorage } from "./storage";
 
@@ -27,8 +27,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-AppState.addEventListener("change", (state) => {
-  if (state === "active") supabase.auth.startAutoRefresh();
-  else supabase.auth.stopAutoRefresh();
-});
-if (AppState.currentState === "active") void supabase.auth.startAutoRefresh();
+if (Platform.OS !== "web") {
+  AppState.addEventListener("change", (state) => {
+    if (state === "active") supabase.auth.startAutoRefresh();
+    else supabase.auth.stopAutoRefresh();
+  });
+  if (AppState.currentState === "active") void supabase.auth.startAutoRefresh();
+}

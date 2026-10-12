@@ -31,6 +31,10 @@ jest.mock("@/src/core/offline/net/connectivity", () => ({
   isOnline: async () => mockOnline,
 }));
 
+jest.mock("@/src/core/offline/platform", () => ({
+  IS_OFFLINE_CAPABLE: true,
+}));
+
 import {
   flushPendingWrites,
   runSync,

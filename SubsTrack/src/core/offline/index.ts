@@ -1,3 +1,4 @@
+export { IS_OFFLINE_CAPABLE } from "./platform";
 export { initOffline } from "./bootstrap/offlineBootstrap";
 export { ensureTenantScope } from "./bootstrap/tenant";
 export {
