@@ -45,5 +45,9 @@ export function hasAnythingOwed(
   netUsd: number | undefined,
 ): boolean {
   if (hasDebtFlag(netUsd)) return true;
-  return status ? status.status !== "paid" : true;
+  return status ? !isSettledCustomer(status.status) : true;
+}
+
+function isSettledCustomer(status: CustomerMonthStatus): boolean {
+  return status === "paid" || status === "written_off";
 }

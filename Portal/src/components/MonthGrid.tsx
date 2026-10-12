@@ -1,8 +1,12 @@
 import { useTranslation } from "react-i18next";
 import type { MonthEntry, MonthStatus } from "@shared/core/types";
+import {
+  isPartialMonth,
+  isWrittenOffMonth,
+  showsPartialRing,
+} from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
 
-// The same colours MonthCell uses in the staff app, so a customer checking their
-// months against what staff read out sees the identical picture.
+// Same colours as the staff app's MonthCell, so both show the same picture.
 const REGULAR_BG: Record<MonthStatus, string> = {
   paid: "bg-green-600",
   unpaid: "bg-red-600",
@@ -53,31 +57,23 @@ export function MonthGrid({ entries, isRegular, onOpenReceipt }: Props) {
   return (
     <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
       {entries.map((entry) => {
-        // A partial payment resolves to "paid" - there is no "partial" status.
-        // Only the presentation differs: an amber ring, and on a multi-month
-        // block only the first cell carries it.
-        const partial = entry.status === "paid" && entry.balance > 0;
-        const ring =
-          partial && !entry.isGroupSecondary
-            ? "ring-4 ring-inset ring-amber-400"
-            : "";
-
-        // Only a month money has reached has a receipt to show. A secondary
-        // cell of a multi-month block carries the SAME charge, so it opens the
-        // block's one receipt.
+        const look = isWrittenOffMonth(entry) ? "written_off" : entry.status;
+        const ring = showsPartialRing(entry)
+          ? "ring-4 ring-inset ring-amber-400"
+          : "";
         const chargeId =
           entry.status === "paid" && entry.charge ? entry.charge.id : null;
-        const className = `${bg[entry.status]} ${ring} rounded-xl px-1 py-3 text-center`;
+        const className = `${bg[look]} ${ring} rounded-xl px-1 py-3 text-center`;
 
         const body = (
           <>
-            <div className={`text-base font-bold ${text[entry.status]}`}>
+            <div className={`text-base font-bold ${text[look]}`}>
               {entry.label}
             </div>
             <div
-              className={`mt-1 text-xs font-medium leading-tight ${text[entry.status]}`}
+              className={`mt-1 text-xs font-medium leading-tight ${text[look]}`}
             >
-              {sublabel(entry, partial, t)}
+              {sublabel(entry, t)}
             </div>
           </>
         );
@@ -106,20 +102,15 @@ export function MonthGrid({ entries, isRegular, onOpenReceipt }: Props) {
   );
 }
 
-// Every cell says what it IS, so the grid can be read with no colour at all -
-// on a black-and-white print, or by a colour-blind customer.
-function sublabel(
-  entry: MonthEntry,
-  partial: boolean,
-  t: (key: string) => string,
-): string {
+// Every cell says what it IS, so the grid reads with no colour at all.
+function sublabel(entry: MonthEntry, t: (key: string) => string): string {
   if (entry.status === "before_start") return "";
+  if (isWrittenOffMonth(entry)) return t("portal.written_off");
   if (entry.status === "paid" && entry.isGroupSecondary)
     return t("portal.included");
-  if (partial) return t("portal.partial");
+  if (isPartialMonth(entry)) return t("portal.partial");
   if (entry.status === "paid") return `✓ ${t("portal.paid")}`;
   if (entry.status === "skipped") return t("portal.paused");
-  if (entry.status === "written_off") return t("portal.written_off");
   if (entry.status === "unpaid") return t("portal.not_paid");
   return t("portal.not_due_yet");
 }

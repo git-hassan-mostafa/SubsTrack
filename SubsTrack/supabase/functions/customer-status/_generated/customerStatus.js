@@ -184,6 +184,7 @@ function buildCustomerStatus(lines, bills, skips, unpaidRule = DEFAULT_UNPAID_ST
 	let overdue = false;
 	let anySkipped = false;
 	let dueThisMonth = 0;
+	let writtenOffThisMonth = 0;
 	let inPlay = 0;
 	let settled = 0;
 	for (const line of lines) {
@@ -224,10 +225,11 @@ function buildCustomerStatus(lines, bills, skips, unpaidRule = DEFAULT_UNPAID_ST
 		}
 		if (current.status === "future") continue;
 		dueThisMonth++;
+		if (current.status === "written_off") writtenOffThisMonth++;
 		if (isSettledStatus(current.status)) notDueLineIds.push(line.id);
 	}
 	return {
-		status: settled === inPlay ? dueThisMonth === 0 ? anySkipped ? "skipped" : "not_due_yet" : "paid" : settled > 0 ? "mixed" : "unpaid",
+		status: settled === inPlay ? dueThisMonth === 0 ? anySkipped ? "skipped" : "not_due_yet" : writtenOffThisMonth === dueThisMonth ? "written_off" : "paid" : settled > 0 ? "mixed" : "unpaid",
 		overdue,
 		planCount: {
 			paid: settled,
@@ -341,6 +343,7 @@ var STATUS_FILTER_LABEL_KEYS = {
 };
 var PAYMENT_FILTER_LABEL_KEYS = {
 	paid: "common.paid",
+	written_off: "payments.written_off_badge",
 	unpaid: "dashboard.unpaid",
 	overdue: "customers.overdue",
 	mixed: "customers.partly_paid",
@@ -383,6 +386,7 @@ function matchesYesNo(choice, fact) {
 }
 var PAYMENT_FILTER_FLAGS = {
 	paid: ["paid"],
+	written_off: ["written_off"],
 	unpaid: ["unpaid", "overdue"],
 	overdue: ["overdue"],
 	mixed: ["mixed"],

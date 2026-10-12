@@ -53,6 +53,10 @@ const PILL_STYLES: Record<
     label: (t) => t("common.paid"),
     tone: "emerald",
   },
+  written_off: {
+    label: (t) => t("payments.written_off_badge"),
+    tone: "orange",
+  },
   mixed: {
     label: (t, s) =>
       t("customers.plans_paid_count", {

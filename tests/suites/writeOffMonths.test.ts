@@ -10,7 +10,16 @@ import { mapDbChargeToCharge } from "@shared/modules/ledger/utils/mapper";
 import type { OpenItem } from "@shared/core/types";
 import { priceStore } from "../helpers/fakePriceHistory";
 import { store } from "../helpers/fakeLedger";
-import { customer, line, plan, LBP } from "../helpers/factories";
+import {
+  customerFlags,
+  hasAnythingOwed,
+} from "@shared/modules/customer/customers/utils/customerFlags";
+import {
+  DEFAULT_CUSTOMER_FILTERS,
+  matchesCustomerFilters,
+  toCustomerFilterQuery,
+} from "@shared/modules/customer/customers/utils/customerFilters";
+import { bill, customer, line, plan, LBP } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
 
 // TC-WO-* — writing off unpaid months that money never reached (gotcha #186).
@@ -248,10 +257,44 @@ describe("the customer badge after a write-off", () => {
       collected: 0,
     }));
     const status = buildCustomerStatus([L], bills, [], "month_start");
-    expect(status.status).toBe("paid");
+    expect(status.status).toBe("written_off");
     expect(status.overdue).toBe(false);
     expect(status.unpaidMonths).toBe(0);
     expect(status.uncoveredLineIds).toEqual([]);
+    expect(customerFlags(status)).toEqual(["written_off"]);
+    expect(hasAnythingOwed(status, 0)).toBe(false);
+  });
+
+  it("TC-WO-14b this month PAID, older months written off → the badge reads Paid", async () => {
+    await writeOff((await owedFor()).slice(0, 3));
+    const bills = [
+      ...store.charges.map((c) => ({ charge: mapDbChargeToCharge(c), collected: 0 })),
+      bill("2026-04-01", 20, { amount: 20 }),
+    ];
+    expect(buildCustomerStatus([L], bills, [], "month_start").status).toBe("paid");
+  });
+
+  it("TC-WO-14c one line paid this month, the other written off → Paid, not Written off", async () => {
+    const L2 = line({ id: "line-2", startDate: "2026-04-01", planId: "p1", plan: P });
+    const bills = [
+      bill("2026-01-01", 20, { amount: 20 }),
+      bill("2026-02-01", 20, { amount: 20 }),
+      bill("2026-03-01", 20, { amount: 20 }),
+      bill("2026-04-01", 20, { amount: 20 }),
+      bill("2026-04-01", 0, { amount: 20, customerPlanId: "line-2", writtenOffAt: "2026-04-10T00:00:00.000Z" }),
+    ];
+    expect(buildCustomerStatus([L, L2], bills, [], "month_start").status).toBe("paid");
+  });
+
+  it("TC-WO-14d the Written off payment filter finds exactly these customers", async () => {
+    await writeOff(await owedFor());
+    const bills = store.charges.map((c) => ({ charge: mapDbChargeToCharge(c), collected: 0 }));
+    const status = buildCustomerStatus([L], bills, [], "month_start");
+    const facts = { status, debtUsd: 0, lastPaidAt: null };
+    const query = (payment: "paid" | "written_off") =>
+      toCustomerFilterQuery({ ...DEFAULT_CUSTOMER_FILTERS, payment });
+    expect(matchesCustomerFilters(C, facts, query("written_off"))).toBe(true);
+    expect(matchesCustomerFilters(C, facts, query("paid"))).toBe(false);
   });
 
   it("TC-WO-15 one written-off month leaves the others unpaid and overdue", async () => {

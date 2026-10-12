@@ -245,17 +245,9 @@ export interface PlanPaidCount {
 
 // A customer's payment state, aggregated across their active service lines.
 // Skipped, not-yet-due and not-yet-started months are treated as non-existent.
-//   paid        owes nothing at all, and at least one line owed this month
-//   mixed       some lines owe nothing, some still owe ("N/M plans paid")
-//   unpaid      no line is fully settled
-//   skipped     owes nothing, and nothing is expected this month (deliberate skip)
-//   not_due_yet owes nothing YET — no line has started or reached its billing
-//               day for THIS month ('customer_start_day' rule)
-// The last three all mean "nothing owed", so none of them can appear with
-// `CustomerStatus.overdue`; only `mixed` can (and `unpaid`, which the Overdue
-// pill replaces).
+// Meanings + which ones mean "nothing owed": docs/month-grid.md → customer badge.
 export type CustomerMonthStatus =
-  "paid" | "mixed" | "unpaid" | "skipped" | "not_due_yet";
+  "paid" | "written_off" | "mixed" | "unpaid" | "skipped" | "not_due_yet";
 
 // Everything the customer list needs about one customer, built in ONE pass from
 // buildMonthGrid. `status` answers "is this customer settled, and if not how

@@ -66,6 +66,7 @@ export const STATUS_FILTER_LABEL_KEYS: Record<ActiveFilter, string> = {
 
 export const PAYMENT_FILTER_LABEL_KEYS: Record<PaymentFilter, string> = {
   paid: "common.paid",
+  written_off: "payments.written_off_badge",
   unpaid: "dashboard.unpaid",
   overdue: "customers.overdue",
   mixed: "customers.partly_paid",
@@ -144,6 +145,7 @@ function matchesYesNo(choice: YesNoFilter | null, fact: boolean): boolean {
 // Unpaid also takes Overdue cards, whose Unpaid pill is folded into Overdue.
 const PAYMENT_FILTER_FLAGS: Record<PaymentFilter, readonly CustomerFlag[]> = {
   paid: ["paid"],
+  written_off: ["written_off"],
   unpaid: ["unpaid", "overdue"],
   overdue: ["overdue"],
   mixed: ["mixed"],

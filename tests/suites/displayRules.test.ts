@@ -12,6 +12,10 @@ import {
   monthRowStatus,
   monthRowStatusTone,
 } from "@shared/modules/customer/customer-payments/utils/monthView";
+import {
+  cellBadge,
+  showsPartialRing,
+} from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
 import type { LinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
 import {
   allocationRows,
@@ -105,6 +109,18 @@ describe("month cells and rows", () => {
     );
     expect(monthRowStatus(writtenOff)).toBe("written_off");
     expect(monthRowStatus(month(grid(), 1))).toBe("paid");
+  });
+
+  it("TC-DR-06b a part-paid written-off cell looks written off, never paid or partial", () => {
+    const entry = month(
+      grid([bill("2026-01-01", 5, { writtenOffAt: "2026-02-01T00:00:00.000Z" })]),
+      1,
+    );
+    expect(entry.status).toBe("paid");
+    expect(monthCellTone(entry, true)).toBe("written_off");
+    expect(monthCellTone(entry, false)).toBe("written_off");
+    expect(cellBadge(entry)).toBe("written_off");
+    expect(showsPartialRing(entry)).toBe(false);
   });
 
   it("TC-DR-07 a non-regular customer's unpaid month is grey, not red", () => {

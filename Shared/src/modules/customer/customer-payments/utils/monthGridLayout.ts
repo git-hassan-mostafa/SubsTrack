@@ -69,6 +69,11 @@ export function isCurrentMonth(entry: MonthEntry): boolean {
   return entry.year === year && entry.month === month;
 }
 
+// A write-off outranks the money in every look; part-paid keeps "paid" for rules.
+export function isWrittenOffMonth(entry: MonthEntry): boolean {
+  return !!entry.charge?.writtenOffAt;
+}
+
 // Partial is presentation only — the status stays "paid" (no "partial" status).
 export function isPartialMonth(entry: MonthEntry): boolean {
   return entry.status === "paid" && entry.balance > 0;
@@ -76,15 +81,15 @@ export function isPartialMonth(entry: MonthEntry): boolean {
 
 // Only a block's FIRST cell is ringed, or the borders seam the joined pill.
 export function showsPartialRing(entry: MonthEntry): boolean {
-  return isPartialMonth(entry) && !entry.isGroupSecondary;
+  return isPartialMonth(entry) && !entry.isGroupSecondary && !isWrittenOffMonth(entry);
 }
 
 export function cellBadge(entry: MonthEntry): CellBadge | null {
+  if (isWrittenOffMonth(entry)) return "written_off";
   if (entry.status === "paid" && entry.isGroupSecondary) return "included";
   if (isPartialMonth(entry)) return "partial";
   if (entry.status === "paid") return "paid";
   if (entry.status === "skipped") return "skipped";
-  if (entry.status === "written_off") return "written_off";
   if (isCurrentMonth(entry)) return "this_month";
   return null;
 }

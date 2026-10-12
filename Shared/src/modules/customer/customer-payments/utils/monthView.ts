@@ -3,6 +3,7 @@ import type { LinePrice } from "@shared/modules/customer/customer-plans/utils/li
 import {
   isCurrentMonth,
   isPartialMonth,
+  isWrittenOffMonth,
 } from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
 import type { Tone } from "@shared/shared/lib/tone";
 
@@ -19,6 +20,7 @@ export type MonthCellTone =
 
 // A non-regular customer is never chased, so an empty month stays plain grey.
 export function monthCellTone(entry: MonthEntry, isRegular: boolean): MonthCellTone {
+  if (isWrittenOffMonth(entry)) return "written_off";
   switch (entry.status) {
     case "paid":
       return isRegular ? "paid" : "paid_irregular";
@@ -38,7 +40,7 @@ export type MonthRowStatus = MonthStatus | "partial";
 
 // A write-off outranks the money on the bill, and partial outranks plain paid.
 export function monthRowStatus(entry: MonthEntry): MonthRowStatus {
-  if (entry.charge?.writtenOffAt) return "written_off";
+  if (isWrittenOffMonth(entry)) return "written_off";
   if (isPartialMonth(entry)) return "partial";
   return entry.status;
 }
@@ -64,7 +66,7 @@ export function monthRowEmphasis(entry: MonthEntry): "muted" | "highlighted" | n
 
 // Money reached the month: the bill's own figures, never the line's price.
 export function hasMonthMoney(entry: MonthEntry): boolean {
-  return entry.collected > 0 || !!entry.charge?.writtenOffAt;
+  return entry.collected > 0 || isWrittenOffMonth(entry);
 }
 
 export type MonthBillFigure =

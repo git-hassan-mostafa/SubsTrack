@@ -18,6 +18,7 @@ const PILL_STYLES: Record<
   inactive: { label: (t) => t("common.inactive"), tone: "gray" },
   non_regular: { label: (t) => t("customers.non_regular"), tone: "indigo" },
   paid: { label: (t) => t("common.paid"), tone: "emerald" },
+  written_off: { label: (t) => t("payments.written_off_badge"), tone: "orange" },
   mixed: {
     label: (t, status) =>
       t("customers.plans_paid_count", {

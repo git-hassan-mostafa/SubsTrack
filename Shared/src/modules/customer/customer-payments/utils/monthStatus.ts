@@ -145,6 +145,7 @@ export function buildCustomerStatus(
   let overdue = false;
   let anySkipped = false;
   let dueThisMonth = 0;
+  let writtenOffThisMonth = 0;
   let inPlay = 0;
   let settled = 0;
 
@@ -201,6 +202,7 @@ export function buildCustomerStatus(
     if (current.status === "future") continue;
 
     dueThisMonth++;
+    if (current.status === "written_off") writtenOffThisMonth++;
     if (isSettledStatus(current.status)) notDueLineIds.push(line.id);
   }
 
@@ -210,7 +212,9 @@ export function buildCustomerStatus(
         ? anySkipped
           ? "skipped"
           : "not_due_yet"
-        : "paid"
+        : writtenOffThisMonth === dueThisMonth
+          ? "written_off"
+          : "paid"
       : settled > 0
         ? "mixed"
         : "unpaid";
