@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { Input } from "@/src/shared/components/Input";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
+import { FilterFieldButton } from "./FilterFieldButton";
 import { matchesOptionSearch } from "@shared/shared/lib/optionSearch";
 
 export interface DropdownOption<T = string> {
@@ -16,8 +17,8 @@ export interface DropdownOption<T = string> {
   disabled?: boolean;
 }
 
-// "default" = labelled form field in a sheet; "chip" = compact filter-bar pill.
-export type DropdownTriggerStyle = "default" | "chip";
+// "default" = labelled form field; "chip" = pill; "filter" = FilterRow value box.
+export type DropdownTriggerStyle = "default" | "chip" | "filter";
 
 interface DropdownProps<T = string> {
   label?: string;
@@ -59,6 +60,35 @@ export function Dropdown<T extends string | number | null = string>({
 
   const isActive = value !== null;
 
+  const modal = (
+    <DropdownModal<T>
+      visible={open}
+      onClose={() => setOpen(false)}
+      title={label ?? placeholder ?? ""}
+      options={options}
+      value={value}
+      onChange={onChange}
+      nullable={nullable}
+      nullLabel={nullLabel}
+      nullSublabel={nullSublabel}
+      searchable={searchable}
+    />
+  );
+
+  if (triggerStyle === "filter") {
+    return (
+      <>
+        <FilterFieldButton
+          text={displayLabel ?? placeholder ?? ""}
+          active={isActive}
+          disabled={disabled}
+          onPress={() => setOpen(true)}
+        />
+        {modal}
+      </>
+    );
+  }
+
   if (triggerStyle === "chip") {
     return (
       <>
@@ -86,19 +116,7 @@ export function Dropdown<T extends string | number | null = string>({
             color={isActive ? COLORS.primary : COLORS.gray400}
           />
         </PressableOpacity>
-
-        <DropdownModal<T>
-          visible={open}
-          onClose={() => setOpen(false)}
-          title={label ?? placeholder ?? ""}
-          options={options}
-          value={value}
-          onChange={onChange}
-          nullable={nullable}
-          nullLabel={nullLabel}
-          nullSublabel={nullSublabel}
-          searchable={searchable}
-        />
+        {modal}
       </>
     );
   }
@@ -153,19 +171,7 @@ export function Dropdown<T extends string | number | null = string>({
         </Text>
         <Ionicons name="chevron-down" size={16} color={COLORS.gray400} />
       </PressableOpacity>
-
-      <DropdownModal<T>
-        visible={open}
-        onClose={() => setOpen(false)}
-        title={label ?? placeholder ?? ""}
-        options={options}
-        value={value}
-        onChange={onChange}
-        nullable={nullable}
-        nullLabel={nullLabel}
-        nullSublabel={nullSublabel}
-        searchable={searchable}
-      />
+      {modal}
     </View>
   );
 }

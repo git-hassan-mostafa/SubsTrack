@@ -24,6 +24,7 @@ interface SelectionBarProps {
   onClose: () => void;
   allSelected?: boolean;
   onToggleAll?: () => void;
+  className?: string;
 }
 
 // The count is a bare number; the word "selected" pushed actions to a 2nd line.
@@ -33,6 +34,7 @@ export function SelectionBar({
   onClose,
   allSelected,
   onToggleAll,
+  className = "",
 }: SelectionBarProps) {
   const { t } = useTranslation();
 
@@ -90,7 +92,9 @@ export function SelectionBar({
   );
 
   return (
-    <View className="flex-row items-center px-4 pt-2 pb-2 bg-white border-b border-gray-100 gap-1">
+    <View
+      className={`flex-row items-center px-4 pt-2 pb-2 bg-white border-b border-gray-100 gap-1 ${className}`}
+    >
       {leading}
       {actionRow}
     </View>

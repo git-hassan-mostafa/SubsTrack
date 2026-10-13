@@ -46,7 +46,7 @@ import {
   type CustomerFilters,
 } from "@shared/modules/customer/customers/utils/customerFilters";
 import { useLastPaidStore } from "@shared/modules/customer/customers/state/lastPaidStore";
-import { CustomerFilterChips } from "../components/CustomerFilterChips";
+import { CustomerFilterFields } from "../components/CustomerFilterFields";
 import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomDebtFormSheet } from "@/src/modules/transaction/debts/components/CustomDebtFormSheet";
@@ -62,15 +62,12 @@ import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { formatMoney } from "@shared/core/utils/currency";
-import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
   PageHeader,
   type SelectionAction,
 } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
-import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { useSelection } from "@shared/shared/hooks/useSelection";
 import {
@@ -115,7 +112,6 @@ export function CustomerListScreen() {
   const [filters, setFilters] = useState<CustomerFilters>(
     DEFAULT_CUSTOMER_FILTERS,
   );
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [menuCustomer, setMenuCustomer] = useState<Customer | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [customDebtCustomer, setCustomDebtCustomer] = useState<Customer | null>(
@@ -156,6 +152,11 @@ export function CustomerListScreen() {
       void fetchLastPaid();
     }, [customers, fetchCustomerStatuses, fetchOwedByCustomer, fetchLastPaid]),
   );
+
+  function changeFilters(next: Partial<CustomerFilters>) {
+    setFilters((current) => ({ ...current, ...next }));
+    clearSelection();
+  }
 
   const filterQuery = useMemo(() => toCustomerFilterQuery(filters), [filters]);
 
@@ -502,6 +503,18 @@ export function CustomerListScreen() {
         title={t("customers.title")}
         subtitle={t("customers.active_count", { count: activeCount })}
         iconActions={exportIconActions}
+        search={{
+          value: searchText,
+          onChange: setSearchText,
+          placeholder: t("customers.search_hint"),
+        }}
+        filters={{
+          active: hasCustomerFilters(filters),
+          onClear: () => changeFilters(DEFAULT_CUSTOMER_FILTERS),
+          children: (
+            <CustomerFilterFields value={filters} onChange={changeFilters} />
+          ),
+        }}
         selection={{
           active: selectionActive,
           count: selection.count,
@@ -514,34 +527,6 @@ export function CustomerListScreen() {
       />
 
       <ResponsiveContainer className="flex-1">
-        <SelectionOverlaySlot selecting={selectionActive}>
-          <View className="px-4 pt-4">
-            <View className="flex-row items-center gap-x-2">
-              <View className="flex-1">
-                <SearchTextBox
-                  searchText={searchText}
-                  setSearchText={setSearchText}
-                  placeholder={t("customers.search_hint")}
-                />
-              </View>
-              <FilterToggleButton
-                active={filtersOpen}
-                hasActiveFilters={hasCustomerFilters(filters)}
-                onPress={() => setFiltersOpen((v) => !v)}
-              />
-            </View>
-            {filtersOpen ? (
-              <CustomerFilterChips
-                value={filters}
-                className="mt-4"
-                onChange={(next) => {
-                  setFilters((current) => ({ ...current, ...next }));
-                  clearSelection();
-                }}
-              />
-            ) : null}
-          </View>
-        </SelectionOverlaySlot>
         {error ? (
           <View className="px-4 pt-4">
             <ErrorBanner message={error} onDismiss={clearError} />

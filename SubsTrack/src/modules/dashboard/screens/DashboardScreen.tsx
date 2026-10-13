@@ -25,7 +25,7 @@ import {
   formatKpiValues,
 } from "@shared/modules/reports/utils/reportKpis";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
-import { BranchSelector } from "@/src/shared/components/BranchSelector";
+import { HeaderFilterButton } from "@/src/shared/components/HeaderFilterButton";
 import { QuickActionsMenuButton } from "@/src/shared/components/QuickActionsMenuButton";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
@@ -100,7 +100,7 @@ export function DashboardScreen() {
             >
               {t("home.title")}
             </Text>
-            <BranchSelector className="" />
+            <HeaderFilterButton />
             <QuickActionsMenuButton />
           </View>
 

@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import { View, type ScrollView } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { View } from "react-native";
 import { GestureDetector } from "react-native-gesture-handler";
 import { Screen } from "@/src/shared/components/Screen";
 import { useTranslation } from "react-i18next";
@@ -15,7 +15,10 @@ import {
 } from "@/src/modules/transaction/sales";
 import { ToCollectPanel } from "@/src/modules/transaction/to-collect";
 import { ExpensesPanel } from "@/src/modules/transaction/expenses";
-import { PageHeader } from "@/src/shared/components/PageHeader";
+import {
+  PageHeader,
+  type PageHeaderTools,
+} from "@/src/shared/components/PageHeader";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useExportRows } from "@/src/shared/hooks/useExportRows";
 import { loadAllPages } from "@shared/shared/hooks/loadAllPages";
@@ -27,11 +30,7 @@ import { useExpenseStore } from "@shared/modules/transaction/expenses/state/expe
 
 type TransactionsTab = "sales" | "debts" | "expenses";
 
-// The Transactions hub: a single bottom tab hosting Sales, Debts and Expenses as
-// in-page segments. Owns the page chrome; each panel owns its body.
-// (Payments history moved out to a quick-actions sheet — PaymentsHistorySheet.
-// Services are not a segment: a service is a LINE ON A SALE, so the Sales tab
-// already lists it, and its price list lives at Admin → Services.)
+// Each panel draws `header` itself so its search, filters and selection reach it.
 export function TransactionsScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -89,22 +88,19 @@ export function TransactionsScreen() {
       : {},
   );
 
-  const filterRowRef = useRef<ScrollView | null>(null);
-  const blockedBy = useMemo(() => [filterRowRef], []);
   const { swipe, tabsProps } = useSwipeableTabs({
     segments,
     value: tab,
     onChange: setTab,
-    blockedBy,
   });
 
-  return (
-    <Screen edges={[]}>
+  const header = (tools: PageHeaderTools) => (
+    <>
       <PageHeader
         title={t("transactions.title")}
         iconActions={exportIconActions}
+        {...tools}
       />
-
       <ResponsiveContainer>
         <View className="px-4 py-3">
           <SegmentedTabs<TransactionsTab> {...tabsProps} />
@@ -115,15 +111,19 @@ export function TransactionsScreen() {
           </View>
         ) : null}
       </ResponsiveContainer>
+    </>
+  );
 
+  return (
+    <Screen edges={[]}>
       <GestureDetector gesture={swipe}>
         <View className="flex-1">
-          {tab === "sales" ? <SalesPanel filterRowRef={filterRowRef} /> : null}
+          {tab === "sales" ? <SalesPanel header={header} /> : null}
           {tab === "debts" ? (
-            <ToCollectPanel onOpenSale={saleDetail.openSale} />
+            <ToCollectPanel header={header} onOpenSale={saleDetail.openSale} />
           ) : null}
           {tab === "expenses" && isAdmin ? (
-            <ExpensesPanel filterRowRef={filterRowRef} />
+            <ExpensesPanel header={header} />
           ) : null}
         </View>
       </GestureDetector>

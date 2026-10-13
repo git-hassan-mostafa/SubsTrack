@@ -20,7 +20,6 @@ import {
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@shared/shared/hooks/useDebounce";
-import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
   PageHeader,
   type SelectionAction,
@@ -209,6 +208,7 @@ export function ProductListScreen() {
         subtitle={t("products.active_count", { count: activeCount })}
         showBack
         onBack={() => router.back()}
+        search={{ value: searchText, onChange: setSearchText }}
         selection={{
           active: selectionActive,
           count: selection.count,
@@ -221,19 +221,8 @@ export function ProductListScreen() {
       />
 
       <ResponsiveContainer className="flex-1">
-        {/* Search stays mounted while selecting so its space remains and the list
-          never jumps; the selection toolbar (with the select-all checkbox) is
-          overlaid on the header instead. */}
         <SelectionOverlaySlot selecting={selectionActive}>
-          <View className="px-4 pt-4 flex-row items-center gap-x-2">
-            <View className="flex-1">
-              <SearchTextBox
-                searchText={searchText}
-                setSearchText={setSearchText}
-              />
-            </View>
-            {/* Restock several products in one save — the same sheet the
-              quick-actions menu opens. */}
+          <View className="px-4 pt-4 flex-row items-center justify-end">
             <PressableOpacity
               onPress={() => setBatchRestockOpen(true)}
               className="flex-row items-center justify-center h-9 px-3 rounded-xl bg-emerald-50"

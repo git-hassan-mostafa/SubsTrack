@@ -1,20 +1,16 @@
 import { useCallback, useEffect, useMemo } from "react";
-import { ScrollView, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { Screen } from "@/src/shared/components/Screen";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import type { AuditAction, AuditTable } from "@shared/core/types";
-import { COLORS } from "@/src/shared/constants";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { Text } from "@/src/shared/components/Text";
 import {
   Dropdown,
   type DropdownOption,
 } from "@/src/shared/components/Dropdown";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { FilterRow } from "@/src/shared/components/FilterRow";
 import { useAuditStore } from "@shared/modules/admin/audit/state/auditStore";
 import { useUserSlice } from "@shared/state/hooks/useUserSlice";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
@@ -119,77 +115,61 @@ export function AuditLogScreen() {
   const hasActiveFilters =
     !!tableFilter || !!actionFilter || !!actorFilter || !!from || !!to;
 
-  // Passed to HistoryList as its header so the chips scroll with the entries —
-  // a fixed filter bar would eat vertical space on a phone.
-  const filters = (
-    <View className="-mx-4 mb-1">
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyboardShouldPersistTaps="always"
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          gap: 8,
-          alignItems: "center",
-        }}
-      >
+  const filterFields = (
+    <>
+      <FilterRow label={t("audit.filter_by_table")}>
         <Dropdown<string>
-          placeholder={t("audit.filter_by_table")}
+          label={t("audit.filter_by_table")}
           options={tableOptions}
           value={tableFilter}
           onChange={(v) => setTableFilter(v as AuditTable | null)}
           nullable
           nullLabel={t("audit.all_tables")}
-          triggerStyle="chip"
+          triggerStyle="filter"
         />
+      </FilterRow>
+      <FilterRow label={t("audit.filter_by_action")}>
         <Dropdown<string>
-          placeholder={t("audit.filter_by_action")}
+          label={t("audit.filter_by_action")}
           options={actionOptions}
           value={actionFilter}
           onChange={(v) => setActionFilter(v as AuditAction | null)}
           nullable
           nullLabel={t("audit.all_actions")}
-          triggerStyle="chip"
+          triggerStyle="filter"
         />
+      </FilterRow>
+      <FilterRow label={t("audit.filter_by_actor")}>
         <Dropdown<string>
-          placeholder={t("audit.filter_by_actor")}
+          label={t("audit.filter_by_actor")}
           options={actorOptions}
           value={actorFilter}
           onChange={(v) => setActorFilter(v)}
           nullable
           nullLabel={t("audit.all_actors")}
-          triggerStyle="chip"
+          triggerStyle="filter"
           searchable
         />
+      </FilterRow>
+      <FilterRow label={t("filters.date")}>
         <DatePickerInput
-          placeholder={t("audit.date_from")}
+          label={t("filters.from")}
           value={from ?? ""}
           onChange={(v) => void setFrom(v || null)}
           maxDate={to ?? undefined}
-          triggerStyle="chip"
+          triggerStyle="filter"
           clearable
         />
         <DatePickerInput
-          placeholder={t("audit.date_to")}
+          label={t("filters.to")}
           value={to ?? ""}
           onChange={(v) => void setTo(v || null)}
           minDate={from ?? undefined}
-          triggerStyle="chip"
+          triggerStyle="filter"
           clearable
         />
-        {hasActiveFilters ? (
-          <PressableOpacity
-            onPress={() => void clearFilters()}
-            className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
-          >
-            <Ionicons name="close" size={14} color={COLORS.gray500} />
-            <Text fontWeight="Medium" className="text-sm text-gray-500">
-              {t("audit.clear_filters")}
-            </Text>
-          </PressableOpacity>
-        ) : null}
-      </ScrollView>
-    </View>
+      </FilterRow>
+    </>
   );
 
   return (
@@ -199,6 +179,11 @@ export function AuditLogScreen() {
         showBack
         onBack={() => router.back()}
         iconActions={exportIconActions}
+        filters={{
+          active: hasActiveFilters,
+          onClear: () => void clearFilters(),
+          children: filterFields,
+        }}
       />
 
       <ResponsiveContainer className="flex-1">
@@ -213,7 +198,6 @@ export function AuditLogScreen() {
             if (hasMore && !loadingMore) void fetchMoreEntries();
           }}
           loadingMore={loadingMore}
-          header={filters}
           emptyTitle={t(
             hasActiveFilters ? "audit.filter_empty_title" : "audit.empty_title",
           )}

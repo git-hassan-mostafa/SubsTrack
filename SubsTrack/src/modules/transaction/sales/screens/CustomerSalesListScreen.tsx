@@ -12,10 +12,8 @@ import { COLORS } from "@/src/shared/constants";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useDebounce } from "@shared/shared/hooks/useDebounce";
-import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
-import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useSelection } from "@shared/shared/hooks/useSelection";
 import {
@@ -118,6 +116,11 @@ export function CustomerSalesListScreen() {
         showBack
         onBack={() => router.back()}
         hideBranchSelector
+        search={{
+          value: searchText,
+          onChange: setSearchText,
+          placeholder: t("sales.search_placeholder"),
+        }}
         selection={{
           active: selectionActive,
           count: selection.count,
@@ -130,19 +133,6 @@ export function CustomerSalesListScreen() {
       />
 
       <ResponsiveContainer className="flex-1">
-        {/* Search stays mounted while selecting so its space remains and the list
-          never jumps; the selection toolbar (with the select-all checkbox) is
-          overlaid on the header instead. */}
-        <SelectionOverlaySlot selecting={selectionActive}>
-          <View className="px-4 pt-4">
-            <SearchTextBox
-              searchText={searchText}
-              setSearchText={setSearchText}
-              placeholder={t("sales.search_placeholder")}
-            />
-          </View>
-        </SelectionOverlaySlot>
-
         {error ? (
           <View className="px-4 pt-4">
             <ErrorBanner message={error} onDismiss={clearError} />

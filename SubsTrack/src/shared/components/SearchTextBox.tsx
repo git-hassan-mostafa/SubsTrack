@@ -9,12 +9,14 @@ interface Props {
   searchText: string;
   setSearchText: (text: string) => void;
   placeholder?: string | null;
+  autoFocus?: boolean;
 }
 
 export default function SearchTextBox({
   searchText,
   setSearchText,
   placeholder = null,
+  autoFocus = false,
 }: Props) {
   const field = useTextField(searchText, setSearchText);
 
@@ -28,6 +30,8 @@ export default function SearchTextBox({
         style={{ textAlignVertical: "top" }}
         placeholder={placeholder || t("common.input_search")}
         placeholderTextColor={COLORS.gray400}
+        autoFocus={autoFocus}
+        returnKeyType="search"
         {...field}
       />
     </View>

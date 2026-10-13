@@ -1,63 +1,43 @@
-import { useEffect, useMemo, useState, type RefObject } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
   SectionList,
   View,
-  type ScrollView,
 } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useDebounce } from "@shared/shared/hooks/useDebounce";
-import SearchTextBox from "@/src/shared/components/SearchTextBox";
-import { SelectionBar } from "@/src/shared/components/SelectionBar";
 import { FAB } from "@/src/shared/components/FAB";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
-import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
-import { FilterChipsRow } from "@/src/shared/components/FilterChipsRow";
+import type { RenderPageHeader } from "@/src/shared/components/PageHeader";
 import { groupByMonth } from "@shared/shared/lib/monthSections";
 import { useSelection } from "@shared/shared/hooks/useSelection";
 import {
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelectionBackHandler";
-import {
-  Dropdown,
-  type DropdownOption,
-} from "@/src/shared/components/Dropdown";
-import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
-import { CustomerPicker } from "@/src/modules/customer/customers";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import type { Sale } from "@shared/core/types";
 import { formatMoney } from "@shared/core/utils/currency";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { saleUsd } from "@shared/modules/transaction/sales/utils/saleListPatch";
 import { SaleCard } from "../components/SaleCard";
+import { SaleFilterFields } from "../components/SaleFilterFields";
 import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
 import { useSaleActions } from "../hooks/useSaleActions";
 import { useSaleSlice } from "@shared/state/hooks/useSaleSlice";
-import {
-  hasSaleFilter,
-  SALE_STATUS_LABEL_KEYS,
-  type SaleStatus,
-} from "@shared/modules/transaction/sales/utils/saleFilters";
-import { useProductSlice } from "@shared/state/hooks/useProductSlice";
+import { hasSaleFilter } from "@shared/modules/transaction/sales/utils/saleFilters";
 import { KEYBOARD_SAFE_LIST } from "@/src/shared/lib/keyboardSafeList";
 
 interface Props {
-  filterRowRef?: RefObject<ScrollView | null>;
+  header: RenderPageHeader;
 }
 
-// The Sales segment of the Transactions hub. Owns its body (search, filters, list,
-// FAB, sheets, selection) but not the page chrome — the parent TransactionsScreen
-// provides the SafeAreaView, title, and the segmented tab switcher.
-export function SalesPanel({ filterRowRef }: Props = {}) {
+export function SalesPanel({ header }: Props) {
   const { t } = useTranslation();
   const sales = useSaleSlice((s) => s.items);
   const monthlyTotals = useSaleSlice((s) => s.monthlyTotals);
@@ -69,24 +49,17 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
   const fetchMoreSales = useSaleSlice((s) => s.fetchMoreSales);
   const setSearchQuery = useSaleSlice((s) => s.setSearchQuery);
   const customerFilter = useSaleSlice((s) => s.customerFilter);
-  const setCustomerFilter = useSaleSlice((s) => s.setCustomerFilter);
   const productFilter = useSaleSlice((s) => s.productFilter);
-  const setProductFilter = useSaleSlice((s) => s.setProductFilter);
   const fromDate = useSaleSlice((s) => s.fromDate);
   const toDate = useSaleSlice((s) => s.toDate);
-  const setDateRange = useSaleSlice((s) => s.setDateRange);
   const status = useSaleSlice((s) => s.status);
-  const setStatus = useSaleSlice((s) => s.setStatus);
   const clearFilters = useSaleSlice((s) => s.clearFilters);
   const clearError = useSaleSlice((s) => s.clearError);
 
-  const products = useProductSlice((s) => s.items);
-  const getProducts = useProductSlice((s) => s.getProducts);
   const displayCurrency = useDisplayCurrency();
 
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const branchFilter = useEffectiveBranchFilter();
   const [formOpen, setFormOpen] = useState(false);
   const [activeSale, setActiveSale] = useState<Sale | null>(null);
@@ -114,26 +87,6 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
     clearSelection();
     fetchSales();
   }, [branchFilter, clearSelection, fetchSales]);
-
-  useEffect(() => {
-    void getProducts();
-  }, [getProducts]);
-
-  const productOptions: DropdownOption<string>[] = useMemo(
-    () =>
-      products
-        .filter((p) => p.active)
-        .map((p) => ({ label: p.name, value: p.id })),
-    [products],
-  );
-
-  const statusOptions: DropdownOption<SaleStatus>[] = useMemo(
-    () => [
-      { label: t(SALE_STATUS_LABEL_KEYS.voided), value: "voided" },
-      { label: t(SALE_STATUS_LABEL_KEYS.all), value: "all" },
-    ],
-    [t],
-  );
 
   const hasActiveFilters = hasSaleFilter({
     customerId: customerFilter?.id ?? null,
@@ -175,96 +128,27 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
 
   return (
     <View className="flex-1">
+      {header({
+        search: {
+          value: searchText,
+          onChange: setSearchText,
+          placeholder: t("sales.search_placeholder"),
+        },
+        filters: {
+          active: hasActiveFilters,
+          onClear: clearFilters,
+          children: <SaleFilterFields />,
+        },
+        selection: {
+          active: selectionActive,
+          count: selection.count,
+          actions: saleActions.selectionActions(selectedSales),
+          onClose: clearSelection,
+          allSelected: sales.length > 0 && selectedSales.length === sales.length,
+          onToggleAll: () => toggleManySelect(sales.map((s) => s.id)),
+        },
+      })}
       <ResponsiveContainer className="flex-1">
-        {!selectionActive ? (
-          <View className="px-4 gap-y-2">
-            <View className="flex-row items-center gap-x-2">
-              <View className="flex-1">
-                <SearchTextBox
-                  searchText={searchText}
-                  setSearchText={setSearchText}
-                  placeholder={t("sales.search_placeholder")}
-                />
-              </View>
-              <FilterToggleButton
-                active={filtersOpen}
-                hasActiveFilters={hasActiveFilters}
-                onPress={() => setFiltersOpen((v) => !v)}
-              />
-            </View>
-            {filtersOpen ? (
-              <FilterChipsRow scrollRef={filterRowRef}>
-                <CustomerPicker
-                  placeholder={t("sales.filter_by_customer")}
-                  value={customerFilter}
-                  onChange={setCustomerFilter}
-                  nullable
-                  nullLabel={t("sales.all_customers")}
-                  triggerStyle="chip"
-                />
-                <Dropdown<string>
-                  placeholder={t("sales.filter_by_product")}
-                  options={productOptions}
-                  value={productFilter?.id ?? null}
-                  onChange={(id) =>
-                    setProductFilter(products.find((p) => p.id === id) ?? null)
-                  }
-                  nullable
-                  nullLabel={t("sales.all_products")}
-                  triggerStyle="chip"
-                  searchable
-                />
-                <DatePickerInput
-                  placeholder={t("sales.date_from")}
-                  value={fromDate ?? ""}
-                  onChange={(v) => setDateRange(v || null, toDate)}
-                  maxDate={toDate ?? undefined}
-                  triggerStyle="chip"
-                  clearable
-                />
-                <DatePickerInput
-                  placeholder={t("sales.date_to")}
-                  value={toDate ?? ""}
-                  onChange={(v) => setDateRange(fromDate, v || null)}
-                  minDate={fromDate ?? undefined}
-                  triggerStyle="chip"
-                  clearable
-                />
-                <Dropdown<SaleStatus>
-                  placeholder={t("sales.filter_by_status")}
-                  options={statusOptions}
-                  value={status === "live" ? null : status}
-                  onChange={(v) => setStatus(v ?? "live")}
-                  nullable
-                  nullLabel={t(SALE_STATUS_LABEL_KEYS.live)}
-                  triggerStyle="chip"
-                />
-                {hasActiveFilters ? (
-                  <PressableOpacity
-                    onPress={clearFilters}
-                    className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
-                  >
-                    <Ionicons name="close" size={14} color={COLORS.gray500} />
-                    <Text fontWeight="Medium" className="text-sm text-gray-500">
-                      {t("common.clear_filters")}
-                    </Text>
-                  </PressableOpacity>
-                ) : null}
-              </FilterChipsRow>
-            ) : null}
-          </View>
-        ) : (
-          <SelectionBar
-            count={selection.count}
-            actions={saleActions.selectionActions(selectedSales)}
-            onClose={clearSelection}
-            allSelected={
-              sales.length > 0 && selectedSales.length === sales.length
-            }
-            onToggleAll={() => toggleManySelect(sales.map((s) => s.id))}
-          />
-        )}
-
         {error ? (
           <View className="px-4 pt-4">
             <ErrorBanner message={error} onDismiss={clearError} />

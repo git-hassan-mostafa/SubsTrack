@@ -14,7 +14,7 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { FAB } from "@/src/shared/components/FAB";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import SearchTextBox from "@/src/shared/components/SearchTextBox";
+import type { RenderPageHeader } from "@/src/shared/components/PageHeader";
 import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
@@ -43,11 +43,12 @@ import { OwedShowFilter } from "../components/OwedShowFilter";
 import { KEYBOARD_SAFE_LIST } from "@/src/shared/lib/keyboardSafeList";
 
 interface Props {
+  header: RenderPageHeader;
   onOpenSale?: (saleId: string) => Promise<void> | void;
 }
 
 // One row per customer with anything to collect; the filter is a view, never a read.
-export function ToCollectPanel({ onOpenSale }: Props = {}) {
+export function ToCollectPanel({ header, onOpenSale }: Props) {
   const { t } = useTranslation();
 
   const fullView = useLedgerSlice((s) => s.toCollect);
@@ -125,6 +126,13 @@ export function ToCollectPanel({ onOpenSale }: Props = {}) {
 
   return (
     <View className="flex-1">
+      {header({
+        search: {
+          value: debtorSearch,
+          onChange: setDebtorSearch,
+          placeholder: t("debts.search_debtors_hint"),
+        },
+      })}
       <ResponsiveContainer className="flex-1">
         <View className="px-4 pt-3 flex-row items-center justify-between">
           <View className="flex-1 pe-2">
@@ -162,12 +170,7 @@ export function ToCollectPanel({ onOpenSale }: Props = {}) {
         </View>
 
         <View className="px-4 pt-2">
-          <OwedShowFilter value={show} onChange={setShow} className="mb-2" />
-          <SearchTextBox
-            searchText={debtorSearch}
-            setSearchText={setDebtorSearch}
-            placeholder={t("debts.search_debtors_hint")}
-          />
+          <OwedShowFilter value={show} onChange={setShow} />
         </View>
 
         {error && collectSheet.sheet == null ? (

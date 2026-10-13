@@ -9,7 +9,8 @@ import { EntityCard } from "@/src/shared/components/EntityCard";
 import { SelectionBar } from "@/src/shared/components/SelectionBar";
 import { toSelectionActions } from "@/src/shared/lib/menuActions";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
-import { FilterChipsRow } from "@/src/shared/components/FilterChipsRow";
+import { FiltersSheet } from "@/src/shared/components/FiltersSheet";
+import { FilterRow } from "@/src/shared/components/FilterRow";
 import {
   Dropdown,
   type DropdownOption,
@@ -223,64 +224,10 @@ export function WalletDetailView({
                   {t("wallet.transactions_section")}
                 </Text>
                 <FilterToggleButton
-                  active={filtersOpen}
                   hasActiveFilters={filters.active}
-                  onPress={() => setFiltersOpen((v) => !v)}
+                  onPress={() => setFiltersOpen(true)}
                 />
               </View>
-            ) : null}
-
-            {!selecting && filtersOpen ? (
-              <FilterChipsRow inset={24} className="mb-3">
-                {customerOptions.length > 0 ? (
-                  <Dropdown<string>
-                    placeholder={t("wallet.filter_by_customer")}
-                    options={customerOptions}
-                    value={filters.filter.customerId}
-                    onChange={(customerId) => filters.set({ customerId })}
-                    nullable
-                    nullLabel={t("wallet.all_customers")}
-                    triggerStyle="chip"
-                    searchable
-                  />
-                ) : null}
-                <Dropdown<WalletSource>
-                  placeholder={t("wallet.filter_by_type")}
-                  options={typeOptions}
-                  value={filters.filter.source}
-                  onChange={(source) => filters.set({ source })}
-                  nullable
-                  nullLabel={t("wallet.all_types")}
-                  triggerStyle="chip"
-                />
-                <DatePickerInput
-                  placeholder={t("wallet.date_from")}
-                  value={filters.filter.fromDay ?? ""}
-                  onChange={(v) => filters.set({ fromDay: v || null })}
-                  maxDate={filters.filter.toDay ?? undefined}
-                  triggerStyle="chip"
-                  clearable
-                />
-                <DatePickerInput
-                  placeholder={t("wallet.date_to")}
-                  value={filters.filter.toDay ?? ""}
-                  onChange={(v) => filters.set({ toDay: v || null })}
-                  minDate={filters.filter.fromDay ?? undefined}
-                  triggerStyle="chip"
-                  clearable
-                />
-                {filters.active ? (
-                  <PressableOpacity
-                    onPress={filters.clear}
-                    className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
-                  >
-                    <Ionicons name="close" size={14} color={COLORS.gray500} />
-                    <Text fontWeight="Medium" className="text-sm text-gray-500">
-                      {t("common.clear_filters")}
-                    </Text>
-                  </PressableOpacity>
-                ) : null}
-              </FilterChipsRow>
             ) : null}
 
             {filtered.length === 0 ? (
@@ -362,6 +309,63 @@ export function WalletDetailView({
           </View>
         )}
       </ScrollView>
+
+      <FiltersSheet
+        visible={filtersOpen}
+        onDismiss={() => setFiltersOpen(false)}
+        showBranch={false}
+        filters={{
+          active: filters.active,
+          onClear: filters.clear,
+          children: (
+            <>
+              {customerOptions.length > 0 ? (
+                <FilterRow label={t("wallet.filter_by_customer")}>
+                  <Dropdown<string>
+                    label={t("wallet.filter_by_customer")}
+                    options={customerOptions}
+                    value={filters.filter.customerId}
+                    onChange={(customerId) => filters.set({ customerId })}
+                    nullable
+                    nullLabel={t("wallet.all_customers")}
+                    triggerStyle="filter"
+                    searchable
+                  />
+                </FilterRow>
+              ) : null}
+              <FilterRow label={t("wallet.filter_by_type")}>
+                <Dropdown<WalletSource>
+                  label={t("wallet.filter_by_type")}
+                  options={typeOptions}
+                  value={filters.filter.source}
+                  onChange={(source) => filters.set({ source })}
+                  nullable
+                  nullLabel={t("wallet.all_types")}
+                  triggerStyle="filter"
+                />
+              </FilterRow>
+              <FilterRow label={t("filters.date")}>
+                <DatePickerInput
+                  label={t("filters.from")}
+                  value={filters.filter.fromDay ?? ""}
+                  onChange={(v) => filters.set({ fromDay: v || null })}
+                  maxDate={filters.filter.toDay ?? undefined}
+                  triggerStyle="filter"
+                  clearable
+                />
+                <DatePickerInput
+                  label={t("filters.to")}
+                  value={filters.filter.toDay ?? ""}
+                  onChange={(v) => filters.set({ toDay: v || null })}
+                  minDate={filters.filter.fromDay ?? undefined}
+                  triggerStyle="filter"
+                  clearable
+                />
+              </FilterRow>
+            </>
+          ),
+        }}
+      />
 
       {detailId ? (
         <CollectionDetailSheet

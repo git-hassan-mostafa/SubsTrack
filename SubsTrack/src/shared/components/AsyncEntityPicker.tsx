@@ -15,10 +15,10 @@ import { PAGE_SIZE } from "@shared/core/constants";
 import { COLORS } from "@/src/shared/constants";
 import { BottomSheetScaffold } from "@/src/shared/components/BottomSheetScaffold";
 import { Input } from "./Input";
+import { FilterFieldButton } from "./FilterFieldButton";
 
-// "default" — full-width form field with label, used inside form sheets.
-// "chip"    — compact fit-content pill, used in filter bars alongside other chips.
-export type AsyncEntityPickerTriggerStyle = "default" | "chip";
+// "default" = labelled form field; "chip" = pill; "filter" = FilterRow value box.
+export type AsyncEntityPickerTriggerStyle = "default" | "chip" | "filter";
 
 interface AsyncEntityPickerProps<T> {
   label?: string;
@@ -83,6 +83,33 @@ export function AsyncEntityPicker<T>({
         : null;
 
   const isActive = value !== null;
+
+  if (triggerStyle === "filter") {
+    return (
+      <>
+        <FilterFieldButton
+          text={displayLabel ?? placeholder ?? ""}
+          active={isActive}
+          disabled={disabled}
+          onPress={() => setOpen(true)}
+        />
+        {open && (
+          <AsyncPickerModal<T>
+            onClose={() => setOpen(false)}
+            title={label ?? placeholder ?? ""}
+            value={value}
+            onChange={onChange}
+            loadPage={loadPage}
+            renderItem={renderItem}
+            getKey={getKey}
+            nullable={nullable}
+            nullLabel={nullLabel}
+            pageSize={pageSize}
+          />
+        )}
+      </>
+    );
+  }
 
   if (triggerStyle === "chip") {
     return (

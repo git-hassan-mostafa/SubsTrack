@@ -6,12 +6,12 @@ import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { useTranslation } from "react-i18next";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
+import { FilterFieldButton } from "./FilterFieldButton";
 import { confirm } from "@shared/shared/lib/confirm";
 import { formatPickedDay } from "@shared/core/utils/date";
 
-// "default" — full-width form field with label, used inside form sheets.
-// "chip"    — compact fit-content pill, used in filter bars alongside other chips.
-export type DatePickerTriggerStyle = "default" | "chip";
+// "default" = labelled form field; "chip" = pill; "filter" = FilterRow value box.
+export type DatePickerTriggerStyle = "default" | "chip" | "filter";
 
 interface Props {
   label?: string;
@@ -358,6 +358,21 @@ export function DatePickerInput({
       ) : null}
     </BottomSheetScaffold>
   );
+
+  if (triggerStyle === "filter") {
+    return (
+      <>
+        <FilterFieldButton
+          caption={label}
+          text={formattedValue ?? placeholder ?? t("filters.any_date")}
+          active={isActive}
+          icon="calendar-outline"
+          onPress={handleOpen}
+        />
+        {picker}
+      </>
+    );
+  }
 
   if (triggerStyle === "chip") {
     return (

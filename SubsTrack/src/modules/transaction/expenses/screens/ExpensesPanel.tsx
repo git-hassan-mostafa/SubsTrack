@@ -1,26 +1,22 @@
-import { useMemo, useState, type RefObject } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
   SectionList,
   View,
-  type ScrollView,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { FAB } from "@/src/shared/components/FAB";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
-import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
-import { FilterChipsRow } from "@/src/shared/components/FilterChipsRow";
+import { FilterRow } from "@/src/shared/components/FilterRow";
+import type { RenderPageHeader } from "@/src/shared/components/PageHeader";
 import { groupByMonth } from "@shared/shared/lib/monthSections";
-import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import { Dropdown } from "@/src/shared/components/Dropdown";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
@@ -35,16 +31,15 @@ import { EXPENSE_FILTER_CATEGORIES } from "@shared/modules/transaction/expenses/
 import { KEYBOARD_SAFE_LIST } from "@/src/shared/lib/keyboardSafeList";
 
 interface Props {
-  filterRowRef?: RefObject<ScrollView | null>;
+  header: RenderPageHeader;
 }
 
 // Money OUT, admin-only: a date window (this month by default), not paged.
-export function ExpensesPanel({ filterRowRef }: Props = {}) {
+export function ExpensesPanel({ header }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const list = useExpensesList(debouncedSearch);
   const { period, setPeriod } = list;
@@ -72,6 +67,53 @@ export function ExpensesPanel({ filterRowRef }: Props = {}) {
 
   return (
     <View className="flex-1">
+      {header({
+        search: {
+          value: search,
+          onChange: setSearch,
+          placeholder: t("expenses.search_placeholder"),
+        },
+        filters: {
+          active: list.hasActiveFilters,
+          onClear: () => void list.clearFilters(),
+          children: (
+            <>
+              <FilterRow label={t("expenses.filter_by_category")}>
+                <Dropdown<ExpenseCategory>
+                  label={t("expenses.filter_by_category")}
+                  options={categoryOptions}
+                  value={list.category === "all" ? null : list.category}
+                  onChange={(c) => list.setCategory(c ?? "all")}
+                  nullable
+                  nullLabel={t("expenses.all_categories")}
+                  triggerStyle="filter"
+                  searchable
+                />
+              </FilterRow>
+              <FilterRow label={t("filters.date")}>
+                <DatePickerInput
+                  label={t("filters.from")}
+                  value={period.fromDate}
+                  onChange={(fromDate) =>
+                    void setPeriod({ ...period, preset: "custom", fromDate })
+                  }
+                  maxDate={period.toDate}
+                  triggerStyle="filter"
+                />
+                <DatePickerInput
+                  label={t("filters.to")}
+                  value={period.toDate}
+                  onChange={(toDate) =>
+                    void setPeriod({ ...period, preset: "custom", toDate })
+                  }
+                  minDate={period.fromDate}
+                  triggerStyle="filter"
+                />
+              </FilterRow>
+            </>
+          ),
+        },
+      })}
       <ResponsiveContainer className="flex-1">
         <View className="px-4 pt-3">
           <Text
@@ -89,64 +131,6 @@ export function ExpensesPanel({ filterRowRef }: Props = {}) {
                 other: formatMoney(list.breakdown.manualUsd, null, target),
               })}
             </Text>
-          ) : null}
-        </View>
-
-        <View className="px-4 pt-2 gap-y-2">
-          <View className="flex-row items-center gap-x-2">
-            <View className="flex-1">
-              <SearchTextBox
-                searchText={search}
-                setSearchText={setSearch}
-                placeholder={t("expenses.search_placeholder")}
-              />
-            </View>
-            <FilterToggleButton
-              active={filtersOpen}
-              hasActiveFilters={list.hasActiveFilters}
-              onPress={() => setFiltersOpen((v) => !v)}
-            />
-          </View>
-          {filtersOpen ? (
-            <FilterChipsRow scrollRef={filterRowRef}>
-              <Dropdown<ExpenseCategory>
-                placeholder={t("expenses.filter_by_category")}
-                options={categoryOptions}
-                value={list.category === "all" ? null : list.category}
-                onChange={(c) => list.setCategory(c ?? "all")}
-                nullable
-                nullLabel={t("expenses.all_categories")}
-                triggerStyle="chip"
-                searchable
-              />
-              <DatePickerInput
-                placeholder={t("expenses.date_from")}
-                value={period.fromDate}
-                onChange={(fromDate) =>
-                  void setPeriod({ ...period, preset: "custom", fromDate })
-                }
-                maxDate={period.toDate}
-                triggerStyle="chip"
-              />
-              <DatePickerInput
-                placeholder={t("expenses.date_to")}
-                value={period.toDate}
-                onChange={(toDate) =>
-                  void setPeriod({ ...period, preset: "custom", toDate })
-                }
-                minDate={period.fromDate}
-                triggerStyle="chip"
-              />
-              <PressableOpacity
-                onPress={() => void list.clearFilters()}
-                className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
-              >
-                <Ionicons name="close" size={14} color={COLORS.gray500} />
-                <Text fontWeight="Medium" className="text-sm text-gray-500">
-                  {t("common.clear_filters")}
-                </Text>
-              </PressableOpacity>
-            </FilterChipsRow>
           ) : null}
         </View>
 

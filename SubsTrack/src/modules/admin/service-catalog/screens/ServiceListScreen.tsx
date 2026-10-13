@@ -17,13 +17,11 @@ import {
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@shared/shared/hooks/useDebounce";
-import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
   PageHeader,
   type SelectionAction,
 } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
-import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
 import { useExportRows } from "@/src/shared/hooks/useExportRows";
@@ -192,6 +190,7 @@ export function ServiceListScreen() {
         subtitle={t("services.active_count", { count: activeCount })}
         showBack
         onBack={() => router.back()}
+        search={{ value: searchText, onChange: setSearchText }}
         selection={{
           active: selectionActive,
           count: selection.count,
@@ -204,16 +203,6 @@ export function ServiceListScreen() {
       />
 
       <ResponsiveContainer className="flex-1">
-        {/* Search stays mounted while selecting so its space remains and the list
-            never jumps; the selection toolbar is overlaid on the header instead. */}
-        <SelectionOverlaySlot selecting={selectionActive}>
-          <View className="px-4 pt-4">
-            <SearchTextBox
-              searchText={searchText}
-              setSearchText={setSearchText}
-            />
-          </View>
-        </SelectionOverlaySlot>
         {error ? (
           <View className="px-4 pt-4">
             <ErrorBanner message={error} onDismiss={clearError} />
