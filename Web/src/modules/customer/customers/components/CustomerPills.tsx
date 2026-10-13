@@ -9,7 +9,7 @@ import {
 import type { ChipTone } from "@/shared/components/chipTones";
 import { StatusChip } from "@/shared/components/StatusChip";
 
-type StatusPill = Exclude<CustomerPill, "debt">;
+type StatusPill = Exclude<CustomerPill, "to_collect">;
 
 const PILL_STYLES: Record<
   StatusPill,
@@ -38,11 +38,11 @@ interface CustomerPillsProps {
   status: CustomerStatus | null;
 }
 
-// The phone card's pills; the debt amount has its own column here.
+// The phone card's pills; the To collect amount has its own column here.
 export function CustomerPills({ customer, status }: CustomerPillsProps) {
   const { t } = useTranslation();
   const pills = customerPills(customer, status, false).filter(
-    (pill): pill is StatusPill => pill !== "debt",
+    (pill): pill is StatusPill => pill !== "to_collect",
   );
 
   return (

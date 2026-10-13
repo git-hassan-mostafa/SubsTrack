@@ -29,7 +29,7 @@ import { useCustomerAdminActions } from "@/modules/customer/customers/hooks/useC
 import { useCustomerHistoryAction } from "@/modules/customer/customers/hooks/useCustomerHistoryAction";
 import { CUSTOMER_ACTION_ICONS } from "@/modules/customer/customers/utils/customerActionIcons";
 import { MonthPanel } from "@/modules/customer/customer-payments/components/MonthPanel";
-import { CustomerDebtsPanel } from "@/modules/transaction/debts/components/CustomerDebtsPanel";
+import { CustomerToCollectPanel } from "@/modules/transaction/to-collect/components/CustomerToCollectPanel";
 import { CustomerSalesPanel } from "@/modules/transaction/sales/components/CustomerSalesPanel";
 import { useWhatsAppDoors } from "@/modules/whatsapp/hooks/useWhatsAppDoors";
 import { flipInRtl } from "@/app/theme/flipInRtl";
@@ -129,7 +129,7 @@ export function CustomerDetailPage() {
             }}
           >
             <CustomerDetailsPanel customer={customer} />
-            <CustomerDebtsPanel customer={customer} />
+            <CustomerToCollectPanel customer={customer} />
           </Box>
           <CustomerSalesPanel customer={customer} />
         </Stack>

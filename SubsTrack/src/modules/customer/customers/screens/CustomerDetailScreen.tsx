@@ -17,7 +17,7 @@ import {
   CustomerSalesPanel,
   useSaleDetailSheet,
 } from "@/src/modules/transaction/sales";
-import { CustomerDebtsPanel } from "@/src/modules/transaction/debts";
+import { CustomerToCollectPanel } from "@/src/modules/transaction/to-collect";
 import { CustomerDetailsCard } from "../components/CustomerDetailsCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
@@ -126,7 +126,7 @@ export function CustomerDetailScreen() {
               onDeleted={() => router.back()}
             />
             <CustomerSalesPanel customer={customer} />
-            <CustomerDebtsPanel
+            <CustomerToCollectPanel
               customer={customer}
               onOpenSale={saleDetail.openSale}
             />

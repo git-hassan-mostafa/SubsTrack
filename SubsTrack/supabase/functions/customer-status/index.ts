@@ -88,6 +88,7 @@ Deno.serve(async (req) => {
         customer: byId.get(row.customerId),
         status: row.status,
         debtUsd: row.debtUsd,
+        toCollectUsd: row.toCollectUsd,
       }));
 
     log(reqId, "served", {

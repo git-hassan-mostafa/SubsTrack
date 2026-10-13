@@ -13,7 +13,7 @@ import {
   SalesPanel,
   useSaleDetailSheet,
 } from "@/src/modules/transaction/sales";
-import { DebtsPanel } from "@/src/modules/transaction/debts";
+import { ToCollectPanel } from "@/src/modules/transaction/to-collect";
 import { ExpensesPanel } from "@/src/modules/transaction/expenses";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
@@ -43,7 +43,7 @@ export function TransactionsScreen() {
   const segments: Segment<TransactionsTab>[] = useMemo(
     () => [
       { key: "sales", label: t("transactions.tab_sales") },
-      { key: "debts", label: t("transactions.tab_debts") },
+      { key: "debts", label: t("transactions.tab_to_collect") },
       ...(isAdmin
         ? [{ key: "expenses" as const, label: t("transactions.tab_expenses") }]
         : []),
@@ -51,10 +51,8 @@ export function TransactionsScreen() {
     [t, isAdmin],
   );
 
-  // Each panel renders one of these slices, so reading them here exports the
-  // rows that tab is showing without lifting three lists out of their panels.
   const sales = useSaleSlice((s) => s.items);
-  const debtors = useLedgerSlice((s) => s.debts?.customers);
+  const debtors = useLedgerSlice((s) => s.toCollect?.customers);
   const expenses = useExpenseStore((s) => s.items);
   const rowsByTab: Record<TransactionsTab, object[]> = {
     sales,
@@ -63,11 +61,9 @@ export function TransactionsScreen() {
   };
   const nameByTab: Record<TransactionsTab, string> = {
     sales: "sales.title",
-    debts: "transactions.tab_debts",
+    debts: "transactions.tab_to_collect",
     expenses: "expenses.title",
   };
-  // Only Sales pages; Debts and Expenses already hold their whole list, so on
-  // those tabs there is nothing more to fetch and no question to ask.
   const salesHasMore = useSaleSlice((s) => s.hasMore);
   const fetchMoreSales = useSaleSlice((s) => s.fetchMoreSales);
   const loadAllSales = useCallback(
@@ -124,7 +120,7 @@ export function TransactionsScreen() {
         <View className="flex-1">
           {tab === "sales" ? <SalesPanel filterRowRef={filterRowRef} /> : null}
           {tab === "debts" ? (
-            <DebtsPanel onOpenSale={saleDetail.openSale} />
+            <ToCollectPanel onOpenSale={saleDetail.openSale} />
           ) : null}
           {tab === "expenses" && isAdmin ? (
             <ExpensesPanel filterRowRef={filterRowRef} />

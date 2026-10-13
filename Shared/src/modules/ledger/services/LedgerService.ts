@@ -16,25 +16,20 @@ import currencyService from "@shared/modules/admin/currencies/services/CurrencyS
 import { priceHistoryService } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
 import { chargeService } from "./ChargeService";
 import { mergeOwed } from "../utils/mergeOwed";
-import { collectTotal, type CollectTotal } from "../utils/collectTotal";
+import {
+  collectTotal,
+  owedItems,
+  type CollectTotal,
+  type CollectTotalArgs,
+} from "../utils/collectTotal";
+import { buildOwedView } from "../utils/owedView";
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { groupBy } from "@shared/core/utils/groupBy";
 import { inChunks } from "@shared/core/utils/chunk";
 
 const OWED_BATCH_SIZE = 100;
 
-/**
- * The one place that answers "what does this customer owe?".
- *
- * It exists because the answer has two sources and only this layer can see
- * both: STORED bills (sales, custom fees, and any month money has touched) and
- * VIRTUAL unpaid months, which have no row until money reaches them and can
- * only be derived from the month grid.
- *
- * OWED  = everything with a balance. Only the waterfall consumes this.
- * DEBT  = the subset the Debts screen shows. A fully unpaid month is owed but
- *         NOT a debt — it is red in the grid, which is its own workflow.
- */
+// The one answer to "what does this customer owe?" — stored bills + virtual months.
 class LedgerService {
   async getOwed(args: {
     customer: Customer;
@@ -54,6 +49,23 @@ class LedgerService {
       priceHistoryService.getForLines(active),
     ]);
     return mergeOwed({ ...args, stored: open, billsByLine, prices });
+  }
+
+  // One customer's To collect: inactive or occasional owe debts only — gotcha #184.
+  async getToCollect(args: {
+    customer: Customer;
+    skips: SkippedMonth[];
+    unpaidRule: UnpaidStartRule;
+    currencies: Currency[];
+  }): Promise<OpenItem[]> {
+    const { customer } = args;
+    if (customer.active && customer.isRegular) {
+      return this.getOwed({ ...args, lines: customer.customerPlans ?? [] });
+    }
+    const open = await chargeService.getOpenCharges({ customerId: customer.id });
+    return open
+      .filter((item) => item.isDebt)
+      .map((item) => ({ ...item, customerName: customer.name }));
   }
 
   // getOwed for many customers: the same merge, one read per chunk of 100.
@@ -104,11 +116,30 @@ class LedgerService {
     return chargeService.buildDebtsView(open);
   }
 
+  // The To collect page: the same items the dashboard's Total to collect sums.
+  async getOwedView(
+    branchFilter: BranchFilter,
+    unpaidRule: UnpaidStartRule,
+  ): Promise<DebtsView> {
+    return buildOwedView(owedItems(await this.readOwed(branchFilter, unpaidRule)));
+  }
+
   // Debts and Total to collect from one read of the open bills — gotcha #184.
   async getOwedTotals(
     branchFilter: BranchFilter,
     unpaidRule: UnpaidStartRule,
   ): Promise<{ debts: DebtsView; toCollect: CollectTotal }> {
+    const owed = await this.readOwed(branchFilter, unpaidRule);
+    return {
+      debts: chargeService.buildDebtsView(owed.stored),
+      toCollect: collectTotal(owed),
+    };
+  }
+
+  private async readOwed(
+    branchFilter: BranchFilter,
+    unpaidRule: UnpaidStartRule,
+  ): Promise<CollectTotalArgs> {
     const [stored, rows, skips, currencies] = await Promise.all([
       chargeService.getOpenCharges({ branchFilter }),
       repositories().customer.findAllForStatus(branchFilter),
@@ -123,18 +154,7 @@ class LedgerService {
       this.getMonthBillsForLines(lines.map((l) => l.id)),
       priceHistoryService.getForLines(lines),
     ]);
-    return {
-      debts: chargeService.buildDebtsView(stored),
-      toCollect: collectTotal({
-        customers,
-        stored,
-        billsByLine,
-        prices,
-        skips,
-        unpaidRule,
-        currencies,
-      }),
-    };
+    return { customers, stored, billsByLine, prices, skips, unpaidRule, currencies };
   }
 
   getMonthBillsForLines(

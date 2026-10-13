@@ -24,7 +24,8 @@ Web/src/
   modules/<group>/<module>/  SubsTrack layout: screens/ (*Page.tsx; reports sections → screens/sections/), components/, hooks/ (use*), utils/ (*Look, *Icons, csv); feature subfolder (ledger/bill…) gets the same four:
     admin/{branches,currencies,services,plans,products,users,audit,billing,tenant-settings}
     customer/{customers,customer-plans,customer-detail (page + details panel),customer-payments (months panel + table)}
-    transaction/debts   Debts page (Debtors / All debts / History tabs), DebtorDialog, CustomDebtFormDialog, useDebtDoors + DebtItemsTable; customer page's debts panel
+    transaction/to-collect  To collect page (Customers / All items / History tabs, All / Debts / Unpaid months filter), OwingCustomerDialog, useOwedDoors + OwedItemsTable (debt + unpaid-month rows), CustomerToCollectPanel (customer page), CustomerToCollectDialog (Customers amount link)
+    transaction/debts   debts only: CustomDebtFormDialog, debt history, written-off scope
     transaction/sales   Sales page + customer sales page on one SalesTable; useSaleDoors: receipt, record + edit (SaleFormDialog), void, invoice; customer page's sales panel
     ledger/{collect,bill,payment,void,received}  collect, bill + useBillDialog, payment detail, correct + void dialogs, Money received page
     invoicing (receipts) so far

@@ -24,8 +24,8 @@ export function refreshActiveData(): void {
   if (s.services.loaded) void s.services.fetchServices();
   if (s.users.loaded) void s.users.fetchUsers();
   if (s.sales.items.length) void s.sales.fetchSales();
-  if (s.ledger.debts)
-    void s.ledger.fetchDebts(resolveBranchFilter(s.auth.user));
+  if (s.ledger.toCollect)
+    void s.ledger.fetchToCollect(resolveBranchFilter(s.auth.user));
   const collections = useCollectionsListStore.getState();
   if (collections.items.length) void collections.fetchCollections();
   const debtHistory = useDebtHistoryStore.getState();
@@ -45,7 +45,7 @@ export function refreshActiveData(): void {
 
   if (s.customers.loaded) {
     void s.payments.fetchCustomerStatuses(s.customers.items);
-    void s.ledger.fetchNetByCustomer(resolveBranchFilter(s.auth.user));
+    void s.ledger.fetchOwedByCustomer(resolveBranchFilter(s.auth.user));
   }
 
   void s.billing.refreshCounts();

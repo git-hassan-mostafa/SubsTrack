@@ -41,42 +41,42 @@ describe("read stamp", () => {
   });
 });
 
-describe("debts", () => {
+describe("to collect", () => {
   it("TC-RF-02 reopening reads nothing until money moves or the branch changes", async () => {
-    const reads = jest.spyOn(ledgerService, "getDebtsView").mockResolvedValue(debtsView);
-    const { ensureDebts } = getStore().getState().ledger;
-    await ensureDebts(null);
-    await ensureDebts(null);
+    const reads = jest.spyOn(ledgerService, "getOwedView").mockResolvedValue(debtsView);
+    const { ensureToCollect } = getStore().getState().ledger;
+    await ensureToCollect(null);
+    await ensureToCollect(null);
     expect(reads).toHaveBeenCalledTimes(1);
     bumpOwed();
-    await ensureDebts(null);
+    await ensureToCollect(null);
     expect(reads).toHaveBeenCalledTimes(2);
-    await ensureDebts("b1");
+    await ensureToCollect("b1");
     expect(reads).toHaveBeenCalledTimes(3);
-    expect(reads).toHaveBeenLastCalledWith("b1");
+    expect(reads.mock.lastCall?.[0]).toBe("b1");
   });
 
   it("TC-RF-03 a payment saved while the read was on its way leaves the list stale", async () => {
-    const reads = jest.spyOn(ledgerService, "getDebtsView").mockImplementationOnce(async () => {
+    const reads = jest.spyOn(ledgerService, "getOwedView").mockImplementationOnce(async () => {
       bumpOwed();
       return debtsView;
     });
     reads.mockResolvedValue(debtsView);
-    const { ensureDebts } = getStore().getState().ledger;
-    await ensureDebts(null);
-    await ensureDebts(null);
+    const { ensureToCollect } = getStore().getState().ledger;
+    await ensureToCollect(null);
+    await ensureToCollect(null);
     expect(reads).toHaveBeenCalledTimes(2);
   });
 
   it("TC-RF-04 a failed read is tried again on the next open", async () => {
-    const reads = jest.spyOn(ledgerService, "getDebtsView").mockRejectedValueOnce(new Error("network"));
+    const reads = jest.spyOn(ledgerService, "getOwedView").mockRejectedValueOnce(new Error("network"));
     reads.mockResolvedValue(debtsView);
-    const { ensureDebts } = getStore().getState().ledger;
-    await ensureDebts(null);
+    const { ensureToCollect } = getStore().getState().ledger;
+    await ensureToCollect(null);
     expect(getStore().getState().ledger.error).toBe("network");
-    await ensureDebts(null);
+    await ensureToCollect(null);
     expect(reads).toHaveBeenCalledTimes(2);
-    expect(getStore().getState().ledger.debts).toBe(debtsView);
+    expect(getStore().getState().ledger.toCollect).toBe(debtsView);
   });
 });
 

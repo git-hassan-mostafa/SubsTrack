@@ -322,6 +322,7 @@ export function CustomerPaymentPanel({
           ) : (
             <MonthGrid
               months={grid.grid}
+              block={grid.block}
               onCellPress={grid.tap}
               onCellMenu={setMenuEntry}
               loadingBillingMonth={grid.busyMonth}

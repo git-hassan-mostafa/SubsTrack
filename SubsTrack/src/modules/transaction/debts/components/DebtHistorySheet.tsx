@@ -21,7 +21,7 @@ import type { ChargeKind, DebtHistoryItem } from "@shared/core/types";
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import { useDebtHistoryStore } from "@shared/modules/transaction/debts/state/debtHistoryStore";
-import { DEBT_KINDS } from "@shared/modules/transaction/debts/utils/allDebtsFilter";
+import { OWED_KINDS } from "@shared/modules/transaction/to-collect/utils/allItemsFilter";
 import {
   DEFAULT_DEBT_HISTORY_FILTERS,
   HISTORY_OUTCOMES,
@@ -99,7 +99,7 @@ export function DebtHistorySheet({
 
   const kindOptions: DropdownOption<ChargeKind>[] = useMemo(
     () =>
-      DEBT_KINDS.map((k) => ({ label: t(`ledger.kind_${k}`), value: k })),
+      OWED_KINDS.map((k) => ({ label: t(`ledger.kind_${k}`), value: k })),
     [t],
   );
 

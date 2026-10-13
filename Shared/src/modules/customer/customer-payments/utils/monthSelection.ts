@@ -15,17 +15,20 @@ function planDuration(line: CustomerPlan): number {
   return line.plan?.durationMonths ?? 1;
 }
 
-function startAbs(line: CustomerPlan): number {
-  const d = new Date(line.startDate);
+function startAbs(startDate: string): number {
+  const d = new Date(startDate);
   return absOf(d.getFullYear(), d.getMonth() + 1);
 }
 
-// First month of the start-aligned N-month window that contains `abs`. Windows
-// are anchored at the line's start month so they never overlap and never begin
-// before the start date.
-function blockStartAbs(abs: number, line: CustomerPlan, n: number): number {
-  const base = startAbs(line);
+function blockStartAbs(abs: number, startDate: string, n: number): number {
+  const base = startAbs(startDate);
   return base + Math.floor((abs - base) / n) * n;
+}
+
+// N-month windows anchored at the line's start never overlap — gotcha #194.
+export function blockStartMonth(billingMonth: string, startDate: string, n: number): string {
+  const [year, month] = billingMonth.split("-").map(Number);
+  return billingMonthFromAbs(blockStartAbs(absOf(year, month), startDate, n));
 }
 
 // Money has reached this month. Keyed off the AMOUNT, never on a bill row
@@ -68,7 +71,7 @@ export function expandSelectionUnit(
 
   const n = planDuration(line);
   if (n > 1) {
-    const blockStart = blockStartAbs(absOf(entry.year, entry.month), line, n);
+    const blockStart = blockStartAbs(absOf(entry.year, entry.month), line.startDate, n);
     const blockEnd = blockStart + n - 1;
     return monthGrid
       .filter((m) => {
@@ -93,7 +96,7 @@ export function groupPayableBlocks(
   const n = planDuration(line);
   const starts = new Set<number>();
   for (const entry of payableEntries) {
-    starts.add(blockStartAbs(absOf(entry.year, entry.month), line, n));
+    starts.add(blockStartAbs(absOf(entry.year, entry.month), line.startDate, n));
   }
   return Array.from(starts)
     .sort((a, b) => a - b)

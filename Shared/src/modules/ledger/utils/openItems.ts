@@ -4,6 +4,7 @@ import type { DbCharge } from "@shared/core/types/db";
 import { receiptId } from "@shared/core/utils/receiptId";
 import { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/utils/blockRangeLabel";
 import { isDebtItem } from "@shared/modules/ledger/utils/debtRule";
+import { virtualMonthItem } from "@shared/modules/ledger/utils/virtualMonthItem";
 
 /**
  * A stored bill as an OpenItem. `paid` comes from the balance view.
@@ -39,56 +40,6 @@ export function openItemFromCharge(
     createdAt: charge.createdAt,
     isDebt: isDebtItem(charge.kind, paid),
     charge,
-  };
-}
-
-/**
- * A month the customer owes that has NO bill yet — derived from the grid. The
- * waterfall materializes its charge at the moment money reaches it, which is
- * the only thing that ever turns a month into a bill.
- *
- * `chargeId` is null and `createdAt`/`issuedAt` are the due date, so it sorts
- * beside stored bills without pretending to have been raised earlier.
- */
-export function virtualMonthItem(args: {
-  customerId: string;
-  customerName: string;
-  branchId: string | null;
-  customerPlanId: string;
-  billingMonth: string;
-  durationMonths: number;
-  planId: string | null;
-  label: string;
-  amount: number;
-  currencyId: string | null;
-  ratePerUsdSnapshot: number;
-  dueDate: string;
-  openAmount?: boolean;
-  earlierPrice?: boolean;
-}): OpenItem {
-  return {
-    chargeId: null,
-    kind: "month",
-    customerId: args.customerId,
-    customerName: args.customerName,
-    branchId: args.branchId,
-    customerPlanId: args.customerPlanId,
-    billingMonth: args.billingMonth,
-    durationMonths: args.durationMonths,
-    planId: args.planId,
-    saleId: null,
-    label: args.label,
-    amount: args.amount,
-    paid: 0,
-    balance: args.amount,
-    currencyId: args.currencyId,
-    ratePerUsdSnapshot: args.ratePerUsdSnapshot,
-    dueDate: args.dueDate,
-    issuedAt: args.dueDate,
-    createdAt: args.dueDate,
-    isDebt: false,
-    openAmount: args.openAmount ?? false,
-    earlierPrice: args.earlierPrice ?? false,
   };
 }
 

@@ -23,7 +23,7 @@ import {
   paymentSelectionItems,
   voidablePayments,
 } from "@shared/modules/ledger/utils/collectionView";
-import { debtorActions } from "@shared/modules/transaction/debts/utils/debtorView";
+import { owingCustomerActions } from "@shared/modules/transaction/to-collect/utils/toCollectView";
 import {
   saleReceiptActions,
   saleReceiptFacts,
@@ -118,7 +118,7 @@ describe("customer menus", () => {
 
   it("TC-RM-08 an unpaid customer gets quick pay, pay-and-send, collect and write-off", () =>
     on(() => {
-      const keys = keysOf(customerMenuItems(ali, { status: unpaid, debtUsd: 0, currencies: [] }, admin));
+      const keys = keysOf(customerMenuItems(ali, { status: unpaid, toCollectUsd: 0, currencies: [] }, admin));
       expect(keys).toEqual([
         "quick_pay",
         "quick_pay_whatsapp",
@@ -136,7 +136,7 @@ describe("customer menus", () => {
 
   it("TC-RM-09 a paid customer with no debt owes nothing: quick pay, collect and write-off are greyed", () =>
     on(() => {
-      const items = customerMenuItems(aliNoPhone, { status: paid, debtUsd: 0, currencies: [] }, staff);
+      const items = customerMenuItems(aliNoPhone, { status: paid, toCollectUsd: 0, currencies: [] }, staff);
       expect(enabledKeys(items)).toEqual(["record_sale", "add_custom_debt", "edit", "history"]);
       expect(greyed(items)).toEqual({
         quick_pay: "why_disabled.month_paid",
@@ -152,7 +152,7 @@ describe("customer menus", () => {
   it("TC-RM-09b quick pay says why: inactive, no plan, or an older month first", () =>
     on(() => {
       const reasonFor = (who: typeof ali, status: CustomerStatus) =>
-        greyed(customerMenuItems(who, { status, debtUsd: 0, currencies: [] }, admin)).quick_pay;
+        greyed(customerMenuItems(who, { status, toCollectUsd: 0, currencies: [] }, admin)).quick_pay;
       expect(reasonFor({ ...ali, active: false }, unpaid)).toBe("why_disabled.customer_inactive");
       expect(reasonFor({ ...ali, customerPlans: [] }, unpaid)).toBe("why_disabled.no_plan");
       expect(reasonFor(ali, { ...unpaid, uncoveredLineIds: ["l-usd"] })).toBe("why_disabled.pay_older_first");
@@ -160,7 +160,7 @@ describe("customer menus", () => {
 
   it("TC-RM-10 without a phone, pay-and-send stays visible but disabled with a reason", () =>
     on(() => {
-      const items = customerMenuItems(aliNoPhone, { status: unpaid, debtUsd: 0, currencies: [] }, staff);
+      const items = customerMenuItems(aliNoPhone, { status: unpaid, toCollectUsd: 0, currencies: [] }, staff);
       expect(items.find((item) => item.key === "quick_pay_whatsapp")).toMatchObject({
         disabled: true,
         captionKey: "invoice.no_phone",
@@ -171,7 +171,7 @@ describe("customer menus", () => {
   it("TC-RM-11 a typed-price line has nothing priced to send, so pay-and-send is greyed", () =>
     on(() => {
       const typedOnly = customer({ customerPlans: [line({ id: "l-typed", plan: typed, planId: typed.id })] });
-      const items = customerMenuItems(typedOnly, { status: unpaid, debtUsd: 0, currencies: [] }, admin);
+      const items = customerMenuItems(typedOnly, { status: unpaid, toCollectUsd: 0, currencies: [] }, admin);
       expect(enabledKeys(items)).toContain("quick_pay");
       expect(greyed(items).quick_pay_whatsapp).toBe("why_disabled.no_set_price");
     }));
@@ -223,26 +223,26 @@ describe("sale receipt", () => {
   });
 });
 
-describe("debtorActions", () => {
+describe("owingCustomerActions", () => {
   it("TC-RM-17 billed debts collect and write off together", () => {
-    expect(keysOf(debtorActions([openItem({ kind: "manual", isDebt: true })]))).toEqual([
+    expect(keysOf(owingCustomerActions([openItem({ kind: "manual", isDebt: true })]))).toEqual([
       "collect_all",
       "write_off_all",
     ]);
   });
 
   it("TC-RM-18b an unpaid month is owed, not a debt, so the debtor write-off never reaches it (#186)", () => {
-    const items = debtorActions([openItem({ paid: 0, isDebt: false })]);
+    const items = owingCustomerActions([openItem({ paid: 0, isDebt: false })]);
     expect(enabledKeys(items)).toEqual(["collect_all"]);
     expect(greyed(items)).toEqual({ write_off_all: "why_disabled.no_debts" });
   });
 
   it("TC-RM-18 a virtual month has no bill, so it collects but never writes off", () => {
-    expect(enabledKeys(debtorActions([openItem({ chargeId: null })]))).toEqual(["collect_all"]);
+    expect(enabledKeys(owingCustomerActions([openItem({ chargeId: null })]))).toEqual(["collect_all"]);
   });
 
   it("TC-RM-19 nothing owed: both rows greyed", () => {
-    expect(greyed(debtorActions([]))).toEqual({
+    expect(greyed(owingCustomerActions([]))).toEqual({
       collect_all: "why_disabled.nothing_owed",
       write_off_all: "why_disabled.no_debts",
     });

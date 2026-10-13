@@ -12,7 +12,7 @@ import { isBeforeStartDate } from "@shared/modules/customer/customer-payments/ut
 import { activeLines } from "@shared/modules/customer/customer-plans/utils/activeLines";
 import { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
 import type { CollectInput } from "@shared/modules/ledger/services/CollectionService";
-import { virtualMonthItem } from "@shared/modules/ledger/utils/openItems";
+import { virtualMonthItem } from "@shared/modules/ledger/utils/virtualMonthItem";
 
 export interface QuickPayTarget {
   customer: Customer;

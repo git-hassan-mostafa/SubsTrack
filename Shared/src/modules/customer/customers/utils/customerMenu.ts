@@ -26,7 +26,7 @@ export interface CustomerMenuViewer {
 
 export interface CustomerMoneyFacts {
   status: CustomerStatus | null;
-  debtUsd: number | undefined;
+  toCollectUsd: number | undefined;
   currencies: Currency[];
 }
 
@@ -61,7 +61,7 @@ export function customerMenuItems(
   const typedOnly =
     !payBlock && fixedMonthItems(customer, money.status, money.currencies).length === 0;
   const nothingOwed =
-    !hasAnythingOwed(money.status, money.debtUsd) && "why_disabled.nothing_owed";
+    !hasAnythingOwed(money.status, money.toCollectUsd) && "why_disabled.nothing_owed";
   const keys: CustomerActionKey[] = [
     "quick_pay",
     "quick_pay_whatsapp",

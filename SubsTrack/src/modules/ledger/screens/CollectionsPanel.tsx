@@ -118,7 +118,7 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
   const clearError = useCollectionsListStore((s) => s.clearError);
   const applyVoided = useCollectionsListStore((s) => s.applyVoided);
   const applyCorrected = useCollectionsListStore((s) => s.applyCorrected);
-  const refreshNetByCustomer = useLedgerSlice((s) => s.fetchNetByCustomer);
+  const refreshOwedByCustomer = useLedgerSlice((s) => s.fetchOwedByCustomer);
 
   const users = useUserSlice((s) => s.items);
   const getUsers = useUserSlice((s) => s.getUsers);
@@ -138,7 +138,7 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
         return;
       }
       applyVoided(voided);
-      void refreshNetByCustomer(branchFilter);
+      void refreshOwedByCustomer(branchFilter);
     },
   });
 

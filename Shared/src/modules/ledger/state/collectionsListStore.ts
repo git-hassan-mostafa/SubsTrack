@@ -297,7 +297,7 @@ export const useCollectionsListStore = create<CollectionsListState>()(
         set((state) => {
           state.loading = false;
         });
-        void global.ledger.fetchNetByCustomer(
+        void global.ledger.fetchOwedByCustomer(
           resolveBranchFilter(global.auth.user),
         );
       },
@@ -311,7 +311,7 @@ export const useCollectionsListStore = create<CollectionsListState>()(
 
       applyCorrected: async () => {
         const global = getStore().getState();
-        void global.ledger.fetchNetByCustomer(
+        void global.ledger.fetchOwedByCustomer(
           resolveBranchFilter(global.auth.user),
         );
         await get().fetchCollections();

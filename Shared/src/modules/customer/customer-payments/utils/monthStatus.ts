@@ -35,7 +35,7 @@ export function buildMonthGrid(
 }
 
 // The grid over only the fields it reads, so server facts fit (month-grid.md).
-function monthCells<C extends StatusCharge, S extends StatusSkip>(
+export function monthCells<C extends StatusCharge, S extends StatusSkip>(
   line: StatusLine,
   bills: StatusBill<C>[],
   skips: S[],

@@ -68,6 +68,7 @@ class CustomerService {
         customer: mapDbCustomerToCustomer(row.customer),
         status: row.status,
         debtUsd: row.debtUsd,
+        toCollectUsd: row.toCollectUsd,
       })),
       total: page.total,
     };

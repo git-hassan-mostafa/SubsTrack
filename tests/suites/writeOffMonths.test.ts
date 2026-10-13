@@ -290,7 +290,7 @@ describe("the customer badge after a write-off", () => {
     await writeOff(await owedFor());
     const bills = store.charges.map((c) => ({ charge: mapDbChargeToCharge(c), collected: 0 }));
     const status = buildCustomerStatus([L], bills, [], "month_start");
-    const facts = { status, debtUsd: 0, lastPaidAt: null };
+    const facts = { status, debtUsd: 0, toCollectUsd: 0, lastPaidAt: null };
     const query = (payment: "paid" | "written_off") =>
       toCustomerFilterQuery({ ...DEFAULT_CUSTOMER_FILTERS, payment });
     expect(matchesCustomerFilters(C, facts, query("written_off"))).toBe(true);

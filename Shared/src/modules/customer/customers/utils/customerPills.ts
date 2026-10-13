@@ -4,18 +4,18 @@ import {
   type CustomerFlag,
 } from "@shared/modules/customer/customers/utils/customerFlags";
 
-export type CustomerPill = CustomerFlag | "inactive" | "non_regular" | "debt";
+export type CustomerPill = CustomerFlag | "inactive" | "non_regular" | "to_collect";
 
-// Inactive and non-regular REPLACE the payment flags; debt always rides along.
+// Inactive and non-regular REPLACE the payment flags; To collect always rides along.
 export function customerPills(
   customer: Pick<Customer, "active" | "isRegular">,
   status: CustomerStatus | null,
-  hasDebt: boolean,
+  hasToCollect: boolean,
 ): CustomerPill[] {
   const pills: CustomerPill[] = !customer.active
     ? ["inactive"]
     : !customer.isRegular
       ? ["non_regular"]
       : customerFlags(status);
-  return hasDebt ? [...pills, "debt"] : pills;
+  return hasToCollect ? [...pills, "to_collect"] : pills;
 }

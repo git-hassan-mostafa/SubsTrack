@@ -6,8 +6,10 @@ import type {
   SkippedMonth,
 } from "@shared/core/types";
 import { getTodayDateString } from "@shared/core/utils/date";
-import { chargeService } from "@shared/modules/ledger/services/ChargeService";
+import { groupBy } from "@shared/core/utils/groupBy";
 import { isDebtItem } from "@shared/modules/ledger/utils/debtRule";
+import { owedItems } from "@shared/modules/ledger/utils/collectTotal";
+import { buildOwedView, owedByCustomerOf } from "@shared/modules/ledger/utils/owedView";
 import {
   buildCustomerStatus,
   getCustomerStatuses,
@@ -19,6 +21,7 @@ import {
   type WireCustomer,
   type WireDebt,
   type WireLine,
+  type WirePlan,
 } from "@shared/modules/customer/customers/utils/customerStatusFacts";
 import {
   customerStatusPage,
@@ -38,7 +41,7 @@ import {
   type CustomerSort,
   type PaymentFilter,
 } from "@shared/modules/customer/customers/utils/customerFilters";
-import { bill, customer, line, openItem, skip } from "../helpers/factories";
+import { LBP, bill, customer, line, openItem, plan, skip } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
 
 interface Fixture {
@@ -52,8 +55,14 @@ interface Fixture {
 const PLAN_10A = "0b9f8a4e-8a3c-4c1e-9d5f-2f6b8a1c0d3e";
 const PLAN_5A = "1c8e7b3d-7b2b-4b0d-8c4e-1e5a7b0c9d2f";
 
+const PLANS = [
+  plan({ id: PLAN_10A, name: "10A", price: 10 }),
+  plan({ id: PLAN_5A, name: "5A", price: 450000, currencyId: LBP.id }),
+];
+
 function lineOf(customerId: string, lineId: string, over: Partial<CustomerPlan> = {}) {
-  return line({ id: lineId, customerId, startDate: "2025-11-01", ...over });
+  const linePlan = PLANS.find((p) => p.id === over.planId);
+  return line({ id: lineId, customerId, startDate: "2025-11-01", plan: linePlan, ...over });
 }
 
 function monthsPaid(customerId: string, lineId: string, months: string[], amount = 20) {
@@ -150,7 +159,13 @@ function fixture(): Fixture {
   const openItems = [
     open("c-partial", { kind: "month", amount: 20, paid: 5 }),
     open("c-partial", { kind: "month", amount: 20, paid: 5 }),
-    open("c-overdue", { kind: "month", amount: 20, paid: 0 }),
+    open("c-overdue", {
+      kind: "month",
+      amount: 20,
+      paid: 0,
+      customerPlanId: "l-overdue",
+      billingMonth: "2026-02-01",
+    }),
     open("c-walkin", { kind: "sale", amount: 890000, paid: 0, ratePerUsdSnapshot: 89000 }),
     open("c-inactive", { kind: "manual", amount: 15, paid: 0 }),
   ];
@@ -201,34 +216,65 @@ function toWire(f: Fixture): CustomerStatusFactsWire {
           ]),
         f.skips.filter((s) => s.customerPlanId === l.id && s.skipped).map((s) => s.billingMonth),
         l.planId,
+        l.customPrice,
+        l.customCurrencyId,
       ]),
     ),
     debts: f.open
       .filter((i) => i.balance > 0)
-      .map((i): WireDebt => [i.customerId, i.kind, i.balance, i.paid, i.ratePerUsdSnapshot]),
+      .map((i): WireDebt => [
+        i.customerId,
+        i.kind,
+        i.balance,
+        i.paid,
+        i.ratePerUsdSnapshot,
+        i.customerPlanId,
+        i.billingMonth,
+      ]),
+    plans: PLANS.map((p): WirePlan => [
+      p.id,
+      p.name,
+      p.price,
+      p.isCustomPrice,
+      p.durationMonths,
+      p.currencyId,
+      p.branchId,
+      p.tenantId,
+      p.createdAt,
+    ]),
+    currencies: [[LBP.id, LBP.ratePerUsd]],
   };
 }
 
-// The phone path: statuses from the slice helper, debt from the debts view.
+// The phone path: statuses from the slice helper, money from the To collect view.
 function phoneList(f: Fixture, filters: CustomerFilterQuery) {
   const statuses = getCustomerStatuses(f.customers, f.bills, f.skips);
-  const net = new Map(
-    chargeService.buildDebtsView(f.open).customers.map((c) => [c.customerId, c.debtUsd]),
+  const owed = owedByCustomerOf(
+    buildOwedView(
+      owedItems({
+        customers: f.customers.filter((c) => c.active && c.isRegular),
+        stored: f.open,
+        billsByLine: groupBy(f.bills, (b) => b.charge.customerPlanId ?? ""),
+        skips: f.skips,
+        unpaidRule: "month_start",
+        currencies: [LBP],
+      }),
+    ),
   );
+  const money = (id: string) => ({
+    debtUsd: owed[id]?.debtUsd ?? 0,
+    toCollectUsd: owed[id]?.toCollectUsd ?? 0,
+  });
   return [...f.customers]
     .sort((a, b) => a.name.localeCompare(b.name) || (a.id < b.id ? -1 : 1))
     .filter((c) =>
       matchesCustomerFilters(
         c,
-        { status: statuses.get(c.id) ?? null, debtUsd: net.get(c.id), lastPaidAt: f.lastPaid.get(c.id) },
+        { status: statuses.get(c.id) ?? null, ...money(c.id), lastPaidAt: f.lastPaid.get(c.id) },
         filters,
       ),
     )
-    .map((c) => ({
-      customerId: c.id,
-      status: statuses.get(c.id) ?? null,
-      debtUsd: net.get(c.id) ?? 0,
-    }));
+    .map((c) => ({ customerId: c.id, status: statuses.get(c.id) ?? null, ...money(c.id) }));
 }
 
 const pick = (over: Partial<CustomerFilters> = {}) =>
@@ -253,8 +299,9 @@ const COMBOS: Partial<CustomerFilters>[] = [
   { status: "active" },
   { status: "inactive" },
   ...PAYMENTS.map((payment) => ({ payment })),
-  { debt: "yes" },
-  { debt: "no" },
+  { owes: "anything" },
+  { owes: "debts" },
+  { owes: "nothing" },
   { planId: PLAN_10A },
   { planId: PLAN_5A },
   { unpaidMonths: 1 },
@@ -269,7 +316,8 @@ const COMBOS: Partial<CustomerFilters>[] = [
   { paidFrom: "2026-02-01" },
   { paidTo: "2026-01-31" },
   { paidFrom: "2026-02-01", paidTo: "2026-03-05" },
-  { status: "active", debt: "yes", payment: "unpaid" },
+  { status: "active", owes: "debts", payment: "unpaid" },
+  { status: "active", owes: "anything", payment: "overdue" },
   { planId: PLAN_10A, phone: "no", unpaidMonths: 1 },
 ];
 
@@ -277,7 +325,7 @@ describe("pageCustomerStatuses — server filters equal the phone list", () => {
   beforeEach(() => freezeToday(2026, 3, 15));
   afterEach(unfreeze);
 
-  it("TC-CT-01 every filter lists the same customers, statuses and debt as the phone", () => {
+  it("TC-CT-01 every filter lists the same customers, statuses and money as the phone", () => {
     const f = fixture();
     const facts = readCustomerStatusFacts(toWire(f), "month_start");
     for (const combo of COMBOS) {
@@ -287,6 +335,7 @@ describe("pageCustomerStatuses — server filters equal the phone list", () => {
       expect(page.rows.map((r) => r.customerId)).toEqual(expected.map((r) => r.customerId));
       expect(page.rows.map((r) => r.status)).toEqual(expected.map((r) => r.status));
       page.rows.forEach((r, i) => expect(r.debtUsd).toBeCloseTo(expected[i].debtUsd, 8));
+      page.rows.forEach((r, i) => expect(r.toCollectUsd).toBeCloseTo(expected[i].toCollectUsd, 8));
       expect(page.total).toBe(expected.length);
     }
   });
@@ -299,8 +348,9 @@ describe("pageCustomerStatuses — server filters equal the phone list", () => {
     expect(total({ status: "active" })).toBe(9);
     expect(total({ status: "inactive" })).toBe(1);
     expect(PAYMENTS.map((payment) => total({ payment }))).toEqual([3, 2, 1, 2, 2]);
-    expect(total({ debt: "yes" })).toBe(3);
-    expect(total({ debt: "no" })).toBe(7);
+    expect(total({ owes: "anything" })).toBe(4);
+    expect(total({ owes: "debts" })).toBe(3);
+    expect(total({ owes: "nothing" })).toBe(6);
     expect(total({ planId: PLAN_10A })).toBe(2);
     expect(total({ planId: PLAN_5A })).toBe(1);
     expect(total({ type: "occasional" })).toBe(1);
@@ -315,7 +365,7 @@ describe("pageCustomerStatuses — server filters equal the phone list", () => {
       pageCustomerStatuses(facts, query(pick(combo))).rows.map((r) => r.customerId);
     expect(ids({ planId: PLAN_10A, phone: "no" })).toEqual(["c-mixed"]);
     expect(ids({ status: "inactive", payment: "unpaid" })).toEqual([]);
-    expect(ids({ debt: "yes", status: "active" })).toEqual(["c-walkin", "c-partial"]);
+    expect(ids({ owes: "debts", status: "active" })).toEqual(["c-walkin", "c-partial"]);
   });
 
   it("TC-CT-04 paging slices one filter; the total stays the whole filter", () => {
@@ -351,7 +401,7 @@ describe("pageCustomerStatuses — server filters equal the phone list", () => {
       pageCustomerStatuses(facts, query(pick({ status: "active" }), { sort })).rows.map(
         (r) => r.customerId,
       );
-    expect(ids("debt").slice(0, 2)).toEqual(["c-partial", "c-walkin"]);
+    expect(ids("to_collect").slice(0, 3)).toEqual(["c-partial", "c-overdue", "c-walkin"]);
     expect(ids("unpaid_months").slice(0, 2)).toEqual(["c-mixed", "c-overdue"]);
     expect(ids("longest_unpaid").slice(0, 2)).toEqual(["c-walkin", "c-basma-2"]);
     expect(ids("longest_unpaid").slice(-1)).toEqual(["c-partial"]);
@@ -386,6 +436,18 @@ describe("pageCustomerStatuses — server filters equal the phone list", () => {
     expect(facts.debtUsd.get("c-partial")).toBeCloseTo(30, 8);
     expect(facts.debtUsd.get("c-walkin")).toBeCloseTo(10, 8);
     expect(facts.debtUsd.get("c-inactive")).toBeCloseTo(15, 8);
+  });
+
+  it("TC-CT-25 To collect adds unpaid months at their own price; an empty bill yields to its month", () => {
+    const facts = readCustomerStatusFacts(toWire(fixture()), "month_start");
+    const rows = pageCustomerStatuses(facts, query()).rows;
+    const toCollect = (id: string) => rows.find((r) => r.customerId === id)!.toCollectUsd;
+    expect(toCollect("c-overdue")).toBeCloseTo(15, 8);
+    expect(toCollect("c-partial")).toBeCloseTo(30, 8);
+    expect(toCollect("c-walkin")).toBeCloseTo(10, 8);
+    expect(toCollect("c-inactive")).toBeCloseTo(15, 8);
+    expect(toCollect("c-paid")).toBe(0);
+    expect(toCollect("c-mixed")).toBe(0);
   });
 
   it("TC-CT-10 inactive and walk-in customers carry no status pill", () => {
@@ -498,7 +560,7 @@ describe("parseCustomerStatusRequest", () => {
   const valid = {
     search: "ali",
     filters: pick({ payment: "overdue", planId: PLAN_5A, unpaidMonths: 2, paidFrom: "2026-02-01" }),
-    sort: "debt",
+    sort: "to_collect",
     branch: null,
     offset: 0,
     limit: 25,
@@ -521,6 +583,7 @@ describe("parseCustomerStatusRequest", () => {
       { filters: undefined },
       { filters: "overdue" },
       { filters: { ...pick(), payment: "owing" } },
+      { filters: { ...pick(), owes: "yes" } },
       { filters: { ...pick(), status: null } },
       { filters: { ...pick(), unpaidMonths: 4 } },
       { filters: { ...pick(), planId: "main" } },
@@ -550,6 +613,7 @@ describe("matchesCustomerFilters", () => {
   const facts = (over: Partial<CustomerListFacts> = {}): CustomerListFacts => ({
     status: null,
     debtUsd: 0,
+    toCollectUsd: 0,
     lastPaidAt: null,
     ...over,
   });
@@ -561,11 +625,16 @@ describe("matchesCustomerFilters", () => {
     expect(matchesCustomerFilters(c, facts({ status }), pick({ payment: "unpaid" }))).toBe(true);
   });
 
-  it("TC-CT-18 no status means no payment filter; debt alone decides Has debts", () => {
+  it("TC-CT-18 no status means no payment filter; money alone decides the Owes filter", () => {
     const c = customer({ active: false });
-    expect(matchesCustomerFilters(c, facts({ debtUsd: 12 }), pick({ debt: "yes" }))).toBe(true);
-    expect(matchesCustomerFilters(c, facts(), pick({ debt: "yes" }))).toBe(false);
-    expect(matchesCustomerFilters(c, facts(), pick({ debt: "no" }))).toBe(true);
+    const owing = facts({ debtUsd: 12, toCollectUsd: 12 });
+    const monthsOnly = facts({ toCollectUsd: 20 });
+    expect(matchesCustomerFilters(c, owing, pick({ owes: "debts" }))).toBe(true);
+    expect(matchesCustomerFilters(c, monthsOnly, pick({ owes: "debts" }))).toBe(false);
+    expect(matchesCustomerFilters(c, monthsOnly, pick({ owes: "anything" }))).toBe(true);
+    expect(matchesCustomerFilters(c, monthsOnly, pick({ owes: "nothing" }))).toBe(false);
+    expect(matchesCustomerFilters(c, facts(), pick({ owes: "anything" }))).toBe(false);
+    expect(matchesCustomerFilters(c, facts(), pick({ owes: "nothing" }))).toBe(true);
     for (const payment of PAYMENTS)
       expect(matchesCustomerFilters(customer(), facts(), pick({ payment }))).toBe(false);
   });

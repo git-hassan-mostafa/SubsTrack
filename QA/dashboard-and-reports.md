@@ -7,7 +7,7 @@
 3. Reports "Collected" for this month = dashboard revenue, to the cent.
 4. Void a payment → revenue drops by exactly that amount.
 5. Collect a debt → revenue goes up and "Total to collect" goes down by the same amount.
-6. "Debts" tile on the dashboard = the Debts page total.
+6. "Debts" tile on the dashboard = the To collect page total with the "Debts" filter (web: the tile opens the page with it picked).
 6a. A customer 4 months behind who paid nothing → "Total to collect" includes all 4 months; "Debts" does not move.
 6b. "Total to collect" = the sum of what the collect sheet asks every active regular customer, plus the Debts of everyone else (inactive, non-regular, walk-in).
 6c. Skip a month, cancel a plan, or change the "when a month becomes unpaid" setting → "Total to collect" follows, like the month grid.

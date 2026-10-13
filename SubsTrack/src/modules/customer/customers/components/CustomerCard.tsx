@@ -18,7 +18,7 @@ import { customerPills, type CustomerPill } from "@shared/modules/customer/custo
 interface Props {
   customer: Customer;
   status: CustomerStatus | null;
-  debtLabel?: string | null;
+  toCollectLabel?: string | null;
   onPress: (customer: Customer) => void;
   onMenu: (customer: Customer) => void;
   menuLoading?: boolean;
@@ -35,7 +35,7 @@ interface CardChip {
 }
 
 const PILL_STYLES: Record<
-  Exclude<CustomerPill, "debt">,
+  Exclude<CustomerPill, "to_collect">,
   {
     label: (t: TFunction, s: CustomerStatus | null) => string;
     tone: ChipTone;
@@ -87,12 +87,12 @@ const PILL_STYLES: Record<
 function buildChips(
   customer: Customer,
   status: CustomerStatus | null,
-  debtLabel: string | null,
+  toCollectLabel: string | null,
   t: TFunction,
 ): CardChip[] {
-  return customerPills(customer, status, debtLabel !== null).map((pill) =>
-    pill === "debt"
-      ? { key: pill, text: `${t("customers.debt")} ${debtLabel}`, tone: "orange" }
+  return customerPills(customer, status, toCollectLabel !== null).map((pill) =>
+    pill === "to_collect"
+      ? { key: pill, text: `${t("customers.to_collect")} ${toCollectLabel}`, tone: "orange" }
       : {
           key: pill,
           text: PILL_STYLES[pill].label(t, status),
@@ -104,7 +104,7 @@ function buildChips(
 export const CustomerCard = memo(function CustomerCard({
   customer,
   status,
-  debtLabel = null,
+  toCollectLabel = null,
   onPress,
   onMenu,
   menuLoading = false,
@@ -117,7 +117,7 @@ export const CustomerCard = memo(function CustomerCard({
 
   const planSummary = linesSummary(customer, t);
 
-  const chips = buildChips(customer, status, debtLabel, t);
+  const chips = buildChips(customer, status, toCollectLabel, t);
 
   return (
     <EntityCard

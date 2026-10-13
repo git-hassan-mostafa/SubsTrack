@@ -15,21 +15,14 @@ import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 import { collectionService } from "@shared/modules/ledger/services/CollectionService";
 import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
 import { withCallerItems } from "@shared/modules/ledger/utils/voidedRows";
+import { owedByCustomerOf, type CustomerOwedUsd } from "@shared/modules/ledger/utils/owedView";
 import type { CollectInput, CollectionCorrection, CorrectCollectionInput, MultiCollectResult } from "@shared/modules/ledger/services/CollectionService";
 import type { CreateManualChargeInput, UpdateManualChargeInput } from "@shared/modules/ledger/services/ChargeService";
 import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
-import { parseUnpaidStartRule } from "@shared/modules/admin/tenant-settings/utils/unpaidStartRule";
-import { TENANT_SETTING_KEYS } from "@shared/modules/admin/tenant-settings/utils/constants";
+import { getUnpaidRule } from "@shared/state/slices/payments/utils/unpaidRule";
 import type { GlobalState } from "@shared/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
 import { isFreshRead, readStamp, type ReadStamp } from "@shared/shared/lib/readStamp";
-
-const getUnpaidRule = (get: () => GlobalState) =>
-  parseUnpaidStartRule(
-    get().tenantSettings.items.find(
-      (s) => s.key === TENANT_SETTING_KEYS.unpaidStartRule,
-    )?.value,
-  );
 
 /**
  * The money slice: what customers owe, and every hand-over of cash.
@@ -39,20 +32,20 @@ const getUnpaidRule = (get: () => GlobalState) =>
  * the six create-payment variants the old payment slice carried.
  */
 export interface LedgerSlice {
-  debts: DebtsView | null;
-  debtsStamp: ReadStamp | null;
+  toCollect: DebtsView | null;
+  toCollectStamp: ReadStamp | null;
   owed: OpenItem[];
   collections: CollectionListItem[];
-  netByCustomer: Record<string, number>;
+  owedByCustomer: Record<string, CustomerOwedUsd>;
   owedVersion: number;
   loading: boolean;
   loadingOwed: boolean;
   loadingCollect: boolean;
   error: string | null;
 
-  fetchDebts: (branchFilter: BranchFilter) => Promise<void>;
-  ensureDebts: (branchFilter: BranchFilter) => Promise<void>;
-  fetchNetByCustomer: (branchFilter?: BranchFilter) => Promise<void>;
+  fetchToCollect: (branchFilter: BranchFilter) => Promise<void>;
+  ensureToCollect: (branchFilter: BranchFilter) => Promise<void>;
+  fetchOwedByCustomer: (branchFilter?: BranchFilter) => Promise<void>;
   fetchOwed: (
     customer: Customer,
     lines: CustomerPlan[],
@@ -155,18 +148,18 @@ export const createLedgerSlice: StateCreator<
   };
 
   return {
-    debts: null,
-    debtsStamp: null,
+    toCollect: null,
+    toCollectStamp: null,
     owed: [],
     collections: [],
-    netByCustomer: {},
+    owedByCustomer: {},
     owedVersion: 0,
     loading: false,
     loadingOwed: false,
     loadingCollect: false,
     error: null,
 
-    fetchDebts: async (branchFilter) => {
+    fetchToCollect: async (branchFilter) => {
       const epoch = currentDataEpoch();
       const stamp = readStamp(branchFilter, get().ledger.owedVersion);
       set((state) => {
@@ -174,12 +167,12 @@ export const createLedgerSlice: StateCreator<
         state.ledger.error = null;
       });
       try {
-        const debts = await ledgerService.getDebtsView(branchFilter);
+        const view = await ledgerService.getOwedView(branchFilter, getUnpaidRule(get));
         if (isStaleEpoch(epoch)) return;
         set((state) => {
-          state.ledger.debts = debts;
-          state.ledger.debtsStamp = stamp;
-          state.ledger.netByCustomer = netMap(debts);
+          state.ledger.toCollect = view;
+          state.ledger.toCollectStamp = stamp;
+          state.ledger.owedByCustomer = owedByCustomerOf(view);
           state.ledger.loading = false;
         });
       } catch (e) {
@@ -191,19 +184,19 @@ export const createLedgerSlice: StateCreator<
       }
     },
 
-    ensureDebts: async (branchFilter) => {
-      const { debtsStamp, owedVersion } = get().ledger;
-      if (isFreshRead(debtsStamp, branchFilter, owedVersion)) return;
-      await get().ledger.fetchDebts(branchFilter);
+    ensureToCollect: async (branchFilter) => {
+      const { toCollectStamp, owedVersion } = get().ledger;
+      if (isFreshRead(toCollectStamp, branchFilter, owedVersion)) return;
+      await get().ledger.fetchToCollect(branchFilter);
     },
 
-    fetchNetByCustomer: async (branchFilter = null) => {
+    fetchOwedByCustomer: async (branchFilter = null) => {
       const epoch = currentDataEpoch();
       try {
-        const debts = await ledgerService.getDebtsView(branchFilter);
+        const view = await ledgerService.getOwedView(branchFilter, getUnpaidRule(get));
         if (isStaleEpoch(epoch)) return;
         set((state) => {
-          state.ledger.netByCustomer = netMap(debts);
+          state.ledger.owedByCustomer = owedByCustomerOf(view);
         });
       } catch {}
     },
@@ -416,11 +409,11 @@ export const createLedgerSlice: StateCreator<
 
     reset: () => {
       set((state) => {
-        state.ledger.debts = null;
-        state.ledger.debtsStamp = null;
+        state.ledger.toCollect = null;
+        state.ledger.toCollectStamp = null;
         state.ledger.owed = [];
         state.ledger.collections = [];
-        state.ledger.netByCustomer = {};
+        state.ledger.owedByCustomer = {};
         state.ledger.loading = false;
         state.ledger.loadingOwed = false;
         state.ledger.loadingCollect = false;
@@ -429,12 +422,5 @@ export const createLedgerSlice: StateCreator<
     },
   };
 };
-
-/** Only DEBT counts toward the badge — a plain unpaid month is the grid's job. */
-function netMap(view: DebtsView): Record<string, number> {
-  const map: Record<string, number> = {};
-  for (const c of view.customers) map[c.customerId] = c.debtUsd;
-  return map;
-}
 
 export type { AllocationLine };

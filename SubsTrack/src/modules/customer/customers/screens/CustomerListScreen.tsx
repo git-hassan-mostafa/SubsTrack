@@ -25,7 +25,7 @@ import {
 } from "@/src/modules/invoicing";
 import { useWhatsAppActions } from "@/src/modules/whatsapp/hooks/useWhatsAppActions";
 import { CustomerCard } from "../components/CustomerCard";
-import { hasDebtFlag } from "@shared/modules/customer/customers/utils/customerFlags";
+import { owesMoney } from "@shared/modules/customer/customers/utils/customerFlags";
 import {
   customerMenuItems,
   customerSelectionItems,
@@ -99,8 +99,8 @@ export function CustomerListScreen() {
   const paymentError = usePaymentSlice((s) => s.error);
   const clearPaymentError = usePaymentSlice((s) => s.clearError);
   const currencies = useCurrencySlice((s) => s.items);
-  const netDebtByCustomer = useLedgerSlice((s) => s.netByCustomer);
-  const fetchNetDebtByCustomer = useLedgerSlice((s) => s.fetchNetByCustomer);
+  const owedByCustomer = useLedgerSlice((s) => s.owedByCustomer);
+  const fetchOwedByCustomer = useLedgerSlice((s) => s.fetchOwedByCustomer);
   const lastPaidByCustomer = useLastPaidStore((s) => s.byCustomer);
   const fetchLastPaid = useLastPaidStore((s) => s.fetchLastPaid);
   const loadOwed = useLoadOwed();
@@ -146,15 +146,15 @@ export function CustomerListScreen() {
   useEffect(() => {
     clearSelection();
     fetchCustomers();
-    void fetchNetDebtByCustomer();
-  }, [branchFilter, clearSelection, fetchCustomers, fetchNetDebtByCustomer]);
+    void fetchOwedByCustomer();
+  }, [branchFilter, clearSelection, fetchCustomers, fetchOwedByCustomer]);
 
   useFocusEffect(
     useCallback(() => {
       void fetchCustomerStatuses(customers);
-      void fetchNetDebtByCustomer();
+      void fetchOwedByCustomer();
       void fetchLastPaid();
-    }, [customers, fetchCustomerStatuses, fetchNetDebtByCustomer, fetchLastPaid]),
+    }, [customers, fetchCustomerStatuses, fetchOwedByCustomer, fetchLastPaid]),
   );
 
   const filterQuery = useMemo(() => toCustomerFilterQuery(filters), [filters]);
@@ -166,13 +166,14 @@ export function CustomerListScreen() {
           c,
           {
             status: statuses.get(c.id) ?? null,
-            debtUsd: netDebtByCustomer[c.id],
+            debtUsd: owedByCustomer[c.id]?.debtUsd,
+            toCollectUsd: owedByCustomer[c.id]?.toCollectUsd,
             lastPaidAt: lastPaidByCustomer.get(c.id),
           },
           filterQuery,
         ),
       ),
-    [filterQuery, netDebtByCustomer, lastPaidByCustomer],
+    [filterQuery, owedByCustomer, lastPaidByCustomer],
   );
 
   const filtered = useMemo(
@@ -239,7 +240,7 @@ export function CustomerListScreen() {
         ? customers.find((c) => c.id === collection.customerId)
         : null;
       if (paid) void syncCustomerStatus(paid.id, paid.customerPlans ?? []);
-      void fetchNetDebtByCustomer(branchFilter);
+      void fetchOwedByCustomer(branchFilter);
       void fetchLastPaid();
     },
   });
@@ -251,7 +252,7 @@ export function CustomerListScreen() {
         const paid = customers.find((c) => c.id === customerId);
         if (paid) void syncCustomerStatus(paid.id, paid.customerPlans ?? []);
       }
-      void fetchNetDebtByCustomer(branchFilter);
+      void fetchOwedByCustomer(branchFilter);
       void fetchLastPaid();
     },
     onTypeOne: (customer, item) => openOneCollect(customer.name, item),
@@ -283,15 +284,15 @@ export function CustomerListScreen() {
   const renderItem = useCallback(
     ({ item }: { item: Customer }) => {
       const status = customerStatuses.get(item.id) ?? null;
-      const debtUsd = netDebtByCustomer[item.id] ?? 0;
-      const debtLabel = hasDebtFlag(debtUsd)
-        ? formatMoney(debtUsd, null, displayCurrency)
+      const toCollectUsd = owedByCustomer[item.id]?.toCollectUsd ?? 0;
+      const toCollectLabel = owesMoney(toCollectUsd)
+        ? formatMoney(toCollectUsd, null, displayCurrency)
         : null;
       return (
         <CustomerCard
           customer={item}
           status={status}
-          debtLabel={debtLabel}
+          toCollectLabel={toCollectLabel}
           onPress={openDetail}
           onMenu={openMenu}
           menuLoading={
@@ -306,7 +307,7 @@ export function CustomerListScreen() {
     },
     [
       customerStatuses,
-      netDebtByCustomer,
+      owedByCustomer,
       displayCurrency,
       openDetail,
       openMenu,
@@ -385,7 +386,7 @@ export function CustomerListScreen() {
       if (result === "nothing") setBulkNotice(t("ledger.nothing_to_write_off"));
       if (result !== "written") return;
       void syncCustomerStatus(customer.id, customer.customerPlans ?? []);
-      void fetchNetDebtByCustomer(branchFilter);
+      void fetchOwedByCustomer(branchFilter);
     } finally {
       setCollectBusyId(null);
     }
@@ -399,7 +400,7 @@ export function CustomerListScreen() {
         customer,
         {
           status: target.status,
-          debtUsd: netDebtByCustomer[customer.id],
+          toCollectUsd: owedByCustomer[customer.id]?.toCollectUsd,
           currencies,
         },
         { isAdmin },
@@ -445,7 +446,7 @@ export function CustomerListScreen() {
             onRefresh={() => {
               clearSelection();
               fetchCustomers();
-              void fetchNetDebtByCustomer();
+              void fetchOwedByCustomer();
             }}
             tintColor={COLORS.primary}
           />
@@ -490,7 +491,7 @@ export function CustomerListScreen() {
       customers.length,
       clearSelection,
       fetchCustomers,
-      fetchNetDebtByCustomer,
+      fetchOwedByCustomer,
       fetchMoreCustomers,
     ],
   );
@@ -603,7 +604,7 @@ export function CustomerListScreen() {
         <SaleFormSheet
           initialCustomer={saleCustomer}
           onDismiss={() => setSaleCustomer(null)}
-          onCreated={() => void fetchNetDebtByCustomer()}
+          onCreated={() => void fetchOwedByCustomer()}
         />
       )}
       {historyCustomer && (

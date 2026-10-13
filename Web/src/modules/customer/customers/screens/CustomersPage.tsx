@@ -9,7 +9,7 @@ import { formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { planSummary } from "@shared/modules/customer/customer-plans/utils/lineLabel";
 import { useQuickPay } from "@shared/modules/customer/customers/hooks/useQuickPay";
-import { hasDebtFlag } from "@shared/modules/customer/customers/utils/customerFlags";
+import { owesMoney } from "@shared/modules/customer/customers/utils/customerFlags";
 import {
   customerMenuItems,
   customerSelectionItems,
@@ -25,11 +25,11 @@ import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
-import { MoneyText } from "@/shared/components/MoneyText";
 import { openWhatsApp } from "@/shared/lib/openWhatsApp";
 import { useSendCollectionReceipt } from "@/modules/invoicing/hooks/useSendCollectionReceipt";
 import { useCollectDialog } from "@/modules/ledger/collect/hooks/useCollectDialog";
-import { useDebtDoors } from "@/modules/transaction/debts/hooks/useDebtDoors";
+import { useOwedDoors } from "@/modules/transaction/to-collect/hooks/useOwedDoors";
+import { CustomerToCollectDialog } from "@/modules/transaction/to-collect/components/CustomerToCollectDialog";
 import { useSaleDoors } from "@/modules/transaction/sales/hooks/useSaleDoors";
 import { useWhatsAppDoors } from "@/modules/whatsapp/hooks/useWhatsAppDoors";
 import { DataTable } from "@/shared/table/DataTable";
@@ -68,11 +68,12 @@ export function CustomersPage() {
   const branchColumn = useBranchColumn<CustomerRow>(t("branches.unassigned"));
   const history = useCustomerHistoryAction();
   const sale = useSaleDoors();
-  const debts = useDebtDoors();
+  const debts = useOwedDoors();
   const whatsapp = useWhatsAppDoors();
   const [form, setForm] = useState<{ customer: Customer | null } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loadingOwedFor, setLoadingOwedFor] = useState<string | null>(null);
+  const [toCollectOf, setToCollectOf] = useState<Customer | null>(null);
 
   const announcePaid = (collections: Collection[]) => {
     if (collections.length === 0) return;
@@ -153,7 +154,7 @@ export function CustomersPage() {
     ...toTableActions(
       customerMenuItems(
         row.customer,
-        { status: row.status, debtUsd: row.debtUsd, currencies },
+        { status: row.status, toCollectUsd: row.toCollectUsd, currencies },
         { isAdmin },
       ),
       t,
@@ -222,12 +223,16 @@ export function CustomersPage() {
       ),
     },
     {
-      field: "debtUsd",
-      headerName: t("customers.debt"),
+      field: "toCollectUsd",
+      headerName: t("customers.to_collect"),
       width: 140,
       renderCell: (params) =>
-        hasDebtFlag(params.row.debtUsd) ? (
-          <MoneyText primary={formatMoney(params.row.debtUsd, null, display)} />
+        owesMoney(params.row.toCollectUsd) ? (
+          <RowLink
+            label={formatMoney(params.row.toCollectUsd, null, display)}
+            tabIndex={params.tabIndex}
+            onClick={() => setToCollectOf(params.row.customer)}
+          />
         ) : null,
     },
   ];
@@ -274,6 +279,9 @@ export function CustomersPage() {
       {history.dialog}
       {collect.dialog}
       {sale.dialogs}
+      {toCollectOf ? (
+        <CustomerToCollectDialog customer={toCollectOf} doors={debts} onClose={() => setToCollectOf(null)} />
+      ) : null}
       {debts.dialogs}
       {whatsapp.dialog}
     </Stack>

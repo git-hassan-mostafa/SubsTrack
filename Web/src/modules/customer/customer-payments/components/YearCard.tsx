@@ -127,6 +127,7 @@ export function YearCard({ grid, menuActions }: YearCardProps) {
       ) : (
         <MonthGrid
           months={grid.grid}
+          block={grid.block}
           isRegular={grid.isRegular}
           busyMonth={grid.busyMonth}
           isSelected={selection.isSelected}

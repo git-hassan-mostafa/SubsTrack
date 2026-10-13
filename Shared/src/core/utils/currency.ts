@@ -31,10 +31,10 @@ export function sumUsd(
   return rows.reduce((total, r) => total + snapshotUsd(r), 0);
 }
 
-export function findCurrency(
-  currencies: Currency[],
+export function findCurrency<C extends Pick<Currency, "id"> = Currency>(
+  currencies: C[],
   id: string | null,
-): Currency | null {
+): C | null {
   if (!id) return null;
   return currencies.find((c) => c.id === id) ?? null;
 }

@@ -26,7 +26,7 @@ const TILE_PATH: Partial<Record<PageKey, string>> = {
   expenses: "/expenses",
   reports: "/reports",
   wallets: "/admin/wallets",
-  debts: "/debts",
+  debts: "/debts?show=debts",
 };
 
 // This month at a glance; every tile opens the page that explains its number.

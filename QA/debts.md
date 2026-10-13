@@ -1,12 +1,21 @@
-# Debts
+# To collect (was Debts)
 
-## What is a debt
+## What is on the page
 
-1. Customer with only fully unpaid months → NOT in Debts (they live in the month grid).
-2. Pay $10 of a $20 month → customer in Debts with $10.
+1. Customer with only fully unpaid months → listed under "All" and "Unpaid months"; NOT under "Debts".
+1a. Pick "Debts" → exactly what the old Debts page showed (part-paid months, unpaid sales, custom debts).
+1b. "All" total = "Debts" total + "Unpaid months" total, exactly.
+1c. "All" total = the dashboard "Total to collect"; "Debts" total = the dashboard "Debts" tile.
+1d. An unpaid month counts at its own month's price (raise a plan price → old unpaid months keep the old price).
+1e. An inactive or occasional customer shows only their debts, never unpaid months.
+1f. A customer on a 12-month $160 plan with 2 unpaid months → To collect shows one $160 row ("Sep 2026 – Aug 2027"), not $320; collecting it marks all 12 months paid.
+1g. Customers (web) → click a customer's To collect amount, and the customer page To collect panel (phone and web) → both list the same rows and total as that customer on the To collect page.
+2. Pay $10 of a $20 month → customer under "Debts" with $10.
 3. Record a pay-later sale of $100 → debt of $100. A fully paid sale → no debt.
 4. Add a custom debt of $20 → debt total rises by 20.
-5. Debts total = months + sales + custom, exactly; the customer list debt column shows the same figure as the Debts page.
+5. Page total = months + sales + custom, exactly.
+5a. The "To collect" amount on the customer card (phone) and in the customer list (web) = that customer's amount on the To collect page under "All".
+5b. Customer list filter "To collect": "Has debts" = customers under "Debts"; "Has money to collect" = customers under "All".
 6. Pick a branch → only that branch's debts; all branches added up = the All branches total.
 
 ## Custom debts
@@ -22,12 +31,12 @@
 12. Write off a $50 bill with $20 collected → it leaves "Owed now" and shows under "Written off"; debts total drops by 30; Reports counts 30 as lost; the $20 stays in revenue and in the wallet.
 13. Undo that write-off → back under "Owed now" at 30; totals rise by 30; the $20 is untouched.
 14. A written-off bill → only Undo write-off is offered (no Collect, no Edit, no Remove).
-15. Write off all for a customer with 2 bills → both written off; the customer leaves the debtors list; collected money stays.
+15. Write off all for a customer with 2 bills → both written off; the customer leaves the "Debts" filter; collected money stays.
 16. Debtor sheet → Write off all, for a customer who owes a $15 sale and 3 unpaid months → only the $15 sale is written off; the 3 months stay unpaid.
 16a. Customer list (or customer page) → Write off everything, for a customer who left owing 4 months and paid nothing → all 4 months are written off, each at its own month's price; the customer reads Paid, not Overdue; Reports counts the 4 months as lost.
 16b. Write off everything for a customer who owes nothing that can be written off → a message says there is nothing to write off.
 
-## Collecting from Debts
+## Collecting from To collect
 
 17. Collect from the debtor dialog → the whole amount owed, oldest due date first; the dialog updates without closing and closes when nothing is owed.
 18. Change the list sort (newest first etc.) → only the display changes; Collect money still pays the oldest due date first.

@@ -351,6 +351,23 @@ describe("cell layout", () => {
     expect(cellBadge(month(s, 5))).toBeNull();
     expect(cellBadge(month(s, 6))).toBe("this_month");
   });
+
+  it("TC-MA-42 an unpaid N-month block reads as one pill, across rows and years", () => {
+    const yearly = line({ id: "line-1", startDate: "2026-03-01", plan: plan({ id: "p1", durationMonths: 12 }) });
+    const block = { startDate: yearly.startDate, durationMonths: 12 };
+    const s = setup([], [], { on: yearly });
+    const joins = cellJoins(s.grid, 4, block);
+    expect(joins[1]).toMatchObject({ joinEnd: false });
+    expect(joins[2]).toMatchObject({ joinStart: false, joinEnd: true });
+    expect(joins[3]).toMatchObject({ joinStart: true, wrapToNext: true });
+    expect(joins[4]).toMatchObject({ wrapFromPrev: true, joinEnd: true });
+    expect(joins[11]).toMatchObject({ joinStart: true, wrapToNext: true });
+    expect(cellJoins(s.grid, 4)[2]).toMatchObject({ joinEnd: false });
+    const next = cellJoins(setup([], [], { on: yearly, year: 2027 }).grid, 4, block);
+    expect(next[0]).toMatchObject({ wrapFromPrev: true, joinEnd: true });
+    expect(next[1]).toMatchObject({ joinEnd: false });
+    expect(next[2]).toMatchObject({ joinStart: false, joinEnd: true });
+  });
 });
 
 describe("year card facts", () => {

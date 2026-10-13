@@ -2,12 +2,13 @@ import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import Box from "@mui/material/Box";
 import type { MonthEntry } from "@shared/core/types";
-import { cellJoins } from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
+import { cellJoins, type MonthBlock } from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
 import type { TableAction } from "@/shared/table/tableAction";
 import { MonthCell } from "./MonthCell";
 
 interface MonthGridProps {
   months: MonthEntry[];
+  block: MonthBlock | null;
   isRegular: boolean;
   busyMonth: string | null;
   isSelected: (billingMonth: string) => boolean;
@@ -19,6 +20,7 @@ interface MonthGridProps {
 // Six months a row on a wide screen; the joins follow the real row breaks.
 export function MonthGrid({
   months,
+  block,
   isRegular,
   busyMonth,
   isSelected,
@@ -28,7 +30,7 @@ export function MonthGrid({
 }: MonthGridProps) {
   const wide = useMediaQuery(useTheme().breakpoints.up("md"));
   const columns = wide ? 6 : 4;
-  const joins = cellJoins(months, columns);
+  const joins = cellJoins(months, columns, block);
 
   return (
     <Box

@@ -3,7 +3,6 @@ import type { BranchFilter } from "@shared/core/constants";
 import i18n from "@shared/core/i18n";
 import type {
   Charge,
-  CustomerDebts,
   DebtHistoryItem,
   DebtsView,
   MonthBill,
@@ -12,7 +11,6 @@ import type {
 } from "@shared/core/types";
 import type { DbCharge } from "@shared/core/types/db";
 import { deterministicId, newId, nowIso } from "@shared/core/utils/ids";
-import { daysLate } from "@shared/core/utils/date";
 import { inChunks } from "@shared/core/utils/chunk";
 import type {
   ChargeHistoryPageQuery,
@@ -24,7 +22,7 @@ import type {
 import { writeOffMark } from "@shared/modules/ledger/repository/chargeRevive";
 import { isWriteOffMonth } from "@shared/modules/ledger/utils/writeOffItems";
 import { mapDbChargeToCharge } from "@shared/modules/ledger/utils/mapper";
-import { balanceUsd } from "@shared/modules/ledger/utils/debtRule";
+import { buildOwedView } from "@shared/modules/ledger/utils/owedView";
 import {
   chargeLabel,
   openItemFromCharge,
@@ -177,66 +175,9 @@ class ChargeService {
     return settled;
   }
 
+  // Stored bills only: an empty month bill is owed, not a debt — gotcha #106c.
   buildDebtsView(open: OpenItem[]): DebtsView {
-    const byCustomer = new Map<string, CustomerDebts>();
-    for (const item of open) {
-      if (item.kind === "month" && item.paid <= 0) continue;
-      let entry = byCustomer.get(item.customerId);
-      if (!entry) {
-        entry = {
-          customerId: item.customerId,
-          customerName: item.customerName,
-          items: [],
-          unpaidMonths: [],
-          debtUsd: 0,
-          unpaidMonthsUsd: 0,
-          oldestDaysLate: 0,
-        };
-        byCustomer.set(item.customerId, entry);
-      }
-      const usd = balanceUsd(item.balance, item.ratePerUsdSnapshot);
-      if (item.isDebt) {
-        entry.items.push(item);
-        entry.debtUsd += usd;
-      } else {
-        entry.unpaidMonths.push(item);
-        entry.unpaidMonthsUsd += usd;
-      }
-    }
-
-    const today = new Date();
-    const customers: CustomerDebts[] = [];
-    let monthsUsd = 0;
-    let salesUsd = 0;
-    let manualUsd = 0;
-    for (const entry of byCustomer.values()) {
-      if (entry.items.length === 0) continue;
-      entry.items.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-      entry.unpaidMonths.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-      entry.oldestDaysLate = daysLate(entry.items[0].dueDate, today);
-      for (const i of entry.items) {
-        const usd = balanceUsd(i.balance, i.ratePerUsdSnapshot);
-        if (i.kind === "month") monthsUsd += usd;
-        else if (i.kind === "sale") salesUsd += usd;
-        else manualUsd += usd;
-      }
-      customers.push(entry);
-    }
-    customers.sort(
-      (a, b) => b.oldestDaysLate - a.oldestDaysLate || b.debtUsd - a.debtUsd,
-    );
-
-    return {
-      customers,
-      summary: {
-        totalUsd: monthsUsd + salesUsd + manualUsd,
-        monthsUsd,
-        salesUsd,
-        manualUsd,
-        customerCount: customers.length,
-        writtenOffUsd: 0,
-      },
-    };
+    return buildOwedView(open.filter((item) => item.isDebt));
   }
 
   async addManualCharge(input: CreateManualChargeInput): Promise<Charge> {

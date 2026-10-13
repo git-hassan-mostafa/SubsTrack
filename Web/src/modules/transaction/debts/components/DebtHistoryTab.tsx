@@ -6,7 +6,7 @@ import type { BranchFilter } from "@shared/core/constants";
 import type { ChargeKind, DebtHistoryItem } from "@shared/core/types";
 import { formatMoney, formatMoneyPair, snapshotCurrency } from "@shared/core/utils/currency";
 import { formatDate } from "@shared/core/utils/date";
-import { DEBT_KINDS } from "@shared/modules/transaction/debts/utils/allDebtsFilter";
+import { OWED_KINDS } from "@shared/modules/transaction/to-collect/utils/allItemsFilter";
 import {
   HISTORY_OUTCOMES,
   HISTORY_PERIOD_PRESETS,
@@ -36,14 +36,14 @@ import { CustomerPicker } from "@/modules/customer/customers/components/Customer
 import { KIND_TONE } from "@shared/modules/ledger/utils/collectionKind";
 import { KIND_ICON } from "@/modules/ledger/utils/kindLook";
 import { useDebtHistoryTable, type DebtHistoryRow } from "@/state/debtHistoryTable";
-import type { DebtDoors } from "../hooks/useDebtDoors";
+import type { OwedDoors } from "../../to-collect/hooks/useOwedDoors";
 
 const rowLabel = (row: DebtHistoryRow) => row.label;
 const rowTone = (row: DebtHistoryRow) => (isDeadHistoryRow(row) ? "muted" : null);
 
 interface DebtHistoryTabProps {
   branch: BranchFilter;
-  doors: Pick<DebtDoors, "openBill">;
+  doors: Pick<OwedDoors, "openBill">;
   add: TableAdd;
 }
 
@@ -183,7 +183,7 @@ export function DebtHistoryTab({ branch, doors, add }: DebtHistoryTabProps) {
             anyLabel={t("ledger.all_types")}
             value={filters.kind}
             onChange={(kind) => setFilters({ kind })}
-            options={DEBT_KINDS.map((kind) => ({ value: kind, label: t(`ledger.kind_${kind}`) }))}
+            options={OWED_KINDS.map((kind) => ({ value: kind, label: t(`ledger.kind_${kind}`) }))}
           />
           <FilterSelect<HistorySort>
             label={t("ledger.sort_by_label")}

@@ -8,19 +8,20 @@ import type {
 import { dayStartIso, nextDayStartIso } from "@shared/core/utils/dateRange";
 import {
   customerFlags,
-  hasDebtFlag,
+  owesMoney,
   type CustomerFlag,
 } from "@shared/modules/customer/customers/utils/customerFlags";
 
 export type PaymentFilter = Exclude<CustomerFlag, "skipped">;
 export type YesNoFilter = "yes" | "no";
+export type OwesFilter = "anything" | "debts" | "nothing";
 export type CustomerTypeFilter = "regular" | "occasional";
 export type UnpaidMonthsFilter = 1 | 2 | 3 | 6;
 
 export interface CustomerFilters {
   status: ActiveFilter;
   payment: PaymentFilter | null;
-  debt: YesNoFilter | null;
+  owes: OwesFilter | null;
   planId: string | null;
   unpaidMonths: UnpaidMonthsFilter | null;
   type: CustomerTypeFilter | null;
@@ -38,7 +39,7 @@ export type CustomerFilterQuery = Omit<CustomerFilters, "paidFrom" | "paidTo"> &
 
 export type CustomerSort =
   | "name"
-  | "debt"
+  | "to_collect"
   | "unpaid_months"
   | "longest_unpaid"
   | "newest";
@@ -46,7 +47,7 @@ export type CustomerSort =
 export const DEFAULT_CUSTOMER_FILTERS: CustomerFilters = {
   status: "active",
   payment: null,
-  debt: null,
+  owes: null,
   planId: null,
   unpaidMonths: null,
   type: null,
@@ -73,9 +74,10 @@ export const PAYMENT_FILTER_LABEL_KEYS: Record<PaymentFilter, string> = {
   not_due_yet: "payments.not_due_yet_label",
 };
 
-export const DEBT_FILTER_LABEL_KEYS: Record<YesNoFilter, string> = {
-  yes: "customers.has_debts",
-  no: "customers.filters.no_debts",
+export const OWES_FILTER_LABEL_KEYS: Record<OwesFilter, string> = {
+  anything: "customers.filters.owes_anything",
+  debts: "customers.has_debts",
+  nothing: "customers.filters.owes_nothing",
 };
 
 export const TYPE_FILTER_LABEL_KEYS: Record<CustomerTypeFilter, string> = {
@@ -97,7 +99,7 @@ export const UNPAID_MONTHS_OPTIONS: readonly UnpaidMonthsFilter[] = [1, 2, 3, 6]
 
 export const SORT_LABEL_KEYS: Record<CustomerSort, string> = {
   name: "customers.filters.sort_name",
-  debt: "customers.filters.sort_debt",
+  to_collect: "customers.filters.sort_to_collect",
   unpaid_months: "customers.filters.sort_unpaid_months",
   longest_unpaid: "customers.filters.sort_longest_unpaid",
   newest: "customers.filters.sort_newest",
@@ -118,6 +120,7 @@ export type FilterableCustomer = Pick<
 export interface CustomerListFacts {
   status: CustomerStatus | null;
   debtUsd: number | undefined;
+  toCollectUsd: number | undefined;
   lastPaidAt: string | null | undefined;
 }
 
@@ -140,6 +143,12 @@ export function hasCustomerFilters(filters: CustomerFilters): boolean {
 
 function matchesYesNo(choice: YesNoFilter | null, fact: boolean): boolean {
   return choice === null || (choice === "yes") === fact;
+}
+
+function matchesOwes(choice: OwesFilter | null, facts: CustomerListFacts): boolean {
+  if (choice === null) return true;
+  if (choice === "debts") return owesMoney(facts.debtUsd);
+  return owesMoney(facts.toCollectUsd) === (choice === "anything");
 }
 
 // Unpaid also takes Overdue cards, whose Unpaid pill is folded into Overdue.
@@ -196,7 +205,7 @@ export function matchesCustomerFilters(
   return (
     matchesActiveFilter(customer.active, filters.status) &&
     matchesPayment(customer, facts.status, filters.payment) &&
-    matchesYesNo(filters.debt, hasDebtFlag(facts.debtUsd)) &&
+    matchesOwes(filters.owes, facts) &&
     matchesPlan(customer, filters.planId) &&
     (filters.unpaidMonths === null ||
       (facts.status?.unpaidMonths ?? 0) >= filters.unpaidMonths) &&
@@ -227,7 +236,7 @@ export function isCustomerFilterQuery(value: unknown): value is CustomerFilterQu
   return (
     isOneOf(labelKeysOf(STATUS_FILTER_LABEL_KEYS), f.status) &&
     isNullOr(labelKeysOf(PAYMENT_FILTER_LABEL_KEYS), f.payment) &&
-    isNullOr(labelKeysOf(DEBT_FILTER_LABEL_KEYS), f.debt) &&
+    isNullOr(labelKeysOf(OWES_FILTER_LABEL_KEYS), f.owes) &&
     (f.planId === null || (typeof f.planId === "string" && ID_PATTERN.test(f.planId))) &&
     isNullOr(UNPAID_MONTHS_OPTIONS, f.unpaidMonths) &&
     isNullOr(labelKeysOf(TYPE_FILTER_LABEL_KEYS), f.type) &&

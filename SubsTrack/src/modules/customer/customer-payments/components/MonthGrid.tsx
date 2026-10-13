@@ -1,10 +1,11 @@
 import { View } from "react-native";
 import type { MonthEntry } from "@shared/core/types";
-import { cellJoins } from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
+import { cellJoins, type MonthBlock } from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
 import { MonthCell } from "./MonthCell";
 
 interface Props {
   months: MonthEntry[];
+  block: MonthBlock | null;
   onCellPress: (entry: MonthEntry) => void;
   onCellMenu?: (entry: MonthEntry) => void;
   loadingBillingMonth?: string | null;
@@ -19,6 +20,7 @@ const COLUMNS = 4;
 
 export function MonthGrid({
   months,
+  block,
   onCellPress,
   onCellMenu,
   loadingBillingMonth,
@@ -28,7 +30,7 @@ export function MonthGrid({
   onCellToggle,
   onCellLongPress,
 }: Props) {
-  const joins = cellJoins(months, COLUMNS);
+  const joins = cellJoins(months, COLUMNS, block);
   return (
     <View className="flex-row flex-wrap px-1 pb-2">
       {months.map((entry, i) => (

@@ -1,6 +1,6 @@
 import { locationHref } from "@shared/core/utils/locationLink";
 import { balanceUsd, owedUsd } from "@shared/modules/ledger/utils/debtRule";
-import { debtItemActions, debtItemFacts } from "@shared/modules/transaction/debts/utils/debtItemView";
+import { owedItemActions, owedItemFacts } from "@shared/modules/transaction/to-collect/utils/owedItemView";
 import { saleFacts } from "@shared/modules/transaction/sales/utils/saleView";
 import { charge, openItem, sale } from "../helpers/factories";
 import { enabledKeys, greyed } from "../helpers/menus";
@@ -23,31 +23,38 @@ describe("owedUsd", () => {
   });
 });
 
-describe("debtItemFacts", () => {
+describe("owedItemFacts", () => {
   const today = new Date("2026-01-11T12:00:00");
 
   it("TC-CP-03 a clean, on-time, unpaid bill has no warning", () => {
-    expect(debtItemFacts(openItem({ dueDate: "2026-01-20" }), today)).toEqual({
+    expect(owedItemFacts(openItem({ dueDate: "2026-01-20" }), today)).toEqual({
       writtenOff: false,
       daysLate: 0,
       partlyPaid: false,
+      unpaidMonth: true,
     });
   });
 
   it("TC-CP-04 counts whole days past the due date and flags part paid", () => {
-    const facts = debtItemFacts(openItem({ dueDate: "2026-01-01", amount: 20, paid: 5 }), today);
-    expect(facts).toMatchObject({ daysLate: 10, partlyPaid: true });
+    const facts = owedItemFacts(openItem({ dueDate: "2026-01-01", amount: 20, paid: 5 }), today);
+    expect(facts).toMatchObject({ daysLate: 10, partlyPaid: true, unpaidMonth: false });
+  });
+
+  it("TC-CP-05b an unpaid month and a part-paid month read differently; a sale is never an unpaid month", () => {
+    expect(owedItemFacts(openItem({ kind: "month", paid: 0 }), today)).toMatchObject({ unpaidMonth: true, partlyPaid: false });
+    expect(owedItemFacts(openItem({ kind: "month", amount: 20, paid: 5 }), today)).toMatchObject({ unpaidMonth: false, partlyPaid: true });
+    expect(owedItemFacts(openItem({ kind: "sale", paid: 0 }), today).unpaidMonth).toBe(false);
   });
 
   it("TC-CP-05 a written-off bill reads written off", () => {
     const item = openItem({ charge: charge({ writtenOffAt: AT }) });
-    expect(debtItemFacts(item, today).writtenOff).toBe(true);
+    expect(owedItemFacts(item, today).writtenOff).toBe(true);
   });
 });
 
-describe("debtItemActions", () => {
+describe("owedItemActions", () => {
   it("TC-CP-06 a live month bill: collect and write off; edit and remove greyed", () => {
-    const items = debtItemActions(openItem({ kind: "month", paid: 5 }));
+    const items = owedItemActions(openItem({ kind: "month", paid: 5 }));
     expect(enabledKeys(items)).toEqual(["collect", "write_off"]);
     expect(greyed(items)).toEqual({
       edit: "why_disabled.custom_debt_only",
@@ -56,7 +63,7 @@ describe("debtItemActions", () => {
   });
 
   it("TC-CP-07 a live custom debt also offers edit and remove", () => {
-    expect(enabledKeys(debtItemActions(openItem({ kind: "manual" })))).toEqual([
+    expect(enabledKeys(owedItemActions(openItem({ kind: "manual" })))).toEqual([
       "collect",
       "write_off",
       "edit",
@@ -67,7 +74,7 @@ describe("debtItemActions", () => {
   it("TC-CP-08 REGRESSION: a written-off bill offers only the undo, even a custom debt", () => {
     const writtenOff = charge({ writtenOffAt: AT });
     for (const kind of ["sale", "manual"] as const) {
-      const items = debtItemActions(openItem({ kind, charge: writtenOff }));
+      const items = owedItemActions(openItem({ kind, charge: writtenOff }));
       expect(enabledKeys(items)).toEqual(["revert_write_off"]);
       expect(greyed(items)).toEqual({
         collect: "why_disabled.written_off",
@@ -78,14 +85,14 @@ describe("debtItemActions", () => {
   });
 
   it("TC-CP-09 a row with no bill yet can only be collected", () => {
-    expect(enabledKeys(debtItemActions(openItem({ chargeId: null, kind: "manual" })))).toEqual(["collect"]);
+    expect(enabledKeys(owedItemActions(openItem({ chargeId: null, kind: "manual" })))).toEqual(["collect"]);
   });
 
   it("TC-CP-10 every item carries its label key and menu band", () => {
-    const [collect, writeOff] = debtItemActions(openItem());
+    const [collect, writeOff] = owedItemActions(openItem());
     expect(collect).toMatchObject({ group: "money", labelKey: "payments.collect" });
     expect(writeOff).toMatchObject({ group: "danger", captionKey: "ledger.write_off_caption" });
-    const remove = debtItemActions(openItem({ kind: "manual" })).find((a) => a.key === "remove");
+    const remove = owedItemActions(openItem({ kind: "manual" })).find((a) => a.key === "remove");
     expect(remove).toMatchObject({ destructive: true, labelKey: "debts.remove" });
   });
 });

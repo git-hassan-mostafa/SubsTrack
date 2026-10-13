@@ -29,6 +29,7 @@ export interface CustomerStatusRow {
   customerId: string;
   status: CustomerStatus | null;
   debtUsd: number;
+  toCollectUsd: number;
 }
 
 export interface CustomerStatusPage {
@@ -41,6 +42,7 @@ export interface CustomerStatusResponse {
     customer: DbCustomerWithLines;
     status: CustomerStatus | null;
     debtUsd: number;
+    toCollectUsd: number;
   }[];
   total: number;
 }
@@ -49,6 +51,7 @@ export interface CustomerStatusListRow {
   customer: Customer;
   status: CustomerStatus | null;
   debtUsd: number;
+  toCollectUsd: number;
 }
 
 export interface CustomerStatusList {

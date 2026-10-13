@@ -31,7 +31,7 @@ import { CustomersPage } from "@/modules/customer/customers/screens/CustomersPag
 import { DashboardPage } from "@/modules/dashboard/screens/DashboardPage";
 import { MoneyReceivedPage } from "@/modules/ledger/received/screens/MoneyReceivedPage";
 import { ReportsPage } from "@/modules/reports/screens/ReportsPage";
-import { DebtsPage } from "@/modules/transaction/debts/screens/DebtsPage";
+import { ToCollectPage } from "@/modules/transaction/to-collect/screens/ToCollectPage";
 import { ExpensesPage } from "@/modules/transaction/expenses/screens/ExpensesPage";
 import { CustomerSalesPage } from "@/modules/transaction/sales/screens/CustomerSalesPage";
 import { SalesPage } from "@/modules/transaction/sales/screens/SalesPage";
@@ -95,11 +95,11 @@ export const APP_PAGES: readonly AppPage[] = [
   },
   {
     path: "debts",
-    titleKey: "transactions.tab_debts",
+    titleKey: "transactions.tab_to_collect",
     access: PAGE_ACCESS.debts,
     icon: RequestQuoteOutlined,
     nav: "main",
-    component: DebtsPage,
+    component: ToCollectPage,
   },
   {
     path: "money-received",

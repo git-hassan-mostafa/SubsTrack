@@ -259,8 +259,127 @@ function balanceUsd(balance, ratePerUsdSnapshot) {
 	return balance / ratePerUsdSnapshot;
 }
 //#endregion
+//#region ../Shared/src/modules/customer/customer-plans/utils/linePrice.ts
+function resolveLinePrice(line) {
+	const plan = line.plan ?? null;
+	const durationMonths = plan?.durationMonths ?? 1;
+	if (line.customPrice != null) return {
+		amount: line.customPrice,
+		currencyId: line.customCurrencyId,
+		durationMonths,
+		isFixed: true,
+		kind: "special"
+	};
+	if (plan && !plan.isCustomPrice && plan.price !== null) return {
+		amount: plan.price,
+		currencyId: plan.currencyId,
+		durationMonths,
+		isFixed: true,
+		kind: "plan"
+	};
+	return {
+		amount: null,
+		currencyId: null,
+		durationMonths,
+		isFixed: false,
+		kind: "typed"
+	};
+}
+//#endregion
+//#region ../Shared/src/modules/customer/customer-plans/utils/priceHistory.ts
+var EMPTY_PRICE_HISTORY = {
+	lines: new Map(),
+	plans: new Map(),
+	planById: new Map()
+};
+function priceHistoryOf(args) {
+	return {
+		lines: groupBy(args.lineChanges, (c) => c.customerPlanId),
+		plans: groupBy(args.planChanges, (c) => c.planId),
+		planById: new Map(args.plans.map((p) => [p.id, p]))
+	};
+}
+function isLater(a, b) {
+	return a.createdAt > b.createdAt || a.createdAt === b.createdAt && a.id > b.id;
+}
+function changeAt(changes, month) {
+	let reaching = null;
+	let before = null;
+	for (const change of changes ?? []) if (change.fromMonth === null) before = change;
+	else if (change.fromMonth <= month && (!reaching || isLater(change, reaching))) reaching = change;
+	return reaching ?? before;
+}
+function planAt(plan, month, history) {
+	const change = changeAt(history.plans.get(plan.id), month);
+	if (!change) return plan;
+	return {
+		...plan,
+		price: change.price,
+		currencyId: change.currencyId,
+		durationMonths: change.durationMonths,
+		isCustomPrice: change.isCustomPrice
+	};
+}
+function planOf(line, planId, history) {
+	if (planId === line.planId) return line.plan ?? null;
+	return planId ? history.planById.get(planId) ?? null : null;
+}
+function linePriceAt(line, billingMonth, history) {
+	const change = changeAt(history.lines.get(line.id), billingMonth);
+	const plan = planOf(line, change ? change.planId : line.planId, history);
+	return resolveLinePrice({
+		customPrice: change ? change.customPrice : line.customPrice,
+		customCurrencyId: change ? change.customCurrencyId : line.customCurrencyId,
+		plan: plan ? planAt(plan, billingMonth, history) : null
+	});
+}
+function isEarlierPrice(month, today) {
+	if (!month.isFixed || month.amount === null) return false;
+	return month.amount !== today.amount || month.currencyId !== today.currencyId || month.durationMonths !== today.durationMonths;
+}
+//#endregion
 //#region ../Shared/src/modules/customer/customers/utils/customerStatusFacts.ts
+function readPlans(wire) {
+	return wire.map(([id, name, price, isCustomPrice, durationMonths, currencyId, branchId, tenantId, createdAt]) => ({
+		id,
+		name,
+		price: price === null ? null : Number(price),
+		isCustomPrice,
+		durationMonths,
+		currencyId,
+		branchId,
+		tenantId,
+		createdAt
+	}));
+}
+function readPrices(wire, plans) {
+	return priceHistoryOf({
+		plans,
+		planChanges: (wire.planChanges ?? []).map(([id, planId, fromMonth, price, currencyId, durationMonths, isCustomPrice, createdAt]) => ({
+			id,
+			planId,
+			fromMonth,
+			price: price === null ? null : Number(price),
+			currencyId,
+			durationMonths,
+			isCustomPrice,
+			createdAt
+		})),
+		lineChanges: (wire.lineChanges ?? []).map(([id, customerId, customerPlanId, fromMonth, planId, customPrice, customCurrencyId, createdAt]) => ({
+			id,
+			customerId,
+			customerPlanId,
+			fromMonth,
+			planId,
+			customPrice: customPrice === null ? null : Number(customPrice),
+			customCurrencyId,
+			createdAt
+		}))
+	});
+}
 function readCustomerStatusFacts(wire, unpaidRule) {
+	const plans = readPlans(wire.plans ?? []);
+	const planById = new Map(plans.map((p) => [p.id, p]));
 	const customers = new Map();
 	for (const [id, name, phoneNumber, address, area, active, isRegular, portalEnabled = false, createdAt = "", lastPaidAt = null] of wire.customers) customers.set(id, {
 		id,
@@ -277,12 +396,15 @@ function readCustomerStatusFacts(wire, unpaidRule) {
 	});
 	const bills = [];
 	const skips = [];
-	for (const [id, customerId, startDate, active, lineBills, skipped, planId = null] of wire.lines) {
+	for (const [id, customerId, startDate, active, lineBills, skipped, planId = null, customPrice = null, customCurrencyId = null] of wire.lines) {
 		customers.get(customerId)?.customerPlans.push({
 			id,
 			startDate,
 			active,
-			planId
+			planId,
+			customPrice: customPrice === null ? null : Number(customPrice),
+			customCurrencyId,
+			plan: planId ? planById.get(planId) ?? null : null
 		});
 		for (const [billingMonth, durationMonths, amount, paid, writtenOffAt = null] of lineBills) bills.push({
 			charge: {
@@ -303,19 +425,185 @@ function readCustomerStatusFacts(wire, unpaidRule) {
 			skipped: true
 		});
 	}
+	const open = [];
 	const debtUsd = new Map();
-	for (const [customerId, kind, balance, paid, rate] of wire.debts) {
-		if (!isDebtItem(kind, Number(paid))) continue;
-		const usd = balanceUsd(Number(balance), Number(rate));
+	for (const [customerId, kind, balance, paid, rate, customerPlanId = null, billingMonth = null] of wire.debts) {
+		const fact = {
+			customerId,
+			kind,
+			balance: Number(balance),
+			paid: Number(paid),
+			ratePerUsdSnapshot: Number(rate),
+			customerPlanId,
+			billingMonth
+		};
+		open.push(fact);
+		if (!isDebtItem(kind, fact.paid)) continue;
+		const usd = balanceUsd(fact.balance, fact.ratePerUsdSnapshot);
 		debtUsd.set(customerId, (debtUsd.get(customerId) ?? 0) + usd);
 	}
 	return {
 		customers: [...customers.values()],
 		bills,
 		skips,
+		open,
 		debtUsd,
+		prices: readPrices(wire, plans),
+		currencies: (wire.currencies ?? []).map(([id, ratePerUsd]) => ({
+			id,
+			ratePerUsd: Number(ratePerUsd)
+		})),
 		unpaidRule
 	};
+}
+//#endregion
+//#region ../Shared/src/core/utils/currency.ts
+function findCurrency(currencies, id) {
+	if (!id) return null;
+	return currencies.find((c) => c.id === id) ?? null;
+}
+//#endregion
+//#region ../Shared/src/modules/customer/customer-payments/utils/monthSelection.ts
+function absOf(year, month) {
+	return year * 12 + (month - 1);
+}
+function billingMonthFromAbs(abs) {
+	return toBillingMonth(Math.floor(abs / 12), abs % 12 + 1);
+}
+function startAbs(startDate) {
+	const d = new Date(startDate);
+	return absOf(d.getFullYear(), d.getMonth() + 1);
+}
+function blockStartAbs(abs, startDate, n) {
+	const base = startAbs(startDate);
+	return base + Math.floor((abs - base) / n) * n;
+}
+function blockStartMonth(billingMonth, startDate, n) {
+	const [year, month] = billingMonth.split("-").map(Number);
+	return billingMonthFromAbs(blockStartAbs(absOf(year, month), startDate, n));
+}
+//#endregion
+//#region ../Shared/src/modules/customer/customer-payments/utils/blockRangeLabel.ts
+function getBlockRangeLabel(billingMonth, durationMonths, t) {
+	const [startYear, startMonthNum] = billingMonth.split("-").map(Number);
+	const startLabel = MONTHS[startMonthNum - 1];
+	if (durationMonths === 1) return `${t(`months.${startLabel}`)} ${startYear}`;
+	const endDate = new Date(startYear, startMonthNum - 1 + durationMonths - 1, 1);
+	const endLabel = MONTHS[endDate.getMonth()];
+	const endYear = endDate.getFullYear();
+	if (startYear === endYear) return `${t(`months.${startLabel}`)} – ${t(`months.${endLabel}`)} ${startYear}`;
+	return `${t(`months.${startLabel}`)} ${startYear} – ${t(`months.${endLabel}`)} ${endYear}`;
+}
+//#endregion
+//#region ../Shared/src/modules/ledger/utils/virtualMonthItem.ts
+function virtualMonthItem(args) {
+	return {
+		chargeId: null,
+		kind: "month",
+		customerId: args.customerId,
+		customerName: args.customerName,
+		branchId: args.branchId,
+		customerPlanId: args.customerPlanId,
+		billingMonth: args.billingMonth,
+		durationMonths: args.durationMonths,
+		planId: args.planId,
+		saleId: null,
+		label: args.label,
+		amount: args.amount,
+		paid: 0,
+		balance: args.amount,
+		currencyId: args.currencyId,
+		ratePerUsdSnapshot: args.ratePerUsdSnapshot,
+		dueDate: args.dueDate,
+		issuedAt: args.dueDate,
+		createdAt: args.dueDate,
+		isDebt: false,
+		openAmount: args.openAmount ?? false,
+		earlierPrice: args.earlierPrice ?? false
+	};
+}
+//#endregion
+//#region ../Shared/src/modules/ledger/utils/mergeOwed.ts
+var monthKey = (item) => `${item.customerPlanId}:${item.billingMonth}`;
+function owedOf(args) {
+	const billed = new Set(args.stored.filter((i) => i.kind === "month" && i.paid > 0).map(monthKey));
+	const virtual = virtualUnpaidMonths({
+		customer: args.customer,
+		activeLines: args.lines.filter((l) => l.active),
+		billsByLine: args.billsByLine,
+		skips: args.skips,
+		unpaidRule: args.unpaidRule,
+		currencies: args.currencies,
+		alreadyBilled: billed,
+		prices: args.prices ?? EMPTY_PRICE_HISTORY,
+		today: args.today ?? currentDate(),
+		withOpenMonths: args.withOpenMonths ?? false
+	});
+	const revalued = new Set(virtual.map(monthKey));
+	return [...args.stored.filter((i) => i.kind !== "month" || i.paid > 0 || !revalued.has(monthKey(i))), ...virtual];
+}
+var monthName = (key) => key.slice(7);
+function virtualUnpaidMonths(args) {
+	const { customer, activeLines, billsByLine, skips, unpaidRule, currencies, alreadyBilled, prices, today, withOpenMonths } = args;
+	const out = [];
+	for (const line of activeLines) {
+		const todayPrice = resolveLinePrice(line);
+		const blockMonths = todayPrice.durationMonths;
+		const bills = billsByLine.get(line.id) ?? [];
+		const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
+		const startYear = new Date(line.startDate).getFullYear();
+		const listed = new Set();
+		for (let year = startYear; year <= today.getFullYear(); year++) for (const entry of monthCells(line, bills, lineSkips, year, unpaidRule)) {
+			if (entry.status !== "unpaid") continue;
+			const billingMonth = blockMonths > 1 ? blockStartMonth(entry.billingMonth, line.startDate, blockMonths) : entry.billingMonth;
+			if (listed.has(billingMonth)) continue;
+			listed.add(billingMonth);
+			if (alreadyBilled.has(`${line.id}:${billingMonth}`)) continue;
+			const price = linePriceAt(line, billingMonth, prices);
+			const priced = price.isFixed && price.amount !== null && price.amount > 0;
+			if (!priced && !withOpenMonths) continue;
+			out.push(virtualMonthItem({
+				customerId: customer.id,
+				customerName: customer.name,
+				branchId: customer.branchId ?? null,
+				customerPlanId: line.id,
+				billingMonth,
+				durationMonths: price.durationMonths,
+				planId: line.planId,
+				label: `${getBlockRangeLabel(billingMonth, price.durationMonths, monthName)}${line.plan?.name ? ` · ${line.plan.name}` : ""}`,
+				amount: priced ? price.amount : 0,
+				currencyId: priced ? price.currencyId : null,
+				ratePerUsdSnapshot: priced ? findCurrency(currencies, price.currencyId)?.ratePerUsd ?? 1 : 1,
+				dueDate: billingMonth,
+				openAmount: !priced,
+				earlierPrice: isEarlierPrice(price, todayPrice)
+			}));
+		}
+	}
+	return out;
+}
+//#endregion
+//#region ../Shared/src/modules/customer/customers/utils/customerToCollect.ts
+function toCollectByCustomer(facts) {
+	const billsByLine = groupBy(facts.bills, (b) => b.charge.customerPlanId ?? "");
+	const skipsByCustomer = groupBy(facts.skips, (s) => s.customerId);
+	const openByCustomer = groupBy(facts.open, (bill) => bill.customerId);
+	const totals = new Map();
+	for (const customer of facts.customers) {
+		const stored = openByCustomer.get(customer.id) ?? [];
+		const usd = (customer.active && customer.isRegular ? owedOf({
+			customer,
+			lines: customer.customerPlans,
+			skips: skipsByCustomer.get(customer.id) ?? [],
+			unpaidRule: facts.unpaidRule,
+			currencies: facts.currencies,
+			stored,
+			billsByLine,
+			prices: facts.prices
+		}) : stored.filter((bill) => isDebtItem(bill.kind, bill.paid))).reduce((sum, item) => sum + balanceUsd(item.balance, item.ratePerUsdSnapshot), 0);
+		if (usd > 0) totals.set(customer.id, usd);
+	}
+	return totals;
 }
 //#endregion
 //#region ../Shared/src/core/utils/activeFilter.ts
@@ -331,8 +619,8 @@ function customerFlags(status) {
 	if (status.overdue) flags.push("overdue");
 	return flags;
 }
-function hasDebtFlag(netUsd) {
-	return (netUsd ?? 0) > 0;
+function owesMoney(usd) {
+	return (usd ?? 0) > 0;
 }
 //#endregion
 //#region ../Shared/src/modules/customer/customers/utils/customerFilters.ts
@@ -349,9 +637,10 @@ var PAYMENT_FILTER_LABEL_KEYS = {
 	mixed: "customers.partly_paid",
 	not_due_yet: "payments.not_due_yet_label"
 };
-var DEBT_FILTER_LABEL_KEYS = {
-	yes: "customers.has_debts",
-	no: "customers.filters.no_debts"
+var OWES_FILTER_LABEL_KEYS = {
+	anything: "customers.filters.owes_anything",
+	debts: "customers.has_debts",
+	nothing: "customers.filters.owes_nothing"
 };
 var TYPE_FILTER_LABEL_KEYS = {
 	regular: "customers.filters.type_regular",
@@ -373,7 +662,7 @@ var UNPAID_MONTHS_OPTIONS = [
 ];
 var SORT_LABEL_KEYS = {
 	name: "customers.filters.sort_name",
-	debt: "customers.filters.sort_debt",
+	to_collect: "customers.filters.sort_to_collect",
 	unpaid_months: "customers.filters.sort_unpaid_months",
 	longest_unpaid: "customers.filters.sort_longest_unpaid",
 	newest: "customers.filters.sort_newest"
@@ -383,6 +672,11 @@ function labelKeysOf(labels) {
 }
 function matchesYesNo(choice, fact) {
 	return choice === null || choice === "yes" === fact;
+}
+function matchesOwes(choice, facts) {
+	if (choice === null) return true;
+	if (choice === "debts") return owesMoney(facts.debtUsd);
+	return owesMoney(facts.toCollectUsd) === (choice === "anything");
 }
 var PAYMENT_FILTER_FLAGS = {
 	paid: ["paid"],
@@ -413,7 +707,7 @@ function hasPhoneNumber(customer) {
 	return !!customer.phoneNumber?.trim();
 }
 function matchesCustomerFilters(customer, facts, filters) {
-	return matchesActiveFilter(customer.active, filters.status) && matchesPayment(customer, facts.status, filters.payment) && matchesYesNo(filters.debt, hasDebtFlag(facts.debtUsd)) && matchesPlan(customer, filters.planId) && (filters.unpaidMonths === null || (facts.status?.unpaidMonths ?? 0) >= filters.unpaidMonths) && (filters.type === null || customer.isRegular === (filters.type === "regular")) && matchesYesNo(filters.phone, hasPhoneNumber(customer)) && matchesYesNo(filters.portal, customer.portalEnabled) && matchesLastPaid(facts.lastPaidAt, filters.paidSinceIso, filters.paidBeforeIso);
+	return matchesActiveFilter(customer.active, filters.status) && matchesPayment(customer, facts.status, filters.payment) && matchesOwes(filters.owes, facts) && matchesPlan(customer, filters.planId) && (filters.unpaidMonths === null || (facts.status?.unpaidMonths ?? 0) >= filters.unpaidMonths) && (filters.type === null || customer.isRegular === (filters.type === "regular")) && matchesYesNo(filters.phone, hasPhoneNumber(customer)) && matchesYesNo(filters.portal, customer.portalEnabled) && matchesLastPaid(facts.lastPaidAt, filters.paidSinceIso, filters.paidBeforeIso);
 }
 function isOneOf(values, value) {
 	return values.includes(value);
@@ -428,7 +722,7 @@ var ID_PATTERN = /^[0-9a-f-]{36}$/i;
 function isCustomerFilterQuery(value) {
 	if (!value || typeof value !== "object") return false;
 	const f = value;
-	return isOneOf(labelKeysOf(STATUS_FILTER_LABEL_KEYS), f.status) && isNullOr(labelKeysOf(PAYMENT_FILTER_LABEL_KEYS), f.payment) && isNullOr(labelKeysOf(DEBT_FILTER_LABEL_KEYS), f.debt) && (f.planId === null || typeof f.planId === "string" && ID_PATTERN.test(f.planId)) && isNullOr(UNPAID_MONTHS_OPTIONS, f.unpaidMonths) && isNullOr(labelKeysOf(TYPE_FILTER_LABEL_KEYS), f.type) && isNullOr(labelKeysOf(PHONE_FILTER_LABEL_KEYS), f.phone) && isNullOr(labelKeysOf(PORTAL_FILTER_LABEL_KEYS), f.portal) && isInstantOrNull(f.paidSinceIso) && isInstantOrNull(f.paidBeforeIso);
+	return isOneOf(labelKeysOf(STATUS_FILTER_LABEL_KEYS), f.status) && isNullOr(labelKeysOf(PAYMENT_FILTER_LABEL_KEYS), f.payment) && isNullOr(labelKeysOf(OWES_FILTER_LABEL_KEYS), f.owes) && (f.planId === null || typeof f.planId === "string" && ID_PATTERN.test(f.planId)) && isNullOr(UNPAID_MONTHS_OPTIONS, f.unpaidMonths) && isNullOr(labelKeysOf(TYPE_FILTER_LABEL_KEYS), f.type) && isNullOr(labelKeysOf(PHONE_FILTER_LABEL_KEYS), f.phone) && isNullOr(labelKeysOf(PORTAL_FILTER_LABEL_KEYS), f.portal) && isInstantOrNull(f.paidSinceIso) && isInstantOrNull(f.paidBeforeIso);
 }
 function isCustomerSort(value) {
 	return isOneOf(labelKeysOf(SORT_LABEL_KEYS), value);
@@ -458,13 +752,14 @@ function paidTime(customer) {
 }
 var SORTS = {
 	name: () => 0,
-	debt: (a, b) => b.row.debtUsd - a.row.debtUsd,
+	to_collect: (a, b) => b.row.toCollectUsd - a.row.toCollectUsd,
 	unpaid_months: (a, b) => (b.row.status?.unpaidMonths ?? 0) - (a.row.status?.unpaidMonths ?? 0),
 	longest_unpaid: (a, b) => paidTime(a.customer) - paidTime(b.customer),
 	newest: (a, b) => b.customer.createdAt.localeCompare(a.customer.createdAt)
 };
 function pageCustomerStatuses(facts, query) {
 	const statuses = getCustomerStatuses(facts.customers, facts.bills, facts.skips, facts.unpaidRule);
+	const toCollect = toCollectByCustomer(facts);
 	const term = sanitizeSearchTerm(query.search).toLowerCase();
 	const matched = [];
 	for (const customer of facts.customers) {
@@ -472,7 +767,8 @@ function pageCustomerStatuses(facts, query) {
 		const row = {
 			customerId: customer.id,
 			status: statuses.get(customer.id) ?? null,
-			debtUsd: facts.debtUsd.get(customer.id) ?? 0
+			debtUsd: facts.debtUsd.get(customer.id) ?? 0,
+			toCollectUsd: toCollect.get(customer.id) ?? 0
 		};
 		if (matchesCustomerFilters(customer, {
 			...row,

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import type { ActiveFilter } from "@shared/core/types";
 import {
-  DEBT_FILTER_LABEL_KEYS,
+  OWES_FILTER_LABEL_KEYS,
   DEFAULT_CUSTOMER_FILTERS,
   hasCustomerFilters,
   labelKeysOf,
@@ -17,6 +17,7 @@ import {
   type CustomerTypeFilter,
   type PaymentFilter,
   type UnpaidMonthsFilter,
+  type OwesFilter,
   type YesNoFilter,
 } from "@shared/modules/customer/customers/utils/customerFilters";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
@@ -63,13 +64,13 @@ export function CustomerFilterChips({ value, onChange, className }: Props) {
         nullLabel={t("customers.filters.payment_any")}
         triggerStyle="chip"
       />
-      <Dropdown<YesNoFilter>
-        label={t("customers.filters.debts")}
-        options={labelled(DEBT_FILTER_LABEL_KEYS)}
-        value={value.debt}
-        onChange={(debt) => onChange({ debt })}
+      <Dropdown<OwesFilter>
+        label={t("customers.filters.owes")}
+        options={labelled(OWES_FILTER_LABEL_KEYS)}
+        value={value.owes}
+        onChange={(owes) => onChange({ owes })}
         nullable
-        nullLabel={t("customers.filters.debts_any")}
+        nullLabel={t("customers.filters.owes_any")}
         triggerStyle="chip"
       />
       <Dropdown<UnpaidMonthsFilter>

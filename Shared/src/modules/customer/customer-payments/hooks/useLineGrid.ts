@@ -9,6 +9,7 @@ import {
   yearSummary,
 } from "@shared/modules/customer/customer-payments/utils/gridSummary";
 import type { LineGates } from "@shared/modules/customer/customer-payments/utils/monthActions";
+import type { MonthBlock } from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
 import { lastBillableMonth } from "@shared/modules/customer/customer-payments/utils/payWindow";
 import { resolveLinePrice, type LinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
 import { linePriceAt } from "@shared/modules/customer/customer-plans/utils/priceHistory";
@@ -81,6 +82,9 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
 
   const selectedLine = lines.find((l) => l.id === selectedLineId) ?? null;
   const linePrice = resolveLinePrice(selectedLine ?? NO_PRICE);
+  const block: MonthBlock | null = selectedLine
+    ? { startDate: selectedLine.startDate, durationMonths: linePrice.durationMonths }
+    : null;
   const priceAt = (billingMonth: string): LinePrice =>
     selectedLine ? linePriceAt(selectedLine, billingMonth, prices) : linePrice;
   const grid = selectedLine
@@ -140,6 +144,7 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
     billsReady,
     gates,
     linePrice,
+    block,
     priceAt,
     priceLabel,
     summary,

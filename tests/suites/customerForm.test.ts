@@ -155,9 +155,9 @@ describe("customerPills", () => {
     expect(customerPills(customer({ isRegular: false }), owing, false)).toEqual(["non_regular"]);
   });
 
-  it("TC-CF-14 a regular customer shows the month flags; debt always rides along", () => {
-    expect(customerPills(customer(), status({ overdue: true }), true)).toEqual(["overdue", "debt"]);
-    expect(customerPills(customer({ active: false }), null, true)).toEqual(["inactive", "debt"]);
+  it("TC-CF-14 a regular customer shows the month flags; To collect always rides along", () => {
+    expect(customerPills(customer(), status({ overdue: true }), true)).toEqual(["overdue", "to_collect"]);
+    expect(customerPills(customer({ active: false }), null, true)).toEqual(["inactive", "to_collect"]);
   });
 
   it("TC-CF-15 an unknown status shows no payment pill, never a guessed Unpaid", () => {

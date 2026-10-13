@@ -14,6 +14,7 @@ import {
   type CustomerStatusFactsWire,
   type StatusListCustomer,
 } from "@shared/modules/customer/customers/utils/customerStatusFacts";
+import { toCollectByCustomer } from "@shared/modules/customer/customers/utils/customerToCollect";
 import {
   isCustomerFilterQuery,
   isCustomerSort,
@@ -65,7 +66,7 @@ function paidTime(customer: StatusListCustomer): number {
 
 const SORTS: Record<CustomerSort, (a: SortableRow, b: SortableRow) => number> = {
   name: () => 0,
-  debt: (a, b) => b.row.debtUsd - a.row.debtUsd,
+  to_collect: (a, b) => b.row.toCollectUsd - a.row.toCollectUsd,
   unpaid_months: (a, b) =>
     (b.row.status?.unpaidMonths ?? 0) - (a.row.status?.unpaidMonths ?? 0),
   longest_unpaid: (a, b) => paidTime(a.customer) - paidTime(b.customer),
@@ -83,6 +84,7 @@ export function pageCustomerStatuses(
     facts.skips,
     facts.unpaidRule,
   );
+  const toCollect = toCollectByCustomer(facts);
   const term = sanitizeSearchTerm(query.search).toLowerCase();
   const matched: SortableRow[] = [];
   for (const customer of facts.customers) {
@@ -91,6 +93,7 @@ export function pageCustomerStatuses(
       customerId: customer.id,
       status: statuses.get(customer.id) ?? null,
       debtUsd: facts.debtUsd.get(customer.id) ?? 0,
+      toCollectUsd: toCollect.get(customer.id) ?? 0,
     };
     const listFacts = { ...row, lastPaidAt: customer.lastPaidAt };
     if (matchesCustomerFilters(customer, listFacts, query.filters)) {

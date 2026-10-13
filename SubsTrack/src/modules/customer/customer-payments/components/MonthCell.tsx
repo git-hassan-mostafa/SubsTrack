@@ -131,12 +131,12 @@ export const MonthCell = memo(function MonthCell({
         </Text>
         {wrapFromPrev ? (
           <View className="absolute top-0 bottom-0 start-0.5 justify-center">
-            <DirectionalIcon name="chevron-back" size={10} color="white" />
+            <DirectionalIcon name="chevron-back" size={10} color={look.icon} />
           </View>
         ) : null}
         {wrapToNext ? (
           <View className="absolute top-0 bottom-0 end-0.5 justify-center">
-            <DirectionalIcon name="chevron-forward" size={10} color="white" />
+            <DirectionalIcon name="chevron-forward" size={10} color={look.icon} />
           </View>
         ) : null}
         {showMenu ? (

@@ -5,7 +5,7 @@ import {
 } from "@shared/modules/customer/customer-payments/utils/monthStatus";
 import {
   customerFlags,
-  hasDebtFlag,
+  owesMoney,
 } from "@shared/modules/customer/customers/utils/customerFlags";
 import { bill, customer, line, plan, skip } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
@@ -218,7 +218,7 @@ describe("getOverdueMonthCounts", () => {
   });
 });
 
-describe("customerFlags / hasDebtFlag", () => {
+describe("customerFlags / owesMoney", () => {
   it('TC-CS-40 the plain "Unpaid" pill is hidden under "Overdue"', () => {
     expect(
       customerFlags({
@@ -245,9 +245,9 @@ describe("customerFlags / hasDebtFlag", () => {
     ).toEqual(["unpaid"]);
   });
 
-  it("TC-CS-42 debt is its own fact, and only a positive one counts", () => {
-    expect(hasDebtFlag(undefined)).toBe(false);
-    expect(hasDebtFlag(0)).toBe(false);
-    expect(hasDebtFlag(0.01)).toBe(true);
+  it("TC-CS-42 money owed is its own fact, and only a positive one counts", () => {
+    expect(owesMoney(undefined)).toBe(false);
+    expect(owesMoney(0)).toBe(false);
+    expect(owesMoney(0.01)).toBe(true);
   });
 });

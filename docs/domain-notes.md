@@ -20,7 +20,7 @@ Full prose per topic; CLAUDE.md keeps a one-line pointer. Deeper: `docs/features
 
 > **The Ledger** (core model in CLAUDE.md §6). `charge_balances` is a `security_invoker` view.
 >
-> **Money-not-row** → #106 / #106b / #106c: `buildDebtsView` drops `kind === 'month' && paid <= 0` instead of bucketing it in `unpaidMonths` (which fills only from partly-paid months); `getDebtsView` must never grow a virtual-month pass.
+> **Money-not-row** → #106 / #106b / #106c: `buildDebtsView` drops `kind === 'month' && paid <= 0` instead of bucketing it in `unpaidMonths` (which fills only from partly-paid months); `getDebtsView` must never grow a virtual-month pass; the To collect page reads `getOwedView` instead (#193).
 >
 > **Waterfall order is SHOWN**: `CollectSheet` re-sorts its pool w/ the same `sortByDue` (never trusts caller — Debts screen passes two separately-sorted lists glued); `AllocationPreview` numbers rows 1, 2, 3… in queue order, prints due date + days late, fills the number once money reaches it, hollow while waiting; unticking re-numbers rows below.
 >

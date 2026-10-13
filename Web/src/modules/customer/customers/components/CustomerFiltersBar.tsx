@@ -5,7 +5,7 @@ import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import type { ActiveFilter } from "@shared/core/types";
 import {
-  DEBT_FILTER_LABEL_KEYS,
+  OWES_FILTER_LABEL_KEYS,
   hasCustomerFilters,
   labelKeysOf,
   PAYMENT_FILTER_LABEL_KEYS,
@@ -19,6 +19,7 @@ import {
   type CustomerTypeFilter,
   type PaymentFilter,
   type UnpaidMonthsFilter,
+  type OwesFilter,
   type YesNoFilter,
 } from "@shared/modules/customer/customers/utils/customerFilters";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
@@ -63,12 +64,12 @@ export function CustomerFiltersBar({ value, onChange, onClear }: CustomerFilters
           options={labelled(PAYMENT_FILTER_LABEL_KEYS)}
           minWidth={180}
         />
-        <FilterSelect<YesNoFilter | null>
-          label={t("customers.filters.debts")}
-          anyLabel={t("customers.filters.debts_any")}
-          value={value.debt}
-          onChange={(debt) => onChange({ debt })}
-          options={labelled(DEBT_FILTER_LABEL_KEYS)}
+        <FilterSelect<OwesFilter | null>
+          label={t("customers.filters.owes")}
+          anyLabel={t("customers.filters.owes_any")}
+          value={value.owes}
+          onChange={(owes) => onChange({ owes })}
+          options={labelled(OWES_FILTER_LABEL_KEYS)}
         />
         <FilterSelect<UnpaidMonthsFilter | null>
           label={t("customers.filters.unpaid_months")}
