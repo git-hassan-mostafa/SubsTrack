@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { FlatList, RefreshControl, View } from "react-native";
 import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Screen } from "@/src/shared/components/Screen";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter } from "expo-router";
 import { COLORS } from "@/src/shared/constants";
@@ -92,7 +92,7 @@ export function WalletsScreen() {
     : [];
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
+    <Screen edges={[]}>
       <PageHeader
         title={t("wallet.title")}
         showBack
@@ -180,6 +180,6 @@ export function WalletsScreen() {
         actions={menuActions}
         onDismiss={() => setMenuWallet(null)}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }

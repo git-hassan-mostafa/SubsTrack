@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Screen } from "@/src/shared/components/Screen";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
@@ -80,7 +80,7 @@ export function DashboardScreen() {
   const tiles = metrics ? dashboardTiles(metrics, isAdmin) : [];
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <Screen>
       <ResponsiveContainer className="flex-1">
         <ScrollView
           className="flex-1"
@@ -199,6 +199,6 @@ export function DashboardScreen() {
       {saleFormOpen && (
         <SaleFormSheet onDismiss={() => setSaleFormOpen(false)} />
       )}
-    </SafeAreaView>
+    </Screen>
   );
 }

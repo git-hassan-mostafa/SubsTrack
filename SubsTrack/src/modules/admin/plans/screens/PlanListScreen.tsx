@@ -5,7 +5,7 @@ import {
   RefreshControl,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Screen } from "@/src/shared/components/Screen";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { COLORS } from "@/src/shared/constants";
@@ -174,7 +174,7 @@ export function PlanListScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <Screen>
       <PageHeader
         iconActions={exportIconActions}
         title={t("plans.title")}
@@ -287,6 +287,6 @@ export function PlanListScreen() {
       />
 
       {history.sheet}
-    </SafeAreaView>
+    </Screen>
   );
 }

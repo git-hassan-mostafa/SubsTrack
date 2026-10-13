@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Screen } from "@/src/shared/components/Screen";
 import Constants from "expo-constants";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
@@ -114,7 +114,7 @@ export function DeveloperScreen() {
 
   if (!IS_OFFLINE_CAPABLE || !isAdmin) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
+      <Screen>
         <PageHeader
           title={t("settings.developer")}
           showBack
@@ -128,7 +128,7 @@ export function DeveloperScreen() {
               : t("settings.developer_web_unavailable")}
           </Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -435,7 +435,7 @@ export function DeveloperScreen() {
 
   if (selectedTable) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
+      <Screen>
         <PageHeader
           title={selectedTable}
           showBack
@@ -443,12 +443,12 @@ export function DeveloperScreen() {
           hideBranchSelector
         />
         <DbTableViewer tableName={selectedTable} />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <Screen>
       <PageHeader
         title={t("settings.developer")}
         showBack
@@ -566,6 +566,6 @@ export function DeveloperScreen() {
           </View>
         ) : null}
       </ResponsiveContainer>
-    </SafeAreaView>
+    </Screen>
   );
 }

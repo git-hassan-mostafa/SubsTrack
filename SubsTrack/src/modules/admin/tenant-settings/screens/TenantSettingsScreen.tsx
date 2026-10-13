@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { RefreshControl, ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Screen } from "@/src/shared/components/Screen";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -53,7 +53,7 @@ export function TenantSettingsScreen() {
   if (!user) return null;
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <Screen>
       <PageHeader
         title={t("tenant_settings.title")}
         showBack
@@ -79,6 +79,6 @@ export function TenantSettingsScreen() {
           <UnpaidRuleSection />
         </ScrollView>
       </ResponsiveContainer>
-    </SafeAreaView>
+    </Screen>
   );
 }

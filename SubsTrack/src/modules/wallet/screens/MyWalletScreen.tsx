@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Screen } from "@/src/shared/components/Screen";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter } from "expo-router";
 import { PageHeader } from "@/src/shared/components/PageHeader";
@@ -37,7 +37,7 @@ export function MyWalletScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
+    <Screen edges={[]}>
       <ResponsiveContainer className="flex-1">
         <PageHeader
           title={t("wallet.my_title")}
@@ -59,6 +59,6 @@ export function MyWalletScreen() {
           }}
         />
       </ResponsiveContainer>
-    </SafeAreaView>
+    </Screen>
   );
 }

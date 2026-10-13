@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, View } from "react-native";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Screen } from "@/src/shared/components/Screen";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useTranslation } from "react-i18next";
 import { useRouter, type Href } from "expo-router";
@@ -160,7 +160,7 @@ export function SettingsScreen() {
     });
   }
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <Screen>
       <ResponsiveContainer className="flex-1">
         <ScrollView>
           <View className="flex-row items-center gap-2 px-5 pt-5 pb-4">
@@ -387,6 +387,6 @@ export function SettingsScreen() {
         value={language}
         onChange={(val) => void handleLanguageSelect(val)}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }

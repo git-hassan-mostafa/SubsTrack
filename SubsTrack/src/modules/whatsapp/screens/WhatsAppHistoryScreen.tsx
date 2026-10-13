@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Screen } from "@/src/shared/components/Screen";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter } from "expo-router";
 import type { WhatsAppMessage } from "@shared/core/types";
@@ -96,7 +96,7 @@ export function WhatsAppHistoryScreen() {
   }));
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <Screen>
       <PageHeader
         title={t("whatsapp.history_title")}
         showBack
@@ -135,6 +135,6 @@ export function WhatsAppHistoryScreen() {
           }
         />
       </ResponsiveContainer>
-    </SafeAreaView>
+    </Screen>
   );
 }

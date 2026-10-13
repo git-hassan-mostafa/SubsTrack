@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Screen } from "@/src/shared/components/Screen";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import type { AuditAction, AuditTable } from "@shared/core/types";
@@ -193,7 +193,7 @@ export function AuditLogScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
+    <Screen edges={[]}>
       <PageHeader
         title={t("audit.title")}
         showBack
@@ -223,6 +223,6 @@ export function AuditLogScreen() {
         />
       </ResponsiveContainer>
       {exportSheet}
-    </SafeAreaView>
+    </Screen>
   );
 }

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { View, type ScrollView } from "react-native";
 import { GestureDetector } from "react-native-gesture-handler";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Screen } from "@/src/shared/components/Screen";
 import { useTranslation } from "react-i18next";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useSwipeableTabs } from "@/src/shared/hooks/useSwipeableTabs";
@@ -99,7 +99,7 @@ export function TransactionsScreen() {
   });
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
+    <Screen edges={[]}>
       <PageHeader
         title={t("transactions.title")}
         iconActions={exportIconActions}
@@ -130,6 +130,6 @@ export function TransactionsScreen() {
 
       {saleDetail.sheet}
       {exportSheet}
-    </SafeAreaView>
+    </Screen>
   );
 }

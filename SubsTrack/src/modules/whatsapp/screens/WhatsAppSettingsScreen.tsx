@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { AppState, Pressable, RefreshControl, ScrollView, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Screen } from "@/src/shared/components/Screen";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -51,7 +51,7 @@ export function WhatsAppSettingsScreen() {
   }, [fetchOverview]);
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <Screen>
       <PageHeader
         title={t("whatsapp.title")}
         showBack
@@ -87,6 +87,6 @@ export function WhatsAppSettingsScreen() {
           </Pressable>
         </ScrollView>
       </ResponsiveContainer>
-    </SafeAreaView>
+    </Screen>
   );
 }

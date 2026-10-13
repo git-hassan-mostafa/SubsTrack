@@ -5,7 +5,7 @@ import {
   ScrollView,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Screen } from "@/src/shared/components/Screen";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { COLORS } from "@/src/shared/constants";
@@ -59,7 +59,7 @@ export function CustomerDetailScreen() {
   }, [id, fetchCustomer]);
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <Screen>
       <PageHeader
         title={customer?.name ?? ""}
         showBack
@@ -151,6 +151,6 @@ export function CustomerDetailScreen() {
 
       {saleDetail.sheet}
       {whatsappActions.sheet}
-    </SafeAreaView>
+    </Screen>
   );
 }

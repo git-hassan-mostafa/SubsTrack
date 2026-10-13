@@ -3,7 +3,7 @@ import { Href, router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Screen } from "@/src/shared/components/Screen";
 import { COLORS } from "@/src/shared/constants";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
@@ -129,7 +129,7 @@ export default function AdminMenuScreen() {
   const viewer = useAuth();
   const menuItems = MENU_ITEMS.filter((item) => canOpenPage(viewer, item.page));
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <Screen>
       <ScrollView>
         <View className="px-5 pt-5 pb-4">
           <Text fontWeight="Bold" className="text-2xl text-gray-900">
@@ -182,6 +182,6 @@ export default function AdminMenuScreen() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }

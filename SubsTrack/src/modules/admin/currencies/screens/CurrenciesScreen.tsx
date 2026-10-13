@@ -5,7 +5,7 @@ import {
   RefreshControl,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Screen } from "@/src/shared/components/Screen";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { COLORS } from "@/src/shared/constants";
@@ -184,7 +184,7 @@ export function CurrenciesScreen() {
   } = useExportRows("tenant_settings.currencies_section_title", currencies);
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <Screen>
       <PageHeader
         iconActions={exportIconActions}
         title={t("tenant_settings.currencies_section_title")}
@@ -293,6 +293,6 @@ export function CurrenciesScreen() {
       />
 
       {history.sheet}
-    </SafeAreaView>
+    </Screen>
   );
 }

@@ -5,7 +5,7 @@ import {
   RefreshControl,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Screen } from "@/src/shared/components/Screen";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "@/src/shared/components/EmptyState";
@@ -497,7 +497,7 @@ export function CustomerListScreen() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <Screen>
       <PageHeader
         title={t("customers.title")}
         subtitle={t("customers.active_count", { count: activeCount })}
@@ -622,6 +622,6 @@ export function CustomerListScreen() {
       {collectSheet}
       {exportSheet}
       {whatsappActions.sheet}
-    </SafeAreaView>
+    </Screen>
   );
 }
