@@ -104,6 +104,7 @@ export function CustomersPage() {
 
   const paged = usePagedTable(
     useCustomersTable,
+    "customers",
     branch,
     quickPay.bulkBusy || quickPay.busyCustomerId !== null,
   );
@@ -247,7 +248,6 @@ export function CustomersPage() {
       {debts.banners}
       <CustomerFiltersBar value={query.filters} onChange={setFilters} onClear={clearFilters} />
       <DataTable<CustomerRow>
-        viewKey="customers"
         label={t("customers.title")}
         columns={columns}
         {...paged.tableProps}

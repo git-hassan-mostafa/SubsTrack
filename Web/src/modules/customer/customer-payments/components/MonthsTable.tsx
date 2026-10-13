@@ -134,6 +134,7 @@ export function MonthsTable({ grid, menuActions }: MonthsTableProps) {
 
   return (
     <LocalTable<MonthRow>
+      viewKey="customer-months"
       label={t("web.month_grid.table_label", { year: grid.year })}
       columns={columns}
       rows={rows}

@@ -77,6 +77,7 @@ export function OverviewSection({ report }: { report: MoneyReport }) {
         actions={<GroupByControls dims={[]} view={view} onGrain={setGrain} showGrain />}
       >
         <TrendTable
+          viewKey="report-overview-trend"
           label={t("web.reports.money_over_time")}
           rows={analysis.trend}
           bucketLabel={(key) => label("time", key)}
@@ -86,6 +87,7 @@ export function OverviewSection({ report }: { report: MoneyReport }) {
       </PanelSection>
       <PanelSection title={t("reports.money_in")}>
         <BreakdownTable
+          viewKey="report-overview-money-in"
           title={t("reports.money_in")}
           groups={analysis.streams}
           dim="stream"
@@ -99,6 +101,7 @@ export function OverviewSection({ report }: { report: MoneyReport }) {
       </PanelSection>
       <PanelSection title={t("reports.money_out")}>
         <BreakdownTable
+          viewKey="report-overview-money-out"
           title={t("reports.money_out")}
           groups={analysis.categories}
           dim="category"
@@ -116,6 +119,7 @@ export function OverviewSection({ report }: { report: MoneyReport }) {
             {t("reports.by_currency_hint")}
           </Typography>
           <LocalTable<CurrencyRow>
+            viewKey="report-overview-currencies"
             label={t("reports.by_currency")}
             columns={currencyColumns}
             rows={currencyRows}
@@ -123,7 +127,12 @@ export function OverviewSection({ report }: { report: MoneyReport }) {
         </Stack>
       </PanelSection>
       {drill ? (
-        <RecordsDialog drill={drill} exportName={fileName(drill.title)} onClose={() => setDrill(null)} />
+        <RecordsDialog
+          viewKey="report-overview-records"
+          drill={drill}
+          exportName={fileName(drill.title)}
+          onClose={() => setDrill(null)}
+        />
       ) : null}
     </Stack>
   );

@@ -43,7 +43,7 @@ export function ExpensesPage() {
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
   const list = useExpensesList(search);
-  const paging = useRowsPage(list.rows);
+  const paging = useRowsPage(list.rows, "expenses");
   const currencies = useCurrencySlice((s) => s.items);
   const display = useDisplayCurrency();
   const userName = useUserNames();
@@ -123,7 +123,7 @@ export function ExpensesPage() {
   return (
     <>
       <DataTable<ExpenseItem>
-        viewKey="expenses"
+        viewKey={paging.viewKey}
         label={t("expenses.title")}
         columns={columns}
         rows={paging.rows}

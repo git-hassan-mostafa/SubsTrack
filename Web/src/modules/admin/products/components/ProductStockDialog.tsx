@@ -280,6 +280,7 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
           </Typography>
         ) : (
           <LocalTable<StockMovement>
+            viewKey="product-stock-history"
             label={t("products.stock_history")}
             columns={columns}
             rows={history}

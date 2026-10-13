@@ -101,6 +101,7 @@ export function AllItemsTab({ view, branch, doors, add, loading, onReload, showF
       />
       <Box>
         <OwedItemsTable
+          viewKey="to-collect-items"
           label={showingWrittenOff ? t("debts.scope_written_off") : t("debts.all_debts_title")}
           items={rows}
           doors={doors}

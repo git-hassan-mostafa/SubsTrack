@@ -51,7 +51,7 @@ interface DebtHistoryTabProps {
 export function DebtHistoryTab({ branch, doors, add }: DebtHistoryTabProps) {
   const { t } = useTranslation();
   const table = useDebtHistoryTable;
-  const paged = usePagedTable(table, branch);
+  const paged = usePagedTable(table, "debt-history", branch);
   const query = paged.query;
   const setFilters = paged.setFilters;
   const currencies = useCurrencySlice((s) => s.items);
@@ -148,7 +148,6 @@ export function DebtHistoryTab({ branch, doors, add }: DebtHistoryTabProps) {
 
   return (
     <DataTable<DebtHistoryRow>
-      viewKey="debt-history"
       label={t("debts.history_title")}
       columns={columns}
       {...paged.tableProps}

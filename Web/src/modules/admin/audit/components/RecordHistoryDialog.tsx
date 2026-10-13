@@ -180,6 +180,7 @@ function HistoryEntries({ timeline }: { timeline: RecordHistoryState }) {
   return (
     <>
       <LocalTable<AuditEntry>
+        viewKey="record-history"
         label={t("audit.record_history_title")}
         columns={columns}
         rows={timeline.entries}

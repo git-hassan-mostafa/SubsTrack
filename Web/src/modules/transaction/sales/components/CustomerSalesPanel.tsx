@@ -125,6 +125,7 @@ export function CustomerSalesPanel({ customer }: { customer: Customer }) {
         </Paper>
       ) : (
         <LocalTable<Sale>
+          viewKey="customer-sales"
           label={t("sales.customer_panel_title")}
           columns={columns}
           rows={rows}

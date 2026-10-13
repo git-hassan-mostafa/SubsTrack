@@ -35,7 +35,7 @@ const STATUS_OPTIONS = HISTORY_STATUS_FILTERS.filter(
 export function WhatsAppHistoryPage() {
   const { t } = useTranslation();
   const branch = useEffectiveBranchFilter();
-  const paged = usePagedTable(useWhatsAppHistoryTable, branch);
+  const paged = usePagedTable(useWhatsAppHistoryTable, "whatsapp-history", branch);
   const { query, setFilters, reload } = paged;
   const cancelBatch = useMessageHistoryStore((s) => s.cancelBatch);
   const cancelError = useMessageHistoryStore((s) => s.error);
@@ -115,7 +115,6 @@ export function WhatsAppHistoryPage() {
     <Stack spacing={2}>
       <ErrorBanner message={cancelError} onDismiss={clearCancelError} />
       <DataTable<WhatsAppMessage>
-        viewKey="whatsapp-history"
         label={t("whatsapp.history_title")}
         columns={columns}
         {...paged.tableProps}

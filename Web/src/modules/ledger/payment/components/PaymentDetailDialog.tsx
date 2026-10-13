@@ -242,6 +242,7 @@ function PaymentBody({ collection, onOpenItem, loadingItemId }: PaymentBodyProps
           </Typography>
         ) : null}
         <LocalTable<PaidRow>
+          viewKey="payment-bills"
           label={tableLabel}
           columns={columns}
           rows={rows}

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { GridColumnVisibilityModel, GridDensity } from "@mui/x-data-grid";
@@ -10,6 +10,7 @@ const TABLE_VIEWS_STORE_KEY = "web-table-views";
 export interface TableView {
   widths: Readonly<Record<string, number>>;
   hidden: GridColumnVisibilityModel;
+  pageSize?: number;
 }
 
 export const EMPTY_VIEW: TableView = { widths: {}, hidden: {} };
@@ -54,20 +55,23 @@ export function useTableDensity() {
   return { density, setDensity };
 }
 
-// No `viewKey` (dialog tables) → the layout lives only as long as the table is open.
-export function useTableView(viewKey: string | null) {
-  const userId = useUserId();
-  const viewId = viewKey === null ? null : `${userId}:${viewKey}`;
-  const savedView = useTableViews((s) => (viewId === null ? undefined : s.views[viewId]));
-  const [openView, setOpenView] = useState<TableView>(EMPTY_VIEW);
+export function useTableView(viewKey: string) {
+  const viewId = `${useUserId()}:${viewKey}`;
+  const savedView = useTableViews((s) => s.views[viewId]);
 
   const updateView = useCallback(
-    (change: (view: TableView) => TableView) => {
-      if (viewId === null) setOpenView(change);
-      else useTableViews.getState().updateView(viewId, change);
-    },
+    (change: (view: TableView) => TableView) => useTableViews.getState().updateView(viewId, change),
     [viewId],
   );
 
-  return { view: viewId === null ? openView : (savedView ?? EMPTY_VIEW), updateView };
+  return { view: savedView ?? EMPTY_VIEW, updateView };
+}
+
+export function useSavedPageSize(viewKey: string) {
+  const { view, updateView } = useTableView(viewKey);
+  const savePageSize = useCallback(
+    (pageSize: number) => updateView((held) => ({ ...held, pageSize })),
+    [updateView],
+  );
+  return { savedPageSize: view.pageSize, savePageSize };
 }

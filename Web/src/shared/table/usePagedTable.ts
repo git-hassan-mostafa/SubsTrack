@@ -2,13 +2,16 @@ import { useCallback, useEffect } from "react";
 import { useStore } from "zustand";
 import type { BranchFilter } from "@shared/core/constants";
 import type { PagedStore } from "@/state/createPagedStore";
+import { useSavedPageSize } from "./tableViews";
 
 // `paused` holds a stale re-read until the page's own write loop has finished.
 export function usePagedTable<T extends { id: string }, F, M>(
   table: PagedStore<T, F, M>,
+  viewKey: string,
   branch: BranchFilter = null,
   paused = false,
 ) {
+  const { savedPageSize, savePageSize } = useSavedPageSize(viewKey);
   const rows = useStore(table, (s) => s.rows);
   const total = useStore(table, (s) => s.total);
   const meta = useStore(table, (s) => s.meta);
@@ -30,14 +33,22 @@ export function usePagedTable<T extends { id: string }, F, M>(
   const clearError = useStore(table, (s) => s.clearError);
 
   useEffect(() => {
-    void open(branch);
-  }, [open, branch]);
+    void open(branch, savedPageSize);
+  }, [open, branch, savedPageSize]);
 
   useEffect(() => {
     if (stale && !loading && !paused) void refreshIfStale();
   }, [refreshIfStale, stale, loading, paused]);
 
   const reload = useCallback(() => void load(), [load]);
+
+  const onPageChange = useCallback(
+    (page: number, pageSize: number) => {
+      if (pageSize === query.pageSize) setPage(page, pageSize);
+      else savePageSize(pageSize);
+    },
+    [query.pageSize, setPage, savePageSize],
+  );
 
   return {
     query,
@@ -49,13 +60,14 @@ export function usePagedTable<T extends { id: string }, F, M>(
     setFilters,
     search: { value: query.search, onSearch: setSearch },
     tableProps: {
+      viewKey,
       rows,
       total,
       loaded,
       loading,
       page: query.page,
       pageSize: query.pageSize,
-      onPageChange: setPage,
+      onPageChange,
       onClearFilters: clearFilters,
       error,
       onDismissError: clearError,

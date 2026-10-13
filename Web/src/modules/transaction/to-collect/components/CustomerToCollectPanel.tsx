@@ -78,6 +78,7 @@ export function CustomerToCollectPanel({ customer }: { customer: Customer }) {
       {doors.banners}
       <DebtScopeTabs value={scope} onChange={setScope} />
       <OwedItemsTable
+        viewKey="customer-to-collect"
         label={t("customers.to_collect")}
         items={sortOwed(source.items)}
         doors={doors}

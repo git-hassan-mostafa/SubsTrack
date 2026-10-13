@@ -136,6 +136,7 @@ export function AnalysisLayout<R>({
         }
       >
         <BreakdownTable<R>
+          viewKey={`report-${section}-breakdown`}
           title={title}
           groups={groups}
           dim={dim}
@@ -152,7 +153,12 @@ export function AnalysisLayout<R>({
       </PanelSection>
       {children}
       {drill ? (
-        <RecordsDialog drill={drill} exportName={fileName(drill.title)} onClose={() => setDrill(null)} />
+        <RecordsDialog
+          viewKey={`report-${section}-records`}
+          drill={drill}
+          exportName={fileName(drill.title)}
+          onClose={() => setDrill(null)}
+        />
       ) : null}
     </Stack>
   );

@@ -142,6 +142,7 @@ export function StaffSection({ money: moneyReport, sales }: StaffSectionProps) {
         actions={<CsvButton name={fileName()} build={csv} />}
       >
         <LocalTable<StaffRow>
+          viewKey="report-staff"
           label={t("web.reports.staff_title")}
           columns={columns}
           rows={analysis.rows}
@@ -150,7 +151,12 @@ export function StaffSection({ money: moneyReport, sales }: StaffSectionProps) {
         />
       </PanelSection>
       {drill ? (
-        <RecordsDialog drill={drill} exportName={fileName(drill.title)} onClose={() => setDrill(null)} />
+        <RecordsDialog
+          viewKey="report-staff-records"
+          drill={drill}
+          exportName={fileName(drill.title)}
+          onClose={() => setDrill(null)}
+        />
       ) : null}
     </Stack>
   );

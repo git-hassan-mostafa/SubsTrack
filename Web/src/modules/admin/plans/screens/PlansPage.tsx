@@ -22,7 +22,7 @@ import { planDurationLabel } from "@shared/modules/admin/plans/utils/planLabels"
 export function PlansPage() {
   const { t } = useTranslation();
   const branch = useEffectiveBranchFilter();
-  const paged = usePagedTable(usePlansTable, branch);
+  const paged = usePagedTable(usePlansTable, "plans", branch);
   const query = paged.query;
   const patchRow = paged.patchRow;
   const addRow = paged.addRow;
@@ -89,7 +89,6 @@ export function PlansPage() {
     <Stack spacing={2}>
       <ErrorBanner message={form ? null : writeError} onDismiss={clearWriteError} />
       <DataTable<Plan>
-        viewKey="plans"
         label={t("plans.title")}
         columns={columns}
         {...paged.tableProps}

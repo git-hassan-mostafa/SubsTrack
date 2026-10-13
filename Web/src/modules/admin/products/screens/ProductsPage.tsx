@@ -28,7 +28,7 @@ import { ProductStockDialog } from "../components/ProductStockDialog";
 export function ProductsPage() {
   const { t } = useTranslation();
   const branch = useEffectiveBranchFilter();
-  const paged = usePagedTable(useProductsTable, branch);
+  const paged = usePagedTable(useProductsTable, "products", branch);
   const rows = paged.tableProps.rows;
   const query = paged.query;
   const patchRow = paged.patchRow;
@@ -125,7 +125,6 @@ export function ProductsPage() {
     <Stack spacing={2}>
       <ErrorBanner message={dialogOpen ? null : writeError} onDismiss={clearWriteError} />
       <DataTable<Product>
-        viewKey="products"
         label={t("products.title")}
         columns={columns}
         {...paged.tableProps}

@@ -166,6 +166,7 @@ export function BillPaymentsList({ bill, chargeId, source, billVoided, recipient
         </Typography>
       ) : (
         <LocalTable<Collection>
+          viewKey="bill-payments"
           label={t("ledger.payments_title")}
           columns={columns}
           rows={rows}

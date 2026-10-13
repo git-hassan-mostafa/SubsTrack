@@ -135,6 +135,7 @@ export function OwingCustomersTab({ debtors, loaded, doors, add, loading, onRelo
         </Paper>
       ) : (
         <LocalTable<OwingCustomerRow>
+          viewKey="owing-customers"
           label={t("debts.tab_debtors")}
           columns={columns}
           rows={rows}

@@ -122,5 +122,13 @@ function ChangeList({ entry, ctx }: { entry: AuditEntry; ctx: AuditFieldContext 
       ),
     },
   ];
-  return <LocalTable<ChangeRow> label={t("audit.changed_fields")} columns={columns} rows={rows} autoRowHeight />;
+  return (
+    <LocalTable<ChangeRow>
+      viewKey="audit-changes"
+      label={t("audit.changed_fields")}
+      columns={columns}
+      rows={rows}
+      autoRowHeight
+    />
+  );
 }

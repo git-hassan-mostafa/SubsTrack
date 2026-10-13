@@ -14,6 +14,7 @@ export interface TrendSeries<T> {
 }
 
 interface TrendTableProps<T extends { key: string }> {
+  viewKey: string;
   label: string;
   rows: T[];
   bucketLabel: (key: string) => string;
@@ -23,6 +24,7 @@ interface TrendTableProps<T extends { key: string }> {
 
 // Each bar is scaled to the largest value in the whole table, so rows compare at a glance.
 export function TrendTable<T extends { key: string }>({
+  viewKey,
   label,
   rows,
   bucketLabel,
@@ -72,5 +74,5 @@ export function TrendTable<T extends { key: string }>({
     [bucketHeader, bucketLabel, peak, series],
   );
 
-  return <LocalTable label={label} columns={columns} rows={gridRows} />;
+  return <LocalTable viewKey={viewKey} label={label} columns={columns} rows={gridRows} />;
 }

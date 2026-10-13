@@ -28,13 +28,14 @@ export interface RecordsDrill {
 }
 
 interface RecordsDialogProps {
+  viewKey: string;
   drill: RecordsDrill;
   exportName: string;
   onClose: () => void;
 }
 
 // Each row in its own currency at its frozen rate, so the rows add up to the number clicked.
-export function RecordsDialog({ drill, exportName, onClose }: RecordsDialogProps) {
+export function RecordsDialog({ viewKey, drill, exportName, onClose }: RecordsDialogProps) {
   const { t } = useTranslation();
   const titleId = useId();
   const currencies = useCurrencySlice((s) => s.items);
@@ -118,7 +119,7 @@ export function RecordsDialog({ drill, exportName, onClose }: RecordsDialogProps
               {drill.note}
             </Typography>
           ) : null}
-          <LocalTable<RecordRow> label={drill.title} columns={columns} rows={drill.rows} />
+          <LocalTable<RecordRow> viewKey={viewKey} label={drill.title} columns={columns} rows={drill.rows} />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2 }}>

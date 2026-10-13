@@ -20,7 +20,7 @@ import { CurrencyFormDialog } from "../components/CurrencyFormDialog";
 
 export function CurrenciesPage() {
   const { t } = useTranslation();
-  const paged = usePagedTable(useCurrenciesTable);
+  const paged = usePagedTable(useCurrenciesTable, "currencies");
   const query = paged.query;
   const patchRow = paged.patchRow;
   const addRow = paged.addRow;
@@ -99,7 +99,6 @@ export function CurrenciesPage() {
     <Stack spacing={2}>
       <ErrorBanner message={form ? null : writeError} onDismiss={clearWriteError} />
       <DataTable<Currency>
-        viewKey="currencies"
         label={t("tenant_settings.currencies_section_title")}
         columns={columns}
         {...paged.tableProps}

@@ -10,7 +10,7 @@ import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "@/state/createPagedStore";
 import { actionsColumn } from "./actionsColumn";
 import { AUTO_ROW_HEIGHT, gridSx, LOCKED_GRID, rowClassName, type RowTone } from "./gridBase";
 import { useGridColumns } from "./gridColumns";
-import { useTableDensity } from "./tableViews";
+import { useSavedPageSize, useTableDensity } from "./tableViews";
 import type { TableAction } from "./tableAction";
 
 // The caller owns the picked ids, so it may widen a pick (a whole bundle).
@@ -22,6 +22,7 @@ export interface LocalSelection<T> {
 
 interface LocalTableProps<T extends GridValidRowModel & { id: string }> {
   label: string;
+  viewKey: string;
   columns: GridColDef<T>[];
   rows: T[];
   rowLabel?: (row: T) => string;
@@ -36,6 +37,7 @@ interface LocalTableProps<T extends GridValidRowModel & { id: string }> {
 // DataTable's look for rows already in memory (dialogs); pages only past one page.
 export function LocalTable<T extends GridValidRowModel & { id: string }>({
   label,
+  viewKey,
   columns,
   rows,
   rowLabel,
@@ -44,9 +46,11 @@ export function LocalTable<T extends GridValidRowModel & { id: string }>({
   rowTone,
   autoRowHeight = false,
   selection,
-  pageSize = DEFAULT_PAGE_SIZE,
+  pageSize: defaultPageSize = DEFAULT_PAGE_SIZE,
 }: LocalTableProps<T>) {
   const { t } = useTranslation();
+  const { savedPageSize, savePageSize } = useSavedPageSize(viewKey);
+  const pageSize = savedPageSize ?? defaultPageSize;
   const paged = rows.length > pageSize;
   const pickedIds = selection?.ids;
   const isSelectable = selection?.isSelectable;
@@ -62,7 +66,7 @@ export function LocalTable<T extends GridValidRowModel & { id: string }>({
       actionsColumn<T>({ headerName: t("web.table.actions"), rowLabel, rowActions, rowBusy }),
     ];
   }, [columns, rowActions, rowBusy, rowLabel, t]);
-  const grid = useGridColumns(allColumns, null);
+  const grid = useGridColumns(allColumns, viewKey);
   const { density } = useTableDensity();
 
   return (
@@ -82,6 +86,7 @@ export function LocalTable<T extends GridValidRowModel & { id: string }>({
       hideFooter={!paged}
       pageSizeOptions={PAGE_SIZE_OPTIONS}
       initialState={{ pagination: { paginationModel: { pageSize } } }}
+      onPaginationModelChange={(model) => savePageSize(model.pageSize)}
       getRowHeight={autoRowHeight ? AUTO_ROW_HEIGHT : undefined}
       getRowClassName={(params) => rowClassName(params.indexRelativeToCurrentPage, rowTone?.(params.row))}
       sx={gridSx(autoRowHeight, density)}

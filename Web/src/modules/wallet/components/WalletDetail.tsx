@@ -65,7 +65,7 @@ export function WalletDetail({
   const { busyHolderId, actOnItems, actOnAll } = useWalletActions();
   const items = useMemo(() => detail?.items ?? [], [detail]);
   const filters = useWalletItemFilters(items, detail?.holderUserId ?? null);
-  const paging = useRowsPage(filters.rows);
+  const paging = useRowsPage(filters.rows, "wallet-items");
   const [openedId, setOpenedId] = useState<string | null>(null);
   const mode = walletActionMode(detail);
   const busy = busyHolderId !== null;
@@ -190,7 +190,7 @@ export function WalletDetail({
   return (
     <>
       <DataTable<WalletItem>
-        viewKey="wallet-items"
+        viewKey={paging.viewKey}
         label={t("wallet.transactions_section")}
         columns={columns}
         rows={paging.rows}

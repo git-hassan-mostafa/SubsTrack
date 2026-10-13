@@ -15,7 +15,7 @@ function renderText(params: GridRenderCellParams) {
 }
 
 // Widths and hidden columns live outside the grid, so a rebuilt `columns` array can't reset them.
-export function useGridColumns<T extends GridValidRowModel>(columns: GridColDef<T>[], viewKey: string | null) {
+export function useGridColumns<T extends GridValidRowModel>(columns: GridColDef<T>[], viewKey: string) {
   const { view, updateView } = useTableView(viewKey);
 
   const gridColumns = useMemo<GridColDef<T>[]>(
@@ -40,7 +40,10 @@ export function useGridColumns<T extends GridValidRowModel>(columns: GridColDef<
     [updateView],
   );
 
-  const resetColumns = useCallback(() => updateView(() => EMPTY_VIEW), [updateView]);
+  const resetColumns = useCallback(
+    () => updateView((held) => ({ ...EMPTY_VIEW, pageSize: held.pageSize })),
+    [updateView],
+  );
 
   return {
     gridProps: {

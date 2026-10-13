@@ -37,7 +37,7 @@ const rowTone = (sale: Sale) => (sale.voidedAt ? "muted" : null);
 // Its writes all move money, so the stale signal re-reads it, never the doors.
 export function SalesTable({ table, branch, customerScoped = false, customer = null }: SalesTableProps) {
   const { t } = useTranslation();
-  const paged = usePagedTable(table, branch);
+  const paged = usePagedTable(table, "sales", branch);
   const totalUsd = paged.meta;
   const query = paged.query;
   const setFilters = paged.setFilters;
@@ -141,7 +141,6 @@ export function SalesTable({ table, branch, customerScoped = false, customer = n
       <ErrorBanner message={doors.error} onDismiss={doors.clearError} />
       <ErrorBanner message={doors.notice} onDismiss={doors.clearNotice} severity="info" />
       <DataTable<Sale>
-        viewKey="sales"
         label={t("sales.title")}
         add={
           customerScoped && !customer

@@ -101,6 +101,7 @@ export function OwingCustomerDialog({
           ) : null}
           {showingWrittenOff ? (
             <OwedItemsTable
+              viewKey="owing-customer-written-off"
               label={t("debts.scope_written_off")}
               items={sortOwed(writtenOff.items)}
               doors={doors}
@@ -109,6 +110,7 @@ export function OwingCustomerDialog({
             />
           ) : (
             <OwedItemsTable
+              viewKey="owing-customer-owed"
               label={t("debts.scope_live")}
               items={sortOwed(owed)}
               doors={doors}

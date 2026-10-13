@@ -113,6 +113,7 @@ export function CustomersSection({ report }: { report: CustomersReport }) {
           actions={<GroupByControls dims={[]} view={view} onGrain={setGrain} showGrain />}
         >
           <TrendTable
+            viewKey="report-customers-trend"
             label={t("web.reports.joined_and_left")}
             rows={analysis.trend}
             bucketLabel={(key) => label("time", key)}
@@ -194,7 +195,12 @@ function CustomersDialog({ drill, format, currencies, onClose }: CustomersDialog
         {drill.title}
       </DialogTitle>
       <DialogContent dividers>
-        <LocalTable<Customer> label={drill.title} columns={columns} rows={drill.customers} />
+        <LocalTable<Customer>
+          viewKey="report-customers-drill"
+          label={drill.title}
+          columns={columns}
+          rows={drill.customers}
+        />
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2 }}>
         <Button onClick={onClose}>{t("common.close")}</Button>

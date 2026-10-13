@@ -51,7 +51,7 @@ export function UsersPage() {
   const { t } = useTranslation();
   const { user: viewer } = useAuth();
   const branch = useEffectiveBranchFilter();
-  const paged = usePagedTable(useUsersTable, branch);
+  const paged = usePagedTable(useUsersTable, "users", branch);
   const query = paged.query;
   const patchRow = paged.patchRow;
   const addRow = paged.addRow;
@@ -183,7 +183,6 @@ export function UsersPage() {
     <Stack spacing={2}>
       <ErrorBanner message={form ? null : writeError} onDismiss={clearWriteError} />
       <DataTable<AppUser>
-        viewKey="users"
         label={t("users.title")}
         columns={columns}
         {...paged.tableProps}

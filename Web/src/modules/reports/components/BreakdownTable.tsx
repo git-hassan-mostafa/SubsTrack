@@ -23,6 +23,7 @@ import type { TableAction } from "@/shared/table/tableAction";
 export type GroupRow<R> = ReportGroup<R> & { id: string };
 
 interface BreakdownTableProps<R> {
+  viewKey: string;
   title: string;
   groups: ReportGroup<R>[];
   dim: ReportDimension;
@@ -38,6 +39,7 @@ interface BreakdownTableProps<R> {
 }
 
 export function BreakdownTable<R>({
+  viewKey,
   title,
   groups,
   dim,
@@ -154,6 +156,7 @@ export function BreakdownTable<R>({
 
   return (
     <LocalTable<GroupRow<R>>
+      viewKey={viewKey}
       label={title}
       columns={columns}
       rows={rows}

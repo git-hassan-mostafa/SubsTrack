@@ -71,7 +71,12 @@ export function SaleItemsTable({ sale, source }: SaleItemsTableProps) {
       <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 700 }}>
         {t("sales.items_section_title")}
       </Typography>
-      <LocalTable<SaleItem> label={t("sales.items_section_title")} columns={columns} rows={sale.items} />
+      <LocalTable<SaleItem>
+        viewKey="sale-items"
+        label={t("sales.items_section_title")}
+        columns={columns}
+        rows={sale.items}
+      />
       {typedTotal ? (
         <Typography variant="body2" color="text.secondary">
           {t("sales.total_differs_hint", { calculated: money(lineSum) })}

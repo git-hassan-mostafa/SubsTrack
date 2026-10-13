@@ -18,7 +18,7 @@ import { BranchFormDialog } from "../components/BranchFormDialog";
 // The reference list page: every later web table copies this shape.
 export function BranchesPage() {
   const { t } = useTranslation();
-  const paged = usePagedTable(useBranchesTable);
+  const paged = usePagedTable(useBranchesTable, "branches");
   const query = paged.query;
   const patchRow = paged.patchRow;
   const addRow = paged.addRow;
@@ -70,7 +70,6 @@ export function BranchesPage() {
     <Stack spacing={2}>
       <ErrorBanner message={form ? null : writeError} onDismiss={clearWriteError} />
       <DataTable<Branch>
-        viewKey="branches"
         label={t("branches.section_title")}
         columns={columns}
         {...paged.tableProps}

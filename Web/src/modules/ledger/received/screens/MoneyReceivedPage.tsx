@@ -54,7 +54,7 @@ const rowTone = (row: CollectionListItem) => (isVoided(row) ? "muted" : null);
 export function MoneyReceivedPage() {
   const { t } = useTranslation();
   const branch = useEffectiveBranchFilter();
-  const paged = usePagedTable(useCollectionsTable, branch);
+  const paged = usePagedTable(useCollectionsTable, "money-received", branch);
   const periodTotalUsd = paged.meta;
   const query = paged.query;
   const setFilters = paged.setFilters;
@@ -216,7 +216,6 @@ export function MoneyReceivedPage() {
       <ErrorBanner message={sale.error} onDismiss={sale.clearError} />
       <ErrorBanner message={sale.notice} onDismiss={sale.clearNotice} severity="info" />
       <DataTable<CollectionListItem>
-        viewKey="money-received"
         label={t("ledger.history_title")}
         columns={columns}
         {...paged.tableProps}

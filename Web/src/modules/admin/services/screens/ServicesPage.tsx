@@ -22,7 +22,7 @@ import { ServiceFormDialog } from "../components/ServiceFormDialog";
 export function ServicesPage() {
   const { t } = useTranslation();
   const branch = useEffectiveBranchFilter();
-  const paged = usePagedTable(useServicesTable, branch);
+  const paged = usePagedTable(useServicesTable, "services", branch);
   const query = paged.query;
   const patchRow = paged.patchRow;
   const addRow = paged.addRow;
@@ -91,7 +91,6 @@ export function ServicesPage() {
     <Stack spacing={2}>
       <ErrorBanner message={form ? null : writeError} onDismiss={clearWriteError} />
       <DataTable<Service>
-        viewKey="services"
         label={t("services.title")}
         columns={columns}
         {...paged.tableProps}

@@ -27,7 +27,7 @@ export interface PagedState<T, F, M = undefined> {
   stale: boolean;
   error: string | null;
   load: () => Promise<void>;
-  open: (branch?: BranchFilter) => Promise<void>;
+  open: (branch?: BranchFilter, pageSize?: number) => Promise<void>;
   markStale: () => void;
   refreshIfStale: () => Promise<void>;
   patchRow: (row: T) => RowPatch;
@@ -162,10 +162,10 @@ export function createPagedStoreWithMeta<T extends { id: string }, F, M>(
       }
     },
 
-    open: (branch = null) => {
+    open: (branch = null, pageSize = get().query.pageSize) => {
       const { query, loaded, stale } = get();
-      if (branch !== query.branch) {
-        set({ query: { ...query, branch, page: 0 } });
+      if (branch !== query.branch || pageSize !== query.pageSize) {
+        set({ query: { ...query, branch, pageSize, page: 0 } });
         return get().load();
       }
       if (loaded && !stale && !rereadOnOpen) return Promise.resolve();

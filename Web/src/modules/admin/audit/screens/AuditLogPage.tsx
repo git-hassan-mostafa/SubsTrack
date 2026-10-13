@@ -38,7 +38,7 @@ import { RecordHistoryDialog } from "../components/RecordHistoryDialog";
 export function AuditLogPage() {
   const { t } = useTranslation();
   const branch = useEffectiveBranchFilter();
-  const paged = usePagedTable(useAuditTable, branch);
+  const paged = usePagedTable(useAuditTable, "audit-log", branch);
   const query = paged.query;
   const setFilters = paged.setFilters;
   const users = useUserSlice((s) => s.items);
@@ -111,7 +111,6 @@ export function AuditLogPage() {
   return (
     <Stack spacing={2}>
       <DataTable<AuditEntry>
-        viewKey="audit-log"
         label={t("audit.title")}
         columns={columns}
         {...paged.tableProps}

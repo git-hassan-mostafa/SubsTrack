@@ -23,6 +23,7 @@ import type { OwedDoors } from "../hooks/useOwedDoors";
 type DebtRow = OpenItem & { id: string };
 
 interface OwedItemsTableProps {
+  viewKey: string;
   label: string;
   items: OpenItem[];
   doors: Pick<OwedDoors, "rowActions" | "openBill" | "loadingItemId">;
@@ -47,6 +48,7 @@ const rowTone = (row: DebtRow) => (row.charge?.writtenOffAt ? "muted" : null);
 
 // Rows keep the caller's order; the money column is what is still owed.
 export function OwedItemsTable({
+  viewKey,
   label,
   items,
   doors,
@@ -147,6 +149,7 @@ export function OwedItemsTable({
 
   return (
     <LocalTable<DebtRow>
+      viewKey={viewKey}
       label={label}
       columns={columns}
       rows={rows}

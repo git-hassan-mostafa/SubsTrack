@@ -53,7 +53,7 @@ export function WalletsPage() {
     () => wallets.map((wallet) => ({ ...wallet, id: wallet.holderUserId })),
     [wallets],
   );
-  const paging = useRowsPage(rows);
+  const paging = useRowsPage(rows, "wallets");
 
   const rowActions = useCallback(
     (row: WalletRow): TableAction[] =>
@@ -116,7 +116,7 @@ export function WalletsPage() {
 
   return (
     <DataTable<WalletRow>
-      viewKey="wallets"
+      viewKey={paging.viewKey}
       label={t("wallet.title")}
       columns={columns}
       rows={paging.rows}
