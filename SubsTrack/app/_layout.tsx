@@ -11,7 +11,6 @@ import * as Font from "expo-font";
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
-import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import "../global.css";
 import { enableMapSet } from "immer";
 import { initOffline } from "@/src/core/offline";
@@ -39,15 +38,11 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
-    enableMapSet(); /* enable map set for immer */
+    enableMapSet();
     installGlobalErrorHandler();
     (async () => {
-      // Open the local DB + start the sync engine before any repository read
-      // (no-op on web). On native every repository now reads/writes SQLite.
       await initOffline();
       startSync(refreshActiveData);
-      // Global app options gate pre-auth UI (e.g. self-service signup on the
-      // login screen), so fetch them up front — independent of any session.
       fetchOptions();
       try {
         await initI18n();
@@ -57,8 +52,6 @@ export default function RootLayout() {
         console.error("[RootLayout] Failed to initialize i18n:", error);
       }
     })();
-    // Both deps are Zustand slice actions — stable for the store's lifetime, so
-    // this bootstrap still runs exactly once.
   }, [fetchOptions, restoreSession]);
 
   useEffect(() => {
@@ -83,10 +76,8 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <KeyboardProvider>
         <CrashGate>
-          <BottomSheetModalProvider>
-            <StatusBar style="dark" />
-            <Slot />
-          </BottomSheetModalProvider>
+          <StatusBar style="dark" />
+          <Slot />
         </CrashGate>
       </KeyboardProvider>
     </GestureHandlerRootView>

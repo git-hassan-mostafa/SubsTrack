@@ -5,8 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { ActivityIndicator, View } from "react-native";
-import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
+import { ActivityIndicator, FlatList, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
@@ -15,7 +14,6 @@ import { useDebounce } from "@shared/shared/hooks/useDebounce";
 import { PAGE_SIZE } from "@shared/core/constants";
 import { COLORS } from "@/src/shared/constants";
 import { BottomSheetScaffold } from "@/src/shared/components/BottomSheetScaffold";
-import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
 import { Input } from "./Input";
 
 // "default" — full-width form field with label, used inside form sheets.
@@ -276,7 +274,7 @@ function AsyncPickerModal<T>({
 
   return (
     <BottomSheetScaffold visible onDismiss={handleClose} scrollable>
-      <SheetDragArea className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
+      <View className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
         <Text fontWeight="SemiBold" className="text-base text-gray-900">
           {title}
         </Text>
@@ -285,7 +283,7 @@ function AsyncPickerModal<T>({
             {t("common.close")}
           </Text>
         </PressableOpacity>
-      </SheetDragArea>
+      </View>
 
       <View className="px-4 py-2 border-b border-gray-100">
         <Input
@@ -328,10 +326,11 @@ function AsyncPickerModal<T>({
         </View>
       ) : null}
 
-      <BottomSheetFlatList
+      <FlatList
         data={items}
         keyExtractor={getKey}
         style={{ flex: 1 }}
+        nestedScrollEnabled
         onEndReached={loadNextPage}
         onEndReachedThreshold={0.3}
         keyboardShouldPersistTaps="always"

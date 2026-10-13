@@ -1,55 +1,25 @@
-import { useCallback, useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Keyboard, useWindowDimensions } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
-  Keyboard,
-  Platform,
-  View,
-  useWindowDimensions,
-  type ViewStyle,
-} from "react-native";
-import { Easing, type WithTimingConfig } from "react-native-reanimated";
-import {
-  useSafeAreaFrame,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
-import {
-  BottomSheetBackdrop,
-  BottomSheetModal,
-  BottomSheetView,
-  type BottomSheetBackdropProps,
-} from "@gorhom/bottom-sheet";
-import { useAndroidBackDismiss } from "@/src/shared/hooks/useAndroidBackDismiss";
+  Host,
+  ModalBottomSheet,
+  RNHostView,
+  type ModalBottomSheetRef,
+} from "@expo/ui/jetpack-compose";
+import { fillMaxHeight } from "@expo/ui/jetpack-compose/modifiers";
 import { useUnsavedChangesGuard } from "@shared/shared/hooks/useUnsavedChangesGuard";
 import { COLORS } from "@/src/shared/constants";
+import {
+  sheetBody,
+  sheetHeightRatio,
+  type AppBottomSheetProps,
+} from "@/src/shared/lib/sheetLayout";
+import { SheetContextReset } from "./SheetContextReset";
 
-export type BottomSheetVariant = "auto" | "full";
+function ignore() {}
 
-// a function child is handed the guarded dismiss — see gotcha #54
-export type SheetChildren = ReactNode | ((dismiss: () => void) => ReactNode);
-
-interface AppBottomSheetProps {
-  visible: boolean;
-  onDismiss: () => void;
-  children: SheetChildren;
-  variant?: BottomSheetVariant;
-  scrollable?: boolean;
-  dirty?: boolean;
-  dismissOnBackdropPress?: boolean;
-}
-
-const LIST_SNAP_RATIO = 0.7;
-
-const WEB_MAX_WIDTH = 768;
-const FULL_SNAP = ["92%"];
-
-const ANIMATION_CONFIGS: WithTimingConfig | undefined =
-  Platform.OS === "android"
-    ? { duration: 180, easing: Easing.out(Easing.cubic) }
-    : undefined;
-
-// off on web — a drag-close eats the next click there, see gotcha #46
-export const SHEET_DRAG_ENABLED = Platform.OS !== "web";
-
-// the app's only bottom sheet — see gotchas #44 / #45 / #47
+// the app's only bottom sheet, Material 3 on Android — see gotcha #45
 export function AppBottomSheet({
   visible,
   onDismiss,
@@ -59,140 +29,104 @@ export function AppBottomSheet({
   dirty = false,
   dismissOnBackdropPress = true,
 }: AppBottomSheetProps) {
-  const insets = useSafeAreaInsets();
-  const { width: screenWidth } = useWindowDimensions();
-  const { height: frameHeight } = useSafeAreaFrame();
-  const ref = useRef<BottomSheetModal>(null);
+  const { width } = useWindowDimensions();
+  const sheetRef = useRef<ModalBottomSheetRef>(null);
+  const visibleRef = useRef(visible);
+  const hiddenByUserRef = useRef(false);
+  const [mounted, setMounted] = useState(visible);
+  const [lastVisible, setLastVisible] = useState(visible);
 
-  const openRef = useRef(false);
+  if (visible !== lastVisible) {
+    setLastVisible(visible);
+    if (visible) setMounted(true);
+  }
 
-  const unmountingRef = useRef(false);
-  useEffect(
-    () => () => {
-      unmountingRef.current = true;
-    },
-    [],
-  );
+  useEffect(() => {
+    visibleRef.current = visible;
+  }, [visible]);
 
-  const handleChange = useCallback((index: number) => {
-    openRef.current = index >= 0;
+  useEffect(() => {
+    if (mounted) Keyboard.dismiss();
+  }, [mounted]);
+
+  useEffect(() => {
+    if (visible || !mounted) return;
+    Keyboard.dismiss();
+    const settle = () => {
+      if (visibleRef.current) sheetRef.current?.expand().catch(ignore);
+      else setMounted(false);
+    };
+    (sheetRef.current?.hide() ?? Promise.resolve()).then(settle, settle);
+  }, [visible, mounted]);
+
+  const keepOpen = useCallback(() => {
+    hiddenByUserRef.current = false;
+    sheetRef.current?.expand().catch(ignore);
   }, []);
 
-  const reopen = useCallback(() => {
-    if (!openRef.current) ref.current?.present();
-    else ref.current?.expand();
-  }, []);
+  const close = useCallback(() => {
+    if (hiddenByUserRef.current) {
+      hiddenByUserRef.current = false;
+      setMounted(false);
+    }
+    onDismiss();
+  }, [onDismiss]);
 
   const [guardedDismiss, asking] = useUnsavedChangesGuard(
     dirty,
-    onDismiss,
-    reopen,
+    close,
+    keepOpen,
   );
 
-  useAndroidBackDismiss(visible && !asking, guardedDismiss);
-
-  useEffect(() => {
-    if (visible && !openRef.current) {
-      Keyboard.dismiss();
-      ref.current?.present();
-    } else if (!visible && openRef.current) {
-      Keyboard.dismiss();
-      ref.current?.dismiss();
-    }
-  }, [visible]);
-
-  const handleAnimate = useCallback(
-    (_fromIndex: number, toIndex: number) => {
-      if (toIndex !== -1 || !dirty || !visible || asking) return;
-      if (unmountingRef.current) return;
-      ref.current?.expand();
-      guardedDismiss();
-    },
-    [dirty, visible, asking, guardedDismiss],
-  );
-
-  const handleDismiss = useCallback(() => {
-    openRef.current = false;
+  const handleDismissRequest = useCallback(() => {
+    if (!visible || asking) return;
+    hiddenByUserRef.current = true;
     Keyboard.dismiss();
-    if (asking || unmountingRef.current) return;
-    if (visible) guardedDismiss();
-  }, [asking, guardedDismiss, visible]);
+    guardedDismiss();
+  }, [visible, asking, guardedDismiss]);
 
-  const renderBackdrop = useCallback(
-    (props: BottomSheetBackdropProps) => (
-      <BottomSheetBackdrop
-        {...props}
-        appearsOnIndex={0}
-        disappearsOnIndex={-1}
-        pressBehavior={dismissOnBackdropPress && !dirty ? "close" : "none"}
-        onPress={dismissOnBackdropPress && dirty ? guardedDismiss : undefined}
-      />
-    ),
-    [dirty, dismissOnBackdropPress, guardedDismiss],
+  if (!mounted) return null;
+
+  const ratio = sheetHeightRatio(variant, scrollable);
+  const body = (
+    <SheetContextReset>{sheetBody(children, guardedDismiss)}</SheetContextReset>
   );
-
-  const containerStyle: ViewStyle | undefined =
-    Platform.OS === "web" && screenWidth > WEB_MAX_WIDTH
-      ? { width: WEB_MAX_WIDTH, marginHorizontal: "auto" }
-      : undefined;
-
-  const body =
-    typeof children === "function" ? children(guardedDismiss) : children;
-
-  const useFixedSnap = variant === "full" || scrollable;
-  const snapPoints = useFixedSnap
-    ? variant === "full"
-      ? FULL_SNAP
-      : [Math.round(frameHeight * LIST_SNAP_RATIO)]
-    : undefined;
 
   return (
-    <BottomSheetModal
-      ref={ref}
-      containerStyle={containerStyle}
-      onChange={handleChange}
-      onAnimate={handleAnimate}
-      onDismiss={handleDismiss}
-      stackBehavior="push"
-      enablePanDownToClose={SHEET_DRAG_ENABLED}
-      enableHandlePanningGesture={SHEET_DRAG_ENABLED}
-      animationConfigs={ANIMATION_CONFIGS}
-      enableDynamicSizing={!useFixedSnap}
-      maxDynamicContentSize={!useFixedSnap ? frameHeight * 0.9 : undefined}
-      snapPoints={snapPoints}
-      enableContentPanningGesture={false}
-      backdropComponent={renderBackdrop}
-      keyboardBehavior={Platform.OS === "web" ? "extend" : "interactive"}
-      keyboardBlurBehavior="restore"
-      android_keyboardInputMode="adjustPan"
-      backgroundStyle={styles.background}
-      handleIndicatorStyle={styles.handleIndicator}
+    <Host
+      colorScheme="light"
+      style={{ position: "absolute", width }}
+      pointerEvents="none"
     >
-      {useFixedSnap ? (
-        <View
-          style={{
-            flex: 1,
-            paddingBottom: variant === "full" ? 0 : insets.bottom,
-          }}
-        >
-          {body}
-        </View>
-      ) : (
-        <BottomSheetView style={{ paddingBottom: insets.bottom }}>
-          {body}
-        </BottomSheetView>
-      )}
-    </BottomSheetModal>
+      <ModalBottomSheet
+        ref={sheetRef}
+        onDismissRequest={handleDismissRequest}
+        skipPartiallyExpanded
+        containerColor={COLORS.white}
+        properties={{
+          shouldDismissOnBackPress: true,
+          shouldDismissOnClickOutside: dismissOnBackdropPress,
+        }}
+      >
+        {ratio === null ? (
+          <RNHostView matchContents={{ vertical: true }}>
+            <GestureHandlerRootView style={styles.hug}>
+              {body}
+            </GestureHandlerRootView>
+          </RNHostView>
+        ) : (
+          <RNHostView modifiers={[fillMaxHeight(ratio)]}>
+            <GestureHandlerRootView style={styles.fill}>
+              {body}
+            </GestureHandlerRootView>
+          </RNHostView>
+        )}
+      </ModalBottomSheet>
+    </Host>
   );
 }
 
 const styles = {
-  background: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  handleIndicator: {
-    backgroundColor: COLORS.gray300,
-    width: 40,
-  },
+  hug: { alignSelf: "stretch" },
+  fill: { flex: 1 },
 } as const;

@@ -1,11 +1,9 @@
 import { useEffect, useMemo } from "react";
-import { ActivityIndicator, ScrollView, View } from "react-native";
-import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
+import { ActivityIndicator, FlatList, ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { EmptyState } from "@/src/shared/components/EmptyState";
@@ -125,7 +123,7 @@ export function DebtHistorySheet({
       dismissOnBackdropPress={false}
     >
       <ResponsiveContainer className="flex-1">
-        <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
           <View className="flex-1 pe-2">
             <Text
               fontWeight="Bold"
@@ -147,7 +145,7 @@ export function DebtHistorySheet({
               {t("common.close")}
             </Text>
           </PressableOpacity>
-        </SheetDragArea>
+        </View>
 
         {bodyReady ? (
           <>
@@ -225,8 +223,9 @@ export function DebtHistorySheet({
               </View>
             ) : null}
 
-            <BottomSheetFlatList
+            <FlatList
               data={items}
+              nestedScrollEnabled
               keyExtractor={keyOf}
               contentContainerStyle={{
                 paddingHorizontal: 24,

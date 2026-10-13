@@ -6,17 +6,11 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { View } from "react-native";
-import {
-  BottomSheetScrollView,
-  type BottomSheetScrollViewMethods,
-} from "@gorhom/bottom-sheet";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { AppBottomSheet } from "./AppBottomSheet";
 import { ResponsiveContainer } from "./ResponsiveContainer";
-import { SheetDragArea } from "./SheetDragArea";
 import { PressableOpacity } from "./PressableOpacity";
 import { Text } from "./Text";
 import { ActionMenu, type ActionMenuItem } from "./ActionMenu";
@@ -96,7 +90,6 @@ function FormSheetBody({
   children: ReactNode;
 }) {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const bodyReady = useAfterFirstFrame(visible);
   const [menuOpen, setMenuOpen] = useState(false);
   const hasMenu = (menuActions?.length ?? 0) > 0;
@@ -107,7 +100,7 @@ function FormSheetBody({
     setMenuOpen(true);
   }
 
-  const bodyRef = useRef<BottomSheetScrollViewMethods>(null);
+  const bodyRef = useRef<ScrollView>(null);
   const scrollTo = useCallback<SheetScrollTo>((y) => {
     bodyRef.current?.scrollTo({ y, animated: true });
   }, []);
@@ -122,7 +115,7 @@ function FormSheetBody({
 
   return (
     <ResponsiveContainer className="flex-1">
-      <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+      <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
         {subject ? (
           <View className="flex-1 me-3 flex-row items-center gap-2.5">
             <View className="h-9 w-9 items-center justify-center rounded-full bg-indigo-50">
@@ -170,20 +163,22 @@ function FormSheetBody({
             </Text>
           </PressableOpacity>
         </View>
-      </SheetDragArea>
+      </View>
 
-      <BottomSheetScrollView
+      <ScrollView
         ref={bodyRef}
         style={{ flex: 1 }}
+        nestedScrollEnabled
+        automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="always"
         contentContainerStyle={{
           paddingHorizontal: fullBleed ? 0 : 24,
           paddingTop: fullBleed ? 0 : 24,
-          paddingBottom: 48 + insets.bottom,
+          paddingBottom: 48,
         }}
       >
         {bodyReady ? children : null}
-      </BottomSheetScrollView>
+      </ScrollView>
 
       {openActions.length > 0 ? (
         <ActionMenu

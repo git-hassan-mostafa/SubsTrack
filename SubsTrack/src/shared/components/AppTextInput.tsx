@@ -8,10 +8,6 @@ import {
   type TextStyle,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import {
-  BottomSheetTextInput,
-  useBottomSheetInternal,
-} from "@gorhom/bottom-sheet";
 import { COLORS } from "@/src/shared/constants";
 
 interface AppTextInputProps extends TextInputProps {
@@ -38,7 +34,7 @@ export const NOTE_FIELD_STYLE: TextStyle = {
   textAlignVertical: "top",
 };
 
-/** The ONLY text field in the app — never `TextInput` (gotcha #78). */
+// the ONLY text field in the app — never `TextInput` (gotcha #78)
 export function AppTextInput({
   containerClassName,
   onFocus,
@@ -46,13 +42,8 @@ export function AppTextInput({
   style,
   ...props
 }: AppTextInputProps) {
-  const insideSheet = useBottomSheetInternal(true) !== null;
   const [field, setField] = useState<TextInput | null>(null);
   const [focused, setFocused] = useState(false);
-
-  const Field = (insideSheet && Platform.OS !== "web"
-    ? BottomSheetTextInput
-    : TextInput) as unknown as typeof TextInput;
 
   const shielded =
     Platform.OS !== "web" && !focused && props.editable !== false;
@@ -68,7 +59,7 @@ export function AppTextInput({
 
   return (
     <View className={containerClassName}>
-      <Field
+      <TextInput
         {...props}
         ref={setField}
         style={[BASE_TEXT_STYLE, style]}

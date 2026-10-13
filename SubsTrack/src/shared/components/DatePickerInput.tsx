@@ -6,7 +6,6 @@ import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { useTranslation } from "react-i18next";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
-import { SheetDragArea } from "./SheetDragArea";
 import { confirm } from "@shared/shared/lib/confirm";
 import { formatPickedDay } from "@shared/core/utils/date";
 
@@ -292,8 +291,7 @@ export function DatePickerInput({
 
   const picker = (
     <BottomSheetScaffold visible={open} onDismiss={() => setOpen(false)}>
-      {/* Header */}
-      <SheetDragArea className="flex-row justify-between items-center px-5 py-3 border-b border-gray-100">
+      <View className="flex-row justify-between items-center px-5 py-3 border-b border-gray-100">
         <PressableOpacity onPress={() => setOpen(false)}>
           <Text fontWeight="Medium" className="text-base text-primary">
             {t("common.close")}
@@ -307,9 +305,8 @@ export function DatePickerInput({
             {t("common.confirm")}
           </Text>
         </PressableOpacity>
-      </SheetDragArea>
+      </View>
 
-      {/* Columns */}
       <View className="flex-row px-3 py-3 gap-1">
         {!monthOnly ? (
           <ScrollColumn

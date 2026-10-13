@@ -7,7 +7,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { Input } from "@/src/shared/components/Input";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
-import { SheetDragArea } from "./SheetDragArea";
 import { matchesOptionSearch } from "@shared/shared/lib/optionSearch";
 
 export interface DropdownOption<T = string> {
@@ -243,7 +242,7 @@ export function DropdownModal<T extends string | number | null = string>({
 
   return (
     <BottomSheetScaffold visible={visible} onDismiss={handleClose}>
-      <SheetDragArea className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
+      <View className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
         <Text fontWeight="SemiBold" className="text-base text-gray-900">
           {title}
         </Text>
@@ -252,7 +251,7 @@ export function DropdownModal<T extends string | number | null = string>({
             {t("common.close")}
           </Text>
         </PressableOpacity>
-      </SheetDragArea>
+      </View>
 
       {searchable && (
         <View className="px-4 py-2 border-b border-gray-100">
@@ -271,6 +270,7 @@ export function DropdownModal<T extends string | number | null = string>({
         data={listItems}
         keyExtractor={(item) => String(item.value ?? "__null__")}
         style={{ maxHeight: 360 }}
+        nestedScrollEnabled
         keyboardShouldPersistTaps="always"
         renderItem={({ item }) => {
           const isSelected = item.isNull

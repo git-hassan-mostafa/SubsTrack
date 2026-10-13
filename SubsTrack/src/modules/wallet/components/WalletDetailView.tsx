@@ -1,10 +1,5 @@
-import { useState, type ComponentType, type ReactNode } from "react";
-import {
-  ActivityIndicator,
-  ScrollView,
-  View,
-  type ScrollViewProps,
-} from "react-native";
+import { useState } from "react";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
@@ -60,11 +55,6 @@ const SOURCE_LOOK: Record<
 
 const keyOf = (it: WalletItem) => it.id;
 
-// Gorhom's scroll view requires children; RN's ScrollView class cannot type it
-type ScrollBody = ComponentType<ScrollViewProps & { children: ReactNode }>;
-
-const PlainScroll: ScrollBody = (props) => <ScrollView {...props} />;
-
 interface Props {
   detail: UserWalletDetail | null;
   loading: boolean;
@@ -72,10 +62,10 @@ interface Props {
   busy?: boolean;
   onActItems?: (items: WalletItem[]) => Promise<boolean>;
   onActAll?: () => void;
-  Scroll?: ScrollBody;
+  inSheet?: boolean;
 }
 
-// dual-context: a fixed-height sheet must pass Gorhom's scroll view (gotcha #47)
+// shown on a screen and in a sheet; inSheet lets its scroll hand off to the sheet
 export function WalletDetailView({
   detail,
   loading,
@@ -83,7 +73,7 @@ export function WalletDetailView({
   busy = false,
   onActItems,
   onActAll,
-  Scroll = PlainScroll,
+  inSheet = false,
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
@@ -166,8 +156,9 @@ export function WalletDetailView({
         />
       ) : null}
 
-      <Scroll
+      <ScrollView
         style={{ flex: 1 }}
+        nestedScrollEnabled={inSheet}
         contentContainerStyle={{
           paddingHorizontal: 24,
           paddingTop: 8,
@@ -370,7 +361,7 @@ export function WalletDetailView({
             )}
           </View>
         )}
-      </Scroll>
+      </ScrollView>
 
       {detailId ? (
         <CollectionDetailSheet

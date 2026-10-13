@@ -5,7 +5,6 @@ import {
   RefreshControl,
   View,
 } from "react-native";
-import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { useTranslation } from "react-i18next";
 import type { AuditEntry, AuditSource } from "@shared/core/types";
 import { IS_OFFLINE_CAPABLE } from "@/src/core/offline";
@@ -34,7 +33,7 @@ interface HistoryListProps {
   showSubject?: boolean;
 }
 
-/** Presentational: it fetches no entries, and builds the display context once. */
+// presentational: it fetches no entries, and builds the display context once
 export function HistoryList({
   entries,
   loading,
@@ -56,8 +55,6 @@ export function HistoryList({
   const lookups = useAuditLookups();
   const base = useMemo<AuditContextBase>(() => ({ t, lookups }), [t, lookups]);
 
-  const List = inSheet ? BottomSheetFlatList : FlatList;
-
   return (
     <>
       {error ? (
@@ -69,10 +66,11 @@ export function HistoryList({
           <ActivityIndicator color={COLORS.primary} />
         </View>
       ) : (
-        <List
+        <FlatList
           data={entries}
-          keyExtractor={(e: AuditEntry) => e.id}
-          renderItem={({ item }: { item: AuditEntry }) => (
+          keyExtractor={(e) => e.id}
+          nestedScrollEnabled={inSheet}
+          renderItem={({ item }) => (
             <AuditEntryCard
               entry={item}
               base={base}

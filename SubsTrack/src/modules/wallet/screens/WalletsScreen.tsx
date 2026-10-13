@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import { FlatList, RefreshControl, View } from "react-native";
-import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { Screen } from "@/src/shared/components/Screen";
 import { useTranslation } from "react-i18next";
@@ -8,7 +7,6 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { COLORS } from "@/src/shared/constants";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { Text } from "@/src/shared/components/Text";
@@ -146,7 +144,7 @@ export function WalletsScreen() {
         dismissOnBackdropPress={false}
       >
         <ResponsiveContainer className="flex-1">
-          <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
             <Text
               fontWeight="Bold"
               className="text-lg text-gray-900 flex-1 pe-2"
@@ -159,14 +157,14 @@ export function WalletsScreen() {
                 {t("common.close")}
               </Text>
             </PressableOpacity>
-          </SheetDragArea>
+          </View>
           {detailReady && openWallet ? (
             <WalletDetailView
               detail={detail}
               loading={detailLoading}
               mode={walletActionMode(openWallet)}
               busy={busyHolderId === openWallet.holderUserId}
-              Scroll={BottomSheetScrollView}
+              inSheet
               onActItems={(selected) => actOnItems(openWallet, selected)}
               onActAll={() => void actAllFromSheet(openWallet)}
             />

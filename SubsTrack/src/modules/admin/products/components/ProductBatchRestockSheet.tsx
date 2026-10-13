@@ -1,12 +1,9 @@
 import { useEffect } from "react";
-import { View } from "react-native";
-import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { FlatList, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { Text } from "@/src/shared/components/Text";
@@ -39,7 +36,6 @@ interface Props {
 export function ProductBatchRestockSheet({ onDismiss }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const insets = useSafeAreaInsets();
   const products = useProductSlice((s) => s.items);
   const getProducts = useProductSlice((s) => s.getProducts);
   const batchRestock = useProductSlice((s) => s.batchRestock);
@@ -186,7 +182,7 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
     >
       {(dismiss) => (
         <ResponsiveContainer className="flex-1">
-          <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
             <Text
               fontWeight="Bold"
               className="text-lg text-gray-900"
@@ -199,16 +195,18 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
                 {t("common.close")}
               </Text>
             </PressableOpacity>
-          </SheetDragArea>
+          </View>
 
-          <BottomSheetFlatList
+          <FlatList
             data={visible}
             keyExtractor={(p) => p.id}
+            nestedScrollEnabled
+            automaticallyAdjustKeyboardInsets
             keyboardShouldPersistTaps="always"
             contentContainerStyle={{
               paddingHorizontal: 24,
               paddingTop: 24,
-              paddingBottom: 48 + insets.bottom,
+              paddingBottom: 48,
             }}
             ListHeaderComponent={header}
             ListFooterComponent={footer}

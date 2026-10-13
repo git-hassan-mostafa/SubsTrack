@@ -7,7 +7,6 @@ import {
   SectionList,
   View,
 } from "react-native";
-import { BottomSheetSectionList } from "@gorhom/bottom-sheet";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
@@ -213,11 +212,6 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
     sortDirection,
   });
 
-  const List = (inSheet ? BottomSheetSectionList : SectionList) as typeof SectionList<
-    CollectionListItem,
-    (typeof sections)[number]
-  >;
-
   const selected = items.filter((c) => selectedIds.has(c.id));
 
   const totalUsd = useMemo(
@@ -397,9 +391,10 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
             <ActivityIndicator color={COLORS.primary} />
           </View>
         ) : (
-          <List
+          <SectionList
             sections={sections}
             keyExtractor={(c) => c.id}
+            nestedScrollEnabled={inSheet}
             stickySectionHeadersEnabled={false}
             contentContainerStyle={{
               padding: 16,

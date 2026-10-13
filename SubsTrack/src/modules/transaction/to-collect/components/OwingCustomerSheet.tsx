@@ -1,11 +1,9 @@
 import { useState } from "react";
-import { View } from "react-native";
-import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import { ScrollView, View } from "react-native";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
@@ -76,7 +74,7 @@ export function OwingCustomerSheet({
         dismissOnBackdropPress={false}
       >
         <ResponsiveContainer className="flex-1">
-          <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
             <View className="flex-1 pe-2">
               <Text
                 fontWeight="Bold"
@@ -121,10 +119,11 @@ export function OwingCustomerSheet({
                 </Text>
               </PressableOpacity>
             </View>
-          </SheetDragArea>
+          </View>
 
-          <BottomSheetScrollView
+          <ScrollView
             style={{ flex: 1 }}
+            nestedScrollEnabled
             contentContainerStyle={{
               paddingHorizontal: 24,
               paddingTop: 16,
@@ -180,7 +179,7 @@ export function OwingCustomerSheet({
                 )}
               </>
             ) : null}
-          </BottomSheetScrollView>
+          </ScrollView>
         </ResponsiveContainer>
       </AppBottomSheet>
 

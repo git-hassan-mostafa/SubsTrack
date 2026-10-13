@@ -100,8 +100,7 @@ export function ProductListScreen() {
     setFormVisible(true);
   }
 
-  // The form sheet stays open underneath: the stock sheet stacks on top
-  // (AppBottomSheet uses stackBehavior="push") and closing it returns to the form.
+  // the form stays open underneath; the stock sheet stacks on top of it
   function openStock(product: Product) {
     setStockFor(product);
   }

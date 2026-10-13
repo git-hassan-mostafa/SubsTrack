@@ -1,12 +1,13 @@
-import { View } from "react-native";
+import { ScrollView, View, useWindowDimensions } from "react-native";
 import { PressableOpacity } from "./PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
-import { SheetDragArea } from "./SheetDragArea";
 import { sortActions, type ActionGroup } from "@shared/shared/lib/actionOrder";
+
+const ROWS_MAX_HEIGHT_RATIO = 0.65;
 
 export interface ActionMenuItem {
   key: string;
@@ -37,6 +38,7 @@ export function ActionMenu({
   emptyLabel,
 }: ActionMenuProps) {
   const { t } = useTranslation();
+  const { height } = useWindowDimensions();
   const rows = sortActions(actions);
 
   function handlePress(item: ActionMenuItem) {
@@ -47,36 +49,39 @@ export function ActionMenu({
 
   return (
     <BottomSheetScaffold visible={visible} onDismiss={onDismiss}>
-      <SheetDragArea activationDistance={12}>
-        <View className="flex-row items-center justify-between px-5 pt-2 pb-3 border-b border-gray-100">
-          {title ? (
-            <Text
-              className="flex-1 me-3 text-base text-gray-900"
-              fontWeight="Bold"
-              numberOfLines={1}
-            >
-              {title}
-            </Text>
-          ) : (
-            <View className="flex-1" />
-          )}
-          <PressableOpacity
-            onPress={onDismiss}
-            hitSlop={8}
-            accessibilityLabel={t("common.close")}
+      <View className="flex-row items-center justify-between px-5 pt-2 pb-3 border-b border-gray-100">
+        {title ? (
+          <Text
+            className="flex-1 me-3 text-base text-gray-900"
+            fontWeight="Bold"
+            numberOfLines={1}
           >
-            <Ionicons name="close" size={22} color={COLORS.gray500} />
-          </PressableOpacity>
-        </View>
-
-        {rows.length === 0 ? (
-          <View className="px-5 py-6 items-center">
-            <Text className="text-sm text-gray-500">
-              {emptyLabel ?? t("common.no_actions_available")}
-            </Text>
-          </View>
+            {title}
+          </Text>
         ) : (
-          rows.map((item, index) => (
+          <View className="flex-1" />
+        )}
+        <PressableOpacity
+          onPress={onDismiss}
+          hitSlop={8}
+          accessibilityLabel={t("common.close")}
+        >
+          <Ionicons name="close" size={22} color={COLORS.gray500} />
+        </PressableOpacity>
+      </View>
+
+      {rows.length === 0 ? (
+        <View className="px-5 py-6 items-center">
+          <Text className="text-sm text-gray-500">
+            {emptyLabel ?? t("common.no_actions_available")}
+          </Text>
+        </View>
+      ) : (
+        <ScrollView
+          nestedScrollEnabled
+          style={{ maxHeight: Math.round(height * ROWS_MAX_HEIGHT_RATIO) }}
+        >
+          {rows.map((item, index) => (
             <PressableOpacity
               key={item.key}
               onPress={() => handlePress(item)}
@@ -125,9 +130,9 @@ export function ActionMenu({
                 ) : null}
               </View>
             </PressableOpacity>
-          ))
-        )}
-      </SheetDragArea>
+          ))}
+        </ScrollView>
+      )}
     </BottomSheetScaffold>
   );
 }

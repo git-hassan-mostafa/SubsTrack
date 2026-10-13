@@ -5,7 +5,6 @@ import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
 import { Text } from "@/src/shared/components/Text";
 import type { RecordHistoryState } from "@shared/modules/admin/audit/hooks/useRecordHistory";
 import { HistoryList } from "./HistoryList";
@@ -17,15 +16,7 @@ interface HistorySheetProps {
   onDismiss: () => void;
 }
 
-/**
- * The shell every History sheet shares: a full-height sheet, a draggable header
- * naming the record, the admin gate, and the trail itself.
- *
- * It renders a timeline but never loads one, so a new "history of X" needs only a
- * loader hook — not another sheet. Built on AppBottomSheet directly rather than
- * FormSheet: the body is a list, and FormSheet's BottomSheetScrollView cannot nest
- * one.
- */
+// staff read no audit rows, so they see "admins only", never a false empty trail
 export function HistorySheet({
   title,
   subtitle,
@@ -43,7 +34,7 @@ export function HistorySheet({
       dismissOnBackdropPress={false}
     >
       <ResponsiveContainer className="flex-1">
-        <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
           <View className="flex-1 pe-2">
             <Text
               fontWeight="Bold"
@@ -63,13 +54,8 @@ export function HistorySheet({
               {t("common.close")}
             </Text>
           </PressableOpacity>
-        </SheetDragArea>
+        </View>
 
-        {/*
-          Staff can reach some of these sheets, but the audit_logs_select policy
-          returns them no rows. Without this, an empty list would read as "this was
-          never changed" — a false statement. Say it is restricted instead.
-        */}
         {isAdmin ? (
           <HistoryList
             inSheet
