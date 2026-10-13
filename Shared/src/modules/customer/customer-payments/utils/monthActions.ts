@@ -1,4 +1,4 @@
-import type { Charge, MonthEntry } from "@shared/core/types";
+import type { Charge, MonthEntry, OpenItem } from "@shared/core/types";
 import { ADMIN_ONLY, withReason, type MenuItem } from "@shared/shared/lib/menuItem";
 import {
   blockingPaidMonths,
@@ -70,6 +70,11 @@ export function canQuickPayMonth(entry: MonthEntry, gates: LineGates): boolean {
     payOrderBlocker(gates, [entry.billingMonth]) === null &&
     isPayableStatus(entry, gates)
   );
+}
+
+// The month's OWN price decides, never today's: an unpriced month types it (#112, #185).
+export function quickPayItem(item: OpenItem | undefined): OpenItem | null {
+  return item && !item.openAmount && item.balance > 0 ? item : null;
 }
 
 // The whole BILL is the void, so a multi-month block is judged by every month.

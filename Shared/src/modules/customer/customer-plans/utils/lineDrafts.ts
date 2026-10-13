@@ -52,10 +52,9 @@ export function nextLineStartDate(rows: LineRow[], today: string): string {
 }
 
 // A plan-price row keeps no currency; a zero special price means "none".
-function priceOf(row: LineRow): LinePriceFields {
+function specialPriceOf(row: LineRow): LinePriceFields {
   const special = row.customPrice !== null && row.customPrice > 0;
   return {
-    planId: row.planId,
     customPrice: special ? row.customPrice : null,
     customCurrencyId: special ? row.customCurrencyId : null,
   };
@@ -66,17 +65,18 @@ export function toLineDrafts(rows: LineRow[]): LineDraft[] {
     .filter((row) => row.status === "active")
     .map((row) => ({
       id: row.id,
+      planId: row.planId,
       startDate: row.startDate,
-      ...priceOf(row),
+      ...specialPriceOf(row),
       priceFrom: row.priceFrom,
     }));
 }
 
-// Only a line saved active has an old price the new one replaces — #185.
+// Only a saved special price has a history; a plan switch never asks — #185.
 export function rowPriceChanged(initial: readonly LineRow[], row: LineRow): boolean {
   const saved = row.id ? initial.find((r) => r.key === row.key) : undefined;
   if (!saved || saved.status !== "active" || row.status !== "active") return false;
-  return linePriceChanged(priceOf(saved), priceOf(row));
+  return linePriceChanged(specialPriceOf(saved), specialPriceOf(row));
 }
 
 // A branch change drops plans owned by another branch; `cleared` keeps it clean.

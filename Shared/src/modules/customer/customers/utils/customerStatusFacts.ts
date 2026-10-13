@@ -88,7 +88,6 @@ export type WireLineChange = [
   customerId: string,
   customerPlanId: string,
   fromMonth: string | null,
-  planId: string | null,
   customPrice: number | null,
   customCurrencyId: string | null,
   createdAt: string,
@@ -102,7 +101,7 @@ export interface CustomerStatusFactsWire {
   plans?: WirePlan[];
   currencies?: WireCurrency[];
   planChanges?: WirePlanChange[];
-  lineChanges?: WireLineChange[];
+  specialPriceChanges?: WireLineChange[];
 }
 
 export type StatusListLine = StatusLine &
@@ -157,9 +156,8 @@ function readPlans(wire: WirePlan[]): Plan[] {
   );
 }
 
-function readPrices(wire: CustomerStatusFactsWire, plans: Plan[]): PriceHistory {
+function readPrices(wire: CustomerStatusFactsWire): PriceHistory {
   return priceHistoryOf({
-    plans,
     planChanges: (wire.planChanges ?? []).map(
       ([id, planId, fromMonth, price, currencyId, durationMonths, isCustomPrice, createdAt]) => ({
         id,
@@ -172,13 +170,12 @@ function readPrices(wire: CustomerStatusFactsWire, plans: Plan[]): PriceHistory 
         createdAt,
       }),
     ),
-    lineChanges: (wire.lineChanges ?? []).map(
-      ([id, customerId, customerPlanId, fromMonth, planId, customPrice, customCurrencyId, createdAt]) => ({
+    lineChanges: (wire.specialPriceChanges ?? []).map(
+      ([id, customerId, customerPlanId, fromMonth, customPrice, customCurrencyId, createdAt]) => ({
         id,
         customerId,
         customerPlanId,
         fromMonth,
-        planId,
         customPrice: customPrice === null ? null : Number(customPrice),
         customCurrencyId,
         createdAt,
@@ -305,7 +302,7 @@ export function readCustomerStatusFacts(
     skips,
     open,
     debtUsd,
-    prices: readPrices(wire, plans),
+    prices: readPrices(wire),
     currencies: (wire.currencies ?? []).map(([id, ratePerUsd]) => ({
       id,
       ratePerUsd: Number(ratePerUsd),

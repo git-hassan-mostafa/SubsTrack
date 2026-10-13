@@ -145,7 +145,6 @@ export interface DbLinePriceChange {
   customer_id: string;
   customer_plan_id: string;
   from_month: string | null;
-  plan_id: string | null;
   custom_price: number | null;
   custom_currency_id: string | null;
   created_at: string;

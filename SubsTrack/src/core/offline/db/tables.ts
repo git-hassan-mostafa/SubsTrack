@@ -171,7 +171,6 @@ export const TABLES: TableSpec[] = [
       customer_id: "text",
       customer_plan_id: "text",
       from_month: "text",
-      plan_id: "text",
       custom_price: "num",
       custom_currency_id: "text",
       created_at: "text",

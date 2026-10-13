@@ -1,5 +1,10 @@
-import type { LinePriceChange, PlanPriceChange } from "@shared/core/types";
+import i18n from "@shared/core/i18n";
+import type { CustomerPlan, LinePriceChange, PlanPriceChange } from "@shared/core/types";
+import type { DbCustomerPlan } from "@shared/core/types/db";
 import planService from "@shared/modules/admin/plans/services/PlanService";
+import customerPlanService, {
+  type LineDraft,
+} from "@shared/modules/customer/customer-plans/services/CustomerPlanService";
 import { priceHistoryService } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
 import {
   rowPriceChanged,
@@ -17,7 +22,7 @@ import {
 import { mergeOwed } from "@shared/modules/ledger/utils/mergeOwed";
 import { openItemFromCharge } from "@shared/modules/ledger/utils/openItems";
 import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
-import { priceStore } from "../helpers/fakePriceHistory";
+import { lineStore, priceStore } from "../helpers/fakePriceHistory";
 import { store } from "../helpers/fakeLedger";
 import { bill, customer, line, plan, LBP } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
@@ -46,7 +51,6 @@ function lineEdit(over: Partial<LinePriceChange>): LinePriceChange {
     customerId: "cust-1",
     customerPlanId: "line-1",
     fromMonth: null,
-    planId: "p1",
     customPrice: null,
     customCurrencyId: null,
     createdAt: "2026-01-01T00:00:00.000Z",
@@ -70,7 +74,6 @@ describe("linePriceAt", () => {
         planEdit({ fromMonth: "2026-03-01", price: 25, createdAt: "2026-03-05T00:00:00.000Z" }),
       ],
       lineChanges: [],
-      plans: [],
     });
     const raised = line({ ...L, plan: plan({ id: "p1", price: 25 }) });
     expect(amountAt("2026-01-01", history, raised)).toBe(20);
@@ -87,7 +90,6 @@ describe("linePriceAt", () => {
         planEdit({ fromMonth: "2026-02-01", price: 30, createdAt: "2026-04-02T00:00:00.000Z" }),
       ],
       lineChanges: [],
-      plans: [],
     });
     expect(amountAt("2026-01-01", history)).toBe(20);
     expect(amountAt("2026-02-01", history)).toBe(30);
@@ -102,7 +104,6 @@ describe("linePriceAt", () => {
         planEdit({ fromMonth: "2026-04-01", price: 20, createdAt: "2026-04-01T00:00:00.000Z" }),
       ],
       lineChanges: [],
-      plans: [],
     });
     expect(linePriceAt(L, "2026-01-01", history)).toMatchObject({
       amount: 900000,
@@ -124,42 +125,45 @@ describe("linePriceAt", () => {
         lineEdit({ customPrice: 15 }),
         lineEdit({ fromMonth: "2026-03-01", customPrice: 18, createdAt: "2026-03-02T00:00:00.000Z" }),
       ],
-      plans: [],
     });
     expect(amountAt("2026-02-01", history, special)).toBe(15);
     expect(amountAt("2026-03-01", history, special)).toBe(18);
   });
 
-  it("TC-PH-06 a line moved to another plan keeps the OLD plan`s price before the move", () => {
+  it("TC-PH-06 a line on another plan reads that plan for every month, never the plan it left", () => {
     const moved = line({ ...L, planId: "p2", plan: plan({ id: "p2", price: 40 }) });
-    const history = priceHistoryOf({
-      planChanges: [],
-      lineChanges: [
-        lineEdit({ planId: "p1" }),
-        lineEdit({ fromMonth: "2026-04-01", planId: "p2", createdAt: "2026-04-01T00:00:00.000Z" }),
-      ],
-      plans: [P],
-    });
-    expect(amountAt("2026-03-01", history, moved)).toBe(20);
+    const history = priceHistoryOf({ planChanges: [planEdit({ price: 20 })], lineChanges: [] });
+    expect(amountAt("2026-01-01", history, moved)).toBe(40);
     expect(amountAt("2026-04-01", history, moved)).toBe(40);
   });
 
-  it("TC-PH-07 the old plan`s own raise still applies to the months the line was on it", () => {
-    const moved = line({ ...L, planId: "p2", plan: plan({ id: "p2", price: 40 }) });
+  it("TC-PH-07 a special price removed from April: earlier months keep it, later ones read the plan", () => {
+    const history = priceHistoryOf({
+      planChanges: [],
+      lineChanges: [
+        lineEdit({ customPrice: 15 }),
+        lineEdit({ fromMonth: "2026-04-01", customPrice: null, createdAt: "2026-04-01T00:00:00.000Z" }),
+      ],
+    });
+    expect(amountAt("2026-03-01", history)).toBe(15);
+    expect(amountAt("2026-04-01", history)).toBe(20);
+  });
+
+  it("TC-PH-07b a month without a special price follows the plan`s own price edits", () => {
     const history = priceHistoryOf({
       planChanges: [
         planEdit({ price: 20 }),
-        planEdit({ fromMonth: "2026-02-01", price: 22, createdAt: "2026-05-01T00:00:00.000Z" }),
+        planEdit({ fromMonth: "2026-03-01", price: 25, createdAt: "2026-03-05T00:00:00.000Z" }),
       ],
       lineChanges: [
-        lineEdit({ planId: "p1" }),
-        lineEdit({ fromMonth: "2026-04-01", planId: "p2", createdAt: "2026-04-01T00:00:00.000Z" }),
+        lineEdit({ customPrice: 15 }),
+        lineEdit({ fromMonth: "2026-02-01", customPrice: null, createdAt: "2026-02-01T00:00:00.000Z" }),
       ],
-      plans: [plan({ id: "p1", price: 22 })],
     });
-    expect(amountAt("2026-01-01", history, moved)).toBe(20);
-    expect(amountAt("2026-03-01", history, moved)).toBe(22);
-    expect(amountAt("2026-04-01", history, moved)).toBe(40);
+    const raised = line({ ...L, plan: plan({ id: "p1", price: 25 }) });
+    expect(amountAt("2026-01-01", history, raised)).toBe(15);
+    expect(amountAt("2026-02-01", history, raised)).toBe(20);
+    expect(amountAt("2026-03-01", history, raised)).toBe(25);
   });
 });
 
@@ -174,7 +178,6 @@ describe("mergeOwed with price history", () => {
       planEdit({ fromMonth: "2026-03-01", price: 25, createdAt: "2026-03-05T00:00:00.000Z" }),
     ],
     lineChanges: [],
-    plans: [],
   });
 
   const owed = (stored = [] as ReturnType<typeof openItemFromCharge>[], bills = [] as ReturnType<typeof bill>[]) =>
@@ -320,17 +323,83 @@ describe("recording a price edit", () => {
     ]);
   });
 
-  it("TC-PH-15 a line edit records the line`s old special price and its plan", async () => {
+  it("TC-PH-15 a line edit records the line`s old special price", async () => {
     const before = line({ ...L, customPrice: 15 });
     await priceHistoryService.recordLineChange(
       before,
-      { planId: "p1", customPrice: 18, customCurrencyId: null },
+      { customPrice: 18, customCurrencyId: null },
       "2026-03-01",
     );
     const history = await priceHistoryService.getForLines([{ id: "line-1", planId: "p1" }]);
     const after = line({ ...L, customPrice: 18 });
     expect(amountAt("2026-02-01", history, after)).toBe(15);
     expect(amountAt("2026-03-01", history, after)).toBe(18);
+  });
+});
+
+describe("switching a line's plan", () => {
+  const Q = plan({ id: "p3", price: 30, durationMonths: 3 });
+  const savedLine = (over: Partial<CustomerPlan> = {}): CustomerPlan =>
+    line({ id: "line-1", planId: null, plan: null, startDate: "2026-08-01", ...over });
+  const dbRow = (l: CustomerPlan): DbCustomerPlan => ({
+    id: l.id,
+    customer_id: l.customerId,
+    plan_id: l.planId,
+    start_date: l.startDate,
+    cancelled_at: null,
+    active: true,
+    custom_price: l.customPrice,
+    custom_currency_id: l.customCurrencyId,
+    tenant_id: "t1",
+    created_at: l.createdAt,
+    updated_at: l.updatedAt,
+  });
+  const LIMITS = { customers: 100, plans: 100 };
+  const sync = (prev: CustomerPlan, next: Partial<LineDraft>) =>
+    customerPlanService.syncLines(
+      "cust-1",
+      [{ id: prev.id, planId: prev.planId, startDate: prev.startDate, customPrice: prev.customPrice, customCurrencyId: prev.customCurrencyId, ...next }],
+      [],
+      [],
+      "t1",
+      [prev],
+      LIMITS,
+      { customers: 1, plans: 1 },
+    );
+
+  beforeEach(() => {
+    priceStore.reset();
+    lineStore.reset();
+    freezeToday(2026, 10, 13);
+  });
+  afterEach(unfreeze);
+
+  it("TC-PH-23 no plan -> a plan writes no line history; the old unpaid months ask the new plan's price, never $0", async () => {
+    const prev = savedLine();
+    lineStore.rows = [dbRow(prev)];
+    await sync(prev, { planId: "p3", priceFrom: "2026-10-01" });
+    expect(priceStore.lines).toEqual([]);
+    const history = await priceHistoryService.getForLines([{ id: "line-1", planId: "p3" }]);
+    const now = savedLine({ planId: "p3", plan: Q });
+    expect(linePriceAt(now, "2026-08-01", history)).toMatchObject({ amount: 30, durationMonths: 3 });
+    expect(linePriceAt(now, "2026-10-01", history)).toMatchObject({ amount: 30, durationMonths: 3 });
+  });
+
+  it("TC-PH-24 a line money reached cannot switch plan", async () => {
+    const prev = savedLine({ planId: "p1", plan: P });
+    lineStore.rows = [dbRow(prev)];
+    lineStore.paidLineIds = ["line-1"];
+    await expect(sync(prev, { planId: "p3" })).rejects.toThrow(i18n.t("errors.plan_locked_paid"));
+    expect(lineStore.rows[0].plan_id).toBe("p1");
+    expect(priceStore.lines).toEqual([]);
+  });
+
+  it("TC-PH-25 a paid line still takes a special-price edit from the picked month", async () => {
+    const prev = savedLine({ planId: "p1", plan: P });
+    lineStore.rows = [dbRow(prev)];
+    lineStore.paidLineIds = ["line-1"];
+    await sync(prev, { customPrice: 25, priceFrom: "2026-09-01" });
+    expect(priceStore.lines.map((r) => r.from_month)).toEqual([null, "2026-09-01"]);
   });
 });
 
@@ -357,12 +426,14 @@ describe("the price-start picker", () => {
     ...over,
   });
 
-  it("TC-PH-17 shows only when a SAVED active line`s price, currency or plan changed", () => {
+  it("TC-PH-17 shows only when a SAVED active line`s special price or currency changed, never on a plan switch", () => {
     const initial = [row({})];
     expect(rowPriceChanged(initial, row({}))).toBe(false);
     expect(rowPriceChanged(initial, row({ startDate: "2026-02-01" }))).toBe(false);
     expect(rowPriceChanged(initial, row({ customPrice: 18 }))).toBe(true);
-    expect(rowPriceChanged(initial, row({ planId: "p2" }))).toBe(true);
+    expect(rowPriceChanged(initial, row({ planId: "p2" }))).toBe(false);
+    expect(rowPriceChanged(initial, row({ planId: "p2", customPrice: 18 }))).toBe(true);
+    expect(rowPriceChanged([row({ planId: null })], row({}))).toBe(false);
     expect(rowPriceChanged(initial, row({ customPrice: 0 }))).toBe(false);
     expect(rowPriceChanged([row({ status: "cancelled" })], row({ customPrice: 18 }))).toBe(false);
     expect(rowPriceChanged([], row({ key: "new-1", id: undefined, customPrice: 18 }))).toBe(false);

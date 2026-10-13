@@ -289,14 +289,12 @@ function resolveLinePrice(line) {
 //#region ../Shared/src/modules/customer/customer-plans/utils/priceHistory.ts
 var EMPTY_PRICE_HISTORY = {
 	lines: new Map(),
-	plans: new Map(),
-	planById: new Map()
+	plans: new Map()
 };
 function priceHistoryOf(args) {
 	return {
 		lines: groupBy(args.lineChanges, (c) => c.customerPlanId),
-		plans: groupBy(args.planChanges, (c) => c.planId),
-		planById: new Map(args.plans.map((p) => [p.id, p]))
+		plans: groupBy(args.planChanges, (c) => c.planId)
 	};
 }
 function isLater(a, b) {
@@ -320,13 +318,9 @@ function planAt(plan, month, history) {
 		isCustomPrice: change.isCustomPrice
 	};
 }
-function planOf(line, planId, history) {
-	if (planId === line.planId) return line.plan ?? null;
-	return planId ? history.planById.get(planId) ?? null : null;
-}
 function linePriceAt(line, billingMonth, history) {
 	const change = changeAt(history.lines.get(line.id), billingMonth);
-	const plan = planOf(line, change ? change.planId : line.planId, history);
+	const plan = line.plan ?? null;
 	return resolveLinePrice({
 		customPrice: change ? change.customPrice : line.customPrice,
 		customCurrencyId: change ? change.customCurrencyId : line.customCurrencyId,
@@ -352,9 +346,8 @@ function readPlans(wire) {
 		createdAt
 	}));
 }
-function readPrices(wire, plans) {
+function readPrices(wire) {
 	return priceHistoryOf({
-		plans,
 		planChanges: (wire.planChanges ?? []).map(([id, planId, fromMonth, price, currencyId, durationMonths, isCustomPrice, createdAt]) => ({
 			id,
 			planId,
@@ -365,12 +358,11 @@ function readPrices(wire, plans) {
 			isCustomPrice,
 			createdAt
 		})),
-		lineChanges: (wire.lineChanges ?? []).map(([id, customerId, customerPlanId, fromMonth, planId, customPrice, customCurrencyId, createdAt]) => ({
+		lineChanges: (wire.specialPriceChanges ?? []).map(([id, customerId, customerPlanId, fromMonth, customPrice, customCurrencyId, createdAt]) => ({
 			id,
 			customerId,
 			customerPlanId,
 			fromMonth,
-			planId,
 			customPrice: customPrice === null ? null : Number(customPrice),
 			customCurrencyId,
 			createdAt
@@ -448,7 +440,7 @@ function readCustomerStatusFacts(wire, unpaidRule) {
 		skips,
 		open,
 		debtUsd,
-		prices: readPrices(wire, plans),
+		prices: readPrices(wire),
 		currencies: (wire.currencies ?? []).map(([id, ratePerUsd]) => ({
 			id,
 			ratePerUsd: Number(ratePerUsd)

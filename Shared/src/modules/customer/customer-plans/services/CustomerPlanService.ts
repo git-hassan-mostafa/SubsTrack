@@ -112,7 +112,7 @@ class CustomerPlanService {
       customers: activeCounts.customers,
       plans: activeCounts.plans - existingLines.length + lines.length,
     });
-    await this.assertStartDatesUnlocked(customerId, lines, existingById);
+    await this.assertPaidLinesKept(customerId, lines, existingById);
     this.assertCustomPricesAllowed(lines);
 
     const removals = Promise.all(
@@ -180,18 +180,27 @@ class CustomerPlanService {
     return repositories().customerPlan.findPaidLineIds(customerId);
   }
 
-  private async assertStartDatesUnlocked(
+  // A line money reached keeps its plan and start date; switch = a new line.
+  private async assertPaidLinesKept(
     customerId: string,
     lines: LineDraft[],
     existingById: Map<string, CustomerPlan>,
   ): Promise<void> {
-    const moved = lines.filter((l) => {
-      const prev = l.id ? existingById.get(l.id) : undefined;
-      return prev != null && prev.startDate !== l.startDate;
+    const moved = lines.flatMap((line) => {
+      const prev = line.id ? existingById.get(line.id) : undefined;
+      if (!prev) return [];
+      const planMoved = prev.planId !== line.planId;
+      return planMoved || prev.startDate !== line.startDate
+        ? [{ id: prev.id, planMoved }]
+        : [];
     });
     if (moved.length === 0) return;
     const locked = new Set(await repositories().customerPlan.findPaidLineIds(customerId));
-    if (moved.some((l) => l.id && locked.has(l.id))) {
+    const paid = moved.filter((m) => locked.has(m.id));
+    if (paid.some((m) => m.planMoved)) {
+      throw new Error(i18n.t("errors.plan_locked_paid"));
+    }
+    if (paid.length > 0) {
       throw new Error(i18n.t("errors.start_date_locked_paid"));
     }
   }

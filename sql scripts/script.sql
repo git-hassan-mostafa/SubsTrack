@@ -1822,8 +1822,6 @@ ALTER TABLE line_price_changes ADD COLUMN IF NOT EXISTS customer_plan_id UUID NO
 ALTER TABLE line_price_changes ADD COLUMN IF NOT EXISTS from_month DATE
     CONSTRAINT chk_line_price_changes_from_month_first_day
     CHECK (from_month IS NULL OR EXTRACT(DAY FROM from_month) = 1);
-ALTER TABLE line_price_changes ADD COLUMN IF NOT EXISTS plan_id UUID
-    CONSTRAINT fk_line_price_changes_plan REFERENCES plans(id) ON DELETE SET NULL;
 ALTER TABLE line_price_changes ADD COLUMN IF NOT EXISTS custom_price NUMERIC(20,8)
     CHECK (custom_price IS NULL OR custom_price > 0);
 ALTER TABLE line_price_changes ADD COLUMN IF NOT EXISTS custom_currency_id UUID
@@ -2274,10 +2272,10 @@ AS $$
                                              pc.duration_months,
                                              pc.is_custom_price, pc.created_at))
               FROM plan_price_changes pc), '[]'::json),
-        'lineChanges', COALESCE((
+        'specialPriceChanges', COALESCE((
             SELECT json_agg(json_build_array(lc.id, lc.customer_id,
                                              lc.customer_plan_id, lc.from_month,
-                                             lc.plan_id, lc.custom_price,
+                                             lc.custom_price,
                                              lc.custom_currency_id, lc.created_at))
               FROM line_price_changes lc
               JOIN lines l ON l.id = lc.customer_plan_id), '[]'::json)

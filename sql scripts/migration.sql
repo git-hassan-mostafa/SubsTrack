@@ -105,3 +105,14 @@ DROP FUNCTION IF EXISTS lower_customer_allowance(INT);
 -- A fresh database never needs this — script.sql builds the view with the
 -- column already on it.
 DROP VIEW IF EXISTS charge_balances;
+
+-- ---------------------------------------------------------------------------
+-- 2026-10-13 — line_price_changes loses `plan_id`
+-- ---------------------------------------------------------------------------
+-- A line's history now holds only its special price; a month without one reads
+-- the line's CURRENT plan (with that plan's own price changes). The line's old
+-- plan is never read again, so the column goes. Dropping it also drops
+-- fk_line_price_changes_plan. Safe to run repeatedly.
+--
+-- A fresh database never needs this — script.sql no longer declares the column.
+ALTER TABLE line_price_changes DROP COLUMN IF EXISTS plan_id;

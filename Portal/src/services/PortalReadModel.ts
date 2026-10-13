@@ -19,7 +19,6 @@ import {
   mapDbPlanPriceChange,
 } from "@shared/modules/customer/customer-plans/utils/mapper";
 import { priceHistoryOf } from "@shared/modules/customer/customer-plans/utils/priceHistory";
-import { mapDbPlanToPlan } from "@shared/modules/admin/plans/utils/mapper";
 import {
   mapDbChargeToCharge,
   mapDbCollectionToCollection,
@@ -116,7 +115,6 @@ export function buildPortalModel(payload: PortalPayload): PortalModel {
     prices: priceHistoryOf({
       planChanges: (payload.planChanges ?? []).map(mapDbPlanPriceChange),
       lineChanges: (payload.lineChanges ?? []).map(mapDbLinePriceChange),
-      plans: (payload.leftPlans ?? []).map(mapDbPlanToPlan),
     }),
     withOpenMonths: true,
   });

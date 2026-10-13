@@ -318,22 +318,11 @@ async function data(reqId: string, db, body: Record<string, unknown>) {
   const chargeIds = chargeRows.map((row) => row.id);
   const saleIds = chargeRows.map((row) => row.sale_id).filter(Boolean);
   const collectionRows = collections.data ?? [];
-  const lineChangeRows = lineChanges.data ?? [];
-  const currentPlanIds = new Set(
-    (lines.data ?? []).map((row) => row.plan_id).filter(Boolean),
-  );
-  const leftPlanIds = [
-    ...new Set(
-      lineChangeRows
-        .map((row) => row.plan_id)
-        .filter((id) => id && !currentPlanIds.has(id)),
-    ),
+  const planIds = [
+    ...new Set((lines.data ?? []).map((row) => row.plan_id).filter(Boolean)),
   ];
-  const pricedPlanIds = [...currentPlanIds, ...leftPlanIds];
 
-  // `paid` is never a column — it is SUM(collection_items), exposed by the
-  // charge_balances view, which is also what excludes voided hand-overs.
-  const [balances, sales, collectors, planChanges, leftPlans] = await Promise.all([
+  const [balances, sales, collectors, planChanges] = await Promise.all([
     chargeIds.length
       ? db.from("charge_balances").select("id, paid").in("id", chargeIds)
       : Promise.resolve({ data: [] }),
@@ -346,15 +335,12 @@ async function data(reqId: string, db, body: Record<string, unknown>) {
           .is("voided_at", null)
       : Promise.resolve({ data: [] }),
     collectorNames(db, tenantId, collectionRows),
-    pricedPlanIds.length
+    planIds.length
       ? db
           .from("plan_price_changes")
           .select("*")
-          .in("plan_id", pricedPlanIds)
+          .in("plan_id", planIds)
           .eq("tenant_id", tenantId)
-      : Promise.resolve({ data: [] }),
-    leftPlanIds.length
-      ? db.from("plans").select("*").in("id", leftPlanIds).eq("tenant_id", tenantId)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -389,8 +375,7 @@ async function data(reqId: string, db, body: Record<string, unknown>) {
     currencies: currencies.data ?? [],
     collectors,
     planChanges: planChanges.data ?? [],
-    lineChanges: lineChangeRows,
-    leftPlans: leftPlans.data ?? [],
+    lineChanges: lineChanges.data ?? [],
     settings: Object.fromEntries(
       (settings.data ?? []).map((row) => [row.key, row.value]),
     ),

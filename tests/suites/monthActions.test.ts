@@ -12,6 +12,7 @@ import {
   monthSelectionGroups,
   monthSelectionItems,
   monthTap,
+  quickPayItem,
   quickPayLinkAction,
   voidOrderBlocker,
   type LineGates,
@@ -27,6 +28,11 @@ import {
 } from "@shared/modules/customer/customer-payments/utils/gridSummary";
 import { applySelectionChange } from "@shared/modules/customer/customer-payments/utils/monthSelection";
 import { lastBillableMonth } from "@shared/modules/customer/customer-payments/utils/payWindow";
+import {
+  linePriceAt,
+  priceHistoryOf,
+} from "@shared/modules/customer/customer-plans/utils/priceHistory";
+import { monthItemFromEntry } from "@shared/modules/ledger/utils/openItems";
 import { buildGridsFor } from "@shared/state/slices/payments/utils/buildGrids";
 import { ADMIN_ONLY } from "@shared/shared/lib/menuItem";
 import { bill, customer, line, plan, skip } from "../helpers/factories";
@@ -243,6 +249,39 @@ describe("monthMenuItems: the ⋮ menu of one month", () => {
     const items = monthMenuItems(month(s, 1), s.gates, STAFF);
     expect(enabledKeys(items)).toContain("unskip");
     expect(greyed(items)["quick-pay"]).toBe("why_disabled.month_skipped");
+  });
+});
+
+describe("quickPayItem: one tap only on a month with its own set price", () => {
+  const special = line({ id: "line-1", planId: null, plan: null, customPrice: 30, startDate: "2026-01-01" });
+  const history = priceHistoryOf({
+    planChanges: [],
+    lineChanges: [
+      { id: "lc-1", customerId: "cust-1", customerPlanId: "line-1", fromMonth: null, customPrice: null, customCurrencyId: null, createdAt: "2026-05-02T00:00:00.000Z" },
+      { id: "lc-2", customerId: "cust-1", customerPlanId: "line-1", fromMonth: "2026-05-01", customPrice: 30, customCurrencyId: null, createdAt: "2026-05-02T00:00:00.000Z" },
+    ],
+  });
+  const itemAt = (billingMonth: string) => {
+    const price = linePriceAt(special, billingMonth, history);
+    return monthItemFromEntry({
+      entry: { charge: null, collected: 0, billingMonth },
+      customerId: "cust-1",
+      customerName: "Ali",
+      branchId: null,
+      customerPlanId: "line-1",
+      planId: null,
+      label: billingMonth,
+      price,
+      ratePerUsd: 1,
+    }) ?? undefined;
+  };
+
+  it("TC-MA-18 a month from before the line had a special price asks for the amount, never pays 0", () => {
+    expect(quickPayItem(itemAt("2026-03-01"))).toBeNull();
+  });
+
+  it("TC-MA-19 a month under today's special price still pays in one tap", () => {
+    expect(quickPayItem(itemAt("2026-05-01"))).toMatchObject({ balance: 30, durationMonths: 1 });
   });
 });
 

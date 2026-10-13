@@ -173,17 +173,15 @@ export interface LinePriceChange {
   customerId: string;
   customerPlanId: string;
   fromMonth: string | null;
-  planId: string | null;
   customPrice: number | null;
   customCurrencyId: string | null;
   createdAt: string;
 }
 
-// Indexed for month lookups; `planById` holds plans a line has left — gotcha #185.
+// Indexed for month lookups — gotcha #185.
 export interface PriceHistory {
   lines: Map<string, LinePriceChange[]>;
   plans: Map<string, PlanPriceChange[]>;
-  planById: Map<string, Plan>;
 }
 
 // The fields the month rules read, so a server can feed them compact facts.

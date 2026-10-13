@@ -21,6 +21,7 @@ import {
   monthSelectionItems,
   monthTap,
   payOrderBlocker,
+  quickPayItem,
   quickPayLinkAction,
   voidOrderBlocker,
   type MonthMenuKey,
@@ -249,7 +250,7 @@ export function useCustomerMonthGrid({
       showPayOrderBlocked(blocker);
       return;
     }
-    const item = linePrice.isFixed ? itemsFor([entry])[0] : undefined;
+    const item = quickPayItem(itemsFor([entry])[0]);
     if (!item || !user) {
       openCollectFor([entry], send);
       return;
@@ -262,7 +263,7 @@ export function useCustomerMonthGrid({
       if (created && send) await sendReceipt(created);
     };
     const priceNote = earlierPriceNotes([item], currencies)[0] ?? null;
-    if (linePrice.durationMonths <= 1) {
+    if (item.durationMonths <= 1) {
       if (!priceNote) {
         await pay();
         return;
@@ -358,7 +359,7 @@ export function useCustomerMonthGrid({
   const menuItems = (entry: MonthEntry) =>
     monthMenuItems(entry, gates, {
       isAdmin,
-      isFixed: linePrice.isFixed,
+      isFixed: quickPayItem(itemsFor([entry])[0]) !== null,
       canSend,
     });
 

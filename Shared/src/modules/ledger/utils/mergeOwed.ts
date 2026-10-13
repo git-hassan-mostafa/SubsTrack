@@ -1,6 +1,7 @@
 import type {
   Currency,
   Customer,
+  CustomerPlan,
   OpenItem,
   PriceHistory,
   StatusBill,
@@ -24,7 +25,7 @@ import { virtualMonthItem } from "@shared/modules/ledger/utils/virtualMonthItem"
 import { sortByDue } from "@shared/modules/ledger/utils/waterfall";
 
 export type OwedCustomer = Pick<Customer, "id" | "name"> & Partial<Pick<Customer, "branchId">>;
-export type OwedLine = StatusLine & HistoricLine;
+export type OwedLine = StatusLine & HistoricLine & Pick<CustomerPlan, "planId">;
 export type RateCurrency = Pick<Currency, "id" | "ratePerUsd">;
 export type StoredOwed = Pick<OpenItem, "kind" | "paid" | "customerPlanId" | "billingMonth">;
 

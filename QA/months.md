@@ -9,18 +9,22 @@ What a month shows after money moves. A month is Paid as soon as **any** money r
 
 ## Price changes
 
-3. Void a month's payment, then move the line from a $50 plan to a $30 plan (or edit the plan price to $30) with the new price starting from that month → the month now collects $30 from every door (cell, quick pay, Collect money); Debts does not show it twice.
+3. Void a month's payment, then edit the plan price from $50 to $30 with the new price starting from that month → the month now collects $30 from every door (cell, quick pay, Collect money); Debts does not show it twice.
 4. Same as 3, but the new price starts from a LATER month → the voided month still collects $50.
+4a. Void the line's only payment, then move the line from a $50 plan to a $30 plan → no "New price starts from" question; every unpaid month now collects $30.
+4b. A line with any payment that is not voided → its plan cannot be changed (the plan box is locked, saying to add a new plan instead).
 5. Pay a month at $50 (fully or partly), then change the plan price to $40 → the month stays $50; the remainder is counted from $50.
-6. Void a month billed in LBP, move the line to a USD plan starting from that month → the month now collects in USD at the USD rate.
-7. Void a 1-month bill, move the line to a 3-month plan starting from that month → collecting it again covers 3 months as one bill.
+6. Void the only payment of a line billed in LBP, move the line to a USD plan → the month now collects in USD at the USD rate.
+7. Void the only payment of a 1-month line, move the line to a 3-month plan → collecting it again covers 3 months as one bill.
 8. Customer owes Jan–Apr unpaid on a $20 plan; raise the plan to $25 starting from April → Jan–Mar still ask $20, April asks $25 — in the grid, the collect form, Collect money, the dashboard "Total to collect", WhatsApp reminders and the customer portal.
 9. Same customer; raise the plan to $25 starting from February → Jan asks $20, Feb–Apr ask $25.
 10. Change the plan price twice (first from March, then from February) → the second change wins for every month it reaches; January keeps the original price.
 11. Give one customer a special price of $18 from March (it was $15) → that customer's Feb asks $15, March asks $18; other customers on the plan do not change.
-12. Move a customer from plan A to plan B starting this month → older unpaid months still ask plan A's price.
+11a. Remove that customer's special price starting from April → months before April still ask the special price; April onward asks the plan's price (and follows the plan's own price changes).
+12. Move a customer with no payments from plan A to plan B → every unpaid month, old ones too, asks plan B's price.
 13. Customer with no price change ever → every unpaid month asks today's price (same as before this feature).
 14. Collect an old month whose price was different then (cell, Collect money, quick pay) → a note says "The plan price for <month> was <old price>. This price will be used."; quick pay asks before paying; a month at today's price shows no note.
+14a. Customer with no plan and no payments owes Aug–Sep; give them a plan (monthly or 3-month) → August and September now ask the new plan's price; Pay now never offers to record $0.00.
 
 ## Written-off months
 

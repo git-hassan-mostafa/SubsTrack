@@ -17,7 +17,7 @@ interface Props {
   plan: Plan | null;
   branchId: string | null;
   currencies: Currency[];
-  dateLocked: boolean;
+  locked: boolean;
   showHeader: boolean;
   canRemove: boolean;
   removing: boolean;
@@ -38,7 +38,7 @@ export function PlanLineCard({
   plan,
   branchId,
   currencies,
-  dateLocked,
+  locked,
   showHeader,
   canRemove,
   removing,
@@ -121,11 +121,13 @@ export function PlanLineCard({
             onChange={onPlanChange}
             label={t("customers.plan_label")}
             onAddNew={onAddPlan}
-            disabled={cancelled || branchId === null}
+            disabled={cancelled || locked || branchId === null}
             disabledHint={
               branchId === null
                 ? t("subscriptions.select_branch_first")
-                : undefined
+                : locked && !cancelled
+                  ? t("subscriptions.plan_locked")
+                  : undefined
             }
           />
         </View>
@@ -135,9 +137,9 @@ export function PlanLineCard({
             value={row.startDate}
             onChange={onStartDateChange}
             placeholder={t("customers.start_date_placeholder")}
-            disabled={cancelled || dateLocked}
+            disabled={cancelled || locked}
             disabledReason={
-              dateLocked && !cancelled
+              locked && !cancelled
                 ? t("subscriptions.start_date_locked")
                 : undefined
             }

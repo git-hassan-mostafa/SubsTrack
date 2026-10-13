@@ -39,7 +39,7 @@ export interface LineDrafts {
   activeCount: number;
   removingKey: string | null;
   dirty: boolean;
-  isDateLocked: (row: LineRow) => boolean;
+  isPaidLine: (row: LineRow) => boolean;
   setPlan: (key: string, planId: string | null) => void;
   setPrice: (key: string, amount: number | null, currencyId: string | null) => void;
   setStartDate: (key: string, date: string) => void;
@@ -162,7 +162,7 @@ export function useLineDrafts({
       removed.length > 0 ||
       reactivated.length > 0 ||
       lineRowsChanged(initialRows, rows, autoCleared),
-    isDateLocked: (row) => row.id != null && lockedLineIds.includes(row.id),
+    isPaidLine: (row) => row.id != null && lockedLineIds.includes(row.id),
     setPlan: (key, planId) => {
       patchRow(key, { planId });
       setAutoCleared((prev) => prev.filter((k) => k !== key));

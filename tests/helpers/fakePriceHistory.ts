@@ -1,9 +1,11 @@
 import type {
+  DbCustomerPlan,
   DbLinePriceChange,
   DbPlan,
   DbPlanPriceChange,
 } from "@shared/core/types/db";
 import type { IPlanRepository } from "@shared/modules/admin/plans/repository/IPlanRepository";
+import type { ICustomerPlanRepository } from "@shared/modules/customer/customer-plans/repository/ICustomerPlanRepository";
 import type { IPriceHistoryRepository } from "@shared/modules/customer/customer-plans/repository/IPriceHistoryRepository";
 
 // In-memory price edits + the plan rows a plan edit reads and writes.
@@ -44,10 +46,28 @@ export const fakePriceHistoryRepository: IPriceHistoryRepository = {
   },
 };
 
-export const fakePlanRepository = {
-  async findByIds(ids: string[]) {
-    return priceStore.catalog.filter((p) => ids.includes(p.id));
+// Saved service lines + the ids money reached; what syncLines reads and writes.
+export const lineStore = {
+  rows: [] as DbCustomerPlan[],
+  paidLineIds: [] as string[],
+  reset() {
+    this.rows = [];
+    this.paidLineIds = [];
   },
+};
+
+export const fakeCustomerPlanRepository = {
+  async findPaidLineIds() {
+    return lineStore.paidLineIds;
+  },
+  async update(id: string, payload: Partial<DbCustomerPlan>) {
+    const i = lineStore.rows.findIndex((r) => r.id === id);
+    lineStore.rows[i] = { ...lineStore.rows[i], ...payload };
+    return lineStore.rows[i];
+  },
+} as unknown as ICustomerPlanRepository;
+
+export const fakePlanRepository = {
   async update(id: string, payload: Partial<DbPlan>) {
     const i = priceStore.catalog.findIndex((p) => p.id === id);
     priceStore.catalog[i] = { ...priceStore.catalog[i], ...payload };

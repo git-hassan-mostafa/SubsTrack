@@ -3,7 +3,6 @@ import { repositories } from "@shared/core/runtime/repositories";
 import type { CustomerPlan, Plan, PriceHistory } from "@shared/core/types";
 import { inChunks } from "@shared/core/utils/chunk";
 import { deterministicId, newId, nowIso } from "@shared/core/utils/ids";
-import { mapDbPlanToPlan } from "@shared/modules/admin/plans/utils/mapper";
 import type {
   LinePriceChangePayload,
   PlanPriceChangePayload,
@@ -41,39 +40,28 @@ function planFields(fields: PlanPriceFields) {
 
 function lineFields(fields: LinePriceFields) {
   return {
-    plan_id: fields.planId,
     custom_price: fields.customPrice,
     custom_currency_id: fields.customPrice === null ? null : fields.customCurrencyId,
   };
 }
 
 class PriceHistoryService {
-  // Every edit reaching these lines, plus the plans a line has since left.
   async getForLines(lines: Pick<CustomerPlan, "id" | "planId">[]): Promise<PriceHistory> {
     if (lines.length === 0) return EMPTY_PRICE_HISTORY;
     const repo = repositories().priceHistory;
-    const lineChanges = (
-      await readInChunks(
+    const planIds = [
+      ...new Set(lines.map((l) => l.planId).filter((id): id is string => !!id)),
+    ];
+    const [lineChanges, planChanges] = await Promise.all([
+      readInChunks(
         lines.map((l) => l.id),
         (ids) => repo.findLineChanges(ids),
-      )
-    ).map(mapDbLinePriceChange);
-    const current = new Set(lines.map((l) => l.planId).filter((id): id is string => !!id));
-    const left = [
-      ...new Set(
-        lineChanges
-          .map((c) => c.planId)
-          .filter((id): id is string => !!id && !current.has(id)),
       ),
-    ];
-    const [planChanges, leftPlans] = await Promise.all([
-      readInChunks([...current, ...left], (ids) => repo.findPlanChanges(ids)),
-      readInChunks(left, (ids) => repositories().plan.findByIds(ids)),
+      readInChunks(planIds, (ids) => repo.findPlanChanges(ids)),
     ]);
     return priceHistoryOf({
-      lineChanges,
+      lineChanges: lineChanges.map(mapDbLinePriceChange),
       planChanges: planChanges.map(mapDbPlanPriceChange),
-      plans: leftPlans.map(mapDbPlanToPlan),
     });
   }
 

@@ -52,7 +52,6 @@ export function mapDbLinePriceChange(db: DbLinePriceChange): LinePriceChange {
     customerId: db.customer_id,
     customerPlanId: db.customer_plan_id,
     fromMonth: toMonth(db.from_month),
-    planId: db.plan_id,
     customPrice: db.custom_price != null ? Number(db.custom_price) : null,
     customCurrencyId: db.custom_currency_id,
     createdAt: db.created_at,

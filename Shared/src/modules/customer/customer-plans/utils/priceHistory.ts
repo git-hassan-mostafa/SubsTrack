@@ -18,7 +18,6 @@ export const PRICE_START_MONTHS = 12;
 export const EMPTY_PRICE_HISTORY: PriceHistory = {
   lines: new Map(),
   plans: new Map(),
-  planById: new Map(),
 };
 
 export type PlanPriceFields = Pick<
@@ -26,24 +25,19 @@ export type PlanPriceFields = Pick<
   "price" | "currencyId" | "durationMonths" | "isCustomPrice"
 >;
 
-export type LinePriceFields = Pick<
-  CustomerPlan,
-  "planId" | "customPrice" | "customCurrencyId"
->;
+export type LinePriceFields = Pick<CustomerPlan, "customPrice" | "customCurrencyId">;
 
-export type HistoricLine = PricedLine & Pick<CustomerPlan, "id" | "planId">;
+export type HistoricLine = PricedLine & Pick<CustomerPlan, "id">;
 
 type Dated = { id: string; fromMonth: string | null; createdAt: string };
 
 export function priceHistoryOf(args: {
   planChanges: PlanPriceChange[];
   lineChanges: LinePriceChange[];
-  plans: Plan[];
 }): PriceHistory {
   return {
     lines: groupBy(args.lineChanges, (c) => c.customerPlanId),
     plans: groupBy(args.planChanges, (c) => c.planId),
-    planById: new Map(args.plans.map((p) => [p.id, p])),
   };
 }
 
@@ -79,23 +73,14 @@ function planAt(plan: Plan, month: string, history: PriceHistory): Plan {
   };
 }
 
-function planOf(
-  line: HistoricLine,
-  planId: string | null,
-  history: PriceHistory,
-): Plan | null {
-  if (planId === line.planId) return line.plan ?? null;
-  return planId ? (history.planById.get(planId) ?? null) : null;
-}
-
-// The price that applied IN that month, never today's — gotcha #185.
+// Line history holds only a special price; without one, the line's plan as priced then — #185.
 export function linePriceAt(
   line: HistoricLine,
   billingMonth: string,
   history: PriceHistory,
 ): LinePrice {
   const change = changeAt(history.lines.get(line.id), billingMonth);
-  const plan = planOf(line, change ? change.planId : line.planId, history);
+  const plan = line.plan ?? null;
   return resolveLinePrice({
     customPrice: change ? change.customPrice : line.customPrice,
     customCurrencyId: change ? change.customCurrencyId : line.customCurrencyId,
@@ -121,7 +106,6 @@ export function planPriceChanged(prev: PlanPriceFields, next: PlanPriceFields): 
 }
 
 export function linePriceChanged(prev: LinePriceFields, next: LinePriceFields): boolean {
-  if (prev.planId !== next.planId) return true;
   if (prev.customPrice !== next.customPrice) return true;
   return next.customPrice !== null && prev.customCurrencyId !== next.customCurrencyId;
 }

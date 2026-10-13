@@ -5,7 +5,6 @@ import type {
   DbCustomer,
   DbCustomerPlan,
   DbLinePriceChange,
-  DbPlan,
   DbPlanPriceChange,
   DbSale,
   DbSkippedMonth,
@@ -29,7 +28,6 @@ export interface PortalPayload {
   settings: Record<string, string | null>;
   planChanges?: DbPlanPriceChange[];
   lineChanges?: DbLinePriceChange[];
-  leftPlans?: DbPlan[];
 }
 
 // Mirrors the function's own `code` values so the UI can pick a message without

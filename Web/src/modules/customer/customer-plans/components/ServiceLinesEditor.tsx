@@ -109,31 +109,35 @@ function ServiceLineRow({ row, drafts, branchId, onAddPlan }: ServiceLineRowProp
   const plans = usePlanSlice((s) => s.items);
   const currencies = useCurrencySlice((s) => s.items);
   const cancelled = row.status === "cancelled";
-  const dateLocked = drafts.isDateLocked(row);
+  const locked = drafts.isPaidLine(row) && !cancelled;
   const plan = plans.find((p) => p.id === row.planId) ?? null;
 
   return (
     <TableRow sx={{ bgcolor: cancelled ? "action.hover" : undefined }}>
       <TableCell>
         <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-          <PlanPicker
-            value={row.planId}
-            onChange={(planId) => drafts.setPlan(row.key, planId)}
-            branchId={branchId}
-            disabled={cancelled || branchId === null}
-            onAddNew={onAddPlan}
-          />
+          <Tooltip title={locked ? t("subscriptions.plan_locked") : ""}>
+            <Box sx={{ flexGrow: 1 }}>
+              <PlanPicker
+                value={row.planId}
+                onChange={(planId) => drafts.setPlan(row.key, planId)}
+                branchId={branchId}
+                disabled={cancelled || locked || branchId === null}
+                onAddNew={onAddPlan}
+              />
+            </Box>
+          </Tooltip>
           {cancelled ? <Chip size="small" label={t("subscriptions.cancelled_badge")} /> : null}
         </Stack>
       </TableCell>
       <TableCell>
-        <Tooltip title={dateLocked && !cancelled ? t("subscriptions.start_date_locked") : ""}>
+        <Tooltip title={locked ? t("subscriptions.start_date_locked") : ""}>
           <Box>
             <DateField
               label={t("subscriptions.start_label")}
               value={row.startDate}
               onChange={(date) => drafts.setStartDate(row.key, date)}
-              disabled={cancelled || dateLocked}
+              disabled={cancelled || locked}
               size="small"
               hideLabel
             />

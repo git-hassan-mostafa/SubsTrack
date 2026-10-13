@@ -49,7 +49,7 @@ export function CustomerPlansEditor({ drafts, branchId }: Props) {
           plan={plans.find((p) => p.id === row.planId) ?? null}
           branchId={branchId}
           currencies={currencies}
-          dateLocked={drafts.isDateLocked(row)}
+          locked={drafts.isPaidLine(row)}
           showHeader={multiple}
           canRemove={drafts.activeCount > 1}
           removing={drafts.removingKey === row.key}
