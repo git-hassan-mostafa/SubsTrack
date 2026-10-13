@@ -686,7 +686,9 @@ function matchesPayment(customer, status, payment) {
 }
 function matchesPlan(customer, planId) {
 	if (planId === null) return true;
-	return (customer.customerPlans ?? []).some((line) => line.active && line.planId === planId);
+	const planIds = (customer.customerPlans ?? []).filter((line) => line.active && line.planId !== null).map((line) => line.planId);
+	if (planId === "none") return planIds.length === 0;
+	return planIds.includes(planId);
 }
 function matchesLastPaid(lastPaidAt, sinceIso, beforeIso) {
 	if (sinceIso === null && beforeIso === null) return true;
@@ -714,7 +716,7 @@ var ID_PATTERN = /^[0-9a-f-]{36}$/i;
 function isCustomerFilterQuery(value) {
 	if (!value || typeof value !== "object") return false;
 	const f = value;
-	return isOneOf(labelKeysOf(STATUS_FILTER_LABEL_KEYS), f.status) && isNullOr(labelKeysOf(PAYMENT_FILTER_LABEL_KEYS), f.payment) && isNullOr(labelKeysOf(OWES_FILTER_LABEL_KEYS), f.owes) && (f.planId === null || typeof f.planId === "string" && ID_PATTERN.test(f.planId)) && isNullOr(UNPAID_MONTHS_OPTIONS, f.unpaidMonths) && isNullOr(labelKeysOf(TYPE_FILTER_LABEL_KEYS), f.type) && isNullOr(labelKeysOf(PHONE_FILTER_LABEL_KEYS), f.phone) && isNullOr(labelKeysOf(PORTAL_FILTER_LABEL_KEYS), f.portal) && isInstantOrNull(f.paidSinceIso) && isInstantOrNull(f.paidBeforeIso);
+	return isOneOf(labelKeysOf(STATUS_FILTER_LABEL_KEYS), f.status) && isNullOr(labelKeysOf(PAYMENT_FILTER_LABEL_KEYS), f.payment) && isNullOr(labelKeysOf(OWES_FILTER_LABEL_KEYS), f.owes) && (f.planId === null || f.planId === "none" || typeof f.planId === "string" && ID_PATTERN.test(f.planId)) && isNullOr(UNPAID_MONTHS_OPTIONS, f.unpaidMonths) && isNullOr(labelKeysOf(TYPE_FILTER_LABEL_KEYS), f.type) && isNullOr(labelKeysOf(PHONE_FILTER_LABEL_KEYS), f.phone) && isNullOr(labelKeysOf(PORTAL_FILTER_LABEL_KEYS), f.portal) && isInstantOrNull(f.paidSinceIso) && isInstantOrNull(f.paidBeforeIso);
 }
 function isCustomerSort(value) {
 	return isOneOf(labelKeysOf(SORT_LABEL_KEYS), value);

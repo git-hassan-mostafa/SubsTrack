@@ -4,6 +4,7 @@ import type {
   Customer,
   CustomerPlan,
   CustomerStatus,
+  Plan,
 } from "@shared/core/types";
 import { dayStartIso, nextDayStartIso } from "@shared/core/utils/dateRange";
 import {
@@ -97,6 +98,18 @@ export const PORTAL_FILTER_LABEL_KEYS: Record<YesNoFilter, string> = {
 
 export const UNPAID_MONTHS_OPTIONS: readonly UnpaidMonthsFilter[] = [1, 2, 3, 6];
 
+export const NO_PLAN_FILTER = "none";
+
+export function planFilterOptions(
+  plans: readonly Pick<Plan, "id" | "name">[],
+  noPlanLabel: string,
+): { value: string; label: string }[] {
+  return [
+    { value: NO_PLAN_FILTER, label: noPlanLabel },
+    ...plans.map((plan) => ({ value: plan.id, label: plan.name })),
+  ];
+}
+
 export const SORT_LABEL_KEYS: Record<CustomerSort, string> = {
   name: "customers.filters.sort_name",
   to_collect: "customers.filters.sort_to_collect",
@@ -173,11 +186,14 @@ function matchesPayment(
   return customerFlags(status).some((flag) => wanted.includes(flag));
 }
 
+// No plan = no active line on any plan; a line with only its own price counts as none.
 function matchesPlan(customer: FilterableCustomer, planId: string | null): boolean {
   if (planId === null) return true;
-  return (customer.customerPlans ?? []).some(
-    (line) => line.active && line.planId === planId,
-  );
+  const planIds = (customer.customerPlans ?? [])
+    .filter((line) => line.active && line.planId !== null)
+    .map((line) => line.planId);
+  if (planId === NO_PLAN_FILTER) return planIds.length === 0;
+  return planIds.includes(planId);
 }
 
 function matchesLastPaid(
@@ -237,7 +253,9 @@ export function isCustomerFilterQuery(value: unknown): value is CustomerFilterQu
     isOneOf(labelKeysOf(STATUS_FILTER_LABEL_KEYS), f.status) &&
     isNullOr(labelKeysOf(PAYMENT_FILTER_LABEL_KEYS), f.payment) &&
     isNullOr(labelKeysOf(OWES_FILTER_LABEL_KEYS), f.owes) &&
-    (f.planId === null || (typeof f.planId === "string" && ID_PATTERN.test(f.planId))) &&
+    (f.planId === null ||
+      f.planId === NO_PLAN_FILTER ||
+      (typeof f.planId === "string" && ID_PATTERN.test(f.planId))) &&
     isNullOr(UNPAID_MONTHS_OPTIONS, f.unpaidMonths) &&
     isNullOr(labelKeysOf(TYPE_FILTER_LABEL_KEYS), f.type) &&
     isNullOr(labelKeysOf(PHONE_FILTER_LABEL_KEYS), f.phone) &&

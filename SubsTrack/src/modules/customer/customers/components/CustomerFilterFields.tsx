@@ -6,6 +6,7 @@ import {
   labelKeysOf,
   PAYMENT_FILTER_LABEL_KEYS,
   PHONE_FILTER_LABEL_KEYS,
+  planFilterOptions,
   PORTAL_FILTER_LABEL_KEYS,
   STATUS_FILTER_LABEL_KEYS,
   TYPE_FILTER_LABEL_KEYS,
@@ -89,7 +90,7 @@ export function CustomerFilterFields({ value, onChange }: Props) {
       <FilterRow label={t("customers.filters.plan")}>
         <Dropdown<string>
           label={t("customers.filters.plan")}
-          options={plans.map((plan) => ({ value: plan.id, label: plan.name }))}
+          options={planFilterOptions(plans, t("customers.filters.plan_none"))}
           value={value.planId}
           onChange={(planId) => onChange({ planId })}
           nullable

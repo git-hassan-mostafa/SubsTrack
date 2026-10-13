@@ -290,6 +290,7 @@
       "owes_nothing": "Nothing to collect",
       "plan": "Plan",
       "plan_any": "All plans",
+      "plan_none": "No plan",
       "unpaid_months": "Unpaid months",
       "unpaid_months_any": "Any number",
       "unpaid_months_option": "{{count}} month or more",

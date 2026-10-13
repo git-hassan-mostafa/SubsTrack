@@ -294,6 +294,7 @@
       "owes_nothing": "لا شيء للتحصيل",
       "plan": "الخطة",
       "plan_any": "كل الخطط",
+      "plan_none": "بدون خطة",
       "unpaid_months": "الأشهر غير المدفوعة",
       "unpaid_months_any": "أي عدد",
       "unpaid_months_option": "{{count}} شهر أو أكثر",

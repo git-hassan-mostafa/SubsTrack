@@ -10,6 +10,7 @@ import {
   labelKeysOf,
   PAYMENT_FILTER_LABEL_KEYS,
   PHONE_FILTER_LABEL_KEYS,
+  planFilterOptions,
   PORTAL_FILTER_LABEL_KEYS,
   SORT_LABEL_KEYS,
   STATUS_FILTER_LABEL_KEYS,
@@ -87,7 +88,7 @@ export function CustomerFiltersBar({ value, onChange, onClear }: CustomerFilters
           anyLabel={t("customers.filters.plan_any")}
           value={value.planId}
           onChange={(planId) => onChange({ planId })}
-          options={plans.map((plan) => ({ value: plan.id, label: plan.name }))}
+          options={planFilterOptions(plans, t("customers.filters.plan_none"))}
           searchable
         />
         <FilterSelect<CustomerTypeFilter | null>
