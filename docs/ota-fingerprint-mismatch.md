@@ -102,4 +102,4 @@ npm run ota-prod
 
 Fingerprint ≠ build's runtime → **do not publish**: fix the machine (above), or the change is genuinely native → rebuild + reinstall (`npm run build-preview` / `npm run build-prod`).
 
-See also: gotchas #53 + #53b in `docs/gotchas.md`; release section in `CLAUDE.md`.
+See also: gotchas #53 + #53b in `docs/gotchas.md`; release section in `docs/build-and-release.md`.

@@ -1,6 +1,20 @@
 # Month Grid & Customer Status — full rules
 
-CLAUDE.md keeps status algorithm + hard rules; explanations + badge contract here.
+AGENTS.md §7 keeps the status algorithm + short rules; full hard rules below, then explanations + badge contract.
+
+## Hard rules — full text (AGENTS.md §7 short form)
+
+- Months **never stored**; no bill until money first reaches it.
+- **Keys off MONEY, not row existence** — an empty bill (only collection voided) reads _identically_ to an untouched month.
+- Partial → `"paid"`; **no `"partial"` MonthStatus**. Only presentation differs (amber **ring**, not fill; sublabel `PARTIAL`; multi-month block rings only the first cell).
+- **No grace period** — current month unpaid from day one.
+- **Read NOT year-scoped** — year arrows re-derive from the store, never re-query (gotcha #121). Never build a grid inside a write; never scope the fetch to a year (every pay/void gate is all-time).
+- **Per-tenant unpaid rule** (`tenant_settings.UnpaidStartRule`) decides **two different things** (mixing = gotcha #83): `isNotDueYet()` (current month's colour) vs `isNotLateYet()` (when the customer reads "Overdue"). Both in `customer-payments/utils/monthDueRules.ts` — change there, never in a caller.
+- **Months settle OLDEST FIRST; "earlier" = UNCOVERED, not merely overdue.** Prepaying allowed, out of order not. One pure helper `blockingUnpaidMonths()` fed by `monthStatus.uncoveredBillingMonths`. **Never feed the gate `unpaidBillingMonths`** (overdue only, gotcha #81b), and never feed `buildCustomerStatus` the uncovered list. Months in the same write never block each other.
+- **Voids NEWEST FIRST**; a paid line's start date AND plan are FROZEN (`assertPaidLinesKept`). **Unskip** follows the VOID rule, not pay (gotcha #84). Skipped months never unpaid/overdue/payable.
+- **Multiple plans**: 1..N service lines per customer, each its own grid + independent payments. **Service line owns the ONLY start date** — `customers` has no `start_date`.
+- `monthStatus.buildCustomerStatus(...)` is the only place a list badge is decided, derived from `buildMonthGrid`. **"Paid" = owes nothing** → never with "Overdue". Absence = unknown → **no pill**, never red. One query, one arrival, no SQL mirror. `customerFlags(status)` decides pills AND the Payment status filter — never duplicate the suppression rule. Every list filter (status, payment, debts, plan, unpaid months, type, last paid, phone, portal) = ONE helper `customerFilters.ts` → `matchesCustomerFilters`, run by phone AND server; phone shows them as labelled rows in the header filters sheet (`FiltersSheet`, branch card on top), web as dropdowns in one row. Sort web-only (server-side).
+- **Web's exact filters run the SAME file on the server**: `customer-status` edge function bundles `customerStatusPage.ts` (→ `monthStatus.ts`), fed compact facts by `customer_status_facts()` (SQL deciding no rule). Month rules read "today" ONLY via `currentDate()` (`core/utils/date.ts`), which `onCalendarDay` pins to the caller's day — server clock is UTC (gotcha #173). Any new clock read in a month rule must use `currentDate()`.
 
 ## Critical Business Logic: Month Grid
 

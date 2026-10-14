@@ -1,6 +1,10 @@
 # UI Patterns — sheets, cards, headers, styling
 
-Read before touching a bottom sheet, list card, `PageHeader`, `ActionMenu`, or responsive/web layout.
+Read before touching a bottom sheet, list card, `PageHeader`, `ActionMenu`, text field, or responsive/web layout.
+
+## Text fields
+
+The field owns the typed text. `Input`/`SearchTextBox`/`CurrencyInput` route it through `useTextField`; a controlled `TextInput` wired straight to form/store state is banned — a `value` one render late loses letters and throws the caret to the end (gotcha #134). The COMPONENT is always `AppTextInput`, never RN `TextInput` (it grabs the Android touch lock → page won't scroll under a finger on a field). Layout (`flex-1`, `w-10`) on `containerClassName`; border/padding/text on `className`. Its unfocused tap shield is a gesture-handler `Gesture.Tap()`; works in sheets only because `AppBottomSheet` wraps every body in its own `GestureHandlerRootView` (sheet = separate native window, gotchas #45, #78).
 
 ## Styling
 

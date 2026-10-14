@@ -2,6 +2,12 @@
 
 Running the apps, `tests/`, OTA/EAS releases. CRLF trap: `docs/ota-fingerprint-mismatch.md`.
 
+## Stack + commands — full text (AGENTS.md §4 short form)
+
+**Stack**: RN 0.86.3 + Expo SDK 57 (React 19.2, Hermes v1, New Architecture only) · Expo Router 57 (file-based, typed routes; never import `@react-navigation/*` — use `expo-router/react-navigation`) · Zustand 5.0.12 + immer · NativeWind 4.2.3 · Supabase (PostgreSQL + RLS + Auth) · TS 6 strict · i18next (en/ar, RTL) · native sheets via `@expo/ui` (Material 3 Android, SwiftUI iOS, RN `Modal` web; gotcha #45) · alias `@/*` → repo root. `react-native-gesture-handler` intentionally **3.x**, ahead of the SDK 57 pin (2.32), guarded by `expo.install.exclude` (gotcha #140). SubsTrack tsconfig `paths` pins `i18next` + `@supabase/supabase-js` to its own `node_modules` (gotcha #188). SuperAdmin still SDK 54.
+
+Commands: `npm install` → `npx expo run:android` — **dev client required, Expo Go redboxes** (native keyboard-controller module). OTA: `npm run ota-prod`. Rebuild only when something **native** changed. Each app's `.env`: `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY` — local dev only; EAS Build + `eas update` read the EAS environment's variables, never `.env` (gotcha #187).
+
 ## Running the Apps
 
 Both apps share one Supabase backend; each has its own `.env`.
@@ -83,7 +89,7 @@ npm run typecheck              # tsc over the suites + the app types they assert
 
 Jest + Babel over **money** code: waterfall, `buildMonthGrid`, customer badge, pay/void order rules, `ChargeService` / `CollectionService` / `LedgerService` / `SaleService`, custody, end-to-end money-conservation invariants. Services run for real against in-memory ledger (`helpers/fakeLedger.ts`) following the two repositories' documented contract; native modules = one-file stubs in `stubs/`. **A stub may fake a platform, never a rule.** Own `tsconfig.json` (none at repo root → IDE can't resolve any import without it); aliases `@shared/*` → `../Shared/src/*`, `@edge/*` → `../SubsTrack/supabase/functions/_shared/*`, `@/*` → `../SubsTrack/*` (offline-layer suites). `helpers/configureRuntime.ts` (Jest `setupFiles` entry) calls `configureShared()` once: phone's own ids adapter over node-crypto stub, memory storage, `helpers/fakeRepositories.ts` (in-memory `charge` / `collection` / `sale` fakes; any other repository key throws). `suites/sharedBoundary.test.ts` = guard keeping `Shared/src` free of React Native, Expo, app imports.
 
-Separate package, never inside `SubsTrack/`: CLAUDE.md §1.3 (#53). Jest not Vitest b/c laptop AV blocks spawning vendored tool binaries (esbuild can't run; Babel is pure JS). _Access is denied_ → `node node_modules/jest/bin/jest.js`.
+Separate package, never inside `SubsTrack/`: AGENTS.md §1.3 (#53). Jest not Vitest b/c laptop AV blocks spawning vendored tool binaries (esbuild can't run; Babel is pure JS). _Access is denied_ → `node node_modules/jest/bin/jest.js`.
 
 Case numbering, invariants, do-not-delete regression list: `QA/money-unit-tests.md`. Everything else (screens, Supabase query layer, SQLite mirror, RLS) verified manually via the running app against `QA/`.
 

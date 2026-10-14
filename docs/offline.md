@@ -1,6 +1,10 @@
 # Offline-First (native)
 
-> Referenced from `CLAUDE.md`. Read before touching **any repository** or the sync engine. Native only — Expo web gets `createSupabaseRepositories()` from Shared (talks to Supabase directly; zero web behavior change).
+> Referenced from `AGENTS.md` §5. Read before touching **any repository** or the sync engine. Native only — Expo web gets `createSupabaseRepositories()` from Shared (talks to Supabase directly; zero web behavior change).
+
+## Core rules — full text (AGENTS.md §5 short form)
+
+**Offline-first (native only; web talks to Supabase directly).** All in SubsTrack: `*.offline.ts` repository twins + `SubsTrack/src/core/offline/`; services, slices, UI untouched. Platform switch = ONE place, the repository set the phone hands `configureShared()` (`configurePhone.ts`; Expo web still gets `createSupabaseRepositories()` until the new web app takes over). SQLite mirror returns the **same `Db*` row shapes** (incl. nested joins) mappers consume. Writes mutate the mirror + set `_dirty = 1`; hard deletes logged in `pending_deletes`. Sync pushes dirty rows + logged deletes, then pulls rows changed since one `last_pulled_at` — **latest `updated_at` wins**. Bidirectional, multi-device, no outbox/cursors/tombstones. Timers (`startSync`): **push-only every 5 min, full cycle every 10 min**, silent (no global loader); app open = `runSyncIfDue()` (pull only if last pull > 10 min, "not due" still pushes — an un-pushed row is the only copy of that money); manual sync ignores the gate and **restarts both timers**. `sync_meta` stamps `last_push_at`/`last_sync_at` (pull)/`last_manual_sync_at`, shown in Settings. **Network-parallel, DB-sequential**: pull fetches every table at once, push climbs the `PUSH_WAVES` dependency waves, every SQLite write queues behind `withDbLock` (expo-sqlite = one connection). **Online-only** (throw `RequiresConnectionError` offline, delegate online): auth `signIn`/`getTenantByCode`, `User.create`/`delete`/`updatePassword`, `Signup.*`, `CustomerRequest.*`, `CustomerStatus.findPage` (`customer-status` edge function), `WhatsApp.*` (not mirrored — `whatsapp_*` tables server-only; tenants pay Meta directly, `docs/whatsapp.md`). Auth `getSession`/`getUserProfile`/`getTenant` = read-through cache so the app boots offline after the first online login.
 
 ## Why / what
 

@@ -2,6 +2,23 @@
 
 Per-table column notes + key constraints. Authoritative DDL = `sql scripts/script.sql`; SQLite mirror = `SubsTrack/src/core/offline/db/tables.ts`.
 
+### Changing the schema — full rules (AGENTS.md §8 short form)
+
+`sql scripts/script.sql` = **full schema**, every statement idempotent: re-running builds a fresh DB and updates a live one; only ever **ADDS**. `sql scripts/migration.sql` = **one-time** statements a fresh DB must never run. No SQL in chat, no new `.sql` files (`sql scripts/` holds only `script.sql`, `migration.sql`, `reset.sql`).
+
+**Which file — decide first:**
+- **Fresh-DB-safe → `script.sql` only**: new table, column, index, policy, trigger, function.
+- **One-time → `migration.sql` only**: meaningless on a fresh DB — dropping a constraint/column/index/policy, updating existing rows, backfill/one-off fix, dropping an old function signature.
+- **Non-additive → BOTH**: rename column, change type, edit an existing multi-column constraint. `script.sql` declares the NEW shape (fresh DB built right); `migration.sql` carries the one-off `ALTER … RENAME`/`ALTER … TYPE`/`DROP CONSTRAINT` for live DBs. `ADD COLUMN IF NOT EXISTS` can't rename/retype (silently leaves the old column beside the new); a guarded `DO $$ … pg_constraint …` block is skipped once its constraint exists.
+
+`migration.sql` = **growing log**: append each one-off at the bottom under a dated `-- ----` header, keep old ones, never rewrite above. Every entry guarded (re-run = no-op). Runs **BEFORE** `script.sql` — a constraint/signature `script.sql` declares needs its old version cleared first, and rows must clear a floor before the CHECK enforcing it is added.
+
+0. **Every table in two steps** — `CREATE TABLE IF NOT EXISTS <t> ();` then one `ALTER TABLE <t> ADD COLUMN IF NOT EXISTS …;` per column. **No `CREATE TABLE` column list anywhere** → every column self-heals on re-run. Tables in dependency order (inline `REFERENCES` needs its target first).
+1. **New column → append ONE line** to that table's column block. `NOT NULL` needs a `DEFAULT`. Single-column `CHECK`/`UNIQUE`/`REFERENCES` rides the same line (`CONSTRAINT <name>` prefix when the name matters). **Multi-column** constraint → that table's "Table-level constraints" `DO $$ … pg_constraint …` block; guarded, so _editing_ one is **not** picked up live — declare the new one under a NEW name in `script.sql`, drop the old by name in `migration.sql`.
+2. **New table/index/policy/trigger/function** → edit `script.sql` in place, re-runnable (`IF NOT EXISTS`, `CREATE OR REPLACE`, `DROP POLICY IF EXISTS` before `CREATE POLICY`).
+3. **Mirror any column change in `SubsTrack/src/core/offline/db/tables.ts`** (native SQLite schema). `applySchema.ts` creates missing tables + `ALTER`s in missing columns every app start, so editing the descriptor is the whole local change. **Non-additive** (drop/rename column, change type/table constraint) NOT reconciled locally — `applySchema.ts` never drops/renames — say so and give the one-off statement; `migration.sql` is SERVER-only, never reaches the device mirror.
+4. Tell the user: run `migration.sql` **first**, then `script.sql`; nothing appended to `migration.sql` → `script.sql` alone.
+
 ### Database Schema (Supabase PostgreSQL)
 
 - **`tenants`**: `id`, `name`, `tenant_code`, `active`, `customer_allowance`, `plan_allowance`, `price_per_plan_usd`. Last three = what the SaaS owner charges for, **owner-only**: no UPDATE policy on table; `trg_tenants_guard_billing` raises if any authenticated session changes any of them; only service role (SuperAdmin, Edge Functions) writes them. **Bill counted on `plan_allowance`'s unit** (active service lines, not customers); `price_per_customer_usd` renamed → `price_per_plan_usd` (carry-over + drop in `migration.sql`). `chk_tenants_plan_allowance_floor` holds `plan_allowance >= customer_allowance`; live DB must run `migration.sql` first to lift every tenant to `GREATEST(plan_allowance, customer_allowance, its active line count)`, else constraint refused. ONE tenant-side door: `lower_allowances(p_customer_allowance, p_plan_allowance)` — SECURITY DEFINER, admin-only, **both limits in one call**, only ever LOWERS: RAISEs on either arg above current value, nothing moving, line limit < customer limit, anything < product floor **30**, anything < tenant's live counts of active customers / active lines (reads them itself, never from client). Active line = line active **and its customer active**. `chk_tenants_customer_allowance_min` holds the 30 floor at the column.

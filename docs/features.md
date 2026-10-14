@@ -1,6 +1,6 @@
 # Feature Deep-Dives
 
-> Per-feature behavior; read the section BEFORE editing that area. Month Grid algorithm stays in `CLAUDE.md`.
+> Per-feature behavior; read the section BEFORE editing that area. Month Grid algorithm stays in `AGENTS.md` §7.
 
 ## Contents
 
@@ -157,7 +157,7 @@ See #38.
 - **UI:** Admin → Tenant Settings, one section per setting (`UnpaidRuleSection`, card layout like `DisplayCurrencySection`). Save refreshes current-month badge sets (rule restates which months are unpaid).
 - **Offline:** synced table; write derives **deterministic id from `(tenant_id, key)`**, upserts on natural key (in `NATURAL_KEYS` **and** `sync/push.ts` `conflictTarget`) → two offline devices converge on one row, no UNIQUE-index push stall.
 
-**Keys:** `UnpaidStartRule` (`'month_start'` default \| `'customer_start_day'`) — when a month turns unpaid + when "Overdue" starts. Under `'customer_start_day'` **two** facts: current month grey until line's billing day (`isNotDueYet`); last month red but not _late_ until that day (`isNotLateYet`) — #83. Rule → `CLAUDE.md` Month Grid; helpers in `customer-payments/utils/monthDueRules.ts` (grid + customer-list aggregator).
+**Keys:** `UnpaidStartRule` (`'month_start'` default \| `'customer_start_day'`) — when a month turns unpaid + when "Overdue" starts. Under `'customer_start_day'` **two** facts: current month grey until line's billing day (`isNotDueYet`); last month red but not _late_ until that day (`isNotLateYet`) — #83. Rule → `AGENTS.md` §7 Month Grid; helpers in `customer-payments/utils/monthDueRules.ts` (grid + customer-list aggregator).
 
 **New key:** `TENANT_SETTING_KEYS` + typed setter/parser in `TenantSettingService` + semantic hook + screen section. No schema change.
 
@@ -934,7 +934,7 @@ Several plans at once (e.g. internet + IPTV), each paid independently:
 
 **Cancelled plan / inactive customer.** Line **payable up to and incl. its CANCEL month** (form, quick-pay, bulk-pay); later blocked by "Not available" (`payments.cancelled_plan_month_blocked`, or `payments.inactive_month_blocked` — inactive customer wins; both name last billable month). One gate in `CustomerPaymentPanel`: `isPayBlocked(entry) = isAfterMonth(entry, payLimit)`, `payLimit = lastBillableMonth(customer, selectedLine)` (`Shared/src/modules/customer/customer-payments/utils/payWindow.ts`), used by `handleCellPress`, `canQuickPay`, `payableEntries` → all agree. Limit = **earliest** of customer/line `cancelledAt`; falls back to **current month** if nothing stopped or inactive row lacks a stamp (live line: only calendar-future blocked; missing stamp never blocks more). Cancel month payable b/c served part of it. Later months still paint **unpaid**; only money door shut. Collect sheet only opens via this gate.
 
-**Aggregation** over **active** lines, `monthStatus.buildCustomerStatus` only (see CLAUDE.md → Customer-List Status): `"paid"` only when **every** line owes nothing over **all** required months, start → today (**partial** = covered; remainder is debt). Separate `overdue` flag (own red pill) when an active line has an _earlier_ unpaid month — **except** last month before the `customer_start_day` billing day: owed (red cell, red "Unpaid" pill), not _late_ → no "Overdue" (gotcha #83). "Paid" = owes nothing → **never beside "Overdue"** (gotcha #56b). **Not required** (treated as nonexistent): skipped month, month before line start, current month before billing day under `customer_start_day`; owes nothing + nothing due → "Skipped" / "Not due yet", not unpaid. Default `month_start`: **no grace** — current month unpaid from day 1 on card and grid alike (gotcha #34).
+**Aggregation** over **active** lines, `monthStatus.buildCustomerStatus` only (see `docs/month-grid.md` → Customer-List Status): `"paid"` only when **every** line owes nothing over **all** required months, start → today (**partial** = covered; remainder is debt). Separate `overdue` flag (own red pill) when an active line has an _earlier_ unpaid month — **except** last month before the `customer_start_day` billing day: owed (red cell, red "Unpaid" pill), not _late_ → no "Overdue" (gotcha #83). "Paid" = owes nothing → **never beside "Overdue"** (gotcha #56b). **Not required** (treated as nonexistent): skipped month, month before line start, current month before billing day under `customer_start_day`; owes nothing + nothing due → "Skipped" / "Not due yet", not unpaid. Default `month_start`: **no grace** — current month unpaid from day 1 on card and grid alike (gotcha #34).
 
 **List filters (phone + web).** phone: labelled rows (`CustomerFilterFields`) in the header filters sheet; web: `FilterSelect`s in `FilterBar` above table: **Status** (Active default / Inactive / All customers) · **Payment status** · **To collect** (`owes`: has money to collect / has debts / nothing to collect) · **Unpaid months** (1+/2+/3+/6+, `CustomerStatus.unpaidMonths`, = reports' aging count) · **Plan** (ACTIVE line on it) · **Customer type** (regular/occasional) · **Last paid from / to** (newest live hand-over of any kind within those whole local days; never-paid outside any range) · **Phone number** (has/none; blank = none) · **Portal access** (on/off) · **Clear filters**. AND. Web-only **Sort by**: name, highest to collect, most unpaid months, longest since last payment (never paid first), newest — phone holds list page by page. Search = name, phone, address, area. One rule `matchesCustomerFilters` (`customers/utils/customerFilters.ts`): phone over loaded rows (last paid: `useLastPaidStore` → `ICollectionRepository.lastReceivedByCustomer`), web's `customer-status` over all customers.
 
@@ -1000,7 +1000,7 @@ Every month collects through **one** `CollectSheet`; scenarios differ only in wh
 
 **Full vs partial = amount typed.** No mode switch; waterfall shows what it settles, rest stays owed. A month getting _nothing_ isn't recorded (already `unpaid`; an empty bill says nothing).
 
-**Partial (`collected < amount`) resolves `"paid"`** for month + customer — no "partial" status, no guard/filter/aggregation change (`gotchas.md` → Ledger; CLAUDE.md → Month Grid). Presentation only, off `entry.balance > 0`:
+**Partial (`collected < amount`) resolves `"paid"`** for month + customer — no "partial" status, no guard/filter/aggregation change (`gotchas.md` → Ledger; AGENTS.md §7 Month Grid). Presentation only, off `entry.balance > 0`:
 
 |Surface|Full|Partial|
 |-|-|-|
