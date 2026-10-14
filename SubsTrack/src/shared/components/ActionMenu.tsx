@@ -1,4 +1,5 @@
-import { ScrollView, View, useWindowDimensions } from "react-native";
+import { View, useWindowDimensions } from "react-native";
+import { SheetScrollView } from "./SheetScrollComponents";
 import { PressableOpacity } from "./PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -77,8 +78,7 @@ export function ActionMenu({
           </Text>
         </View>
       ) : (
-        <ScrollView
-          nestedScrollEnabled
+        <SheetScrollView
           style={{ maxHeight: Math.round(height * ROWS_MAX_HEIGHT_RATIO) }}
         >
           {rows.map((item, index) => (
@@ -131,7 +131,7 @@ export function ActionMenu({
               </View>
             </PressableOpacity>
           ))}
-        </ScrollView>
+        </SheetScrollView>
       )}
     </BottomSheetScaffold>
   );

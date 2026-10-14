@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ActivityIndicator, ScrollView, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
@@ -7,6 +7,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { SelectionBar } from "@/src/shared/components/SelectionBar";
+import { SheetScrollView } from "@/src/shared/components/SheetScrollComponents";
 import { toSelectionActions } from "@/src/shared/lib/menuActions";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
 import { FiltersSheet } from "@/src/shared/components/FiltersSheet";
@@ -157,9 +158,9 @@ export function WalletDetailView({
         />
       ) : null}
 
-      <ScrollView
+      <SheetScrollView
+        inSheet={inSheet}
         style={{ flex: 1 }}
-        nestedScrollEnabled={inSheet}
         contentContainerStyle={{
           paddingHorizontal: 24,
           paddingTop: 8,
@@ -308,7 +309,7 @@ export function WalletDetailView({
             )}
           </View>
         )}
-      </ScrollView>
+      </SheetScrollView>
 
       <FiltersSheet
         visible={filtersOpen}

@@ -5,7 +5,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { ActivityIndicator, FlatList, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
+import { SheetFlatList } from "./SheetScrollComponents";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
@@ -353,11 +354,10 @@ function AsyncPickerModal<T>({
         </View>
       ) : null}
 
-      <FlatList
+      <SheetFlatList
         data={items}
         keyExtractor={getKey}
         style={{ flex: 1 }}
-        nestedScrollEnabled
         onEndReached={loadNextPage}
         onEndReachedThreshold={0.3}
         keyboardShouldPersistTaps="always"

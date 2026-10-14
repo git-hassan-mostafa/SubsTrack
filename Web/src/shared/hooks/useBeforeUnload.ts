@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-// Prompts the browser's reload/close confirmation when the form is dirty.
+// prevents tab close or reload from losing unsaved user input
 export function useBeforeUnload(active: boolean) {
   useEffect(() => {
     if (!active) return;

@@ -12,7 +12,7 @@ import Typography from "@mui/material/Typography";
 import CloseIcon from "@mui/icons-material/Close";
 import { useUnsavedChangesGuard } from "@shared/shared/hooks/useUnsavedChangesGuard";
 import { useBeforeUnload } from "@/shared/hooks/useBeforeUnload";
-import { useNavigationBlocker } from "@/shared/hooks/useNavigationBlocker";
+import { useFormDialogRegistry } from "@/state/formDialogRegistry";
 import { ErrorBanner } from "./ErrorBanner";
 
 interface FormDialogProps {
@@ -31,7 +31,7 @@ interface FormDialogProps {
   children: ReactNode;
 }
 
-// Every close asks to discard when dirty; a backdrop click never closes it.
+// guards unsaved dialog edits on close while ignoring backdrop clicks
 export function FormDialog({
   open,
   title,
@@ -52,9 +52,20 @@ export function FormDialog({
   const [guardedClose] = useUnsavedChangesGuard(dirty, onClose);
   const titleId = useId();
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const registerDialog = useFormDialogRegistry((s) => s.register);
+  const unregisterDialog = useFormDialogRegistry((s) => s.unregister);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useBeforeUnload(open && dirty);
-  useNavigationBlocker(open && dirty, onClose);
+
+  useEffect(() => {
+    if (!open) return;
+    registerDialog(titleId, { dirty, onClose: () => onCloseRef.current() });
+    return () => unregisterDialog(titleId);
+  }, [open, titleId, dirty, registerDialog, unregisterDialog]);
 
   useEffect(() => {
     if (error) contentRef.current?.scrollTo({ top: 0 });

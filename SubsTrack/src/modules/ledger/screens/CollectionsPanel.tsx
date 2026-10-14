@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
-  SectionList,
   View,
 } from "react-native";
 import { useTranslation } from "react-i18next";
@@ -22,6 +21,7 @@ import { PeriodPicker } from "@/src/shared/components/PeriodPicker";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
 import { groupByMonth } from "@shared/shared/lib/monthSections";
+import { SheetSectionList } from "@/src/shared/components/SheetScrollComponents";
 import {
   SelectionBar,
   type SelectionAction,
@@ -391,10 +391,10 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
             <ActivityIndicator color={COLORS.primary} />
           </View>
         ) : (
-          <SectionList
+          <SheetSectionList
+            inSheet={inSheet}
             sections={sections}
             keyExtractor={(c) => c.id}
-            nestedScrollEnabled={inSheet}
             stickySectionHeadersEnabled={false}
             contentContainerStyle={{
               padding: 16,

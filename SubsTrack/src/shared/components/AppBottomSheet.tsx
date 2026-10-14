@@ -23,6 +23,7 @@ import {
   sheetHeightRatio,
   type AppBottomSheetProps,
 } from "@/src/shared/lib/sheetLayout";
+import { SheetScrollContext } from "@/src/shared/lib/sheetScrollContext";
 import { SheetContextReset } from "./SheetContextReset";
 
 const MATERIAL_SHEET_MAX_WIDTH = 640;
@@ -46,10 +47,14 @@ export function AppBottomSheet({
   const hiddenByUserRef = useRef(false);
   const [mounted, setMounted] = useState(visible);
   const [lastVisible, setLastVisible] = useState(visible);
+  const [gesturesEnabled, setGesturesEnabled] = useState(true);
 
   if (visible !== lastVisible) {
     setLastVisible(visible);
-    if (visible) setMounted(true);
+    if (visible) {
+      setMounted(true);
+      setGesturesEnabled(true);
+    }
   }
 
   useEffect(() => {
@@ -100,7 +105,11 @@ export function AppBottomSheet({
 
   const ratio = sheetHeightRatio(variant, scrollable);
   const body = (
-    <SheetContextReset>{sheetBody(children, guardedDismiss)}</SheetContextReset>
+    <SheetContextReset>
+      <SheetScrollContext.Provider value={setGesturesEnabled}>
+        {sheetBody(children, guardedDismiss)}
+      </SheetScrollContext.Provider>
+    </SheetContextReset>
   );
 
   return (
@@ -114,6 +123,7 @@ export function AppBottomSheet({
         onDismissRequest={handleDismissRequest}
         skipPartiallyExpanded
         containerColor={COLORS.white}
+        sheetGesturesEnabled={gesturesEnabled}
         properties={{
           shouldDismissOnBackPress: true,
           shouldDismissOnClickOutside: dismissOnBackdropPress,

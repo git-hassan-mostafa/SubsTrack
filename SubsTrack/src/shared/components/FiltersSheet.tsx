@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
-import { ScrollView, View, useWindowDimensions } from "react-native";
+import { View, useWindowDimensions } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
+import { SheetScrollView } from "./SheetScrollComponents";
 import { PressableOpacity } from "./PressableOpacity";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
 import { BranchFilterCard } from "./BranchFilterCard";
@@ -41,8 +42,7 @@ export function FiltersSheet({ visible, onDismiss, showBranch, filters }: Props)
         </PressableOpacity>
       </View>
 
-      <ScrollView
-        nestedScrollEnabled
+      <SheetScrollView
         keyboardShouldPersistTaps="handled"
         style={{ maxHeight: Math.round(height * BODY_MAX_HEIGHT_RATIO) }}
         contentContainerStyle={{ padding: 16, gap: 20 }}
@@ -61,7 +61,7 @@ export function FiltersSheet({ visible, onDismiss, showBranch, filters }: Props)
             {filters.children}
           </View>
         ) : null}
-      </ScrollView>
+      </SheetScrollView>
 
       {filters ? (
         <View className="px-4 pt-2 pb-4 border-t border-gray-100">

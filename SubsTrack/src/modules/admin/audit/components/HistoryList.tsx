@@ -1,7 +1,6 @@
 import { useMemo, useState, type ReactElement } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   RefreshControl,
   View,
 } from "react-native";
@@ -13,6 +12,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { Text } from "@/src/shared/components/Text";
 import { useAuditLookups } from "@shared/modules/admin/audit/hooks/useAuditLookups";
+import { SheetFlatList } from "@/src/shared/components/SheetScrollComponents";
 import type { AuditContextBase } from "@shared/modules/admin/audit/utils/valueDisplay";
 import { AuditEntryCard } from "./AuditEntryCard";
 import { AuditEntrySheet } from "./AuditEntrySheet";
@@ -66,10 +66,10 @@ export function HistoryList({
           <ActivityIndicator color={COLORS.primary} />
         </View>
       ) : (
-        <FlatList
+        <SheetFlatList
+          inSheet={inSheet}
           data={entries}
           keyExtractor={(e) => e.id}
-          nestedScrollEnabled={inSheet}
           renderItem={({ item }) => (
             <AuditEntryCard
               entry={item}

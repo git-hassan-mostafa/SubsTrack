@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { FlatList, View } from "react-native";
+import { View } from "react-native";
+import { SheetFlatList } from "./SheetScrollComponents";
 import { PressableOpacity } from "./PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
@@ -272,11 +273,10 @@ export function DropdownModal<T extends string | number | null = string>({
         </View>
       )}
 
-      <FlatList
+      <SheetFlatList
         data={listItems}
         keyExtractor={(item) => String(item.value ?? "__null__")}
         style={{ maxHeight: 360 }}
-        nestedScrollEnabled
         keyboardShouldPersistTaps="always"
         renderItem={({ item }) => {
           const isSelected = item.isNull

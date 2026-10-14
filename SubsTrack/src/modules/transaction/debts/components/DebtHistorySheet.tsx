@@ -1,8 +1,9 @@
 import { useEffect, useMemo } from "react";
-import { ActivityIndicator, FlatList, ScrollView, View } from "react-native";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
+import { SheetFlatList } from "@/src/shared/components/SheetScrollComponents";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -223,9 +224,8 @@ export function DebtHistorySheet({
               </View>
             ) : null}
 
-            <FlatList
+            <SheetFlatList
               data={items}
-              nestedScrollEnabled
               keyExtractor={keyOf}
               contentContainerStyle={{
                 paddingHorizontal: 24,

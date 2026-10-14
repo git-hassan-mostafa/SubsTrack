@@ -16,6 +16,7 @@ import { Text } from "./Text";
 import { ActionMenu, type ActionMenuItem } from "./ActionMenu";
 import { COLORS } from "@/src/shared/constants";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
+import { SheetScrollView } from "./SheetScrollComponents";
 
 /** Scrolls the sheet body to a content offset; `0` is the top of the form. */
 export type SheetScrollTo = (y: number) => void;
@@ -165,10 +166,9 @@ function FormSheetBody({
         </View>
       </View>
 
-      <ScrollView
+      <SheetScrollView
         ref={bodyRef}
         style={{ flex: 1 }}
-        nestedScrollEnabled
         automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="always"
         contentContainerStyle={{
@@ -178,7 +178,7 @@ function FormSheetBody({
         }}
       >
         {bodyReady ? children : null}
-      </ScrollView>
+      </SheetScrollView>
 
       {openActions.length > 0 ? (
         <ActionMenu

@@ -5,6 +5,7 @@ import Drawer from "@mui/material/Drawer";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { useMoneyTablesFreshness } from "@/state/useMoneyTablesFreshness";
+import { useNavigationBlocker } from "@/shared/hooks/useNavigationBlocker";
 import { AppHeader } from "./AppHeader";
 import { QuickActionDialogs } from "./QuickActionDialogs";
 import { SideNav } from "./SideNav";
@@ -18,6 +19,7 @@ export function AppFrame() {
   const [navOpen, setNavOpen] = useState(false);
   const closeNav = () => setNavOpen(false);
   useMoneyTablesFreshness();
+  useNavigationBlocker();
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh" }}>

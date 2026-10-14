@@ -9,6 +9,7 @@ import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import type { QuotaErrorPayload } from "@shared/modules/admin/billing/utils/types";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
+import { LEAVE_FORMS_NAVIGATION } from "@/shared/hooks/useNavigationBlocker";
 
 interface QuotaReachedDialogProps {
   payload: QuotaErrorPayload | null;
@@ -28,7 +29,7 @@ export function QuotaReachedDialog({ payload, onClose, onNavigate }: QuotaReache
   const goToSettings = () => {
     onClose();
     onNavigate?.();
-    void navigate("/admin/organization");
+    void navigate("/admin/organization", LEAVE_FORMS_NAVIGATION);
   };
 
   return (

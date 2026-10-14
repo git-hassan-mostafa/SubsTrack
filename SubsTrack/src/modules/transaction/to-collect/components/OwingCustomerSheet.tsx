@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
+import { SheetScrollView } from "@/src/shared/components/SheetScrollComponents";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
@@ -121,9 +122,8 @@ export function OwingCustomerSheet({
             </View>
           </View>
 
-          <ScrollView
+          <SheetScrollView
             style={{ flex: 1 }}
-            nestedScrollEnabled
             contentContainerStyle={{
               paddingHorizontal: 24,
               paddingTop: 16,
@@ -179,7 +179,7 @@ export function OwingCustomerSheet({
                 )}
               </>
             ) : null}
-          </ScrollView>
+          </SheetScrollView>
         </ResponsiveContainer>
       </AppBottomSheet>
 

@@ -1,8 +1,9 @@
 import { useEffect } from "react";
-import { FlatList, View } from "react-native";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
+import { SheetFlatList } from "@/src/shared/components/SheetScrollComponents";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
@@ -197,10 +198,9 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
             </PressableOpacity>
           </View>
 
-          <FlatList
+          <SheetFlatList
             data={visible}
             keyExtractor={(p) => p.id}
-            nestedScrollEnabled
             automaticallyAdjustKeyboardInsets
             keyboardShouldPersistTaps="always"
             contentContainerStyle={{
