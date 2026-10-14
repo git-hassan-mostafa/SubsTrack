@@ -2,12 +2,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Keyboard, useWindowDimensions } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
+  Box,
   Host,
   ModalBottomSheet,
   RNHostView,
   type ModalBottomSheetRef,
 } from "@expo/ui/jetpack-compose";
-import { fillMaxHeight } from "@expo/ui/jetpack-compose/modifiers";
+import {
+  background,
+  clip,
+  fillMaxHeight,
+  padding,
+  Shapes,
+  size,
+} from "@expo/ui/jetpack-compose/modifiers";
 import { useUnsavedChangesGuard } from "@shared/shared/hooks/useUnsavedChangesGuard";
 import { COLORS } from "@/src/shared/constants";
 import {
@@ -111,6 +119,16 @@ export function AppBottomSheet({
           shouldDismissOnClickOutside: dismissOnBackdropPress,
         }}
       >
+        <ModalBottomSheet.DragHandle>
+          <Box
+            modifiers={[
+              padding(0, 8, 0, 8),
+              size(32, 4),
+              clip(Shapes.RoundedCorner(2)),
+              background(COLORS.gray300),
+            ]}
+          />
+        </ModalBottomSheet.DragHandle>
         {ratio === null ? (
           <RNHostView matchContents={{ vertical: true }}>
             <GestureHandlerRootView style={{ width: sheetWidth }}>
