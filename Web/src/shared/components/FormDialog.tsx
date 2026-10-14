@@ -11,6 +11,8 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import CloseIcon from "@mui/icons-material/Close";
 import { useUnsavedChangesGuard } from "@shared/shared/hooks/useUnsavedChangesGuard";
+import { useBeforeUnload } from "@/shared/hooks/useBeforeUnload";
+import { useNavigationBlocker } from "@/shared/hooks/useNavigationBlocker";
 import { ErrorBanner } from "./ErrorBanner";
 
 interface FormDialogProps {
@@ -50,6 +52,9 @@ export function FormDialog({
   const [guardedClose] = useUnsavedChangesGuard(dirty, onClose);
   const titleId = useId();
   const contentRef = useRef<HTMLDivElement | null>(null);
+
+  useBeforeUnload(open && dirty);
+  useNavigationBlocker(open && dirty, onClose);
 
   useEffect(() => {
     if (error) contentRef.current?.scrollTo({ top: 0 });
