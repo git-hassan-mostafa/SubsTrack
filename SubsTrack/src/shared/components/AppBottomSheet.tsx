@@ -17,6 +17,8 @@ import {
 } from "@/src/shared/lib/sheetLayout";
 import { SheetContextReset } from "./SheetContextReset";
 
+const MATERIAL_SHEET_MAX_WIDTH = 640;
+
 function ignore() {}
 
 // the app's only bottom sheet, Material 3 on Android — see gotcha #45
@@ -30,6 +32,7 @@ export function AppBottomSheet({
   dismissOnBackdropPress = true,
 }: AppBottomSheetProps) {
   const { width } = useWindowDimensions();
+  const sheetWidth = Math.min(width, MATERIAL_SHEET_MAX_WIDTH);
   const sheetRef = useRef<ModalBottomSheetRef>(null);
   const visibleRef = useRef(visible);
   const hiddenByUserRef = useRef(false);
@@ -110,7 +113,7 @@ export function AppBottomSheet({
       >
         {ratio === null ? (
           <RNHostView matchContents={{ vertical: true }}>
-            <GestureHandlerRootView style={styles.hug}>
+            <GestureHandlerRootView style={{ width: sheetWidth }}>
               {body}
             </GestureHandlerRootView>
           </RNHostView>
@@ -127,6 +130,5 @@ export function AppBottomSheet({
 }
 
 const styles = {
-  hug: { alignSelf: "stretch" },
   fill: { flex: 1 },
 } as const;
