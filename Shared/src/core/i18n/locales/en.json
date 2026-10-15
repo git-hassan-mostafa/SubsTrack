@@ -342,7 +342,12 @@
     "bundle_price_label": "Bundle Price",
     "bundle_price_hint": "Total price for all months in this block",
     "bulk_delete_title": "Delete {{count}} plans",
-    "bulk_delete_message": "Delete {{count}} selected plan(s)? Customers assigned to them will have their plan removed."
+    "bulk_delete_message": "Delete {{count}} selected plan(s)? Customers assigned to them will have their plan removed.",
+    "price_history_title": "Price History",
+    "price_history_initial": "Initial price (from creation)",
+    "price_history_starts_from": "Starts from {{month}}",
+    "price_effective_from": "Price starts from",
+    "current_price_badge": "Current"
   },
   "users": {
     "title": "Staff",
@@ -757,6 +762,8 @@
     "plan_locked_paid": "This plan already has payments recorded, so it can no longer be changed to another plan. Add a new plan instead.",
     "custom_price_positive": "Special price must be greater than 0",
     "price_start_month": "The new price can start this month or an earlier month, not a future one.",
+    "price_change_not_found": "Price change record not found.",
+    "price_change_not_editable": "Only the newest price change can move its start month.",
     "product_name_required": "Product name is required",
     "product_price_required": "Price is required",
     "product_price_positive": "Price must be greater than 0",
@@ -1340,6 +1347,7 @@
       "start_date": "Start date",
       "cancelled_at": "Cancelled",
       "billing_month": "Month",
+      "from_month": "Starts from",
       "amount_due": "Amount due",
       "amount_paid": "Amount paid",
       "duration_months": "Months covered",

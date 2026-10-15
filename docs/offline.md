@@ -109,7 +109,7 @@ Client-generated ids (`newId()`) → push upsert-by-id idempotent. **Determinist
 |4|`charges`, `skipped_months`, `line_price_changes`, `sale_items`, `stock_movements`|
 |5|`collection_items`|
 
-**Price changes** (`plan_price_changes` / `line_price_changes`, gotcha #185): append-only, upsert on `id`; the `from_month NULL` row has a deterministic id → two devices' first edits converge; `OfflinePriceHistoryRepository` writes it insert-if-absent + the new row in ONE transaction.
+**Price changes** (`plan_price_changes` / `line_price_changes`, gotcha #185): rows are added, upsert on `id`; only the newest change's `from_month` can be moved, via history Edit; the `from_month NULL` row has a deterministic id → two devices' first edits converge; `OfflinePriceHistoryRepository` writes it insert-if-absent + the new row in ONE transaction.
 
 **`SYNC_TABLES` derived from `PUSH_WAVES`** (`.flat()`) — two lists would let a table be silently never pushed/pulled. One list; a table must sit below every table it references.
 

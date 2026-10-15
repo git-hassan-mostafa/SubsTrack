@@ -8,12 +8,14 @@ export interface IPriceHistoryRepository {
   findPlanChanges(planIds: string[]): Promise<DbPlanPriceChange[]>;
   findLineChanges(customerPlanIds: string[]): Promise<DbLinePriceChange[]>;
   // `first` is written only when absent; `change` is always appended.
-  addPlanChange(
-    first: PlanPriceChangePayload,
-    change: PlanPriceChangePayload,
-  ): Promise<void>;
   addLineChange(
     first: LinePriceChangePayload,
     change: LinePriceChangePayload,
   ): Promise<void>;
+  updatePlanChangeFromMonth(
+    id: string,
+    planId: string,
+    fromMonth: string,
+    oldFromMonth: string | null,
+  ): Promise<DbPlanPriceChange>;
 }

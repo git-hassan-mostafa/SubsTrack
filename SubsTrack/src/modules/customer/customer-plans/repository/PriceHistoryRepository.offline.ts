@@ -1,10 +1,11 @@
+import i18n from "@shared/core/i18n";
 import type { DbLinePriceChange, DbPlanPriceChange } from "@shared/core/types/db";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
-import { insertDirty } from "@/src/core/offline/db/dml";
+import { insertDirty, updateDirty } from "@/src/core/offline/db/dml";
+import { nowIso } from "@shared/core/utils/ids";
 import type {
   IPriceHistoryRepository,
   LinePriceChangePayload,
-  PlanPriceChangePayload,
 } from "@shared/modules/customer/customer-plans/repository/IPriceHistoryRepository";
 
 type ChangeTable = "plan_price_changes" | "line_price_changes";
@@ -25,18 +26,48 @@ export class OfflinePriceHistoryRepository
     );
   }
 
-  addPlanChange(
-    first: PlanPriceChangePayload,
-    change: PlanPriceChangePayload,
-  ): Promise<void> {
-    return this.append("plan_price_changes", first, change);
-  }
-
   addLineChange(
     first: LinePriceChangePayload,
     change: LinePriceChangePayload,
   ): Promise<void> {
     return this.append("line_price_changes", first, change);
+  }
+
+  async updatePlanChangeFromMonth(
+    id: string,
+    planId: string,
+    fromMonth: string,
+    oldFromMonth: string | null,
+  ): Promise<DbPlanPriceChange> {
+    return this.write(async (db) => {
+      const plan = await db.getFirstAsync<{
+        name: string;
+        branch_id: string | null;
+      }>("SELECT name, branch_id FROM plans WHERE id = ?", [planId]);
+      const row = await db.getFirstAsync<{ id: string }>(
+        "SELECT id FROM plan_price_changes WHERE id = ? AND plan_id = ?",
+        [id, planId],
+      );
+      if (!row) throw new Error(i18n.t("errors.price_change_not_found"));
+      await updateDirty(db, "plan_price_changes", id, {
+        from_month: fromMonth,
+        updated_at: nowIso(),
+      });
+      const updated = this.decodeOne<DbPlanPriceChange>(
+        "plan_price_changes",
+        await this.first("SELECT * FROM plan_price_changes WHERE id = ?", [id]),
+      );
+      if (!updated) throw new Error(i18n.t("errors.price_change_not_found"));
+      await this.auditIn(db, {
+        table: "plans",
+        recordId: planId,
+        action: "update",
+        before: { from_month: oldFromMonth, name: plan?.name ?? null },
+        after: { from_month: fromMonth, name: plan?.name ?? null },
+        branchId: plan?.branch_id ?? null,
+      });
+      return updated;
+    });
   }
 
   private async readChanges<R>(
@@ -54,8 +85,8 @@ export class OfflinePriceHistoryRepository
 
   private async append(
     table: ChangeTable,
-    first: PlanPriceChangePayload | LinePriceChangePayload,
-    change: PlanPriceChangePayload | LinePriceChangePayload,
+    first: LinePriceChangePayload,
+    change: LinePriceChangePayload,
   ): Promise<void> {
     await this.write(async (db) => {
       const kept = await db.getFirstAsync<{ id: string }>(

@@ -8,9 +8,11 @@ import Typography from "@mui/material/Typography";
 import type { Plan } from "@shared/core/types";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
+import { usePlanPriceHistory } from "@shared/modules/admin/plans/hooks/usePlanPriceHistory";
 import {
   canSavePlan,
   isMultiMonthPlan,
+  isPlanFormDirty,
   MAX_PLAN_DURATION,
   planDraftOf,
   planInput,
@@ -31,6 +33,7 @@ import { CurrencyInput } from "@/shared/components/CurrencyInput";
 import { FormDialog } from "@/shared/components/FormDialog";
 import { PriceStartField } from "@/shared/components/PriceStartField";
 import { markCustomersTableStale } from "@/state/customersTable";
+import { PlanPriceHistory } from "./PlanPriceHistory";
 
 const DURATIONS = Array.from({ length: MAX_PLAN_DURATION }, (_, i) => i + 1);
 
@@ -49,13 +52,17 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
   const clearError = usePlanSlice((s) => s.clearError);
   const currencies = useCurrencySlice((s) => s.items);
   const activeBranches = useActiveBranches();
+
+  const historyState = usePlanPriceHistory(plan?.id, markCustomersTableStale);
+
   const [form, setForm] = useState(() =>
     planDraftOf(plan, defaultNewBranchId(user, activeBranches)),
   );
-  const [priceFrom, setPriceFrom] = useState(currentBillingMonth);
+  const [customPriceFrom, setCustomPriceFrom] = useState<string | null>(null);
   const dirty = useDirtyForm(form, ["currencyId"]);
   const isMultiMonth = isMultiMonthPlan(form);
   const priceChanged = plan ? planPriceChanged(plan, planInput(form)) : false;
+  const priceFrom = customPriceFrom ?? currentBillingMonth();
 
   useEffect(() => {
     clearError();
@@ -71,6 +78,8 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
     setForm((prev) => withPlanDuration(prev, months));
     if (error) clearError();
   };
+
+  const isDirty = isPlanFormDirty(dirty, priceChanged, customPriceFrom);
 
   const submit = async () => {
     if (!user || !canSavePlan(form)) return;
@@ -89,7 +98,7 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
       title={plan ? t("plans.edit_title") : t("web.plans.add")}
       onClose={onClose}
       onSubmit={submit}
-      dirty={dirty}
+      dirty={isDirty}
       error={error}
       onDismissError={clearError}
       submitLabel={plan ? t("common.save_changes") : t("web.plans.add")}
@@ -153,7 +162,19 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
           required
         />
       )}
-      {priceChanged ? <PriceStartField value={priceFrom} onChange={setPriceFrom} /> : null}
+      {priceChanged ? (
+        <PriceStartField
+          value={priceFrom}
+          onChange={(month) => setCustomPriceFrom(month)}
+        />
+      ) : null}
+      {plan ? (
+        <PlanPriceHistory
+          plan={plan}
+          currencies={currencies}
+          {...historyState}
+        />
+      ) : null}
     </FormDialog>
   );
 }

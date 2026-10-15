@@ -1,6 +1,8 @@
 import type { StateCreator } from "zustand";
-import type { Plan } from "@shared/core/types";
+import type { Plan, PlanPriceChange } from "@shared/core/types";
 import planService from "@shared/modules/admin/plans/services/PlanService";
+import { priceHistoryService } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
+import { planPriceChanged } from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import type { PlanInput } from "@shared/modules/admin/plans/utils/types";
 import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
 import type { GlobalState } from "@shared/state/globalStore";
@@ -14,7 +16,16 @@ export interface PlanSlice {
   getPlans: () => Promise<void>;
   fetchPlans: () => Promise<void>;
   createPlan: (data: PlanInput, tenantId: string) => Promise<Plan | null>;
-  updatePlan: (previous: Plan, data: PlanInput, priceFrom?: string) => Promise<Plan | null>;
+  updatePlan: (
+    previous: Plan,
+    data: PlanInput,
+    priceFrom?: string,
+  ) => Promise<Plan | null>;
+  updatePriceStartFrom: (
+    changeId: string,
+    planId: string,
+    fromMonth: string,
+  ) => Promise<PlanPriceChange | null>;
   deletePlan: (id: string) => Promise<boolean>;
   bulkDeletePlans: (ids: string[]) => Promise<boolean>;
   clearError: () => void;
@@ -89,12 +100,19 @@ export const createPlanSlice: StateCreator<
       state.plans.error = null;
     });
     try {
-      const updated = await planService.updatePlan(previous, data, priceFrom);
+      const updated = await planService.updatePlan(
+        previous,
+        data,
+        priceFrom,
+      );
       set((state) => {
         const i = state.plans.items.findIndex((p) => p.id === previous.id);
         if (i !== -1) state.plans.items[i] = updated;
         state.plans.loading = false;
       });
+      if (planPriceChanged(previous, data)) {
+        get().ledger.markOwedChanged();
+      }
       return updated;
     } catch (e) {
       set((state) => {
@@ -103,6 +121,16 @@ export const createPlanSlice: StateCreator<
       });
       return null;
     }
+  },
+
+  updatePriceStartFrom: async (changeId, planId, fromMonth) => {
+    const updated = await priceHistoryService.updatePlanChangeFromMonth(
+      changeId,
+      planId,
+      fromMonth,
+    );
+    get().ledger.markOwedChanged();
+    return updated;
   },
 
   deletePlan: async (id) => {

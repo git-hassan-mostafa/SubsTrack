@@ -350,7 +350,12 @@
     "bundle_price_hint": "السعر الإجمالي لجميع أشهر هذه الباقة",
     "bulk_delete_title": "حذف {{count}} خطط",
     "bulk_delete_message": "حذف {{count}} من الخطط المحددة؟ سيتم إزالة الخطة من العملاء المرتبطين بها.",
-    "create_first_plan": "+ أضف أول خطة"
+    "create_first_plan": "+ أضف أول خطة",
+    "price_history_title": "سجل الأسعار",
+    "price_history_initial": "السعر المبدئي (من البداية)",
+    "price_history_starts_from": "يبدأ من {{month}}",
+    "price_effective_from": "السعر يبدأ من",
+    "current_price_badge": "الحالي"
   },
   "users": {
     "title": "الموظفون",
@@ -765,6 +770,8 @@
     "plan_locked_paid": "هذه الخطة لديها دفعات مسجّلة، لذلك لا يمكن تغييرها إلى خطة أخرى. أضف خطة جديدة بدلاً من ذلك.",
     "custom_price_positive": "يجب أن يكون السعر الخاص أكبر من 0",
     "price_start_month": "يمكن أن يبدأ السعر الجديد هذا الشهر أو شهراً سابقاً، وليس شهراً قادماً.",
+    "price_change_not_found": "سجل تغيير السعر غير موجود.",
+    "price_change_not_editable": "يمكن تعديل شهر بداية أحدث تغيير للسعر فقط.",
     "product_name_required": "اسم المنتج مطلوب",
     "product_price_required": "السعر مطلوب",
     "product_price_positive": "السعر يجب أن يكون أكبر من 0",
@@ -1372,6 +1379,7 @@
       "start_date": "تاريخ البدء",
       "cancelled_at": "تاريخ الإلغاء",
       "billing_month": "الشهر",
+      "from_month": "يبدأ من",
       "amount_due": "المبلغ المستحق",
       "amount_paid": "المبلغ المدفوع",
       "duration_months": "عدد الأشهر",

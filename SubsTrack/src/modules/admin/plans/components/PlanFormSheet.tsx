@@ -12,6 +12,7 @@ import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import { PriceStartPicker } from "@/src/shared/components/PriceStartPicker";
 import type { Plan } from "@shared/core/types";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
+import { usePlanPriceHistory } from "@shared/modules/admin/plans/hooks/usePlanPriceHistory";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { planDurationLabel } from "@shared/modules/admin/plans/utils/planLabels";
@@ -22,6 +23,7 @@ import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import {
   canSavePlan,
   isMultiMonthPlan,
+  isPlanFormDirty,
   planDraftOf,
   planInput,
   withPlanDuration,
@@ -30,6 +32,7 @@ import {
   currentBillingMonth,
   planPriceChanged,
 } from "@shared/modules/customer/customer-plans/utils/priceHistory";
+import { PlanPriceHistorySection } from "./PlanPriceHistorySection";
 
 interface Props {
   plan?: Plan | null;
@@ -50,12 +53,13 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
   const currencies = useCurrencySlice((s) => s.items);
   const activeBranches = useActiveBranches();
 
+  const historyState = usePlanPriceHistory(plan?.id);
 
   const [form, setForm] = useState(() =>
     planDraftOf(plan ?? null, defaultNewBranchId(user, activeBranches)),
   );
 
-  const [priceFrom, setPriceFrom] = useState(currentBillingMonth);
+  const [customPriceFrom, setCustomPriceFrom] = useState<string | null>(null);
   const dirty = useDirtyForm(form, ["currencyId"]);
 
   useEffect(() => {
@@ -64,6 +68,8 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
 
   const isMultiMonth = isMultiMonthPlan(form);
   const priceChanged = plan ? planPriceChanged(plan, planInput(form)) : false;
+  const priceFrom = customPriceFrom ?? currentBillingMonth();
+  const isDirty = isPlanFormDirty(dirty, priceChanged, customPriceFrom);
 
   function setDuration(months: number) {
     setForm((prev) => withPlanDuration(prev, months));
@@ -83,10 +89,12 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
   return (
     <FormSheet
       onDismiss={onDismiss}
-      dirty={dirty}
+      dirty={isDirty}
       title={plan ? t("plans.edit_title") : t("plans.add_title")}
     >
-      {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+      {error ? (
+        <ErrorBanner message={error} onDismiss={clearError} />
+      ) : null}
 
       <Input
         label={t("plans.plan_name_label") + " *"}
@@ -190,11 +198,14 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
       ) : null}
 
       {priceChanged ? (
-        <PriceStartPicker value={priceFrom} onChange={setPriceFrom} />
+        <PriceStartPicker
+          value={priceFrom}
+          onChange={(v) => setCustomPriceFrom(v)}
+        />
       ) : null}
 
       {!isMultiMonth ? (
-        <View className="flex-row items-center justify-between py-4 border border-gray-100 rounded-xl px-4 mb-6">
+        <View className="flex-row items-center justify-between py-4 border border-gray-100 rounded-xl px-4 mb-4">
           <View>
             <Text fontWeight="SemiBold" className="text-sm text-gray-900">
               {t("plans.custom_pricing_label")}
@@ -212,8 +223,16 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
           />
         </View>
       ) : (
-        <View className="mb-6" />
+        <View className="mb-4" />
       )}
+
+      {plan ? (
+        <PlanPriceHistorySection
+          plan={plan}
+          currencies={currencies}
+          {...historyState}
+        />
+      ) : null}
 
       <Button
         label={plan ? t("common.save_changes") : t("plans.add_title")}

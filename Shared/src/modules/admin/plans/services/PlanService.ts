@@ -6,6 +6,7 @@ import { mapDbPlanToPlan } from "@shared/modules/admin/plans/utils/mapper";
 import { priceHistoryService } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
 import {
   currentBillingMonth,
+  isPriceStartMonth,
   planPriceChanged,
 } from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import type {
@@ -42,25 +43,42 @@ class PlanService {
     }
   }
 
-  // `priceFrom` = first month the new price applies to — gotcha #185.
+  // priceFrom is the first month the new price applies to — gotcha #185.
   async updatePlan(
     previous: Plan,
     data: PlanInput,
     priceFrom: string = currentBillingMonth(),
   ): Promise<Plan> {
-    this.validate(data);
+    const priceChanged = planPriceChanged(previous, data);
+    this.validate(data, priceFrom, priceChanged);
+    const payload = {
+      name: data.name.trim(),
+      price: data.isCustomPrice ? null : data.price,
+      is_custom_price: data.isCustomPrice,
+      duration_months: data.durationMonths,
+      currency_id: data.isCustomPrice ? null : data.currencyId,
+      branch_id: data.branchId,
+    };
     try {
-      if (planPriceChanged(previous, data)) {
-        await priceHistoryService.recordPlanChange(previous, data, priceFrom);
+      if (priceChanged) {
+        const { first, change } = await priceHistoryService.planChangePayloads(
+          previous,
+          data,
+          priceFrom,
+        );
+        const row = await repositories().plan.updateWithPriceChange(
+          previous.id,
+          payload,
+          first,
+          {
+            id: change.id,
+            from_month: change.from_month,
+            created_at: change.created_at,
+          },
+        );
+        return mapDbPlanToPlan(row);
       }
-      const row = await repositories().plan.update(previous.id, {
-        name: data.name.trim(),
-        price: data.isCustomPrice ? null : data.price,
-        is_custom_price: data.isCustomPrice,
-        duration_months: data.durationMonths,
-        currency_id: data.isCustomPrice ? null : data.currencyId,
-        branch_id: data.branchId,
-      });
+      const row = await repositories().plan.update(previous.id, payload);
       return mapDbPlanToPlan(row);
     } catch (err) {
       return this.rethrow(err);
@@ -75,7 +93,7 @@ class PlanService {
     await repositories().plan.deleteMany(ids);
   }
 
-  private validate(data: PlanInput): void {
+  private validate(data: PlanInput, priceFrom?: string, priceChanged = false): void {
     if (!data.name.trim()) throw new Error(i18n.t("errors.plan_name_required"));
     if (data.durationMonths < 1 || !Number.isInteger(data.durationMonths)) {
       throw new Error(i18n.t("errors.plan_duration_invalid"));
@@ -90,6 +108,9 @@ class PlanService {
         throw new Error(i18n.t("errors.plan_fixed_needs_price"));
       if (data.price <= 0)
         throw new Error(i18n.t("errors.plan_price_positive"));
+    }
+    if (priceChanged && (!priceFrom || !isPriceStartMonth(priceFrom))) {
+      throw new Error(i18n.t("errors.price_start_month"));
     }
   }
 

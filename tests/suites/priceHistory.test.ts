@@ -13,16 +13,24 @@ import {
 import { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
 import { earlierPriceNotes } from "@shared/modules/ledger/utils/earlierPriceNotes";
 import {
+  canEditPriceStart,
   EMPTY_PRICE_HISTORY,
   isEarlierPrice,
   linePriceAt,
   priceHistoryOf,
   priceStartMonths,
 } from "@shared/modules/customer/customer-plans/utils/priceHistory";
+import { isPlanFormDirty } from "@shared/modules/admin/plans/utils/planForm";
 import { mergeOwed } from "@shared/modules/ledger/utils/mergeOwed";
 import { openItemFromCharge } from "@shared/modules/ledger/utils/openItems";
 import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
-import { lineStore, priceStore } from "../helpers/fakePriceHistory";
+import { getStore } from "@shared/state/globalStore";
+import {
+  fakePlanRepository,
+  fakePriceHistoryRepository,
+  lineStore,
+  priceStore,
+} from "../helpers/fakePriceHistory";
 import { store } from "../helpers/fakeLedger";
 import { bill, customer, line, plan, LBP } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
@@ -299,9 +307,52 @@ describe("recording a price edit", () => {
   });
 
   it("TC-PH-14 a new price can never start in a future month", async () => {
+    const updateSpy = jest.spyOn(fakePlanRepository, "update");
+    const atomicSpy = jest.spyOn(fakePlanRepository, "updateWithPriceChange");
     await expect(planService.updatePlan(saved(), input(25), "2026-05-01")).rejects.toThrow();
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(atomicSpy).not.toHaveBeenCalled();
     expect(priceStore.plans).toEqual([]);
     expect(priceStore.catalog[0].price).toBe(20);
+    updateSpy.mockRestore();
+    atomicSpy.mockRestore();
+  });
+
+  it("TC-PH-14b atomic update throws -> neither plan nor price changes are saved", async () => {
+    const spy = jest
+      .spyOn(fakePlanRepository, "updateWithPriceChange")
+      .mockRejectedValueOnce(new Error("atomic save failed"));
+
+    await expect(
+      planService.updatePlan(saved(), input(25), "2026-03-01"),
+    ).rejects.toThrow("atomic save failed");
+
+    expect(priceStore.catalog[0].price).toBe(20);
+    expect(priceStore.plans).toEqual([]);
+    spy.mockRestore();
+  });
+
+  it("TC-PH-14c duplicate plan name throws -> neither plan nor price changes are saved", async () => {
+    const p1 = saved();
+    priceStore.catalog.push({
+      id: "p2",
+      name: "Fiber",
+      price: 50,
+      is_custom_price: false,
+      duration_months: 1,
+      currency_id: null,
+      branch_id: null,
+      tenant_id: "t1",
+      created_at: "2026-01-01T00:00:00.000Z",
+    });
+
+    await expect(
+      planService.updatePlan(p1, { ...input(25), name: "Fiber" }, "2026-03-01"),
+    ).rejects.toThrow(i18n.t("errors.plan_name_exists"));
+
+    expect(priceStore.catalog[0].price).toBe(20);
+    expect(priceStore.catalog[0].name).toBe("Internet");
+    expect(priceStore.plans).toEqual([]);
   });
 
   it("TC-PH-18 getOwed (collect sheet, reminders, dashboard) reads the stored edits", async () => {
@@ -437,5 +488,162 @@ describe("the price-start picker", () => {
     expect(rowPriceChanged(initial, row({ customPrice: 0 }))).toBe(false);
     expect(rowPriceChanged([row({ status: "cancelled" })], row({ customPrice: 18 }))).toBe(false);
     expect(rowPriceChanged([], row({ key: "new-1", id: undefined, customPrice: 18 }))).toBe(false);
+  });
+
+  describe("updating plan price start month", () => {
+    const saved = () => {
+      priceStore.catalog = [
+        {
+          id: "p1",
+          name: "Internet",
+          price: 20,
+          is_custom_price: false,
+          duration_months: 1,
+          currency_id: null,
+          branch_id: null,
+          tenant_id: "t1",
+          created_at: "2026-01-01T00:00:00.000Z",
+        },
+      ];
+      return plan({ id: "p1", price: 20 });
+    };
+    const input = (price: number) => ({
+      name: "Internet",
+      isCustomPrice: false,
+      price,
+      durationMonths: 1,
+      currencyId: null,
+      branchId: null,
+    });
+
+    it("TC-PH-26 getForPlan returns the plan's stored changes", async () => {
+      priceStore.reset();
+      await planService.updatePlan(saved(), input(25), "2026-02-01");
+      const list = await priceHistoryService.getForPlan("p1");
+      expect(list).toHaveLength(2);
+      expect(list.map((r) => [r.fromMonth, r.price])).toEqual([
+        [null, 20],
+        ["2026-02-01", 25],
+      ]);
+    });
+
+    it("TC-PH-27 updatePlanChangeFromMonth updates the start month of a change", async () => {
+      priceStore.reset();
+      await planService.updatePlan(saved(), input(25), "2026-02-01");
+      const list = await priceHistoryService.getForPlan("p1");
+      const change = list.find((c) => c.fromMonth !== null)!;
+      const result = await priceHistoryService.updatePlanChangeFromMonth(change.id, "p1", "2026-01-01");
+      expect(result.fromMonth).toBe("2026-01-01");
+      const updated = await priceHistoryService.getForPlan("p1");
+      expect(updated.find((c) => c.id === change.id)?.fromMonth).toBe("2026-01-01");
+    });
+
+    it("TC-PH-28 moving an older (not newest) change is refused with no write", async () => {
+      priceStore.reset();
+      const first = await planService.updatePlan(saved(), input(25), "2026-01-01");
+      jest.advanceTimersByTime(60_000);
+      await planService.updatePlan(first, input(30), "2026-02-01");
+
+      const list = await priceHistoryService.getForPlan("p1");
+      const older = list.find((c) => c.fromMonth === "2026-01-01")!;
+      const spy = jest.spyOn(fakePriceHistoryRepository, "updatePlanChangeFromMonth");
+
+      await expect(
+        priceHistoryService.updatePlanChangeFromMonth(older.id, "p1", "2025-12-01"),
+      ).rejects.toThrow(i18n.t("errors.price_change_not_editable"));
+
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it("TC-PH-29 moving a start month backward extends the new price to earlier months", async () => {
+      priceStore.reset();
+      await planService.updatePlan(saved(), input(25), "2026-02-01");
+      const list = await priceHistoryService.getForPlan("p1");
+      const change = list.find((c) => c.fromMonth !== null)!;
+      const current = line({ ...L, plan: plan({ id: "p1", price: 25 }) });
+
+      const beforeUpdate = await priceHistoryService.getForLines([{ id: "line-1", planId: "p1" }]);
+      expect(linePriceAt(current, "2026-01-01", beforeUpdate).amount).toBe(20);
+      expect(linePriceAt(current, "2026-02-01", beforeUpdate).amount).toBe(25);
+
+      await priceHistoryService.updatePlanChangeFromMonth(change.id, "p1", "2026-01-01");
+      const afterUpdate = await priceHistoryService.getForLines([{ id: "line-1", planId: "p1" }]);
+      expect(linePriceAt(current, "2026-01-01", afterUpdate).amount).toBe(25);
+    });
+
+    it("TC-PH-30 a month not allowed by isPriceStartMonth is refused with no write", async () => {
+      priceStore.reset();
+      await planService.updatePlan(saved(), input(25), "2026-02-01");
+      const list = await priceHistoryService.getForPlan("p1");
+      const change = list.find((c) => c.fromMonth !== null)!;
+      const spy = jest.spyOn(fakePriceHistoryRepository, "updatePlanChangeFromMonth");
+
+      await expect(
+        priceHistoryService.updatePlanChangeFromMonth(change.id, "p1", "2026-05-01"),
+      ).rejects.toThrow(i18n.t("errors.price_start_month"));
+
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it("TC-PH-31 an unchanged month performs no write", async () => {
+      priceStore.reset();
+      await planService.updatePlan(saved(), input(25), "2026-02-01");
+      const list = await priceHistoryService.getForPlan("p1");
+      const change = list.find((c) => c.fromMonth !== null)!;
+      const spy = jest.spyOn(fakePriceHistoryRepository, "updatePlanChangeFromMonth");
+
+      await priceHistoryService.updatePlanChangeFromMonth(change.id, "p1", "2026-02-01");
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+    });
+
+    it("TC-PH-32 a change id from another plan matches 0 rows and errors", async () => {
+      priceStore.reset();
+      await planService.updatePlan(saved(), input(25), "2026-02-01");
+      const list = await priceHistoryService.getForPlan("p1");
+      const change = list.find((c) => c.fromMonth !== null)!;
+
+      await expect(
+        priceHistoryService.updatePlanChangeFromMonth(change.id, "p2", "2026-01-01"),
+      ).rejects.toThrow(i18n.t("errors.price_change_not_found"));
+    });
+
+    it("TC-PH-33 success on updatePriceStartFrom fires markOwedChanged and leaves slice error/loading untouched", async () => {
+      priceStore.reset();
+      await planService.updatePlan(saved(), input(25), "2026-02-01");
+      const list = await priceHistoryService.getForPlan("p1");
+      const change = list.find((c) => c.fromMonth !== null)!;
+      const v0 = getStore().getState().ledger.owedVersion;
+
+      const updated = await getStore().getState().plans.updatePriceStartFrom(change.id, "p1", "2026-01-01");
+      expect(updated?.fromMonth).toBe("2026-01-01");
+      expect(getStore().getState().ledger.owedVersion).toBe(v0 + 1);
+      expect(getStore().getState().plans.loading).toBe(false);
+      expect(getStore().getState().plans.error).toBeNull();
+    });
+  });
+
+  describe("canEditPriceStart", () => {
+    it("TC-PH-34 only the change with the latest created_at can be moved", () => {
+      const initial = { id: "c0", fromMonth: null, createdAt: "2026-01-01T00:00:00Z" };
+      const older = { id: "c1", fromMonth: "2026-02-01", createdAt: "2026-02-01T00:00:00Z" };
+      const newer = { id: "c2", fromMonth: "2026-03-01", createdAt: "2026-03-01T00:00:00Z" };
+      const all = [initial, older, newer];
+
+      expect(canEditPriceStart(initial, all)).toBe(false);
+      expect(canEditPriceStart(older, all)).toBe(false);
+      expect(canEditPriceStart(newer, all)).toBe(true);
+    });
+  });
+
+  describe("isPlanFormDirty", () => {
+    it("TC-PH-35 isPlanFormDirty marks dirty when price start month moves away from current", () => {
+      expect(isPlanFormDirty(false, false, null)).toBe(false);
+      expect(isPlanFormDirty(true, false, null)).toBe(true);
+      expect(isPlanFormDirty(false, true, "2026-01-01")).toBe(true);
+      expect(isPlanFormDirty(false, true, "2026-02-01")).toBe(false);
+    });
   });
 });

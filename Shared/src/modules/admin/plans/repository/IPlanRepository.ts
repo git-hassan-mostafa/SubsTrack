@@ -2,6 +2,7 @@ import type { BranchFilter } from "@shared/core/constants";
 import type { Page } from "@shared/core/types";
 import type { DbPlan } from "@shared/core/types/db";
 import type { PlanPageQuery } from "@shared/modules/admin/plans/utils/types";
+import type { PlanPriceChangePayload } from "@shared/modules/customer/customer-plans/repository/IPriceHistoryRepository";
 
 // Both the Supabase and the offline SQLite class implement this contract.
 export interface IPlanRepository {
@@ -21,6 +22,20 @@ export interface IPlanRepository {
         | "branch_id"
       >
     >,
+  ): Promise<DbPlan>;
+  updateWithPriceChange(
+    id: string,
+    payload: Pick<
+      DbPlan,
+      | "name"
+      | "price"
+      | "is_custom_price"
+      | "duration_months"
+      | "currency_id"
+      | "branch_id"
+    >,
+    firstChange: PlanPriceChangePayload,
+    nextChange: Pick<PlanPriceChangePayload, "id" | "from_month" | "created_at">,
   ): Promise<DbPlan>;
   delete(id: string): Promise<void>;
   deleteMany(ids: string[]): Promise<void>;

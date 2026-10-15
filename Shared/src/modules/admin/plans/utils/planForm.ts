@@ -1,5 +1,6 @@
 import type { Plan } from "@shared/core/types";
 import { isPositivePrice } from "@shared/core/utils/catalogItemDraft";
+import { currentBillingMonth } from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import type { PlanInput } from "@shared/modules/admin/plans/utils/types";
 
 export const MAX_PLAN_DURATION = 12;
@@ -41,4 +42,17 @@ export function planInput(draft: PlanDraft): PlanInput {
     price: draft.isCustomPrice ? null : draft.price,
     currencyId: draft.isCustomPrice ? null : draft.currencyId,
   };
+}
+
+export function isPlanFormDirty(
+  dirty: boolean,
+  priceChanged: boolean,
+  customPriceFrom: string | null,
+): boolean {
+  return (
+    dirty ||
+    (priceChanged &&
+      customPriceFrom !== null &&
+      customPriceFrom !== currentBillingMonth())
+  );
 }

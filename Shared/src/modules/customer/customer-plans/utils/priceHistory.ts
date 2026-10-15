@@ -29,7 +29,7 @@ export type LinePriceFields = Pick<CustomerPlan, "customPrice" | "customCurrency
 
 export type HistoricLine = PricedLine & Pick<CustomerPlan, "id">;
 
-type Dated = { id: string; fromMonth: string | null; createdAt: string };
+export type DatedPriceChange = { id: string; fromMonth: string | null; createdAt: string };
 
 export function priceHistoryOf(args: {
   planChanges: PlanPriceChange[];
@@ -41,12 +41,12 @@ export function priceHistoryOf(args: {
   };
 }
 
-function isLater(a: Dated, b: Dated): boolean {
+function isLater(a: DatedPriceChange, b: DatedPriceChange): boolean {
   return a.createdAt > b.createdAt || (a.createdAt === b.createdAt && a.id > b.id);
 }
 
 // The latest edit reaching `month`; none → the price before the first edit.
-function changeAt<T extends Dated>(
+export function changeAt<T extends DatedPriceChange>(
   changes: T[] | undefined,
   month: string,
 ): T | null {
@@ -59,6 +59,26 @@ function changeAt<T extends Dated>(
     }
   }
   return reaching ?? before;
+}
+
+export function sortPlanPriceHistory(history: PlanPriceChange[]): PlanPriceChange[] {
+  return [...history].sort((a, b) => {
+    if (a.fromMonth === null) return 1;
+    if (b.fromMonth === null) return -1;
+    if (a.createdAt === b.createdAt) return b.id.localeCompare(a.id);
+    return b.createdAt.localeCompare(a.createdAt);
+  });
+}
+
+// Only the newest price change can move its start month — gotcha #185.
+export function canEditPriceStart(
+  change: DatedPriceChange,
+  allChanges: DatedPriceChange[],
+): boolean {
+  if (change.fromMonth === null) return false;
+  return !allChanges.some(
+    (c) => c.fromMonth !== null && c.id !== change.id && isLater(c, change),
+  );
 }
 
 function planAt(plan: Plan, month: string, history: PriceHistory): Plan {

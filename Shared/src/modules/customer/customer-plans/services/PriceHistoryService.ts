@@ -1,6 +1,6 @@
 import i18n from "@shared/core/i18n";
 import { repositories } from "@shared/core/runtime/repositories";
-import type { CustomerPlan, Plan, PriceHistory } from "@shared/core/types";
+import type { CustomerPlan, Plan, PlanPriceChange, PriceHistory } from "@shared/core/types";
 import { inChunks } from "@shared/core/utils/chunk";
 import { deterministicId, newId, nowIso } from "@shared/core/utils/ids";
 import type {
@@ -13,6 +13,7 @@ import {
 } from "@shared/modules/customer/customer-plans/utils/mapper";
 import {
   EMPTY_PRICE_HISTORY,
+  canEditPriceStart,
   isPriceStartMonth,
   priceHistoryOf,
   type LinePriceFields,
@@ -65,13 +66,39 @@ class PriceHistoryService {
     });
   }
 
-  // Run BEFORE the plan row moves: a failed save then changes no month — #185.
-  async recordPlanChange(
+  async getForPlan(planId: string): Promise<PlanPriceChange[]> {
+    if (!planId) return [];
+    const rows = await repositories().priceHistory.findPlanChanges([planId]);
+    return rows.map(mapDbPlanPriceChange);
+  }
+
+  async updatePlanChangeFromMonth(
+    id: string,
+    planId: string,
+    fromMonth: string,
+  ): Promise<PlanPriceChange> {
+    const changes = await this.getForPlan(planId);
+    const match = changes.find((c) => c.id === id);
+    if (!match) throw new Error(i18n.t("errors.price_change_not_found"));
+    if (!canEditPriceStart(match, changes)) {
+      throw new Error(i18n.t("errors.price_change_not_editable"));
+    }
+    this.assertStartMonth(fromMonth);
+    if (match.fromMonth === fromMonth) return match;
+    const row = await repositories().priceHistory.updatePlanChangeFromMonth(
+      id,
+      planId,
+      fromMonth,
+      match.fromMonth,
+    );
+    return mapDbPlanPriceChange(row);
+  }
+
+  async planChangePayloads(
     previous: Plan,
     next: PlanPriceFields,
     fromMonth: string,
-  ): Promise<void> {
-    this.assertStartMonth(fromMonth);
+  ): Promise<{ first: PlanPriceChangePayload; change: PlanPriceChangePayload }> {
     const createdAt = nowIso();
     const row = (id: string, month: string | null, fields: PlanPriceFields): PlanPriceChangePayload => ({
       id,
@@ -81,10 +108,10 @@ class PriceHistoryService {
       ...planFields(fields),
       created_at: createdAt,
     });
-    await repositories().priceHistory.addPlanChange(
-      row(await deterministicId("plan-price", previous.id), null, previous),
-      row(newId(), fromMonth, next),
-    );
+    return {
+      first: row(await deterministicId("plan-price", previous.id), null, previous),
+      change: row(newId(), fromMonth, next),
+    };
   }
 
   async recordLineChange(

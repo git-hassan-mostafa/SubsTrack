@@ -19,6 +19,7 @@ What a month shows after money moves. A month is Paid as soon as **any** money r
 8. Customer owes Jan–Apr unpaid on a $20 plan; raise the plan to $25 starting from April → Jan–Mar still ask $20, April asks $25 — in the grid, the collect form, Collect money, the dashboard "Total to collect", WhatsApp reminders and the customer portal.
 9. Same customer; raise the plan to $25 starting from February → Jan asks $20, Feb–Apr ask $25.
 10. Change the plan price twice (first from March, then from February) → the second change wins for every month it reaches; January keeps the original price.
+10a. Move a price's start month → unpaid months from the new month show the new price; paid months keep their bill amount.
 11. Give one customer a special price of $18 from March (it was $15) → that customer's Feb asks $15, March asks $18; other customers on the plan do not change.
 11a. Remove that customer's special price starting from April → months before April still ask the special price; April onward asks the plan's price (and follows the plan's own price changes).
 12. Move a customer with no payments from plan A to plan B → every unpaid month, old ones too, asks plan B's price.

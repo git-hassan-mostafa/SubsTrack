@@ -2162,6 +2162,102 @@ $$;
 GRANT EXECUTE ON FUNCTION lower_allowances(INT, INT) TO authenticated;
 REVOKE EXECUTE ON FUNCTION lower_allowances(INT, INT) FROM anon;
 
+-- ============================================================
+-- UPDATE PLAN WITH PRICE HISTORY
+-- Atomic update of a plan row and its price history rows.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION update_plan_with_price_history(
+    p_plan_id UUID,
+    p_name TEXT,
+    p_price NUMERIC,
+    p_is_custom_price BOOLEAN,
+    p_duration_months INT,
+    p_currency_id UUID,
+    p_branch_id UUID,
+    p_initial_id UUID,
+    p_initial_price NUMERIC,
+    p_initial_currency_id UUID,
+    p_initial_duration_months INT,
+    p_initial_is_custom_price BOOLEAN,
+    p_initial_created_at TIMESTAMPTZ,
+    p_change_id UUID,
+    p_change_from_month DATE,
+    p_change_created_at TIMESTAMPTZ
+)
+RETURNS plans
+LANGUAGE plpgsql
+SECURITY INVOKER
+AS $$
+DECLARE
+    v_tenant_id UUID := current_tenant_id();
+    v_plan plans;
+BEGIN
+    IF v_tenant_id IS NULL THEN
+        RAISE EXCEPTION 'No tenant on this session';
+    END IF;
+
+    UPDATE plans
+    SET name = p_name,
+        price = p_price,
+        is_custom_price = p_is_custom_price,
+        duration_months = p_duration_months,
+        currency_id = p_currency_id,
+        branch_id = p_branch_id
+    WHERE id = p_plan_id
+      AND tenant_id = v_tenant_id
+    RETURNING * INTO v_plan;
+
+    IF v_plan.id IS NULL THEN
+        RAISE EXCEPTION 'Plan not found';
+    END IF;
+
+    IF p_initial_id IS NOT NULL THEN
+        INSERT INTO plan_price_changes (
+            id, tenant_id, plan_id, from_month, price, currency_id, duration_months, is_custom_price, created_at
+        ) VALUES (
+            p_initial_id,
+            v_tenant_id,
+            p_plan_id,
+            NULL,
+            p_initial_price,
+            p_initial_currency_id,
+            p_initial_duration_months,
+            p_initial_is_custom_price,
+            COALESCE(p_initial_created_at, NOW())
+        )
+        ON CONFLICT (id) DO NOTHING;
+    END IF;
+
+    INSERT INTO plan_price_changes (
+        id, tenant_id, plan_id, from_month, price, currency_id, duration_months, is_custom_price, created_at
+    ) VALUES (
+        p_change_id,
+        v_tenant_id,
+        p_plan_id,
+        p_change_from_month,
+        p_price,
+        p_currency_id,
+        p_duration_months,
+        p_is_custom_price,
+        COALESCE(p_change_created_at, NOW())
+    );
+
+    RETURN v_plan;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION update_plan_with_price_history(
+    UUID, TEXT, NUMERIC, BOOLEAN, INT, UUID, UUID,
+    UUID, NUMERIC, UUID, INT, BOOLEAN, TIMESTAMPTZ,
+    UUID, DATE, TIMESTAMPTZ
+) TO authenticated;
+REVOKE EXECUTE ON FUNCTION update_plan_with_price_history(
+    UUID, TEXT, NUMERIC, BOOLEAN, INT, UUID, UUID,
+    UUID, NUMERIC, UUID, INT, BOOLEAN, TIMESTAMPTZ,
+    UUID, DATE, TIMESTAMPTZ
+) FROM anon;
+
 -- Each customer's newest live hand-over (any kind) — the list's "last paid" fact.
 CREATE OR REPLACE FUNCTION customer_last_paid()
 RETURNS TABLE (customer_id UUID, last_paid_at TIMESTAMPTZ)
