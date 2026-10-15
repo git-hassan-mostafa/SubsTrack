@@ -8,7 +8,7 @@ import Typography from "@mui/material/Typography";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { ExpenseItem } from "@shared/core/types";
 import { formatMoney, snapshotCurrency } from "@shared/core/utils/currency";
-import { formatDate } from "@shared/core/utils/date";
+import { formatDateTime } from "@shared/core/utils/date";
 import { useExpensesList } from "@shared/modules/transaction/expenses/hooks/useExpensesList";
 import {
   EXPENSE_FILTER_CATEGORIES,
@@ -79,8 +79,14 @@ export function ExpensesPage() {
       {
         field: "date",
         headerName: t("expenses.date_label"),
-        width: 130,
-        valueGetter: (_value, row) => formatDate(row.date),
+        width: 160,
+        valueGetter: (_value, row) => formatDateTime(row.date),
+      },
+      {
+        field: "createdAt",
+        headerName: t("common.entered_at"),
+        width: 160,
+        valueGetter: (_value, row) => formatDateTime(row.createdAt),
       },
       {
         field: "label",

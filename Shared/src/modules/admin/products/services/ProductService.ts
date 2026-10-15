@@ -128,6 +128,7 @@ class ProductService {
     note: string | null = null,
     userId: string | null = null,
     cost: { unitCost: number | null; currency: Currency | null } | null = null,
+    occurredAt: string | null = null,
   ): Promise<number> {
     if (!Number.isInteger(quantity) || quantity <= 0) {
       throw new Error(i18n.t("errors.stock_delta_invalid"));
@@ -138,6 +139,7 @@ class ProductService {
         userId,
         unitCost: cost?.unitCost ?? null,
         currency: cost?.currency ?? null,
+        occurredAt: occurredAt ?? undefined,
       }),
     ]);
     const stock = await repositories().product.stockOnHand([productId]);
@@ -210,6 +212,7 @@ class ProductService {
     note: string | null = null,
     userId: string | null = null,
     currency: Currency | null = null,
+    occurredAt: string | null = null,
   ): Promise<Record<string, number>> {
     const valid = entries.filter(
       (e) => Number.isInteger(e.quantity) && e.quantity > 0,
@@ -223,6 +226,7 @@ class ProductService {
           userId,
           unitCost: e.unitCost ?? null,
           currency,
+          occurredAt: occurredAt ?? undefined,
         }),
       ),
     );

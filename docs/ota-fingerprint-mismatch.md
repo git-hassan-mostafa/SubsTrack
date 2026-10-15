@@ -54,7 +54,7 @@ npm ci
 npm run ota-fingerprint
 ```
 
-Step 5 must print the runtime shown for your build in Expo dashboard (currently `a01ebec361f1c698653eb2475cc83840eb49ef89` for android). Then publish normally:
+Step 5 must print the runtime shown for your build in Expo dashboard (currently `a01ebec361f1c698653eb2475cc83840eb49ef89` for android). Installed app shows its runtime fingerprint at the bottom of Settings (tap to copy) — must equal `npm run ota-fingerprint`. Then publish normally:
 
 ```bash
 npm run ota-preview      # or: npm run ota-prod

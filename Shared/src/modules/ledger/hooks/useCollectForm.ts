@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Currency, OpenItem } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { getNowDateTimeString } from "@shared/core/utils/date";
 import {
   poolGroups,
-  receivedAtIso,
   singleCollectPlan,
   singleGroups,
   type CollectSubmission,
@@ -21,6 +19,7 @@ import {
 import { earlierPriceNotes } from "@shared/modules/ledger/utils/earlierPriceNotes";
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
+import { usePickedInstant } from "@shared/shared/hooks/usePickedInstant";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 
@@ -91,8 +90,7 @@ export function useCollectForm(owed: OpenItem[], singleItem: OpenItem | null): C
   }, [groups]);
 
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(() => new Set());
-  const [receivedAt, setReceivedAt] = useState(getNowDateTimeString);
-  const [receivedAtPicked, setReceivedAtPicked] = useState(false);
+  const receivedAt = usePickedInstant();
   const [notes, setNotes] = useState("");
   const [openBill, setOpenBillValue] = useState<number | null>(null);
   const [singleCurrencyId, setSingleCurrencyId] = useState<string | null>(
@@ -102,7 +100,7 @@ export function useCollectForm(owed: OpenItem[], singleItem: OpenItem | null): C
     singleItem && !singleItem.openAmount ? singleItem.balance : null,
   );
 
-  const dirty = useDirtyForm({ amounts, singleAmount, openBill, receivedAt, notes });
+  const dirty = useDirtyForm({ amounts, singleAmount, openBill, receivedAt: receivedAt.picked, notes });
 
   const singleCurrency = findCurrency(currencies, singleCurrencyId);
   const singleRate = singleCurrency?.ratePerUsd ?? 1;
@@ -186,12 +184,8 @@ export function useCollectForm(owed: OpenItem[], singleItem: OpenItem | null): C
     pool,
     currencies,
     display,
-    receivedAt,
-    pickReceivedAt: (value) => {
-      if (value === receivedAt) return;
-      setReceivedAt(value);
-      setReceivedAtPicked(true);
-    },
+    receivedAt: receivedAt.value,
+    pickReceivedAt: receivedAt.pick,
     notes,
     setNotes,
     priceNotes: earlierPriceNotes(
@@ -203,7 +197,7 @@ export function useCollectForm(owed: OpenItem[], singleItem: OpenItem | null): C
     submission: () => {
       if (!canSubmit) return null;
       return {
-        receivedAt: receivedAtIso(receivedAt, receivedAtPicked),
+        receivedAt: receivedAt.toIso(),
         notes: notes.trim() || null,
         groups: singlePlan ? singleGroups(singlePlan, singleCurrencyId, singleRate) : poolGroups(funded),
       };

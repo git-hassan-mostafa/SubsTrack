@@ -81,6 +81,7 @@ function expense(over: Partial<ExpenseItem> = {}): ExpenseItem {
     currencyId: null,
     ratePerUsdSnapshot: 1,
     date: "2026-03-05T12:00:00.000Z",
+    createdAt: "2026-03-05T12:00:00.000Z",
     branchId: null,
     recordedByUserId: "u1",
     productId: null,

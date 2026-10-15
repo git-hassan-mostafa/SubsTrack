@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import type { Currency, ExpenseCategory } from "@shared/core/types";
-import { getTodayDateString } from "@shared/core/utils/date";
+import {
+  getNowDateTimeString,
+  getTodayDateString,
+} from "@shared/core/utils/date";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useExpenseStore } from "@shared/modules/transaction/expenses/state/expenseStore";
 import {
@@ -19,8 +22,8 @@ export interface ExpenseForm {
   setMoney: (next: { amount: number | null; currencyId: string | null }) => void;
   description: string;
   setDescription: (description: string) => void;
-  day: string;
-  setDay: (day: string) => void;
+  at: string;
+  pickAt: (at: string) => void;
   today: string;
   branchId: string | null;
   setBranchId: (branchId: string | null) => void;
@@ -43,8 +46,10 @@ export function useExpenseForm({ onSaved }: { onSaved: () => void }): ExpenseFor
   const clearError = useExpenseStore((s) => s.clearError);
 
   const [today] = useState(getTodayDateString);
-  const [draft, setDraft] = useState(() => expenseDraftOf(today, user));
-  const dirty = useDirtyForm({ ...draft }, ["currencyId"]);
+  const [draft, setDraft] = useState(() =>
+    expenseDraftOf(getNowDateTimeString(), user),
+  );
+  const dirty = useDirtyForm({ ...draft }, ["currencyId", "at"]);
 
   useEffect(() => {
     clearError();
@@ -71,8 +76,10 @@ export function useExpenseForm({ onSaved }: { onSaved: () => void }): ExpenseFor
     setMoney: (next) => patch(next),
     description: draft.description,
     setDescription: (description) => patch({ description }),
-    day: draft.day,
-    setDay: (day) => patch({ day }),
+    at: draft.at,
+    pickAt: (at) => {
+      if (at !== draft.at) patch({ at, atPicked: true });
+    },
     today,
     branchId: draft.branchId,
     setBranchId: (branchId) => patch({ branchId }),

@@ -1,7 +1,7 @@
+import { pickedInstantIso } from "@shared/core/utils/date";
 import {
   collectInputsFor,
   poolGroups,
-  receivedAtIso,
   singleCollectPlan,
   singleGroups,
 } from "@shared/modules/ledger/utils/collectForm";
@@ -168,14 +168,14 @@ describe("poolGroups + collectInputsFor", () => {
   });
 });
 
-describe("receivedAtIso", () => {
+describe("pickedInstantIso", () => {
   it("TC-CX-13 an untouched date field records the exact moment of saving", () => {
     const before = Date.now();
-    const iso = receivedAtIso("2020-01-01 09:00", false);
+    const iso = pickedInstantIso("2020-01-01 09:00", false);
     expect(new Date(iso).getTime()).toBeGreaterThanOrEqual(before);
   });
 
   it("TC-CX-14 a picked date and time is taken as local time", () => {
-    expect(receivedAtIso("2026-03-05 14:30", true)).toBe(new Date("2026-03-05T14:30:00").toISOString());
+    expect(pickedInstantIso("2026-03-05 14:30", true)).toBe(new Date("2026-03-05T14:30:00").toISOString());
   });
 });

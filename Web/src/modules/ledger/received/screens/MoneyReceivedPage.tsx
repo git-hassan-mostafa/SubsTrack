@@ -132,6 +132,12 @@ export function MoneyReceivedPage() {
         ),
       },
       {
+        field: "createdAt",
+        headerName: t("common.entered_at"),
+        width: 160,
+        valueGetter: (_value, row) => formatDateTime(row.createdAt),
+      },
+      {
         field: "customerName",
         headerName: t("web.money_received.customer"),
         flex: 1,

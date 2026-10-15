@@ -36,6 +36,7 @@ export interface StockCostRow {
   currencyId: string | null;
   ratePerUsdSnapshot: number;
   occurredAt: string;
+  createdAt: string;
   branchId: string | null;
   recordedByUserId: string | null;
 }

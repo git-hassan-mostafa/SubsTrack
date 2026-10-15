@@ -32,6 +32,7 @@ export interface ProductSlice {
     note?: string | null,
     userId?: string | null,
     cost?: StockCost | null,
+    occurredAt?: string | null,
   ) => Promise<number | null>;
   updateStockMovement: (
     movementId: string,
@@ -51,6 +52,7 @@ export interface ProductSlice {
     note?: string | null,
     userId?: string | null,
     currency?: Currency | null,
+    occurredAt?: string | null,
   ) => Promise<boolean>;
   deleteProduct: (id: string) => Promise<"hard" | "soft" | null>;
   bulkDeleteProducts: (ids: string[]) => Promise<boolean>;
@@ -173,6 +175,7 @@ export const createProductSlice: StateCreator<
       note = null,
       userId = null,
       cost = null,
+      occurredAt = null,
     ) => {
       startWrite();
       try {
@@ -183,6 +186,7 @@ export const createProductSlice: StateCreator<
           note,
           userId,
           cost,
+          occurredAt,
         );
         patchOnHand(id, onHand);
         return onHand;
@@ -228,6 +232,7 @@ export const createProductSlice: StateCreator<
       note = null,
       userId = null,
       currency = null,
+      occurredAt = null,
     ) => {
       if (entries.length === 0) return true;
       startWrite();
@@ -238,6 +243,7 @@ export const createProductSlice: StateCreator<
           note,
           userId,
           currency,
+          occurredAt,
         );
         set((state) => {
           for (const p of state.products.items) {

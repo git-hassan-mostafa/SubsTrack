@@ -125,6 +125,9 @@ export function CollectionCard({
           {collector ? `${collector} · ` : ""}
           {formatDateTime(item.receivedAt)}
         </CardMeta>
+        <CardMeta numberOfLines={1}>
+          {t("common.entered_on", { when: formatDateTime(item.createdAt) })}
+        </CardMeta>
 
         <CardChips>
           <Chip text={t(`ledger.kind_${item.kind}`)} tone={KIND_TONE[item.kind]} />

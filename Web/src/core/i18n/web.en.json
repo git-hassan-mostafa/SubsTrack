@@ -61,7 +61,7 @@
     "restock_several": "Restock several",
     "new_stock": "New stock",
     "pick_one": "Type a quantity for at least one product.",
-    "history_date": "Date",
+    "history_date": "Received on",
     "history_type": "Type",
     "history_by": "By"
   },

@@ -1,5 +1,7 @@
 {
   "common": {
+    "entered_at": "تاريخ الإدخال",
+    "entered_on": "أُدخل {{when}}",
     "cancel": "إلغاء",
     "save_changes": "حفظ التغييرات",
     "add": "+ إضافة",
@@ -869,6 +871,8 @@
     "initial_stock_label": "الكمية الأولية",
     "adjust_stock_title": "تعديل المخزون",
     "stock_quantity_label": "الكمية",
+    "sort_by_date": "تاريخ الاستلام",
+    "stock_date_label": "تاريخ الاستلام",
     "stock_note_label": "ملاحظة",
     "stock_note_placeholder": "مثل: شحنة جديدة، فاتورة 1234",
     "save_stock": "إضافة مخزون",

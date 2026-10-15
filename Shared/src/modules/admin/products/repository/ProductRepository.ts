@@ -236,7 +236,7 @@ export class ProductRepository
         this.db
           .from("stock_movements")
           .select(
-            "id, product_id, quantity_delta, unit_cost, currency_id, rate_per_usd_snapshot, occurred_at, recorded_by_user_id, products!inner(name, branch_id)",
+            "id, product_id, quantity_delta, unit_cost, currency_id, rate_per_usd_snapshot, occurred_at, created_at, recorded_by_user_id, products!inner(name, branch_id)",
             { count: "exact" },
           )
           .neq("reason", "sale")

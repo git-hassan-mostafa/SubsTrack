@@ -23,6 +23,9 @@ import { IS_OFFLINE_CAPABLE, syncNow } from "@/src/core/offline";
 import { useSyncStatus } from "@/src/shared/hooks/useSyncStatus";
 import { refreshActiveData } from "@shared/state/refreshActiveData";
 import { formatDateTimeShort } from "@shared/core/utils/date";
+import * as Updates from "expo-updates";
+import Constants from "expo-constants";
+import { useCopyText } from "@/src/shared/hooks/useCopyText";
 
 function SettingsRow({
   icon,
@@ -100,6 +103,13 @@ export function SettingsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { user, isAdmin } = useAuth();
+  const { copied, copy } = useCopyText();
+  const fingerprint =
+    Updates.runtimeVersion ??
+    (typeof Constants.expoConfig?.runtimeVersion === "string"
+      ? Constants.expoConfig.runtimeVersion
+      : null);
+  const appVersion = Constants.expoConfig?.version;
   const { language, setLanguage } = useLanguageStore();
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
   const { lastPushAt, lastPullAt, lastManualSyncAt } = useSyncStatus();
@@ -339,8 +349,7 @@ export function SettingsScreen() {
             </View>
           ) : null}
 
-          {/* Logout */}
-          <View className="mx-4 mb-8">
+          <View className="mx-4 mb-6">
             <View className={`${CARD_SURFACE} overflow-hidden`}>
               <SettingsRow
                 icon="log-out-outline"
@@ -351,6 +360,20 @@ export function SettingsScreen() {
               />
             </View>
           </View>
+
+          <PressableOpacity
+            onPress={fingerprint ? () => void copy(fingerprint) : undefined}
+            className="items-center pb-8"
+          >
+            {appVersion ? (
+              <Text className="text-xs text-gray-400">v{appVersion}</Text>
+            ) : null}
+            {fingerprint ? (
+              <Text className="text-[11px] text-gray-400 font-mono mt-0.5">
+                {copied ? t("common.copied") : fingerprint}
+              </Text>
+            ) : null}
+          </PressableOpacity>
         </ScrollView>
 
         {IS_OFFLINE_CAPABLE && syncResult ? (

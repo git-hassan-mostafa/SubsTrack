@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import type { WalletSource } from "@shared/core/types";
+import { labelledOptions } from "@shared/core/utils/labelledOptions";
 import type {
   CollectionSortField,
   SortDirection,
@@ -22,10 +23,6 @@ interface MoneyReceivedFiltersProps {
   onChange: (next: Partial<CollectionFilterChoice>) => void;
 }
 
-function keysOf<K extends string>(labels: Record<K, string>): K[] {
-  return Object.keys(labels) as K[];
-}
-
 // The phone's filter chips as selects; the table's filter bar scrolls them sideways.
 export function MoneyReceivedFilters({ value, onChange }: MoneyReceivedFiltersProps) {
   const { t } = useTranslation();
@@ -35,9 +32,6 @@ export function MoneyReceivedFilters({ value, onChange }: MoneyReceivedFiltersPr
   useEffect(() => {
     void getUsers();
   }, [getUsers]);
-
-  const labelled = <K extends string>(labels: Record<K, string>) =>
-    keysOf(labels).map((key) => ({ value: key, label: t(labels[key]) }));
 
   return (
     <>
@@ -63,19 +57,19 @@ export function MoneyReceivedFilters({ value, onChange }: MoneyReceivedFiltersPr
         anyLabel={t("ledger.all_statuses")}
         value={value.status}
         onChange={(status) => onChange({ status })}
-        options={labelled(COLLECTION_STATUS_LABEL_KEYS)}
+        options={labelledOptions(COLLECTION_STATUS_LABEL_KEYS, t)}
       />
       <FilterSelect<CollectionSortField>
         label={t("ledger.sort_by_label")}
         value={value.sortField}
         onChange={(sortField) => onChange({ sortField })}
-        options={labelled(COLLECTION_SORT_LABEL_KEYS)}
+        options={labelledOptions(COLLECTION_SORT_LABEL_KEYS, t)}
       />
       <FilterSelect<SortDirection>
         label={t("ledger.sort_label")}
         value={value.sortDirection}
         onChange={(sortDirection) => onChange({ sortDirection })}
-        options={labelled(SORT_DIRECTION_LABEL_KEYS)}
+        options={labelledOptions(SORT_DIRECTION_LABEL_KEYS, t)}
         minWidth={140}
       />
     </>

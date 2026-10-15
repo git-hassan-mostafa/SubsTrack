@@ -57,6 +57,7 @@ export function toStockCostRow(
     currency_id: string | null;
     rate_per_usd_snapshot: number | string | null;
     occurred_at: string;
+    created_at: string;
     recorded_by_user_id: string | null;
   },
   product: { name: string; branch_id: string | null } | null,
@@ -71,6 +72,7 @@ export function toStockCostRow(
     currencyId: r.currency_id,
     ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot ?? 1) || 1,
     occurredAt: r.occurred_at,
+    createdAt: r.created_at,
     branchId: product?.branch_id ?? null,
     recordedByUserId: r.recorded_by_user_id,
   };

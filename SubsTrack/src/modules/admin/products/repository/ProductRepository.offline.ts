@@ -284,12 +284,13 @@ export class OfflineProductRepository
       currency_id: string | null;
       rate_per_usd_snapshot: string | null;
       occurred_at: string;
+      created_at: string;
       recorded_by_user_id: string | null;
       product_name: string;
       product_branch_id: string | null;
     }>(
       `SELECT m.id, m.product_id, m.quantity_delta, m.unit_cost, m.currency_id,
-              m.rate_per_usd_snapshot, m.occurred_at, m.recorded_by_user_id,
+              m.rate_per_usd_snapshot, m.occurred_at, m.created_at, m.recorded_by_user_id,
               p.name AS product_name, p.branch_id AS product_branch_id
        FROM stock_movements m JOIN products p ON m.product_id = p.id
        ${where.sql}

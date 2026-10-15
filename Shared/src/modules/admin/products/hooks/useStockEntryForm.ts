@@ -6,6 +6,7 @@ import {
   unitFromTotalCost,
 } from "@shared/modules/admin/products/utils/stockCost";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
+import { usePickedInstant } from "@shared/shared/hooks/usePickedInstant";
 
 type CostChange = { amount: number | null; currencyId: string | null };
 
@@ -14,6 +15,7 @@ export function useStockEntryForm(
   product: Pick<Product, "costPrice" | "costCurrencyId">,
   currencies: Currency[],
 ) {
+  const occurredAt = usePickedInstant();
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
   const [unitCost, setUnitCost] = useState<number | null>(product.costPrice);
@@ -23,7 +25,13 @@ export function useStockEntryForm(
   );
   const [editing, setEditing] = useState<StockMovement | null>(null);
   const costAnchor = useRef<"unit" | "total">("unit");
-  const dirty = useDirtyForm({ quantity, note, unitCost, totalCost });
+  const dirty = useDirtyForm({
+    quantity,
+    note,
+    unitCost,
+    totalCost,
+    occurredAt: occurredAt.picked,
+  });
 
   const parsed = Number(quantity);
   const validQuantity = Number.isInteger(parsed) && parsed > 0;
@@ -72,6 +80,7 @@ export function useStockEntryForm(
     setEditing(null);
     setQuantity("");
     setNote("");
+    occurredAt.reset();
     applyUnitCost(product.costPrice, 0);
     setCostCurrencyId(product.costCurrencyId);
   };
@@ -88,6 +97,10 @@ export function useStockEntryForm(
   return {
     quantity,
     note,
+    occurredAt: occurredAt.value,
+    pickOccurredAt: occurredAt.pick,
+    occurredAtIso: occurredAt.toIso,
+    today: occurredAt.today,
     unitCost,
     totalCost,
     costCurrencyId,

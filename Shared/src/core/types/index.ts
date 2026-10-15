@@ -678,6 +678,7 @@ export interface ExpenseItem {
   currencyId: string | null;
   ratePerUsdSnapshot: number;
   date: string;
+  createdAt: string;
   branchId: string | null;
   recordedByUserId: string | null;
   productId: string | null;

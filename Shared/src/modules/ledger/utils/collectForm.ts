@@ -1,5 +1,4 @@
 import type { AllocationLine, OpenItem } from "@shared/core/types";
-import { dayToInstantIso } from "@shared/core/utils/date";
 import type { CollectInput } from "@shared/modules/ledger/services/CollectionService";
 import type { CurrencyPlan } from "./currencyGroups";
 import { linesTotal } from "./waterfall";
@@ -80,11 +79,6 @@ export function poolGroups(funded: CurrencyPlan[]): CollectGroupSubmit[] {
     amount: linesTotal(p.lines),
     lines: p.lines.map((l) => ({ item: l.item, amount: l.amount })),
   }));
-}
-
-// An untouched date field means "now", to the second — not the minute shown.
-export function receivedAtIso(value: string, picked: boolean): string {
-  return picked ? dayToInstantIso(value) : new Date().toISOString();
 }
 
 // The branch comes off the bills: a debts list never loads the whole customer.

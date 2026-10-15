@@ -1,5 +1,7 @@
 {
   "common": {
+    "entered_at": "Entered at",
+    "entered_on": "Entered {{when}}",
     "cancel": "Cancel",
     "save_changes": "Save Changes",
     "add": "+ Add",
@@ -861,6 +863,8 @@
     "initial_stock_label": "Starting stock",
     "adjust_stock_title": "Adjust Stock",
     "stock_quantity_label": "Quantity",
+    "sort_by_date": "Received on",
+    "stock_date_label": "Date received",
     "stock_note_label": "Note",
     "stock_note_placeholder": "e.g. new delivery, invoice 1234",
     "save_stock": "Add Stock",

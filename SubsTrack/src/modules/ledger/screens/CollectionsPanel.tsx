@@ -7,6 +7,7 @@ import {
   View,
 } from "react-native";
 import { useTranslation } from "react-i18next";
+import { labelledOptions } from "@shared/core/utils/labelledOptions";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { EmptyState } from "@/src/shared/components/EmptyState";
@@ -73,16 +74,6 @@ import { collectionItemLabel } from "@shared/modules/ledger/utils/collectionLabe
 interface Props {
   onOpenSale?: (saleId: string) => Promise<void> | void;
   inSheet?: boolean;
-}
-
-function labelledOptions<V extends string>(
-  keys: Record<V, string>,
-  t: (key: string) => string,
-): DropdownOption<V>[] {
-  return (Object.keys(keys) as V[]).map((value) => ({
-    label: t(keys[value]),
-    value,
-  }));
 }
 
 // Every hand-over of cash; for `inSheet`, see docs/ui-patterns.md.

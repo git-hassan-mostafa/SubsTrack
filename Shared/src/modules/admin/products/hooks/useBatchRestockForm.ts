@@ -7,6 +7,7 @@ import {
 } from "@shared/modules/admin/products/utils/stockCost";
 import type { RestockEntry } from "@shared/modules/admin/products/utils/types";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
+import { usePickedInstant } from "@shared/shared/hooks/usePickedInstant";
 
 // One delivery, one currency: every picked row's cost is typed in it.
 export function useBatchRestockForm(products: Product[], currencies: Currency[]) {
@@ -14,6 +15,7 @@ export function useBatchRestockForm(products: Product[], currencies: Currency[])
   const [costs, setCosts] = useState<Record<string, string>>({});
   const [currencyId, setCurrencyId] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const occurredAt = usePickedInstant();
   const [search, setSearch] = useState("");
 
   const activeProducts = useMemo(
@@ -51,6 +53,7 @@ export function useBatchRestockForm(products: Product[], currencies: Currency[])
     totalUnits,
     totalCost,
     note,
+    occurredAt: occurredAt.picked,
   });
 
   const seedCost = (product: Product, target: Currency | null) =>
@@ -100,6 +103,10 @@ export function useBatchRestockForm(products: Product[], currencies: Currency[])
     deliveryCurrency,
     note,
     setNote,
+    occurredAt: occurredAt.value,
+    pickOccurredAt: occurredAt.pick,
+    occurredAtIso: occurredAt.toIso,
+    today: occurredAt.today,
     search,
     setSearch,
     activeProducts,

@@ -55,9 +55,10 @@ export function ExpenseFormSheet({ onDismiss }: Props) {
 
       <DatePickerInput
         label={t("expenses.date_label") + " *"}
-        value={form.day}
-        onChange={form.setDay}
+        value={form.at}
+        onChange={form.pickAt}
         maxDate={form.today}
+        showTime
       />
 
       <BranchPicker

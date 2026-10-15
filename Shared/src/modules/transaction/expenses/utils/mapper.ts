@@ -44,6 +44,7 @@ export function expenseToItem(e: Expense): ExpenseItem {
     currencyId: e.currencyId,
     ratePerUsdSnapshot: e.ratePerUsdSnapshot,
     date: e.incurredAt,
+    createdAt: e.createdAt,
     branchId: e.branchId,
     recordedByUserId: e.recordedByUserId,
     productId: null,

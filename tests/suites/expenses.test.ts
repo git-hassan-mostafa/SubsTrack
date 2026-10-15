@@ -1,7 +1,7 @@
 import type { Currency, ExpenseItem, ExpenseSummary } from "@shared/core/types";
+import { getTodayDateString } from "@shared/core/utils/date";
 import {
   canSaveExpense,
-  expenseDayToIso,
   expenseDraftOf,
   newExpenseInput,
 } from "@shared/modules/transaction/expenses/utils/expenseForm";
@@ -38,6 +38,7 @@ function item(over: Partial<ExpenseItem> = {}): ExpenseItem {
     currencyId: null,
     ratePerUsdSnapshot: 1,
     date: "2026-02-10T12:00:00.000Z",
+    createdAt: "2026-02-10T12:00:00.000Z",
     branchId: null,
     recordedByUserId: "u1",
     productId: null,
@@ -70,7 +71,7 @@ describe("expense form", () => {
   it("TC-EX-01 a new expense starts in the user's own branch, else company-wide", () => {
     expect(expenseDraftOf("2026-02-10", { branchId: "b1" }).branchId).toBe("b1");
     expect(expenseDraftOf("2026-02-10", { branchId: null }).branchId).toBeNull();
-    expect(expenseDraftOf("2026-02-10", null).day).toBe("2026-02-10");
+    expect(expenseDraftOf("2026-02-10 09:15", null)).toMatchObject({ at: "2026-02-10 09:15", atPicked: false });
   });
 
   it("TC-EX-02 only a positive amount can be saved", () => {
@@ -80,22 +81,39 @@ describe("expense form", () => {
     expect(canSaveExpense({ amount: 0.01 })).toBe(true);
   });
 
-  it("TC-EX-03 the picked day is stored at local midday, so it stays that calendar day", () => {
-    const at = new Date(expenseDayToIso("2026-01-31"));
-    expect([at.getFullYear(), at.getMonth(), at.getDate(), at.getHours()]).toEqual([2026, 0, 31, 12]);
+  it("TC-EX-03 a picked date and time is stored as that local minute", () => {
+    const draft = { ...expenseDraftOf("2026-01-31 14:30", USER), atPicked: true, amount: 5 };
+    const at = new Date(newExpenseInput(draft, USER, [LBP]).incurredAt ?? "");
+    expect([at.getFullYear(), at.getMonth(), at.getDate(), at.getHours(), at.getMinutes()]).toEqual([2026, 0, 31, 14, 30]);
   });
 
   it("TC-EX-04 the saved input carries the typed currency, a trimmed note and the picked day", () => {
-    const draft = { ...expenseDraftOf("2026-02-10", USER), amount: 450000, currencyId: "lbp", description: "  Fuel  " };
+    const draft = {
+      ...expenseDraftOf("2026-02-10 09:15", USER),
+      atPicked: true,
+      amount: 450000,
+      currencyId: "lbp",
+      description: "  Fuel  ",
+    };
     const input = newExpenseInput(draft, USER, [LBP]);
     expect(input.currency).toBe(LBP);
     expect(input.amount).toBe(450000);
     expect(input.description).toBe("Fuel");
-    expect(input.incurredAt).toBe(expenseDayToIso("2026-02-10"));
+    expect(input.incurredAt).toBe(new Date("2026-02-10T09:15:00").toISOString());
     expect(input).toMatchObject({ recordedByUserId: "u1", tenantId: "t1", branchId: null });
     const usd = newExpenseInput({ ...draft, currencyId: null, description: " " }, USER, [LBP]);
     expect(usd.currency).toBeNull();
     expect(usd.description).toBeNull();
+  });
+
+  it("TC-EX-13 an expense dated today, or with the date left untouched, is stored at the moment of saving", () => {
+    const base = { ...expenseDraftOf("2020-01-01 09:00", USER), amount: 5 };
+    for (const draft of [{ ...base, at: getTodayDateString(), atPicked: true }, base]) {
+      const before = Date.now();
+      const at = new Date(newExpenseInput(draft, USER, [LBP]).incurredAt ?? "").getTime();
+      expect(at).toBeGreaterThanOrEqual(before);
+      expect(at).toBeLessThanOrEqual(Date.now());
+    }
   });
 });
 

@@ -14,6 +14,13 @@ import type { Product, StockMovement } from "@shared/core/types";
 import { formatMoney } from "@shared/core/utils/currency";
 import { formatDateTime } from "@shared/core/utils/date";
 import { digitsOnly } from "@shared/core/utils/inputText";
+import { labelledOptions } from "@shared/core/utils/labelledOptions";
+import type { SortDirection } from "@shared/modules/ledger/repository/ICollectionRepository";
+import { SORT_DIRECTION_LABEL_KEYS } from "@shared/modules/ledger/utils/collectionFilters";
+import {
+  STOCK_HISTORY_SORT_LABEL_KEYS,
+  type StockHistorySortField,
+} from "@shared/modules/admin/products/utils/stockHistorySort";
 import { useStockEntryForm } from "@shared/modules/admin/products/hooks/useStockEntryForm";
 import { useStockMovements } from "@shared/modules/admin/products/hooks/useStockMovements";
 import {
@@ -29,9 +36,11 @@ import { confirm } from "@shared/shared/lib/confirm";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
 import { CurrencyInput } from "@/shared/components/CurrencyInput";
+import { DateField } from "@/shared/components/DateField";
 import { FormDialog } from "@/shared/components/FormDialog";
 import { StatusChip } from "@/shared/components/StatusChip";
 import { LocalTable } from "@/shared/table/LocalTable";
+import { FilterSelect } from "@/shared/table/FilterSelect";
 import { PAGE_SIZE_OPTIONS } from "@/state/createPagedStore";
 import { toTableActions, type TableAction } from "@/shared/table/tableAction";
 import { useHistoryDoor } from "@/modules/admin/audit/hooks/useHistoryDoor";
@@ -50,6 +59,8 @@ const STOCK_ENTRY_ICONS: Record<StockEntryActionKey, SvgIconComponent> = {
 
 const LONGEST_PAGE = Math.max(...PAGE_SIZE_OPTIONS);
 
+const ENTRY_COLUMNS = "140px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr)";
+
 // A manual change only ADDS; a wrong entry is fixed on itself — see gotcha #94.
 export function ProductStockDialog({ product, onClose, onChanged }: ProductStockDialogProps) {
   const { t } = useTranslation();
@@ -64,7 +75,14 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
   const form = useStockEntryForm(product, currencies);
   const { editing, adding, costEffect, costCurrency } = form;
   const [onHand, setOnHand] = useState(product.stockOnHand);
-  const { history, reload: loadHistory } = useStockMovements(product.id);
+  const {
+    history,
+    reload: loadHistory,
+    sortField,
+    setSortField,
+    sortDirection,
+    setSortDirection,
+  } = useStockMovements(product.id);
   const recordHistory = useHistoryDoor("stock_movements");
 
   useEffect(() => {
@@ -125,7 +143,15 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
       await loadHistory();
       return;
     }
-    const next = await addStock(product.id, user.tenantId, form.parsed, form.note, user.id, cost);
+    const next = await addStock(
+      product.id,
+      user.tenantId,
+      form.parsed,
+      form.note,
+      user.id,
+      cost,
+      form.occurredAtIso(),
+    );
     if (next === null) return;
     onChanged(next);
     onClose();
@@ -137,6 +163,12 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
       headerName: t("web.products.history_date"),
       width: 160,
       valueGetter: (_value, row) => formatDateTime(row.occurredAt),
+    },
+    {
+      field: "createdAt",
+      headerName: t("common.entered_at"),
+      width: 160,
+      valueGetter: (_value, row) => formatDateTime(row.createdAt),
     },
     {
       field: "reason",
@@ -213,7 +245,7 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
             display: "grid",
             gridTemplateColumns: {
               xs: "1fr",
-              md: "140px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr)",
+              md: editing ? ENTRY_COLUMNS : `${ENTRY_COLUMNS} 210px`,
             },
             gap: 2,
             alignItems: "start",
@@ -251,6 +283,16 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
             placeholder={t("products.stock_note_placeholder")}
             fullWidth
           />
+          {editing ? null : (
+            <DateField
+              label={t("products.stock_date_label")}
+              value={form.occurredAt}
+              onChange={form.pickOccurredAt}
+              maxDate={form.today}
+              showTime
+              required
+            />
+          )}
         </Box>
         {costEffect != null ? (
           <Typography variant="body2" color={adding ? "warning.dark" : "success.dark"}>
@@ -264,14 +306,38 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
         <Alert severity="warning">{t("products.stock_goes_negative", { value: projected })}</Alert>
       ) : null}
       <Stack spacing={1}>
-        <Stack direction="row" sx={{ alignItems: "baseline", justifyContent: "space-between" }}>
-          <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 700 }}>
-            {t("products.stock_history")}
-          </Typography>
-          {history.length > 0 ? (
-            <Typography variant="caption" color="text.secondary">
-              {t("products.stock_history_count", { count: history.length })}
+        <Stack
+          direction="row"
+          spacing={2}
+          useFlexGap
+          sx={{ alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}
+        >
+          <Stack direction="row" spacing={1} sx={{ alignItems: "baseline" }}>
+            <Typography variant="subtitle1" component="h3" sx={{ fontWeight: 700 }}>
+              {t("products.stock_history")}
             </Typography>
+            {history.length > 0 ? (
+              <Typography variant="caption" color="text.secondary">
+                {t("products.stock_history_count", { count: history.length })}
+              </Typography>
+            ) : null}
+          </Stack>
+          {history.length > 1 ? (
+            <Stack direction="row" spacing={1}>
+              <FilterSelect<StockHistorySortField>
+                label={t("ledger.sort_by_label")}
+                value={sortField}
+                onChange={setSortField}
+                options={labelledOptions(STOCK_HISTORY_SORT_LABEL_KEYS, t)}
+              />
+              <FilterSelect<SortDirection>
+                label={t("ledger.sort_label")}
+                value={sortDirection}
+                onChange={setSortDirection}
+                options={labelledOptions(SORT_DIRECTION_LABEL_KEYS, t)}
+                minWidth={140}
+              />
+            </Stack>
           ) : null}
         </Stack>
         {history.length === 0 ? (

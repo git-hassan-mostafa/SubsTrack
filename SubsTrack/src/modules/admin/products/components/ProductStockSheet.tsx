@@ -8,6 +8,15 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
+import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
+import { Dropdown } from "@/src/shared/components/Dropdown";
+import { labelledOptions } from "@shared/core/utils/labelledOptions";
+import type { SortDirection } from "@shared/modules/ledger/repository/ICollectionRepository";
+import { SORT_DIRECTION_LABEL_KEYS } from "@shared/modules/ledger/utils/collectionFilters";
+import {
+  STOCK_HISTORY_SORT_LABEL_KEYS,
+  type StockHistorySortField,
+} from "@shared/modules/admin/products/utils/stockHistorySort";
 import { digitsOnly } from "@shared/core/utils/inputText";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
@@ -75,7 +84,14 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   const form = useStockEntryForm(product, currencies);
   const { editing, adding, costEffect, costCurrency } = form;
 
-  const { history, reload: loadHistory } = useStockMovements(product.id);
+  const {
+    history,
+    reload: loadHistory,
+    sortField,
+    setSortField,
+    sortDirection,
+    setSortDirection,
+  } = useStockMovements(product.id);
   const [menuFor, setMenuFor] = useState<StockMovement | null>(null);
   const recordHistory = useHistoryDoor("stock_movements");
   const { scrollRef, scrollToTop } = useSheetScrollTop();
@@ -143,6 +159,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
       form.note,
       user.id,
       cost,
+      form.occurredAtIso(),
     );
     if (saved === null) return;
     onDismiss();
@@ -240,6 +257,16 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
         </Text>
       ) : null}
 
+      {editing ? null : (
+        <DatePickerInput
+          label={t("products.stock_date_label") + " *"}
+          value={form.occurredAt}
+          onChange={form.pickOccurredAt}
+          maxDate={form.today}
+          showTime
+        />
+      )}
+
       <Input
         label={t("products.stock_note_label")}
         value={form.note}
@@ -280,6 +307,25 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
           </Text>
         ) : null}
       </View>
+
+      {history.length > 1 ? (
+        <View className="flex-row gap-2 mb-3">
+          <Dropdown<StockHistorySortField>
+            placeholder={t("ledger.sort_by_label")}
+            options={labelledOptions(STOCK_HISTORY_SORT_LABEL_KEYS, t)}
+            value={sortField}
+            onChange={(f) => setSortField(f ?? "occurred_at")}
+            triggerStyle="chip"
+          />
+          <Dropdown<SortDirection>
+            placeholder={t("ledger.sort_label")}
+            options={labelledOptions(SORT_DIRECTION_LABEL_KEYS, t)}
+            value={sortDirection}
+            onChange={(d) => setSortDirection(d ?? "desc")}
+            triggerStyle="chip"
+          />
+        </View>
+      ) : null}
 
       {history.length === 0 ? (
         <View className="rounded-2xl border border-dashed border-gray-200 px-4 py-6 items-center">
@@ -365,6 +411,11 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
 
                   <Text className="text-xs text-gray-500 mt-0.5">
                     {formatDateTime(m.occurredAt)}
+                  </Text>
+                  <Text className="text-xs text-gray-400 mt-0.5">
+                    {t("common.entered_on", {
+                      when: formatDateTime(m.createdAt),
+                    })}
                   </Text>
 
                   {cost ? (

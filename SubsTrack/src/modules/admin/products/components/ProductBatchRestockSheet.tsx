@@ -12,6 +12,7 @@ import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Dropdown } from "@/src/shared/components/Dropdown";
+import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { AppTextInput } from "@/src/shared/components/AppTextInput";
 import { useTextField } from "@/src/shared/hooks/useTextField";
@@ -68,6 +69,7 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
       form.note,
       user.id,
       deliveryCurrency,
+      form.occurredAtIso(),
     );
     if (!ok) return;
     onDismiss();
@@ -116,6 +118,14 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
         onChange={form.changeCurrency}
         nullable
         nullLabel="USD"
+      />
+
+      <DatePickerInput
+        label={t("products.stock_date_label") + " *"}
+        value={form.occurredAt}
+        onChange={form.pickOccurredAt}
+        maxDate={form.today}
+        showTime
       />
 
       <Input

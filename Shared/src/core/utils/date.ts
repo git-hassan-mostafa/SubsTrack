@@ -101,17 +101,17 @@ export function getNowDateTimeString(): string {
   return `${getTodayDateString()} ${h}:${min}`;
 }
 
-/**
- * A picked date — "YYYY-MM-DD HH:mm" or a bare "YYYY-MM-DD" — as a real
- * instant. A picked time is taken as local and used as-is; a bare day has no
- * time to record, so it lands at noon (safe in every timezone) unless it is
- * today, which keeps the current clock. Used for `collections.received_at`.
- */
+// A bare past day lands at noon (safe in every zone); today keeps the clock.
 export function dayToInstantIso(day: string): string {
   const [datePart, timePart] = day.trim().split(/\s+/);
   if (timePart) return new Date(`${datePart}T${timePart}:00`).toISOString();
   if (datePart === getTodayDateString()) return new Date().toISOString();
   return new Date(`${datePart}T12:00:00`).toISOString();
+}
+
+// An untouched date field means "now", to the second — not the minute shown.
+export function pickedInstantIso(value: string, picked: boolean): string {
+  return picked ? dayToInstantIso(value) : new Date().toISOString();
 }
 
 // "YYYY-MM" of an instant, read in the device's local zone — the key every

@@ -22,6 +22,7 @@ import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
 import { CurrencySelect } from "@/shared/components/CurrencySelect";
+import { DateField } from "@/shared/components/DateField";
 import { FormDialog } from "@/shared/components/FormDialog";
 
 interface BatchRestockDialogProps {
@@ -63,7 +64,14 @@ export function BatchRestockDialog({ onClose, onSaved }: BatchRestockDialogProps
       setPickError(t("web.products.pick_one"));
       return;
     }
-    const saved = await batchRestock(entries, user.tenantId, form.note, user.id, deliveryCurrency);
+    const saved = await batchRestock(
+      entries,
+      user.tenantId,
+      form.note,
+      user.id,
+      deliveryCurrency,
+      form.occurredAtIso(),
+    );
     if (!saved) return;
     onSaved();
     onClose();
@@ -125,6 +133,14 @@ export function BatchRestockDialog({ onClose, onSaved }: BatchRestockDialogProps
               onChange={form.changeCurrency}
               currencies={currencies}
               sx={{ minWidth: 200 }}
+            />
+            <DateField
+              label={t("products.stock_date_label")}
+              value={form.occurredAt}
+              onChange={form.pickOccurredAt}
+              maxDate={form.today}
+              showTime
+              required
             />
             <TextField
               label={t("products.batch_restock_note_label")}

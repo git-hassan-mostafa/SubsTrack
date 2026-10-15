@@ -5,6 +5,7 @@ import { COLORS } from "@/src/shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import {
   CardAmount,
+  CardMeta,
   CardSubtitle,
   CardTitle,
 } from "@/src/shared/components/CardText";
@@ -16,7 +17,7 @@ import { snapshotCurrency } from "@shared/core/utils/currency";
 import { outflowLabel } from "@shared/modules/transaction/expenses/utils/outflow";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
-import { formatDate } from "@shared/core/utils/date";
+import { formatDateTime } from "@shared/core/utils/date";
 import { expenseCategoryLabelKey } from "@shared/modules/transaction/expenses/utils/expenseCategories";
 import {
   EXPENSE_SOURCE_TONE,
@@ -69,8 +70,11 @@ export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
         <View className="flex-1 me-2">
           <CardTitle numberOfLines={1}>{item.label}</CardTitle>
           <CardSubtitle className="mt-0.5" numberOfLines={1}>
-            {formatDate(item.date)}
+            {formatDateTime(item.date)}
           </CardSubtitle>
+          <CardMeta className="mt-0.5" numberOfLines={1}>
+            {t("common.entered_on", { when: formatDateTime(item.createdAt) })}
+          </CardMeta>
         </View>
 
         <View className="items-end">

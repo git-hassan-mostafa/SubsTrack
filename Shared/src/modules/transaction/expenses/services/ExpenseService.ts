@@ -53,6 +53,7 @@ class ExpenseService {
       currencyId: s.currencyId,
       ratePerUsdSnapshot: s.ratePerUsdSnapshot,
       date: s.occurredAt,
+      createdAt: s.createdAt,
       branchId: s.branchId,
       recordedByUserId: s.recordedByUserId,
       productId: s.productId,
