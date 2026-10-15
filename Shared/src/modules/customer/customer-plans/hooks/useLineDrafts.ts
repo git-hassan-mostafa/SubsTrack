@@ -7,6 +7,11 @@ import type {
   RemovedLine,
 } from "@shared/modules/customer/customer-plans/services/CustomerPlanService";
 import {
+  cancelDateBounds,
+  type CancelDateBounds,
+  type RemoveLineChoice,
+} from "@shared/modules/customer/customer-plans/utils/cancelDate";
+import {
   clearOtherBranchPlans,
   lineRowsChanged,
   newLineRow,
@@ -20,12 +25,15 @@ import { confirm } from "@shared/shared/lib/confirm";
 import { useCustomerPlanSlice } from "@shared/state/hooks/useCustomerPlanSlice";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 
-export type HardDeleteChoice = (onChange: (hardDelete: boolean) => void) => ReactNode;
+export type RemoveLineChoiceView = (
+  bounds: CancelDateBounds,
+  onChange: (choice: RemoveLineChoice) => void,
+) => ReactNode;
 
 interface LineDraftsOptions {
   customer: Customer | null | undefined;
   branchId: string | null;
-  hardDeleteChoice: HardDeleteChoice;
+  removeChoice: RemoveLineChoiceView;
 }
 
 export interface LineDraftsResult {
@@ -55,11 +63,12 @@ export interface LineDrafts {
 export function useLineDrafts({
   customer,
   branchId,
-  hardDeleteChoice,
+  removeChoice,
 }: LineDraftsOptions): LineDrafts {
   const plans = usePlanSlice((s) => s.items);
   const hasPayments = useCustomerPlanSlice((s) => s.hasPayments);
   const getPaidLineIds = useCustomerPlanSlice((s) => s.getPaidLineIds);
+  const getLastPaidMonth = useCustomerPlanSlice((s) => s.getLastPaidMonth);
   const rowKey = useRef(0);
   const [rows, setRows] = useState<LineRow[]>(() =>
     rowsFromCustomer(customer, getTodayDateString()),
@@ -105,19 +114,19 @@ export function useLineDrafts({
 
   const activeCount = rows.filter((row) => row.status === "active").length;
 
-  const askHardDelete = async (): Promise<boolean | null> => {
-    const choice = { hardDelete: false };
+  const askRemove = async (bounds: CancelDateBounds): Promise<RemoveLineChoice | null> => {
+    let choice: RemoveLineChoice = { hardDelete: false, cancelDate: bounds.max };
     const ok = await confirm({
       title: i18n.t("subscriptions.remove_plan_title"),
       message: i18n.t("subscriptions.remove_plan_paid_message"),
       confirmLabel: i18n.t("subscriptions.remove_plan"),
       destructive: true,
       content: () =>
-        hardDeleteChoice((hardDelete) => {
-          choice.hardDelete = hardDelete;
+        removeChoice(bounds, (next) => {
+          choice = next;
         }),
     });
-    return ok ? choice.hardDelete : null;
+    return ok ? choice : null;
   };
 
   const removeRow = async (key: string) => {
@@ -130,16 +139,21 @@ export function useLineDrafts({
     }
     const id = target.id;
     setRemovingKey(key);
-    let paid: boolean;
+    let bounds: CancelDateBounds | null = null;
     try {
-      paid = await hasPayments(id);
+      if (await hasPayments(id)) {
+        const lastPaid = await getLastPaidMonth(id);
+        bounds = cancelDateBounds(target.startDate, lastPaid, getTodayDateString());
+      }
     } finally {
       setRemovingKey(null);
     }
-    const hardDelete = paid ? await askHardDelete() : true;
-    if (hardDelete === null) return;
-    setRemoved((prev) => [...prev, { id, hardDelete }]);
-    if (hardDelete) setRows((prev) => prev.filter((row) => row.key !== key));
+    const choice: RemoveLineChoice | null = bounds
+      ? await askRemove(bounds)
+      : { hardDelete: true };
+    if (choice === null) return;
+    setRemoved((prev) => [...prev, { id, ...choice }]);
+    if (choice.hardDelete) setRows((prev) => prev.filter((row) => row.key !== key));
     else patchRow(key, { status: "cancelled" });
   };
 

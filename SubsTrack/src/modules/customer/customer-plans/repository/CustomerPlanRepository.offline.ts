@@ -109,11 +109,10 @@ export class OfflineCustomerPlanRepository
     return this.patch(id, { ...payload, updated_at: nowIso() }, action);
   }
 
-  async cancel(id: string): Promise<DbCustomerPlan> {
-    const cancelledAt = nowIso();
+  async cancel(id: string, cancelledAt: string): Promise<DbCustomerPlan> {
     return this.patch(
       id,
-      { active: false, cancelled_at: cancelledAt, updated_at: cancelledAt },
+      { active: false, cancelled_at: cancelledAt, updated_at: nowIso() },
       "update",
     );
   }

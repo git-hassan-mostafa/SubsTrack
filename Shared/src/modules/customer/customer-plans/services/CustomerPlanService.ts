@@ -1,11 +1,22 @@
 import { repositories } from "@shared/core/runtime/repositories";
 import type { CustomerPlan } from "@shared/core/types";
-import { isValidDateString } from "@shared/core/utils/date";
+import {
+  dayToInstantIso,
+  getTodayDateString,
+  isValidDateString,
+} from "@shared/core/utils/date";
 import i18n from "@shared/core/i18n";
 import billingService from "@shared/modules/admin/billing/services/BillingService";
 import type { QuotaPair } from "@shared/modules/admin/billing/utils/types";
 import { mapDbCustomerPlanToCustomerPlan } from "@shared/modules/customer/customer-plans/utils/mapper";
 import { priceHistoryService } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
+import {
+  cancelDateBounds,
+  isCancelDateAllowed,
+  type RemoveLineChoice,
+} from "@shared/modules/customer/customer-plans/utils/cancelDate";
+import { paidBillingMonths } from "@shared/modules/customer/customer-payments/utils/monthStatus";
+import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 import {
   currentBillingMonth,
   linePriceChanged,
@@ -32,12 +43,7 @@ export type LineDraft = {
   priceFrom?: string;
 };
 
-// A line the user removed in the form. `hardDelete` = permanently delete the
-// line and all its payments (checkbox on); false = soft-cancel and keep it.
-export type RemovedLine = {
-  id: string;
-  hardDelete: boolean;
-};
+export type RemovedLine = RemoveLineChoice & { id: string };
 
 class CustomerPlanService {
   async createLine(
@@ -77,16 +83,16 @@ class CustomerPlanService {
     return mapDbCustomerPlanToCustomerPlan(row);
   }
 
-  async deleteLine(
-    id: string,
-    hardDelete = false,
-  ): Promise<CustomerPlan | null> {
-    const paymentCount = await repositories().customerPlan.countPayments(id);
-    if (hardDelete || paymentCount === 0) {
-      await repositories().customerPlan.delete(id);
+  async deleteLine(removed: RemovedLine): Promise<CustomerPlan | null> {
+    const paymentCount = await repositories().customerPlan.countPayments(removed.id);
+    if (removed.hardDelete || paymentCount === 0) {
+      await repositories().customerPlan.delete(removed.id);
       return null;
     }
-    const row = await repositories().customerPlan.cancel(id);
+    const row = await repositories().customerPlan.cancel(
+      removed.id,
+      dayToInstantIso(removed.cancelDate),
+    );
     return mapDbCustomerPlanToCustomerPlan(row);
   }
 
@@ -114,10 +120,9 @@ class CustomerPlanService {
     });
     await this.assertPaidLinesKept(customerId, lines, existingById);
     this.assertCustomPricesAllowed(lines);
+    await this.assertCancelDatesAllowed(removed, existingById);
 
-    const removals = Promise.all(
-      removed.map((r) => this.deleteLine(r.id, r.hardDelete)),
-    );
+    const removals = Promise.all(removed.map((r) => this.deleteLine(r)));
 
     const upserts = Promise.all(
       lines.map(async (line) => {
@@ -180,6 +185,12 @@ class CustomerPlanService {
     return repositories().customerPlan.findPaidLineIds(customerId);
   }
 
+  async getLastPaidMonth(lineId: string): Promise<string | null> {
+    const bills = (await chargeService.getMonthBillsForLines([lineId])).get(lineId) ?? [];
+    const months = paidBillingMonths(bills);
+    return months.length > 0 ? months[months.length - 1] : null;
+  }
+
   // A line money reached keeps its plan and start date; switch = a new line.
   private async assertPaidLinesKept(
     customerId: string,
@@ -203,6 +214,24 @@ class CustomerPlanService {
     if (paid.length > 0) {
       throw new Error(i18n.t("errors.start_date_locked_paid"));
     }
+  }
+
+  // Paid months read here, never taken from the form.
+  private async assertCancelDatesAllowed(
+    removed: RemovedLine[],
+    existingById: Map<string, CustomerPlan>,
+  ): Promise<void> {
+    const today = getTodayDateString();
+    const checks = await Promise.all(
+      removed.map(async (r) => {
+        if (r.hardDelete) return true;
+        const startDate = existingById.get(r.id)?.startDate ?? today;
+        const lastPaid = await this.getLastPaidMonth(r.id);
+        const bounds = cancelDateBounds(startDate, lastPaid, today);
+        return isCancelDateAllowed(r.cancelDate, bounds);
+      }),
+    );
+    if (checks.includes(false)) throw new Error(i18n.t("errors.cancel_date_range"));
   }
 
   private assertCustomPricesAllowed(lines: LineDraft[]): void {

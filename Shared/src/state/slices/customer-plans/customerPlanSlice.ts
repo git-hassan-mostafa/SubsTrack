@@ -18,6 +18,7 @@ export interface CustomerPlanSlice {
   ) => Promise<boolean>;
   hasPayments: (lineId: string) => Promise<boolean>;
   getPaidLineIds: (customerId: string) => Promise<string[]>;
+  getLastPaidMonth: (lineId: string) => Promise<string | null>;
   clearError: () => void;
   reset: () => void;
 }
@@ -83,6 +84,8 @@ export const createCustomerPlanSlice: StateCreator<
 
   getPaidLineIds: (customerId) =>
     customerPlanService.getPaidLineIds(customerId),
+
+  getLastPaidMonth: (lineId) => customerPlanService.getLastPaidMonth(lineId),
 
   clearError: () =>
     set((state) => {

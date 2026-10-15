@@ -29,8 +29,8 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
   const clearQuotaError = useBillingSlice((s) => s.clearQuotaError);
   const portalBaseUrl = useCustomerPortalUrl();
   const { form, change, lines, dirty, canSubmit, submitting, error, clearError, submit } =
-    useCustomerForm(customer ?? null, (onChange) => (
-      <RemovePlanChoice onChange={onChange} />
+    useCustomerForm(customer ?? null, (bounds, onChange) => (
+      <RemovePlanChoice bounds={bounds} onChange={onChange} />
     ));
 
   async function handleSubmit() {

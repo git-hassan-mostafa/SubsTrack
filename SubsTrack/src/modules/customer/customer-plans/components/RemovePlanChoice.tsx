@@ -1,39 +1,63 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
+import {
+  removeLineChoice,
+  type CancelDateBounds,
+  type RemoveLineChoice,
+} from "@shared/modules/customer/customer-plans/utils/cancelDate";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Checkbox } from "@/src/shared/components/Checkbox";
+import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { Text } from "@/src/shared/components/Text";
 
 interface Props {
-  onChange: (hardDelete: boolean) => void;
+  bounds: CancelDateBounds;
+  onChange: (choice: RemoveLineChoice) => void;
 }
 
-// Unchecked = soft-cancel keeping payments; checked = hard delete, no undo.
-export function RemovePlanChoice({ onChange }: Props) {
+// Only a kept line needs a stop day, so a hard delete hides it.
+export function RemovePlanChoice({ bounds, onChange }: Props) {
   const { t } = useTranslation();
-  const [checked, setChecked] = useState(false);
+  const [hardDelete, setHardDelete] = useState(false);
+  const [cancelDate, setCancelDate] = useState(bounds.max);
 
-  function toggle() {
-    const next = !checked;
-    setChecked(next);
-    onChange(next);
+  function update(nextHardDelete: boolean, nextCancelDate: string) {
+    setHardDelete(nextHardDelete);
+    setCancelDate(nextCancelDate);
+    onChange(removeLineChoice(nextHardDelete, nextCancelDate));
   }
 
   return (
-    <PressableOpacity
-      onPress={toggle}
-      className="flex-row items-start rounded-xl border border-red-200 bg-red-50 p-3"
-    >
-      <Checkbox checked={checked} size={22} tone="danger" />
-      <View className="flex-1 ms-3">
-        <Text fontWeight="SemiBold" className="text-sm text-red-600">
-          {t("subscriptions.delete_permanently_label")}
-        </Text>
-        <Text className="text-xs text-red-500 mt-0.5">
-          {t("subscriptions.delete_permanently_hint")}
-        </Text>
-      </View>
-    </PressableOpacity>
+    <View className="gap-3">
+      {!hardDelete ? (
+        <View>
+          <DatePickerInput
+            label={t("subscriptions.cancel_date_label")}
+            value={cancelDate}
+            onChange={(day) => update(false, day)}
+            minDate={bounds.min}
+            maxDate={bounds.max}
+          />
+          <Text className="text-xs text-gray-500 mt-1">
+            {t("subscriptions.cancel_date_hint")}
+          </Text>
+        </View>
+      ) : null}
+      <PressableOpacity
+        onPress={() => update(!hardDelete, cancelDate)}
+        className="flex-row items-start rounded-xl border border-red-200 bg-red-50 p-3"
+      >
+        <Checkbox checked={hardDelete} size={22} tone="danger" />
+        <View className="flex-1 ms-3">
+          <Text fontWeight="SemiBold" className="text-sm text-red-600">
+            {t("subscriptions.delete_permanently_label")}
+          </Text>
+          <Text className="text-xs text-red-500 mt-0.5">
+            {t("subscriptions.delete_permanently_hint")}
+          </Text>
+        </View>
+      </PressableOpacity>
+    </View>
   );
 }

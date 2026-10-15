@@ -74,6 +74,12 @@ export const fakeCustomerPlanRepository = {
     lineStore.rows[i] = { ...lineStore.rows[i], ...payload };
     return lineStore.rows[i];
   },
+  async countPayments(id: string) {
+    return lineStore.paidLineIds.includes(id) ? 1 : 0;
+  },
+  async cancel(id: string, cancelledAt: string) {
+    return fakeCustomerPlanRepository.update(id, { active: false, cancelled_at: cancelledAt });
+  },
 } as unknown as ICustomerPlanRepository;
 
 export const fakePlanRepository = {

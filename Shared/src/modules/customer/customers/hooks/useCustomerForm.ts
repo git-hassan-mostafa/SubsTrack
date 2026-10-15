@@ -6,7 +6,7 @@ import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/default
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import {
   useLineDrafts,
-  type HardDeleteChoice,
+  type RemoveLineChoiceView,
   type LineDrafts,
 } from "@shared/modules/customer/customer-plans/hooks/useLineDrafts";
 import type { CustomerInput } from "@shared/modules/customer/customers/services/CustomerService";
@@ -74,7 +74,7 @@ function inputOf(form: CustomerFormFields): CustomerInput {
 // Row first, then lines; a retry after a refused line edits, never re-creates.
 export function useCustomerForm(
   customer: Customer | null,
-  hardDeleteChoice: HardDeleteChoice,
+  removeChoice: RemoveLineChoiceView,
 ): CustomerForm {
   const { user } = useAuth();
   const activeBranches = useActiveBranches();
@@ -98,7 +98,7 @@ export function useCustomerForm(
   );
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<Customer | null>(null);
-  const lines = useLineDrafts({ customer, branchId: form.branchId, hardDeleteChoice });
+  const lines = useLineDrafts({ customer, branchId: form.branchId, removeChoice });
   const formDirty = useDirtyForm(form);
 
   useEffect(() => {

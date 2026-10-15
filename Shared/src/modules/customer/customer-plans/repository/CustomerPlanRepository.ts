@@ -79,12 +79,8 @@ export class CustomerPlanRepository
     return this.patch(id, payload, action);
   }
 
-  async cancel(id: string): Promise<DbCustomerPlan> {
-    return this.patch(
-      id,
-      { active: false, cancelled_at: new Date().toISOString() },
-      "update",
-    );
+  async cancel(id: string, cancelledAt: string): Promise<DbCustomerPlan> {
+    return this.patch(id, { active: false, cancelled_at: cancelledAt }, "update");
   }
 
   async delete(id: string): Promise<void> {

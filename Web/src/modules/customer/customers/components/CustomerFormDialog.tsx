@@ -6,13 +6,14 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import type { Customer } from "@shared/core/types";
+import type { RemoveLineChoiceView } from "@shared/modules/customer/customer-plans/hooks/useLineDrafts";
 import { useCustomerForm } from "@shared/modules/customer/customers/hooks/useCustomerForm";
 import { useBillingSlice } from "@shared/state/hooks/useBillingSlice";
 import { useCustomerPortalUrl } from "@shared/state/hooks/useOptionSlice";
 import { BranchPicker } from "@/shared/components/BranchPicker";
 import { FormDialog } from "@/shared/components/FormDialog";
 import { QuotaReachedDialog } from "@/modules/admin/billing/components/QuotaReachedDialog";
-import { HardDeleteChoice } from "@/modules/customer/customer-plans/components/HardDeleteChoice";
+import { RemovePlanChoice } from "@/modules/customer/customer-plans/components/RemovePlanChoice";
 import { ServiceLinesEditor } from "@/modules/customer/customer-plans/components/ServiceLinesEditor";
 import { patchCustomerRow } from "@/state/customersTable";
 import { markSalesTableStale } from "@/state/salesTable";
@@ -24,8 +25,8 @@ interface CustomerFormDialogProps {
   onSaved: (customer: Customer) => void;
 }
 
-const hardDeleteChoice = (onChange: (hardDelete: boolean) => void) => (
-  <HardDeleteChoice onChange={onChange} />
+const removeChoice: RemoveLineChoiceView = (bounds, onChange) => (
+  <RemovePlanChoice bounds={bounds} onChange={onChange} />
 );
 
 // A limit refusal opens its own dialog on top and keeps this form's typing.
@@ -36,7 +37,7 @@ export function CustomerFormDialog({ customer, onClose, onSaved }: CustomerFormD
   const portalBaseUrl = useCustomerPortalUrl();
   const { form, change, lines, dirty, error, clearError, submit } = useCustomerForm(
     customer,
-    hardDeleteChoice,
+    removeChoice,
   );
 
   const save = async () => {

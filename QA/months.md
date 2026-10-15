@@ -52,6 +52,7 @@ What a month shows after money moves. A month is Paid as soon as **any** money r
 24. Customer who owes nothing → pill reads Paid and never also Overdue.
 25. Customer with a partly paid month → month counts as paid (not Unpaid / Overdue), and the customer has the debt pill.
 26. Pay any month on a line → that line's start date can no longer be changed.
+26b. Remove a paid plan and pick an earlier "Stopped on" date → months after that month can no longer be paid; months up to it still can. The picker never goes earlier than the plan's last paid month (that month is allowed). A plan paid ahead can only stop in its last paid month.
 
 ## Customer portal
 
