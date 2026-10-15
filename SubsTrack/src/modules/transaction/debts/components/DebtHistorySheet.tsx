@@ -189,8 +189,8 @@ export function DebtHistorySheet({
                 <Dropdown<ChargeKind>
                   placeholder={t("ledger.filter_by_type")}
                   options={kindOptions}
-                  value={kind}
-                  onChange={(next) => void setKind(next)}
+                  value={kind[0] ?? null}
+                  onChange={(next) => void setKind(next ? [next] : [])}
                   nullable
                   nullLabel={t("ledger.all_types")}
                   triggerStyle="chip"

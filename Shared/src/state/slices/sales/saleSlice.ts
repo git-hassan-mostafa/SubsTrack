@@ -59,7 +59,7 @@ export interface SaleSlice {
 
 const filterChoice = (s: SaleSlice): SaleFilterChoice => ({
   customerId: s.customerFilter?.id ?? null,
-  productId: s.productFilter?.id ?? null,
+  productIds: s.productFilter ? [s.productFilter.id] : [],
   fromDate: s.fromDate,
   toDate: s.toDate,
   status: s.status,

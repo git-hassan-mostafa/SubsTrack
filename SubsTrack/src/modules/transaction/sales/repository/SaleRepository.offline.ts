@@ -102,11 +102,10 @@ export class OfflineSaleRepository
     const parts: WherePart[] = [];
     if (opts.customerId)
       parts.push({ clause: "s.customer_id = ?", params: [opts.customerId] });
-    if (opts.productId)
+    if (opts.productIds?.length)
       parts.push({
-        clause:
-          "EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.product_id = ? AND si.voided_at IS NULL)",
-        params: [opts.productId],
+        clause: `EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.product_id IN (${opts.productIds.map(() => "?").join(",")}) AND si.voided_at IS NULL)`,
+        params: [...opts.productIds],
       });
     if (opts.fromDate)
       parts.push({

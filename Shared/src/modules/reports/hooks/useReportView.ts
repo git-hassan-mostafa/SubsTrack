@@ -13,7 +13,8 @@ export function useReportView(section: ReportSection) {
   const drillInto = useReportsStore((s) => s.drillInto);
   return {
     view,
-    setFilter: (dim: ReportDimension, key: string | null) => setFilter(section, dim, key),
+    setFilter: (dim: ReportDimension, keys: readonly string[]) =>
+      setFilter(section, dim, keys),
     clearFilters: () => clearFilters(section),
     setGroupBy: (dim: ReportDimension) => setGroupBy(section, dim),
     setGrain: (grain: TimeGrain | null) => setGrain(section, grain),

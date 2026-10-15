@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
+import { castDraft } from "immer";
 import type { UnpaidStartRule } from "@shared/core/types";
 import {
   periodFromPreset,
@@ -88,7 +89,11 @@ export interface ReportsState extends Datasets {
   ensureSection: () => Promise<void>;
   refresh: () => Promise<void>;
   reloadIfLoaded: () => Promise<void>;
-  setFilter: (section: ReportSection, dim: ReportDimension, key: string | null) => void;
+  setFilter: (
+    section: ReportSection,
+    dim: ReportDimension,
+    keys: readonly string[],
+  ) => void;
   clearFilters: (section: ReportSection) => void;
   setGroupBy: (section: ReportSection, dim: ReportDimension) => void;
   setGrain: (section: ReportSection, grain: TimeGrain | null) => void;
@@ -147,7 +152,7 @@ export const useReportsStore = create<ReportsState>()(
       next: (view: SectionViewState) => SectionViewState,
     ) =>
       set((state) => {
-        state.views[section] = next(state.views[section]);
+        state.views[section] = castDraft(next(state.views[section] as SectionViewState));
       });
 
     return {
@@ -197,7 +202,7 @@ export const useReportsStore = create<ReportsState>()(
         if (held) await load(true);
       },
 
-      setFilter: (section, dim, key) => patchView(section, (v) => withFilter(v, dim, key)),
+      setFilter: (section, dim, keys) => patchView(section, (v) => withFilter(v, dim, keys)),
 
       clearFilters: (section) => patchView(section, (v) => ({ ...v, filter: {} })),
 
@@ -219,7 +224,7 @@ export const useReportsStore = create<ReportsState>()(
           state.period = periodFromPreset("this_month");
           state.section = "money";
           state.stamps = {};
-          state.views = defaultViews();
+          state.views = castDraft(defaultViews());
           state.loading = false;
           state.error = null;
           state.token += 1;

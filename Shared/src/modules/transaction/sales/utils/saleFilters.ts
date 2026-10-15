@@ -6,7 +6,7 @@ export type SaleStatus = "live" | "voided" | "all";
 
 export interface SaleFilterChoice {
   customerId: string | null;
-  productId: string | null;
+  productIds: readonly string[];
   fromDate: string | null;
   toDate: string | null;
   status: SaleStatus;
@@ -21,7 +21,7 @@ export const SALE_STATUS_LABEL_KEYS: Record<SaleStatus, string> = {
 export function defaultSaleFilters(): SaleFilterChoice {
   return {
     customerId: null,
-    productId: null,
+    productIds: [],
     fromDate: null,
     toDate: null,
     status: "live",
@@ -31,7 +31,7 @@ export function defaultSaleFilters(): SaleFilterChoice {
 export function hasSaleFilter(choice: SaleFilterChoice): boolean {
   return (
     !!choice.customerId ||
-    !!choice.productId ||
+    choice.productIds.length > 0 ||
     !!choice.fromDate ||
     !!choice.toDate ||
     choice.status !== "live"
@@ -48,7 +48,7 @@ export function saleFindOptions(
     searchQuery: search.trim() || undefined,
     branchFilter,
     customerId: choice.customerId,
-    productId: choice.productId,
+    productIds: choice.productIds,
     fromDate: choice.fromDate,
     toDate: choice.toDate,
     includeVoided: choice.status !== "live",

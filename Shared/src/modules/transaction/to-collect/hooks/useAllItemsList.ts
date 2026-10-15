@@ -31,7 +31,7 @@ export function useAllItemsList(
   const writtenOff = useAllWrittenOffDebts(branchFilter);
 
   const active = useMemo(
-    () => ({ ...filters, search, status: showingWrittenOff ? null : filters.status }),
+    () => ({ ...filters, search, status: showingWrittenOff ? [] : filters.status }),
     [filters, search, showingWrittenOff],
   );
   const rows = useMemo(

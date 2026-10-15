@@ -68,17 +68,17 @@ export function defaultViews(): Record<ReportSection, SectionViewState> {
 export function withFilter(
   state: SectionViewState,
   dim: ReportDimension,
-  key: string | null,
+  keys: readonly string[],
 ): SectionViewState {
   const filter: DimensionFilter = { ...state.filter };
-  if (key === null) delete filter[dim];
-  else filter[dim] = key;
+  if (keys.length === 0) delete filter[dim];
+  else filter[dim] = keys;
   return { ...state, filter };
 }
 
 // A time key only means something at the step it was picked at.
 export function withGrain(state: SectionViewState, grain: TimeGrain | null): SectionViewState {
-  return { ...withFilter(state, "time", null), grain };
+  return { ...withFilter(state, "time", []), grain };
 }
 
 // The dimensions still worth splitting one group by: not the one shown, not one already pinned.
@@ -96,5 +96,5 @@ export function drilledInto(
   key: string,
   next: ReportDimension,
 ): SectionViewState {
-  return { ...withFilter(state, dim, key), groupBy: next };
+  return { ...withFilter(state, dim, [key]), groupBy: next };
 }

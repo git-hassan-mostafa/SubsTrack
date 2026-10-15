@@ -22,9 +22,9 @@ import {
 } from "@shared/modules/invoicing/utils/invoiceRecipient";
 import type { CreateSaleInput } from "@shared/modules/transaction/sales/utils/types";
 import { store } from "../helpers/fakeLedger";
-import { saleStore } from "../helpers/fakeSales";
+import { saleStore, stockOnHand } from "../helpers/fakeSales";
 import { ADMIN_ONLY } from "@shared/shared/lib/menuItem";
-import { charge, customer, sale } from "../helpers/factories";
+import { charge, customer, product, sale } from "../helpers/factories";
 import { enabledKeys, greyed, keysOf } from "../helpers/menus";
 
 // TC-SG-* — the Sales page rules both apps run: filters, menus, void target, receipt.
@@ -40,7 +40,7 @@ describe("saleFindOptions", () => {
       searchQuery: undefined,
       branchFilter: "branch-1",
       customerId: null,
-      productId: null,
+      productIds: [],
       fromDate: null,
       toDate: null,
       includeVoided: false,
@@ -59,6 +59,15 @@ describe("saleFindOptions", () => {
     expect(saleFindOptions(defaultSaleFilters(), null, "  router ").searchQuery).toBe("router");
     expect(saleFindOptions(defaultSaleFilters(), null, "   ").searchQuery).toBeUndefined();
   });
+
+  it("TC-SG-21 passes productIds through to options", () => {
+    const opts = saleFindOptions(
+      { ...defaultSaleFilters(), productIds: ["prod-1", "prod-2"] },
+      null,
+      "",
+    );
+    expect(opts.productIds).toEqual(["prod-1", "prod-2"]);
+  });
 });
 
 describe("hasSaleFilter", () => {
@@ -66,7 +75,7 @@ describe("hasSaleFilter", () => {
     const base = defaultSaleFilters();
     expect(hasSaleFilter(base)).toBe(false);
     expect(hasSaleFilter({ ...base, customerId: "c" })).toBe(true);
-    expect(hasSaleFilter({ ...base, productId: "p" })).toBe(true);
+    expect(hasSaleFilter({ ...base, productIds: ["p"] })).toBe(true);
     expect(hasSaleFilter({ ...base, fromDate: "2026-01-01" })).toBe(true);
     expect(hasSaleFilter({ ...base, toDate: "2026-01-31" })).toBe(true);
     expect(hasSaleFilter({ ...base, status: "all" })).toBe(true);
@@ -207,5 +216,40 @@ describe("getSalePage", () => {
     await saleService.voidSale(gone.id, "user-1", "mistake");
     const totals = await saleService.getMonthlyTotals(saleFindOptions({ ...defaultSaleFilters(), status: "all" }, null, ""));
     expect(Object.values(totals).reduce((sum, v) => sum + v, 0)).toBe(kept.totalAmount);
+  });
+
+  it("TC-SG-20 filters sales by multiple product IDs", async () => {
+    const prodA = product({ id: "p-a", name: "Router", price: 50 });
+    const prodB = product({ id: "p-b", name: "Modem", price: 40 });
+    const prodC = product({ id: "p-c", name: "Cable", price: 10 });
+    stockOnHand["p-a"] = 10;
+    stockOnHand["p-b"] = 10;
+    stockOnHand["p-c"] = 10;
+    const saleA = await saleService.createSale(input({ items: [{ kind: "product", product: prodA, quantity: 1, unitAmount: 50 }] }));
+    const saleB = await saleService.createSale(input({ items: [{ kind: "product", product: prodB, quantity: 1, unitAmount: 40 }] }));
+    await saleService.createSale(input({ items: [{ kind: "product", product: prodC, quantity: 1, unitAmount: 10 }] }));
+    const saleVoidLine = await saleService.createSale(
+      input({
+        items: [
+          { kind: "product", product: prodC, quantity: 1, unitAmount: 10 },
+          { kind: "product", product: prodA, quantity: 1, unitAmount: 50 },
+        ],
+      }),
+    );
+    await saleService.updateSale(saleVoidLine, {
+      items: [{ kind: "product", product: prodC, quantity: 1, unitAmount: 10 }],
+      customerId: "cust-1",
+      branchId: null,
+      currency: null,
+      notes: null,
+      actorUserId: "user-1",
+    });
+    const filtered = await saleService.getSalePage({
+      offset: 0,
+      limit: 10,
+      productIds: ["p-a", "p-b"],
+    });
+    expect(filtered.total).toBe(2);
+    expect(filtered.rows.map((r) => r.id).sort()).toEqual([saleA.id, saleB.id].sort());
   });
 });

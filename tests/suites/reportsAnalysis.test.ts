@@ -120,16 +120,22 @@ describe("TC-RA-01..06 — the analysis engine", () => {
     dim === "who" ? row.who : row.tags.length > 0 ? row.tags : NO_KEY;
 
   it("TC-RA-01 a filter keeps only rows with that key", () => {
-    expect(applyFilter(rows, { who: "u1" }, keyOf).map((r) => r.id)).toEqual(["a", "c"]);
+    expect(applyFilter(rows, { who: ["u1"] }, keyOf).map((r) => r.id)).toEqual(["a", "c"]);
+  });
+
+  it("TC-RA-01b a multi-value filter keeps rows matching any selected key in that dimension", () => {
+    expect(applyFilter(rows, { who: ["u1", "u2"] }, keyOf).map((r) => r.id)).toEqual(["a", "b", "c"]);
+    expect(applyFilter(rows, { tag: ["y", "nonexistent"] }, keyOf).map((r) => r.id)).toEqual(["a"]);
+    expect(applyFilter(rows, { tag: [] }, keyOf).map((r) => r.id)).toEqual(["a", "b", "c"]);
   });
 
   it("TC-RA-02 a row with several keys matches any one of them", () => {
-    expect(applyFilter(rows, { tag: "y" }, keyOf).map((r) => r.id)).toEqual(["a"]);
+    expect(applyFilter(rows, { tag: ["y"] }, keyOf).map((r) => r.id)).toEqual(["a"]);
   });
 
   it("TC-RA-03 options for one filter honour every OTHER filter, never empty the view", () => {
-    expect(filterOptions<Row, Dim>(rows, { who: "u2" }, "tag", keyOf)).toEqual(["x"]);
-    expect(filterOptions<Row, Dim>(rows, { who: "u2", tag: "x" }, "who", keyOf).sort()).toEqual([
+    expect(filterOptions<Row, Dim>(rows, { who: ["u2"] }, "tag", keyOf)).toEqual(["x"]);
+    expect(filterOptions<Row, Dim>(rows, { who: ["u2"], tag: ["x"] }, "who", keyOf).sort()).toEqual([
       "u1",
       "u2",
     ]);
@@ -214,14 +220,14 @@ describe("TC-RA-11..17 — money in, money out, trend", () => {
   });
 
   it("TC-RA-13 a collector filter scopes the figure AND the previous period", () => {
-    const v = moneyInView(report, view({ filter: { collector: "u2" } }), MARCH);
+    const v = moneyInView(report, view({ filter: { collector: ["u2"] } }), MARCH);
     const collected = v.kpis.find((k) => k.key === "collected");
     expect(collected?.value).toEqual(money(10));
     expect(collected?.delta).toEqual({ abs: 10, pct: null });
   });
 
   it("TC-RA-14 a time filter drops the comparison — it has no twin last period", () => {
-    const v = moneyInView(report, view({ filter: { time: "2026-03-10" }, grain: "day" }), MARCH);
+    const v = moneyInView(report, view({ filter: { time: ["2026-03-10"] }, grain: "day" }), MARCH);
     expect(v.kpis.find((k) => k.key === "collected")?.delta).toBeUndefined();
     expect(v.rows.map((r) => r.id)).toEqual(["i1", "i2"]);
   });
@@ -307,7 +313,7 @@ describe("TC-RA-18..21 — debts", () => {
   });
 
   it("TC-RA-19 a kind filter scopes what is owed AND the cash collected on it", () => {
-    const v = debtsAnalysis(report, view({ groupBy: "customer", filter: { kind: "sale" } }), MARCH);
+    const v = debtsAnalysis(report, view({ groupBy: "customer", filter: { kind: ["sale"] } }), MARCH);
     expect(v.kpis.find((k) => k.key === "outstanding")?.value).toEqual(money(50));
     expect(v.kpis.find((k) => k.key === "collected")?.value).toEqual(money(4));
     expect(v.kpis.find((k) => k.key === "written_off")).toBeUndefined();
@@ -417,7 +423,7 @@ describe("TC-RA-22..26 — customers", () => {
   });
 
   it("TC-RA-26 a status filter narrows every figure", () => {
-    const v = customersAnalysis({ customers }, view({ groupBy: "plan", filter: { status: "cancelled" } }), MARCH, []);
+    const v = customersAnalysis({ customers }, view({ groupBy: "plan", filter: { status: ["cancelled"] } }), MARCH, []);
     expect(v.rows.map((c) => c.id)).toEqual(["cu3"]);
   });
 });
@@ -484,7 +490,7 @@ describe("TC-RA-27..31 — sales", () => {
   });
 
   it("TC-RA-28 an item filter keeps the sales holding that item", () => {
-    const v = salesAnalysis({ sales, prevSales: [] }, cashOnSales, view({ groupBy: "item", filter: { item: "service:sv1" } }), MARCH);
+    const v = salesAnalysis({ sales, prevSales: [] }, cashOnSales, view({ groupBy: "item", filter: { item: ["service:sv1"] } }), MARCH);
     expect(v.sales.map((s) => s.id)).toEqual(["s2"]);
     expect(v.grouped.level).toBe("line");
   });
@@ -496,8 +502,23 @@ describe("TC-RA-27..31 — sales", () => {
   it("TC-RA-30 collected on sales reads only sale cash, and hides under a filter cash can't follow", () => {
     const plain = salesAnalysis({ sales, prevSales: [] }, cashOnSales, view({ groupBy: "item" }), MARCH);
     expect(plain.kpis.find((k) => k.key === "collected")?.value).toEqual(money(15));
-    const byStaff = salesAnalysis({ sales, prevSales: [] }, cashOnSales, view({ groupBy: "item", filter: { recorded_by: "u1" } }), MARCH);
+    const byStaff = salesAnalysis({ sales, prevSales: [] }, cashOnSales, view({ groupBy: "item", filter: { recorded_by: ["u1"] } }), MARCH);
     expect(byStaff.kpis.find((k) => k.key === "collected")).toBeUndefined();
+  });
+
+  it("TC-RA-30b collected on sales supports multi-select customer filter", () => {
+    const multiCash = [
+      cash({ id: "mc1", stream: "sale", customerId: "cu1", amount: 15 }),
+      cash({ id: "mc2", stream: "sale", customerId: "cu2", amount: 25 }),
+      cash({ id: "mc3", stream: "sale", customerId: "cu3", amount: 10 }),
+    ];
+    const filtered = salesAnalysis(
+      { sales, prevSales: [] },
+      multiCash,
+      view({ groupBy: "item", filter: { customer: ["cu1", "cu2"] } }),
+      MARCH,
+    );
+    expect(filtered.kpis.find((k) => k.key === "collected")?.value).toEqual(money(40));
   });
 
   it("TC-RA-31 a sale with no lines is still a sale", () => {
@@ -603,14 +624,14 @@ describe("TC-RA-34..37 — dashboard", () => {
 
 describe("TC-RA-38..40 — view state and files", () => {
   it("TC-RA-38 changing the time step drops a picked day", () => {
-    const next = withGrain(view({ filter: { time: "2026-03-01", collector: "u1" } }), "week");
-    expect(next.filter).toEqual({ collector: "u1" });
+    const next = withGrain(view({ filter: { time: ["2026-03-01"], collector: ["u1"] } }), "week");
+    expect(next.filter).toEqual({ collector: ["u1"] });
     expect(next.grain).toBe("week");
   });
 
   it("TC-RA-39 drilling pins the group and splits it by the next question", () => {
     const next = drilledInto(view({ groupBy: "collector" }), "collector", "u1", "customer");
-    expect(next).toMatchObject({ filter: { collector: "u1" }, groupBy: "customer" });
+    expect(next).toMatchObject({ filter: { collector: ["u1"] }, groupBy: "customer" });
     expect(splitTargets(["stream", "collector", "customer", "time"], next)).toEqual(["stream", "time"]);
     expect(defaultViews().money_in.groupBy).toBe("stream");
   });

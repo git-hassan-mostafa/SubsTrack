@@ -21,7 +21,9 @@ export type ReportDimension =
   | "type"
   | "area";
 
-export type DimensionFilter<D extends ReportDimension = ReportDimension> = Partial<Record<D, string>>;
+export type DimensionFilter<D extends ReportDimension = ReportDimension> = Partial<
+  Record<D, readonly string[]>
+>;
 
 export interface SectionViewState {
   filter: DimensionFilter;

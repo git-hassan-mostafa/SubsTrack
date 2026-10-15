@@ -5,7 +5,7 @@ export interface FindSalesOptions {
   page?: number;
   searchQuery?: string;
   customerId?: string | null;
-  productId?: string | null;
+  productIds?: readonly string[];
   fromDate?: string | null;
   toDate?: string | null;
   branchFilter?: BranchFilter;

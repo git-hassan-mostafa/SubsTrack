@@ -59,11 +59,13 @@ function applySaleSearch<T extends { or(filters: string): T }>(
 }
 
 export class SaleRepository extends BaseRepository implements ISaleRepository {
-  private async saleIdsForProduct(productId: string): Promise<string[]> {
+  private async saleIdsForProducts(
+    productIds: readonly string[],
+  ): Promise<string[]> {
     const { data, error } = await this.db
       .from("sale_items")
       .select("sale_id")
-      .eq("product_id", productId)
+      .in("product_id", [...productIds])
       .is("voided_at", null);
     if (error) this.handleError(error);
     return Array.from(
@@ -84,7 +86,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
 
   private async filterIds(opts: FindSalesOptions): Promise<SaleFilterIds> {
     const [productSaleIds, customerIds] = await Promise.all([
-      opts.productId ? this.saleIdsForProduct(opts.productId) : null,
+      opts.productIds?.length ? this.saleIdsForProducts(opts.productIds) : null,
       this.customerIdsMatching(opts.searchQuery),
     ]);
     return { productSaleIds, customerIds };

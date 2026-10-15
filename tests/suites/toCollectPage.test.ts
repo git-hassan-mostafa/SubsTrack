@@ -67,7 +67,7 @@ describe("debt history page", () => {
       {
         ...DEFAULT_DEBT_HISTORY_FILTERS,
         customerId: "cust-1",
-        kind: "manual",
+        kind: ["manual"],
         outcome: "settled",
         sort: "largest",
       },

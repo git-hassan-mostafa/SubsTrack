@@ -56,7 +56,7 @@ Web customer list's **exact** status over every in-scope customer (10k+), one pa
 - **Deploy** (after `script.sql`, calls `customer_status_facts`) — two ways, same code:
   - **CLI**: `cd SubsTrack && supabase functions deploy customer-status` (uses committed bundle), or `cd Web && npm run deploy-customer-status` (rebuild + deploy). Script in `Web/package.json`, never `SubsTrack/package.json` (gotcha #53).
   - **Dashboard** (dev laptop has no CLI, `npx` AV-blocked): `cd Web && npm run build-edge` also writes self-contained `functions/_dashboard/customer-status/index.ts` (function + Shared; only esm.sh import left; git-ignored; OUTSIDE the function folder so CLI never sees a 2nd `Deno.serve`) → paste into Dashboard → Edge Functions → Deploy a new function → Via Editor (name `customer-status`, "Verify JWT" ON).
-  - Any change to month rules → `npm run build-edge` + **commit `_generated/`** (else the other machine deploys the old bundle) + redeploy.
+  - Any change to month rules or filter parser → `npm run build-edge` + **commit `_generated/`** (else the other machine deploys the old bundle) + redeploy. **Must redeploy customer-status before shipping Web** when filter request shape changes (e.g. array payment/plan filters).
 
 ## `whatsapp-*` (WhatsApp Cloud API)
 

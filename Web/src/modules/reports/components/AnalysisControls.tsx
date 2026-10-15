@@ -11,7 +11,7 @@ import {
 } from "@shared/modules/reports/utils/reportDimensions";
 import { TIME_GRAINS, type TimeGrain } from "@shared/modules/reports/utils/timeBuckets";
 import { FilterBar } from "@/shared/table/FilterBar";
-import { FilterSelect } from "@/shared/table/FilterSelect";
+import { MultiFilterSelect } from "@/shared/table/MultiFilterSelect";
 
 const SEARCHABLE_FROM = 8;
 
@@ -24,15 +24,18 @@ interface ReportFiltersProps {
   view: SectionViewState;
   options: Partial<Record<ReportDimension, string[]>>;
   label: DimLabel;
-  onFilter: (dim: ReportDimension, key: string | null) => void;
+  onFilter: (dim: ReportDimension, keys: readonly string[]) => void;
   onClear: () => void;
 }
 
-// One dropdown per question, then every pinned value as a chip — a drill can pin more than the dropdowns show.
+// Pinned chips show all active filters; drill-down pins more than dropdowns show.
 export function ReportFilters({ filters, view, options, label, onFilter, onClear }: ReportFiltersProps) {
   const { t } = useTranslation();
-  const pinned = (Object.entries(view.filter) as [ReportDimension, string | undefined][]).filter(
-    (entry): entry is [ReportDimension, string] => entry[1] !== undefined,
+  const pinned = (
+    Object.entries(view.filter) as [ReportDimension, readonly string[] | undefined][]
+  ).filter(
+    (entry): entry is [ReportDimension, readonly string[]] =>
+      Boolean(entry[1] && entry[1].length > 0),
   );
   return (
     <Stack spacing={1.5}>
@@ -43,13 +46,13 @@ export function ReportFilters({ filters, view, options, label, onFilter, onClear
             .map((key) => ({ value: key, label: label(dim, key) }))
             .sort((a, b) => a.label.localeCompare(b.label));
           return (
-            <FilterSelect<string | null>
+            <MultiFilterSelect<string>
               key={dim}
               label={t(DIMENSION_LABEL_KEY[dim])}
-              value={view.filter[dim] ?? null}
-              onChange={(key) => onFilter(dim, key)}
+              value={view.filter[dim] ?? []}
+              onChange={(next) => onFilter(dim, next)}
               options={choices}
-              anyLabel={t("web.filter_all")}
+              allLabel={t("web.filter_all")}
               searchable={choices.length >= SEARCHABLE_FROM}
               minWidth={170}
             />
@@ -59,15 +62,15 @@ export function ReportFilters({ filters, view, options, label, onFilter, onClear
       </FilterBar>
       {pinned.length > 0 ? (
         <Stack direction="row" useFlexGap spacing={1} sx={{ flexWrap: "wrap" }}>
-          {pinned.map(([dim, key]) => {
-            return (
+          {pinned.flatMap(([dim, keys]) =>
+            keys.map((key) => (
               <Chip
-                key={dim}
+                key={`${dim}-${key}`}
                 label={`${t(DIMENSION_LABEL_KEY[dim])}: ${label(dim, key)}`}
-                onDelete={() => onFilter(dim, null)}
+                onDelete={() => onFilter(dim, keys.filter((k) => k !== key))}
               />
-            );
-          })}
+            )),
+          )}
         </Stack>
       ) : null}
     </Stack>

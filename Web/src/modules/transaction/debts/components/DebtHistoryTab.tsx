@@ -30,6 +30,7 @@ import { StatusChip } from "@/shared/components/StatusChip";
 import { DataTable } from "@/shared/table/DataTable";
 import { usePagedTable } from "@/shared/table/usePagedTable";
 import { FilterSelect } from "@/shared/table/FilterSelect";
+import { MultiFilterSelect } from "@/shared/table/MultiFilterSelect";
 import { RowLink } from "@/shared/table/RowLink";
 import type { TableAdd } from "@/shared/table/TableToolbar";
 import { CustomerPicker } from "@/modules/customer/customers/components/CustomerPicker";
@@ -177,9 +178,9 @@ export function DebtHistoryTab({ branch, doors, add }: DebtHistoryTabProps) {
             onChange={(outcome) => setFilters({ outcome })}
             options={HISTORY_OUTCOMES.map((outcome) => ({ value: outcome, label: t(`debts.outcome_${outcome}`) }))}
           />
-          <FilterSelect<ChargeKind | null>
+          <MultiFilterSelect<ChargeKind>
             label={t("ledger.filter_by_type")}
-            anyLabel={t("ledger.all_types")}
+            allLabel={t("ledger.all_types")}
             value={filters.kind}
             onChange={(kind) => setFilters({ kind })}
             options={OWED_KINDS.map((kind) => ({ value: kind, label: t(`ledger.kind_${kind}`) }))}

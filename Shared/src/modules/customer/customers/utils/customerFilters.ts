@@ -21,9 +21,9 @@ export type UnpaidMonthsFilter = 1 | 2 | 3 | 6;
 
 export interface CustomerFilters {
   status: ActiveFilter;
-  payment: PaymentFilter | null;
+  payment: readonly PaymentFilter[];
   owes: OwesFilter | null;
-  planId: string | null;
+  planId: readonly string[];
   unpaidMonths: UnpaidMonthsFilter | null;
   type: CustomerTypeFilter | null;
   phone: YesNoFilter | null;
@@ -47,9 +47,9 @@ export type CustomerSort =
 
 export const DEFAULT_CUSTOMER_FILTERS: CustomerFilters = {
   status: "active",
-  payment: null,
+  payment: [],
   owes: null,
-  planId: null,
+  planId: [],
   unpaidMonths: null,
   type: null,
   phone: null,
@@ -150,7 +150,12 @@ export function toCustomerFilterQuery(
 
 export function hasCustomerFilters(filters: CustomerFilters): boolean {
   return (Object.keys(DEFAULT_CUSTOMER_FILTERS) as (keyof CustomerFilters)[]).some(
-    (key) => filters[key] !== DEFAULT_CUSTOMER_FILTERS[key],
+    (key) => {
+      const current = filters[key];
+      const def = DEFAULT_CUSTOMER_FILTERS[key];
+      if (Array.isArray(current)) return current.length > 0;
+      return current !== def;
+    },
   );
 }
 
@@ -178,22 +183,24 @@ const PAYMENT_FILTER_FLAGS: Record<PaymentFilter, readonly CustomerFlag[]> = {
 function matchesPayment(
   customer: FilterableCustomer,
   status: CustomerStatus | null,
-  payment: PaymentFilter | null,
+  payment: readonly PaymentFilter[],
 ): boolean {
-  if (payment === null) return true;
+  if (payment.length === 0) return true;
   if (!customer.active || !customer.isRegular) return false;
-  const wanted = PAYMENT_FILTER_FLAGS[payment];
-  return customerFlags(status).some((flag) => wanted.includes(flag));
+  const flags = customerFlags(status);
+  return payment.some((p) => PAYMENT_FILTER_FLAGS[p].some((flag) => flags.includes(flag)));
 }
 
 // No plan = no active line on any plan; a line with only its own price counts as none.
-function matchesPlan(customer: FilterableCustomer, planId: string | null): boolean {
-  if (planId === null) return true;
+function matchesPlan(
+  customer: FilterableCustomer,
+  planId: readonly string[],
+): boolean {
+  if (planId.length === 0) return true;
   const planIds = (customer.customerPlans ?? [])
     .filter((line) => line.active && line.planId !== null)
     .map((line) => line.planId);
-  if (planId === NO_PLAN_FILTER) return planIds.length === 0;
-  return planIds.includes(planId);
+  return planId.some((p) => (p === NO_PLAN_FILTER ? planIds.length === 0 : planIds.includes(p)));
 }
 
 function matchesLastPaid(
@@ -246,16 +253,26 @@ function isInstantOrNull(value: unknown): boolean {
 
 const ID_PATTERN = /^[0-9a-f-]{36}$/i;
 
+function isPaymentFilterValue(value: unknown): boolean {
+  const allowed = labelKeysOf(PAYMENT_FILTER_LABEL_KEYS);
+  return Array.isArray(value) && value.every((item) => isOneOf(allowed, item));
+}
+
+function isPlanFilterValue(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every((item) => typeof item === "string" && (item === NO_PLAN_FILTER || ID_PATTERN.test(item)))
+  );
+}
+
 export function isCustomerFilterQuery(value: unknown): value is CustomerFilterQuery {
   if (!value || typeof value !== "object") return false;
   const f = value as Record<string, unknown>;
   return (
     isOneOf(labelKeysOf(STATUS_FILTER_LABEL_KEYS), f.status) &&
-    isNullOr(labelKeysOf(PAYMENT_FILTER_LABEL_KEYS), f.payment) &&
+    isPaymentFilterValue(f.payment) &&
     isNullOr(labelKeysOf(OWES_FILTER_LABEL_KEYS), f.owes) &&
-    (f.planId === null ||
-      f.planId === NO_PLAN_FILTER ||
-      (typeof f.planId === "string" && ID_PATTERN.test(f.planId))) &&
+    isPlanFilterValue(f.planId) &&
     isNullOr(UNPAID_MONTHS_OPTIONS, f.unpaidMonths) &&
     isNullOr(labelKeysOf(TYPE_FILTER_LABEL_KEYS), f.type) &&
     isNullOr(labelKeysOf(PHONE_FILTER_LABEL_KEYS), f.phone) &&

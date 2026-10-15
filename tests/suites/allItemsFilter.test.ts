@@ -105,7 +105,7 @@ describe("all-debts: filtering", () => {
 
   it("TC-AD-04 filters by kind", () => {
     expect(
-      keys(selectAllOwed(rows, filters({ kind: "sale" }), TODAY)),
+      keys(selectAllOwed(rows, filters({ kind: ["sale"] }), TODAY)),
     ).toEqual(["s"]);
   });
 
@@ -138,20 +138,20 @@ describe("all-debts: status", () => {
   const v = view([debtor({ items: [late, future, part] })]);
 
   it("TC-AD-08 'late' keeps only bills past their due date", () => {
-    expect(keys(selectAllOwed(v, filters({ status: "late" }), TODAY))).toEqual(
+    expect(keys(selectAllOwed(v, filters({ status: ["late"] }), TODAY))).toEqual(
       ["late"],
     );
   });
 
   it("TC-AD-09 'not late yet' is the exact complement", () => {
     expect(
-      keys(selectAllOwed(v, filters({ status: "not_late" }), TODAY)).sort(),
+      keys(selectAllOwed(v, filters({ status: ["not_late"] }), TODAY)).sort(),
     ).toEqual(["future", "part"]);
   });
 
   it("TC-AD-10 'partly paid' keys off MONEY, not lateness", () => {
     expect(
-      keys(selectAllOwed(v, filters({ status: "partial" }), TODAY)),
+      keys(selectAllOwed(v, filters({ status: ["partial"] }), TODAY)),
     ).toEqual(["part"]);
   });
 });
@@ -253,7 +253,7 @@ describe("all-debts: the written-off scope shares one rule set", () => {
 
   it("TC-AD-20 a flat written-off list takes the same kind filter", () => {
     expect(
-      keys(filterAndSortOwed(writtenOff, filters({ kind: "manual" }), TODAY)),
+      keys(filterAndSortOwed(writtenOff, filters({ kind: ["manual"] }), TODAY)),
     ).toEqual(["w2"]);
   });
 
@@ -299,8 +299,8 @@ describe("all-debts: totals and filter state", () => {
   });
 
   it("TC-AD-19 any changed filter flags the clear button", () => {
-    expect(hasActiveAllItemsFilters(filters({ kind: "sale" }))).toBe(true);
-    expect(hasActiveAllItemsFilters(filters({ status: "late" }))).toBe(true);
+    expect(hasActiveAllItemsFilters(filters({ kind: ["sale"] }))).toBe(true);
+    expect(hasActiveAllItemsFilters(filters({ status: ["late"] }))).toBe(true);
     expect(hasActiveAllItemsFilters(filters({ sort: "newest" }))).toBe(true);
     expect(hasActiveAllItemsFilters(filters({ search: "ali" }))).toBe(true);
   });

@@ -55,8 +55,8 @@ export function CustomerFilterFields({ value, onChange }: Props) {
         <Dropdown<PaymentFilter>
           label={t("customers.filters.payment")}
           options={labelled(PAYMENT_FILTER_LABEL_KEYS)}
-          value={value.payment}
-          onChange={(payment) => onChange({ payment })}
+          value={value.payment[0] ?? null}
+          onChange={(payment) => onChange({ payment: payment ? [payment] : [] })}
           nullable
           nullLabel={t("customers.filters.payment_any")}
           triggerStyle="filter"
@@ -91,8 +91,8 @@ export function CustomerFilterFields({ value, onChange }: Props) {
         <Dropdown<string>
           label={t("customers.filters.plan")}
           options={planFilterOptions(plans, t("customers.filters.plan_none"))}
-          value={value.planId}
-          onChange={(planId) => onChange({ planId })}
+          value={value.planId[0] ?? null}
+          onChange={(planId) => onChange({ planId: planId ? [planId] : [] })}
           nullable
           nullLabel={t("customers.filters.plan_any")}
           triggerStyle="filter"

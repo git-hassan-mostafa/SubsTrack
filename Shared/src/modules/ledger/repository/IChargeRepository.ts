@@ -62,7 +62,7 @@ export interface FindChargesOptions {
   customerId?: string;
   customerIds?: string[];
   branchFilter?: BranchFilter;
-  kinds?: DbCharge["kind"][];
+  kinds?: readonly DbCharge["kind"][];
   writeOffScope?: WriteOffScope;
 }
 

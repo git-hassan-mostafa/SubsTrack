@@ -2,7 +2,7 @@ import { shareOfTotal } from "@shared/modules/reports/utils/aggregate";
 
 export const NO_KEY = "__none__";
 
-export type ReportFilter<D extends string> = Partial<Record<D, string>>;
+export type ReportFilter<D extends string> = Partial<Record<D, readonly string[]>>;
 
 // A customer with two plans sits in both plan groups, so a key may be a list.
 export type KeyOf<R, D extends string> = (row: R, dim: D) => string | readonly string[];
@@ -20,14 +20,27 @@ function keysOf<R, D extends string>(row: R, dim: D, keyOf: KeyOf<R, D>): readon
   return typeof key === "string" ? [key] : key;
 }
 
-function setEntries<D extends string>(filter: ReportFilter<D>): [D, string][] {
-  return (Object.entries(filter) as [D, string | undefined][]).filter(
-    (entry): entry is [D, string] => entry[1] !== undefined,
+function setEntries<D extends string>(filter: ReportFilter<D>): [D, readonly string[]][] {
+  return (
+    Object.entries(filter) as [D, readonly string[] | undefined][]
+  ).filter(
+    (entry): entry is [D, readonly string[]] =>
+      entry[1] !== undefined && entry[1].length > 0,
   );
 }
 
 export function isFiltered<D extends string>(filter: ReportFilter<D>): boolean {
   return setEntries(filter).length > 0;
+}
+
+export function matchesDim(
+  picked: readonly string[] | undefined,
+  actual: string | readonly string[] | null,
+): boolean {
+  if (!picked || picked.length === 0) return true;
+  if (!actual) return false;
+  if (typeof actual === "string") return picked.includes(actual);
+  return picked.some((p) => actual.includes(p));
 }
 
 export function applyFilter<R, D extends string>(
@@ -38,7 +51,7 @@ export function applyFilter<R, D extends string>(
   const set = setEntries(filter);
   if (set.length === 0) return [...rows];
   return rows.filter((row) =>
-    set.every(([dim, value]) => keysOf(row, dim, keyOf).includes(value)),
+    set.every(([dim, value]) => matchesDim(value, keysOf(row, dim, keyOf))),
   );
 }
 
@@ -56,7 +69,9 @@ export function filterOptions<R, D extends string>(
     for (const key of keysOf(row, dim, keyOf)) keys.add(key);
   }
   const picked = filter[dim];
-  if (picked !== undefined) keys.add(picked);
+  if (picked !== undefined) {
+    for (const p of picked) keys.add(p);
+  }
   return [...keys];
 }
 

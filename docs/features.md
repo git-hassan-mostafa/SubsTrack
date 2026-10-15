@@ -1059,6 +1059,16 @@ Own selection mode on customer detail grid (same `useSelection()`, one customer'
 
 ---
 
+## Multi-Select Dropdown Filters
+
+Non-exclusive dropdown filters on Web support multi-selection (Customers: Payment status, Plan; Debts/To Collect: Kind, Status; Sales: Product; Reports: all dimensions).
+- **Array-first representation**: Filter state is strictly arrays (`readonly T[]`), default `[]` (empty = unfiltered). No union or optional scalar/array forms.
+- **Matching logic**: Within a dimension, values match with **OR** logic (e.g. `payment: ["unpaid", "written_off"]` matches customers who are unpaid OR written off). Across different dimensions, filters combine with **AND** logic.
+- **Phone UI remains single-select**: Native sheets read the first entry `filters.field[0] ?? null` and write single-element arrays `[value]` (or `[]` when cleared).
+- **Binary / macro filters stay single-select**: Status (active/inactive), Phone (yes/no), Portal (yes/no), Type (regular/occasional), Owes (anything/debts/nothing), Unpaid months count, and Sort remain single-choice everywhere.
+
+---
+
 ## Audit Trail
 
 **Append-only** who-changed-what-when + old value (the fact an admin-vs-staff dispute turns on; nothing else kept it).

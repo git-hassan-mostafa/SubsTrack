@@ -9,6 +9,7 @@ import {
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
 import { DateField } from "@/shared/components/DateField";
 import { FilterSelect } from "@/shared/table/FilterSelect";
+import { MultiFilterSelect } from "@/shared/table/MultiFilterSelect";
 
 interface SalesFiltersProps {
   value: SaleFilterChoice;
@@ -31,15 +32,16 @@ export function SalesFilters({ value, onChange }: SalesFiltersProps) {
 
   return (
     <>
-      <FilterSelect<string | null>
+      <MultiFilterSelect<string>
         label={t("sales.filter_by_product")}
-        anyLabel={t("sales.all_products")}
-        value={value.productId}
-        onChange={(productId) => onChange({ productId })}
+        allLabel={t("sales.all_products")}
+        value={value.productIds}
+        onChange={(productIds) => onChange({ productIds })}
         options={products
           .filter((product) => product.active)
           .map((product) => ({ value: product.id, label: product.name }))}
         searchable
+        minWidth={180}
       />
       <Box sx={{ width: DATE_WIDTH }}>
         <DateField

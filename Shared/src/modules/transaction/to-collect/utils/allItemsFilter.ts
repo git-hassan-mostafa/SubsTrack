@@ -32,23 +32,23 @@ export const ALL_ITEMS_SORTS: readonly AllItemsSort[] = [
 
 export interface AllItemsFilters {
   search: string;
-  kind: ChargeKind | null;
-  status: AllItemsStatus | null;
+  kind: readonly ChargeKind[];
+  status: readonly AllItemsStatus[];
   sort: AllItemsSort;
 }
 
 export const DEFAULT_ALL_ITEMS_FILTERS: AllItemsFilters = {
   search: "",
-  kind: null,
-  status: null,
+  kind: [],
+  status: [],
   sort: "created",
 };
 
 export function hasActiveAllItemsFilters(f: AllItemsFilters): boolean {
   return (
     f.search.trim() !== "" ||
-    f.kind !== null ||
-    f.status !== null ||
+    f.kind.length > 0 ||
+    f.status.length > 0 ||
     f.sort !== DEFAULT_ALL_ITEMS_FILTERS.sort
   );
 }
@@ -100,8 +100,7 @@ export function sortOwed(
   return [...items].sort((a, b) => compareBy(sort, a, b));
 }
 
-// The written-off scope arrives as a flat list of its own, so the filters live
-// here rather than on the flatten — one rule set, both scopes.
+// Filters live on the flat list so written-off and debts share one rule set.
 export function filterAndSortOwed(
   items: OpenItem[],
   filters: AllItemsFilters,
@@ -109,8 +108,11 @@ export function filterAndSortOwed(
 ): OpenItem[] {
   const q = filters.search.trim().toLowerCase();
   const rows = items.filter((item) => {
-    if (filters.kind && item.kind !== filters.kind) return false;
-    if (filters.status && !matchesStatus(item, filters.status, today))
+    if (filters.kind.length > 0 && !filters.kind.includes(item.kind)) return false;
+    if (
+      filters.status.length > 0 &&
+      !filters.status.some((s) => matchesStatus(item, s, today))
+    )
       return false;
     if (!q) return true;
     return (

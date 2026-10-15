@@ -29,7 +29,7 @@ export interface DebtHistoryState extends DebtHistoryFilters {
   setCustomer: (customer: Customer | null) => Promise<void>;
   setPeriod: (period: HistoryPeriodPreset) => Promise<void>;
   setOutcome: (outcome: HistoryOutcome | null) => Promise<void>;
-  setKind: (kind: ChargeKind | null) => Promise<void>;
+  setKind: (kind: readonly ChargeKind[]) => Promise<void>;
   setSort: (sort: HistorySort) => Promise<void>;
   clearFilters: () => Promise<void>;
   clearError: () => void;
@@ -165,9 +165,10 @@ export const useDebtHistoryStore = create<DebtHistoryState>()(
     },
 
     setKind: async (kind) => {
-      if (get().kind === kind) return;
+      const current = get().kind;
+      if (current.length === kind.length && current.every((k) => kind.includes(k))) return;
       set((state) => {
-        state.kind = kind;
+        state.kind = [...kind];
         restart(state);
       });
       await get().fetchHistory();

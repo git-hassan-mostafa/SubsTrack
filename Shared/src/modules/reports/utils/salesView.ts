@@ -5,6 +5,7 @@ import {
   applyFilter,
   filterOptions,
   groupRows,
+  matchesDim,
   NO_KEY,
   type KeyOf,
   type ReportGroup,
@@ -145,9 +146,9 @@ function collectedOnSales(
   const rows = cash.filter(
     (row) =>
       row.stream === "sale" &&
-      (filter.customer === undefined || (row.customerId ?? NO_KEY) === filter.customer) &&
-      (filter.branch === undefined || (row.branchId ?? NO_KEY) === filter.branch) &&
-      (filter.time === undefined || bucketOf(row.date, grain) === filter.time),
+      matchesDim(filter.customer, row.customerId ?? NO_KEY) &&
+      matchesDim(filter.branch, row.branchId ?? NO_KEY) &&
+      matchesDim(filter.time, bucketOf(row.date, grain)),
   );
   return sumOf(rows, snapshotUsd);
 }

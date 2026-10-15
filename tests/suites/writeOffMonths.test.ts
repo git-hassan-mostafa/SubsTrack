@@ -292,7 +292,7 @@ describe("the customer badge after a write-off", () => {
     const status = buildCustomerStatus([L], bills, [], "month_start");
     const facts = { status, debtUsd: 0, toCollectUsd: 0, lastPaidAt: null };
     const query = (payment: "paid" | "written_off") =>
-      toCustomerFilterQuery({ ...DEFAULT_CUSTOMER_FILTERS, payment });
+      toCustomerFilterQuery({ ...DEFAULT_CUSTOMER_FILTERS, payment: [payment] });
     expect(matchesCustomerFilters(C, facts, query("written_off"))).toBe(true);
     expect(matchesCustomerFilters(C, facts, query("paid"))).toBe(false);
   });

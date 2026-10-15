@@ -191,7 +191,7 @@ export class OfflineChargeRepository
     if (opts.kinds?.length) {
       parts.push({
         clause: `c.kind IN (${opts.kinds.map(() => "?").join(",")})`,
-        params: opts.kinds,
+        params: [...opts.kinds],
       });
     }
     parts.push(

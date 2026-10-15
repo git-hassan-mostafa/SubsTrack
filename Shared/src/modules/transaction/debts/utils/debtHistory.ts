@@ -57,7 +57,7 @@ export interface DebtHistoryFilters {
   customerId: string | null;
   period: HistoryPeriodPreset;
   outcome: HistoryOutcome | null;
-  kind: ChargeKind | null;
+  kind: readonly ChargeKind[];
   sort: HistorySort;
 }
 
@@ -65,7 +65,7 @@ export const DEFAULT_DEBT_HISTORY_FILTERS: DebtHistoryFilters = {
   customerId: null,
   period: "all",
   outcome: null,
-  kind: null,
+  kind: [],
   sort: "created",
 };
 
@@ -74,7 +74,7 @@ export function hasActiveHistoryFilters(f: DebtHistoryFilters): boolean {
     f.customerId !== null ||
     f.period !== DEFAULT_DEBT_HISTORY_FILTERS.period ||
     f.outcome !== null ||
-    f.kind !== null ||
+    f.kind.length > 0 ||
     f.sort !== DEFAULT_DEBT_HISTORY_FILTERS.sort
   );
 }
@@ -176,7 +176,7 @@ export function debtHistoryReadOptions(
     ...toDueDateRange(filters.period),
     branchFilter,
     customerId: filters.customerId ?? undefined,
-    kinds: filters.kind ? [filters.kind] : undefined,
+    kinds: filters.kind.length > 0 ? filters.kind : undefined,
   };
 }
 

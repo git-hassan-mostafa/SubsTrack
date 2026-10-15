@@ -42,6 +42,7 @@ export const saleStore = {
     saleItems = [];
     movements = [];
     n = 0;
+    for (const key of Object.keys(stockOnHand)) delete stockOnHand[key];
   },
 };
 
@@ -58,6 +59,15 @@ export const fakeSaleRepository = {
       .filter((s) => query.includeVoided || s.voided_at === null)
       .filter((s) => !query.voidedOnly || s.voided_at !== null)
       .filter((s) => !query.customerId || s.customer_id === query.customerId)
+      .filter((s) => {
+        if (!query.productIds?.length) return true;
+        const items = saleItems.filter(
+          (i) => i.sale_id === s.id && i.voided_at === null,
+        );
+        return items.some(
+          (i) => i.product_id && query.productIds.includes(i.product_id),
+        );
+      })
       .sort((a, b) => b.sold_at.localeCompare(a.sold_at));
     return {
       rows: matching.slice(query.offset, query.offset + query.limit).map(hydrate),

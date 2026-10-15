@@ -6,6 +6,7 @@ import {
   filterOptions,
   groupRows,
   isFiltered,
+  matchesDim,
   NO_KEY,
   type KeyOf,
 } from "@shared/modules/reports/utils/analysis";
@@ -58,10 +59,10 @@ const owedUsd = (item: OpenItem) => balanceUsd(item.balance, item.ratePerUsdSnap
 function collectedInScope(rows: readonly CashRow[], filter: DimensionFilter): CashRow[] {
   return rows.filter(
     (row) =>
-      (filter.customer === undefined || row.customerId === filter.customer) &&
-      (filter.kind === undefined || row.stream === filter.kind) &&
-      (filter.plan === undefined || (row.planId ?? NO_KEY) === filter.plan) &&
-      (filter.branch === undefined || (row.branchId ?? NO_KEY) === filter.branch),
+      matchesDim(filter.customer, row.customerId) &&
+      matchesDim(filter.kind, row.stream) &&
+      matchesDim(filter.plan, row.planId ?? NO_KEY) &&
+      matchesDim(filter.branch, row.branchId ?? NO_KEY),
   );
 }
 

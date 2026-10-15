@@ -170,8 +170,8 @@ export function AllItemsSheet({
                 <Dropdown<ChargeKind>
                   placeholder={t("ledger.filter_by_type")}
                   options={kindOptions}
-                  value={filters.kind}
-                  onChange={(kind) => patch({ kind })}
+                  value={filters.kind[0] ?? null}
+                  onChange={(kind) => patch({ kind: kind ? [kind] : [] })}
                   nullable
                   nullLabel={t("ledger.all_types")}
                   triggerStyle="chip"
@@ -180,8 +180,8 @@ export function AllItemsSheet({
                   <Dropdown<AllItemsStatus>
                     placeholder={t("ledger.filter_by_status")}
                     options={statusOptions}
-                    value={filters.status}
-                    onChange={(status) => patch({ status })}
+                    value={filters.status[0] ?? null}
+                    onChange={(status) => patch({ status: status ? [status] : [] })}
                     nullable
                     nullLabel={t("ledger.all_statuses")}
                     triggerStyle="chip"

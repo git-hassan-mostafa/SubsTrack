@@ -298,12 +298,12 @@ const COMBOS: Partial<CustomerFilters>[] = [
   {},
   { status: "active" },
   { status: "inactive" },
-  ...PAYMENTS.map((payment) => ({ payment })),
+  ...PAYMENTS.map((payment) => ({ payment: [payment] })),
   { owes: "anything" },
   { owes: "debts" },
   { owes: "nothing" },
-  { planId: PLAN_10A },
-  { planId: PLAN_5A },
+  { planId: [PLAN_10A] },
+  { planId: [PLAN_5A] },
   { unpaidMonths: 1 },
   { unpaidMonths: 2 },
   { unpaidMonths: 3 },
@@ -316,9 +316,9 @@ const COMBOS: Partial<CustomerFilters>[] = [
   { paidFrom: "2026-02-01" },
   { paidTo: "2026-01-31" },
   { paidFrom: "2026-02-01", paidTo: "2026-03-05" },
-  { status: "active", owes: "debts", payment: "unpaid" },
-  { status: "active", owes: "anything", payment: "overdue" },
-  { planId: PLAN_10A, phone: "no", unpaidMonths: 1 },
+  { status: "active", owes: "debts", payment: ["unpaid"] },
+  { status: "active", owes: "anything", payment: ["overdue"] },
+  { planId: [PLAN_10A], phone: "no", unpaidMonths: 1 },
 ];
 
 describe("pageCustomerStatuses — server filters equal the phone list", () => {
@@ -347,12 +347,12 @@ describe("pageCustomerStatuses — server filters equal the phone list", () => {
     expect(total({})).toBe(10);
     expect(total({ status: "active" })).toBe(9);
     expect(total({ status: "inactive" })).toBe(1);
-    expect(PAYMENTS.map((payment) => total({ payment }))).toEqual([3, 2, 1, 2, 2]);
+    expect(PAYMENTS.map((payment) => total({ payment: [payment] }))).toEqual([3, 2, 1, 2, 2]);
     expect(total({ owes: "anything" })).toBe(4);
     expect(total({ owes: "debts" })).toBe(3);
     expect(total({ owes: "nothing" })).toBe(6);
-    expect(total({ planId: PLAN_10A })).toBe(2);
-    expect(total({ planId: PLAN_5A })).toBe(1);
+    expect(total({ planId: [PLAN_10A] })).toBe(2);
+    expect(total({ planId: [PLAN_5A] })).toBe(1);
     expect(total({ type: "occasional" })).toBe(1);
     expect(total({ phone: "no" })).toBe(2);
     expect(total({ portal: "yes" })).toBe(1);
@@ -363,8 +363,8 @@ describe("pageCustomerStatuses — server filters equal the phone list", () => {
     const facts = readCustomerStatusFacts(toWire(fixture()), "month_start");
     const ids = (combo: Partial<CustomerFilters>) =>
       pageCustomerStatuses(facts, query(pick(combo))).rows.map((r) => r.customerId);
-    expect(ids({ planId: PLAN_10A, phone: "no" })).toEqual(["c-mixed"]);
-    expect(ids({ status: "inactive", payment: "unpaid" })).toEqual([]);
+    expect(ids({ planId: [PLAN_10A], phone: "no" })).toEqual(["c-mixed"]);
+    expect(ids({ status: "inactive", payment: ["unpaid"] })).toEqual([]);
     expect(ids({ owes: "debts", status: "active" })).toEqual(["c-walkin", "c-partial"]);
   });
 
@@ -559,7 +559,7 @@ describe("parseCustomerStatusRequest", () => {
   const now = new Date(Date.UTC(2026, 2, 15, 23, 30));
   const valid = {
     search: "ali",
-    filters: pick({ payment: "overdue", planId: PLAN_5A, unpaidMonths: 2, paidFrom: "2026-02-01" }),
+    filters: pick({ payment: ["overdue"], planId: [PLAN_5A], unpaidMonths: 2, paidFrom: "2026-02-01" }),
     sort: "to_collect",
     branch: null,
     offset: 0,
@@ -582,7 +582,7 @@ describe("parseCustomerStatusRequest", () => {
     const refused = [
       { filters: undefined },
       { filters: "overdue" },
-      { filters: { ...pick(), payment: "owing" } },
+      { filters: { ...pick(), payment: ["owing"] } },
       { filters: { ...pick(), owes: "yes" } },
       { filters: { ...pick(), status: null } },
       { filters: { ...pick(), unpaidMonths: 4 } },
@@ -607,6 +607,20 @@ describe("parseCustomerStatusRequest", () => {
     expect(factsRpcArgs("unassigned")).toEqual({ p_branch_id: null, p_unassigned: true });
     expect(factsRpcArgs("b1")).toEqual({ p_branch_id: "b1", p_unassigned: false });
   });
+
+  it("TC-CT-28 request parser accepts array payment and array planId filters", () => {
+    expect(
+      parse({
+        filters: {
+          ...pick(),
+          payment: ["unpaid", "written_off"],
+          planId: [PLAN_10A, "none"],
+        },
+      }).ok,
+    ).toBe(true);
+    expect(parse({ filters: { ...pick(), payment: ["unpaid", "invalid_status"] } }).ok).toBe(false);
+    expect(parse({ filters: { ...pick(), planId: ["not-a-uuid"] } }).ok).toBe(false);
+  });
 });
 
 describe("matchesCustomerFilters", () => {
@@ -621,8 +635,8 @@ describe("matchesCustomerFilters", () => {
   it("TC-CT-17 an overdue customer is also listed under Unpaid", () => {
     const c = customer();
     const status = buildCustomerStatus([line({ startDate: "2020-01-01" })], [], []);
-    expect(matchesCustomerFilters(c, facts({ status }), pick({ payment: "overdue" }))).toBe(true);
-    expect(matchesCustomerFilters(c, facts({ status }), pick({ payment: "unpaid" }))).toBe(true);
+    expect(matchesCustomerFilters(c, facts({ status }), pick({ payment: ["overdue"] }))).toBe(true);
+    expect(matchesCustomerFilters(c, facts({ status }), pick({ payment: ["unpaid"] }))).toBe(true);
   });
 
   it("TC-CT-18 no status means no payment filter; money alone decides the Owes filter", () => {
@@ -636,12 +650,12 @@ describe("matchesCustomerFilters", () => {
     expect(matchesCustomerFilters(c, facts(), pick({ owes: "anything" }))).toBe(false);
     expect(matchesCustomerFilters(c, facts(), pick({ owes: "nothing" }))).toBe(true);
     for (const payment of PAYMENTS)
-      expect(matchesCustomerFilters(customer(), facts(), pick({ payment }))).toBe(false);
+      expect(matchesCustomerFilters(customer(), facts(), pick({ payment: [payment] }))).toBe(false);
   });
 
   it("TC-CT-19 a cancelled line's plan does not match the plan filter", () => {
     const c = customer({ customerPlans: [line({ planId: PLAN_10A, active: false })] });
-    expect(matchesCustomerFilters(c, facts(), pick({ planId: PLAN_10A }))).toBe(false);
+    expect(matchesCustomerFilters(c, facts(), pick({ planId: [PLAN_10A] }))).toBe(false);
   });
 
   it("TC-CT-20 last paid covers whole local days; never paid is outside any range", () => {
@@ -675,6 +689,54 @@ describe("matchesCustomerFilters", () => {
     expect(hasCustomerFilters({ ...DEFAULT_CUSTOMER_FILTERS, status: "all" })).toBe(true);
     expect(hasCustomerFilters({ ...DEFAULT_CUSTOMER_FILTERS, paidTo: "2026-01-01" })).toBe(true);
     expect(isCustomerFilterQuery(defaults)).toBe(true);
+    expect(isCustomerFilterQuery({ ...defaults, payment: "unpaid" })).toBe(false);
+    expect(isCustomerFilterQuery({ ...defaults, planId: PLAN_10A })).toBe(false);
     expect(matchesCustomerFilters(customer({ active: false }), facts(), defaults)).toBe(false);
   });
+
+  it("TC-CT-26 multi-select payment filter matches customers with any of the selected statuses", () => {
+    freezeToday(2026, 3, 15);
+    const c1 = customer({ id: "c1" });
+    const c2 = customer({ id: "c2" });
+    const c3 = customer({ id: "c3" });
+    const unpaidLine = line({ id: "l-unpaid", customerId: "c1", startDate: "2020-01-01" });
+    const paidLine = line({ id: "l-paid", customerId: "c2", startDate: "2026-03-01" });
+    const writtenOffLine = line({ id: "l-wo", customerId: "c3", startDate: "2026-03-01" });
+    const unpaidStatus = buildCustomerStatus([unpaidLine], [], []);
+    const paidStatus = buildCustomerStatus(
+      [paidLine],
+      [bill("2026-03-01", 20, { customerId: "c2", customerPlanId: "l-paid" })],
+      [],
+    );
+    const writtenOffStatus = buildCustomerStatus(
+      [writtenOffLine],
+      [
+        {
+          ...bill("2026-03-01", 0, { customerId: "c3", customerPlanId: "l-wo" }),
+          charge: {
+            ...bill("2026-03-01", 0, { customerId: "c3", customerPlanId: "l-wo" }).charge,
+            writtenOffAt: "2026-03-10T00:00:00Z",
+          },
+        },
+      ],
+      [],
+    );
+    unfreeze();
+    const query = pick({ payment: ["unpaid", "written_off"] });
+    expect(matchesCustomerFilters(c1, facts({ status: unpaidStatus }), query)).toBe(true);
+    expect(matchesCustomerFilters(c2, facts({ status: paidStatus }), query)).toBe(false);
+    expect(matchesCustomerFilters(c3, facts({ status: writtenOffStatus }), query)).toBe(true);
+    expect(matchesCustomerFilters(c1, facts({ status: unpaidStatus }), pick({ payment: [] }))).toBe(true);
+  });
+
+  it("TC-CT-27 multi-select plan filter matches customers subscribed to any selected plan", () => {
+    const c1 = customer({ customerPlans: [line({ planId: PLAN_10A, active: true })] });
+    const c2 = customer({ id: "c2", customerPlans: [line({ planId: PLAN_5A, active: true })] });
+    const c3 = customer({ id: "c3", customerPlans: [] });
+    const query = pick({ planId: [PLAN_10A, "none"] });
+    expect(matchesCustomerFilters(c1, facts(), query)).toBe(true);
+    expect(matchesCustomerFilters(c2, facts(), query)).toBe(false);
+    expect(matchesCustomerFilters(c3, facts(), query)).toBe(true);
+  });
 });
+

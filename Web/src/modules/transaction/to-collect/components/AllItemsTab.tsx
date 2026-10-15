@@ -20,6 +20,7 @@ import {
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { FilterSelect } from "@/shared/table/FilterSelect";
+import { MultiFilterSelect } from "@/shared/table/MultiFilterSelect";
 import { TableToolbar, type TableAdd } from "@/shared/table/TableToolbar";
 import { OwedItemsTable } from "./OwedItemsTable";
 import type { OwedDoors } from "../hooks/useOwedDoors";
@@ -73,17 +74,17 @@ export function AllItemsTab({ view, branch, doors, add, loading, onReload, showF
                 { value: "written_off", label: t("debts.scope_written_off") },
               ]}
             />
-            <FilterSelect<ChargeKind | null>
+            <MultiFilterSelect<ChargeKind>
               label={t("ledger.filter_by_type")}
-              anyLabel={t("ledger.all_types")}
+              allLabel={t("ledger.all_types")}
               value={filters.kind}
               onChange={(kind) => patch({ kind })}
               options={OWED_KINDS.map((kind) => ({ value: kind, label: t(`ledger.kind_${kind}`) }))}
             />
             {showingWrittenOff ? null : (
-              <FilterSelect<AllItemsStatus | null>
+              <MultiFilterSelect<AllItemsStatus>
                 label={t("ledger.filter_by_status")}
-                anyLabel={t("ledger.all_statuses")}
+                allLabel={t("ledger.all_statuses")}
                 value={filters.status}
                 onChange={(status) => patch({ status })}
                 options={ALL_ITEMS_STATUSES.map((status) => ({ value: status, label: t(`debts.status_${status}`) }))}

@@ -27,6 +27,7 @@ import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { DateField } from "@/shared/components/DateField";
 import { FilterBar } from "@/shared/table/FilterBar";
 import { FilterSelect } from "@/shared/table/FilterSelect";
+import { MultiFilterSelect } from "@/shared/table/MultiFilterSelect";
 import type { CustomerTableFilters } from "@/state/customersTable";
 
 interface CustomerFiltersBarProps {
@@ -57,9 +58,9 @@ export function CustomerFiltersBar({ value, onChange, onClear }: CustomerFilters
           options={labelled(STATUS_FILTER_LABEL_KEYS)}
           minWidth={150}
         />
-        <FilterSelect<PaymentFilter | null>
+        <MultiFilterSelect<PaymentFilter>
           label={t("customers.filters.payment")}
-          anyLabel={t("customers.filters.payment_any")}
+          allLabel={t("customers.filters.payment_any")}
           value={value.payment}
           onChange={(payment) => onChange({ payment })}
           options={labelled(PAYMENT_FILTER_LABEL_KEYS)}
@@ -83,12 +84,13 @@ export function CustomerFiltersBar({ value, onChange, onClear }: CustomerFilters
           }))}
           minWidth={180}
         />
-        <FilterSelect<string | null>
+        <MultiFilterSelect<string>
           label={t("customers.filters.plan")}
-          anyLabel={t("customers.filters.plan_any")}
+          allLabel={t("customers.filters.plan_any")}
           value={value.planId}
           onChange={(planId) => onChange({ planId })}
           options={planFilterOptions(plans, t("customers.filters.plan_none"))}
+          minWidth={180}
           searchable
         />
         <FilterSelect<CustomerTypeFilter | null>

@@ -90,7 +90,7 @@ export function SalesPanel({ header }: Props) {
 
   const hasActiveFilters = hasSaleFilter({
     customerId: customerFilter?.id ?? null,
-    productId: productFilter?.id ?? null,
+    productIds: productFilter ? [productFilter.id] : [],
     fromDate,
     toDate,
     status,

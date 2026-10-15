@@ -8,6 +8,7 @@ import type {
   MonthBill,
   OpenItem,
   Plan,
+  Product,
   Sale,
   SkippedMonth,
 } from "@shared/core/types";
@@ -45,6 +46,25 @@ export function plan(over: Partial<Plan> = {}): Plan {
     branchId: null,
     tenantId: "t1",
     createdAt: "2024-01-01T00:00:00.000Z",
+    ...over,
+  };
+}
+
+export function product(over: Partial<Product> = {}): Product {
+  return {
+    id: over.id ?? id("prod"),
+    tenantId: "t1",
+    branchId: null,
+    name: "Router",
+    description: null,
+    price: 50,
+    currencyId: null,
+    costPrice: 30,
+    costCurrencyId: null,
+    active: true,
+    stockOnHand: 10,
+    createdAt: "2024-01-01T00:00:00.000Z",
+    updatedAt: "2024-01-01T00:00:00.000Z",
     ...over,
   };
 }
