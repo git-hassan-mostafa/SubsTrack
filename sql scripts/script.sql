@@ -397,19 +397,36 @@ ALTER TABLE plans ADD COLUMN IF NOT EXISTS branch_id UUID
 ALTER TABLE plans ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE plans ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
+-- A usage plan bills fee + units × unit price, each month priced in plan_price_changes.
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS billing_type TEXT NOT NULL DEFAULT 'fixed'
+    CONSTRAINT chk_plans_billing_type CHECK (billing_type IN ('fixed', 'usage'));
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS usage_entry TEXT
+    CONSTRAINT chk_plans_usage_entry CHECK (usage_entry IS NULL OR usage_entry IN ('reading', 'direct'));
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS unit_name TEXT;
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS fee_name TEXT;
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS high_usage_percent NUMERIC(10,2)
+    CONSTRAINT chk_plans_high_usage_percent CHECK (high_usage_percent IS NULL OR high_usage_percent > 0);
+
 -- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
 
 DO $$ BEGIN
-    -- A fixed plan must have a price; a custom-price plan must not.
+    -- A fixed plan has a price unless custom-priced; a usage plan has none and lasts one month.
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'plans'::regclass AND conname = 'chk_plan_price_consistency'
+        WHERE conrelid = 'plans'::regclass AND conname = 'chk_plan_price_by_type'
     ) THEN
-        ALTER TABLE plans ADD CONSTRAINT chk_plan_price_consistency
+        ALTER TABLE plans ADD CONSTRAINT chk_plan_price_by_type
             CHECK (
-                (is_custom_price = FALSE AND price IS NOT NULL)
+                (billing_type = 'fixed'
+                    AND usage_entry IS NULL
+                    AND ((is_custom_price = FALSE AND price IS NOT NULL)
+                         OR (is_custom_price = TRUE AND price IS NULL)))
                 OR
-                (is_custom_price = TRUE AND price IS NULL)
+                (billing_type = 'usage'
+                    AND usage_entry IS NOT NULL
+                    AND is_custom_price = FALSE
+                    AND price IS NULL
+                    AND duration_months = 1)
             );
     END IF;
 
@@ -588,6 +605,11 @@ ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS custom_price NUMERIC(20,8)
 -- ON DELETE RESTRICT: soft-delete a currency (active = false) instead.
 ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS custom_currency_id UUID
     REFERENCES currencies(id) ON DELETE RESTRICT;
+
+-- Meter of a usage line billed by reading; start_reading = the reading at installation.
+ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS meter_number TEXT;
+ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS start_reading NUMERIC(20,4)
+    CONSTRAINT chk_customer_plans_start_reading CHECK (start_reading IS NULL OR start_reading >= 0);
 
 -- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
 
@@ -1269,6 +1291,14 @@ ALTER TABLE charges ADD COLUMN IF NOT EXISTS written_off_by UUID
     CONSTRAINT fk_charges_written_off_by REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE charges ADD COLUMN IF NOT EXISTS write_off_reason TEXT;
 
+-- A usage bill's parts as worked out when it was saved; amount may differ (edited).
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS usage_previous_reading NUMERIC(20,4);
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS usage_reading NUMERIC(20,4);
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS usage_units NUMERIC(20,4);
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS unit_price NUMERIC(20,8);
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS fixed_fee NUMERIC(20,8);
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS computed_amount NUMERIC(20,8);
+
 -- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
 
 DO $$ BEGIN
@@ -1781,6 +1811,87 @@ CREATE INDEX IF NOT EXISTS idx_skipped_months_active_month
     WHERE skipped;
 
 -- ============================================================
+-- USAGE READINGS
+-- One meter reading (or typed usage) per usage service line per month — the
+-- same grain and natural key as a month charge, so two offline devices
+-- converge on ONE row. Carries NO money: the bill is worked out from this row
+-- and the month's price (plan_price_changes) until money or an edit saves it.
+-- old_meter_final / new_meter_start are set only in the month a meter was replaced.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS usage_readings ();
+
+ALTER TABLE usage_readings ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE usage_readings ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_usage_readings_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE usage_readings ADD COLUMN IF NOT EXISTS customer_id UUID NOT NULL
+    CONSTRAINT fk_usage_readings_customer REFERENCES customers(id) ON DELETE CASCADE;
+ALTER TABLE usage_readings ADD COLUMN IF NOT EXISTS customer_plan_id UUID NOT NULL
+    CONSTRAINT fk_usage_readings_customer_plan REFERENCES customer_plans(id) ON DELETE CASCADE;
+ALTER TABLE usage_readings ADD COLUMN IF NOT EXISTS billing_month DATE NOT NULL
+    CONSTRAINT chk_usage_readings_billing_month_first_day
+    CHECK (EXTRACT(DAY FROM billing_month) = 1);
+ALTER TABLE usage_readings ADD COLUMN IF NOT EXISTS reading NUMERIC(20,4)
+    CONSTRAINT chk_usage_readings_reading CHECK (reading IS NULL OR reading >= 0);
+ALTER TABLE usage_readings ADD COLUMN IF NOT EXISTS units NUMERIC(20,4)
+    CONSTRAINT chk_usage_readings_units CHECK (units IS NULL OR units >= 0);
+ALTER TABLE usage_readings ADD COLUMN IF NOT EXISTS old_meter_final NUMERIC(20,4)
+    CONSTRAINT chk_usage_readings_old_meter_final CHECK (old_meter_final IS NULL OR old_meter_final >= 0);
+ALTER TABLE usage_readings ADD COLUMN IF NOT EXISTS new_meter_start NUMERIC(20,4)
+    CONSTRAINT chk_usage_readings_new_meter_start CHECK (new_meter_start IS NULL OR new_meter_start >= 0);
+ALTER TABLE usage_readings ADD COLUMN IF NOT EXISTS new_meter_number TEXT;
+ALTER TABLE usage_readings ADD COLUMN IF NOT EXISTS recorded_by_user_id UUID
+    CONSTRAINT fk_usage_readings_recorded_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE usage_readings ADD COLUMN IF NOT EXISTS recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE usage_readings ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ;
+ALTER TABLE usage_readings ADD COLUMN IF NOT EXISTS voided_by UUID
+    CONSTRAINT fk_usage_readings_voided_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE usage_readings ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE usage_readings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'usage_readings'::regclass AND conname = 'uq_usage_readings_line_month'
+    ) THEN
+        ALTER TABLE usage_readings ADD CONSTRAINT uq_usage_readings_line_month
+            UNIQUE (customer_plan_id, billing_month);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'usage_readings'::regclass AND conname = 'chk_usage_readings_value'
+    ) THEN
+        ALTER TABLE usage_readings ADD CONSTRAINT chk_usage_readings_value
+            CHECK (reading IS NOT NULL OR units IS NOT NULL);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'usage_readings'::regclass AND conname = 'chk_usage_readings_meter_change'
+    ) THEN
+        ALTER TABLE usage_readings ADD CONSTRAINT chk_usage_readings_meter_change
+            CHECK (
+                (old_meter_final IS NULL AND new_meter_start IS NULL)
+                OR
+                (old_meter_final IS NOT NULL AND new_meter_start IS NOT NULL AND reading IS NOT NULL)
+            );
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_usage_readings_tenant_id
+    ON usage_readings (tenant_id);
+
+CREATE INDEX IF NOT EXISTS idx_usage_readings_customer_id
+    ON usage_readings (customer_id);
+
+CREATE INDEX IF NOT EXISTS idx_usage_readings_billing_month
+    ON usage_readings (billing_month)
+    WHERE voided_at IS NULL;
+
+-- ============================================================
 -- PRICE CHANGES — append-only month prices, see gotcha #185
 -- ============================================================
 
@@ -1803,6 +1914,9 @@ ALTER TABLE plan_price_changes ADD COLUMN IF NOT EXISTS duration_months INTEGER 
 ALTER TABLE plan_price_changes ADD COLUMN IF NOT EXISTS is_custom_price BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE plan_price_changes ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE plan_price_changes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+-- Usage plans only: this row prices exactly from_month (price = unit price), never later months.
+ALTER TABLE plan_price_changes ADD COLUMN IF NOT EXISTS fixed_fee NUMERIC(20,8)
+    CONSTRAINT chk_plan_price_changes_fixed_fee CHECK (fixed_fee IS NULL OR fixed_fee >= 0);
 
 CREATE INDEX IF NOT EXISTS idx_plan_price_changes_tenant_id
     ON plan_price_changes (tenant_id);
@@ -1989,6 +2103,7 @@ ALTER TABLE collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE skipped_months ENABLE ROW LEVEL SECURITY;
+ALTER TABLE usage_readings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plan_price_changes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE line_price_changes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exception_logs ENABLE ROW LEVEL SECURITY;
@@ -3095,6 +3210,37 @@ DO $$ BEGIN
             );
     END IF;
 
+    -- ── USAGE READINGS ───────────────────────────────────────
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'usage_readings' AND policyname = 'usage_readings_all'
+    ) THEN
+        CREATE POLICY usage_readings_all ON usage_readings
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM customers c
+                        WHERE c.id = usage_readings.customer_id
+                          AND c.branch_id = current_branch_id()
+                    )
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM customers c
+                        WHERE c.id = usage_readings.customer_id
+                          AND c.branch_id = current_branch_id()
+                    )
+                )
+            );
+    END IF;
+
     -- ── PLAN PRICE CHANGES ───────────────────────────────────
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies
@@ -3380,6 +3526,11 @@ CREATE OR REPLACE TRIGGER trg_expenses_updated_at
 
 CREATE OR REPLACE TRIGGER trg_skipped_months_updated_at
     BEFORE UPDATE ON skipped_months
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_usage_readings_updated_at
+    BEFORE UPDATE ON usage_readings
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 

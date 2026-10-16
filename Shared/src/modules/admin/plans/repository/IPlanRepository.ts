@@ -4,36 +4,30 @@ import type { DbPlan } from "@shared/core/types/db";
 import type { PlanPageQuery } from "@shared/modules/admin/plans/utils/types";
 import type { PlanPriceChangePayload } from "@shared/modules/customer/customer-plans/repository/IPriceHistoryRepository";
 
+export type PlanColumns = Pick<
+  DbPlan,
+  | "name"
+  | "price"
+  | "is_custom_price"
+  | "duration_months"
+  | "currency_id"
+  | "branch_id"
+  | "billing_type"
+  | "usage_entry"
+  | "unit_name"
+  | "fee_name"
+  | "high_usage_percent"
+>;
+
 // Both the Supabase and the offline SQLite class implement this contract.
 export interface IPlanRepository {
   findAll(branchFilter?: BranchFilter): Promise<DbPlan[]>;
   findPage(query: PlanPageQuery): Promise<Page<DbPlan>>;
   create(payload: Omit<DbPlan, "id" | "created_at">): Promise<DbPlan>;
-  update(
-    id: string,
-    payload: Partial<
-      Pick<
-        DbPlan,
-        | "name"
-        | "price"
-        | "is_custom_price"
-        | "duration_months"
-        | "currency_id"
-        | "branch_id"
-      >
-    >,
-  ): Promise<DbPlan>;
+  update(id: string, payload: Partial<PlanColumns>): Promise<DbPlan>;
   updateWithPriceChange(
     id: string,
-    payload: Pick<
-      DbPlan,
-      | "name"
-      | "price"
-      | "is_custom_price"
-      | "duration_months"
-      | "currency_id"
-      | "branch_id"
-    >,
+    payload: PlanColumns,
     firstChange: PlanPriceChangePayload,
     nextChange: Pick<PlanPriceChangePayload, "id" | "from_month" | "created_at">,
   ): Promise<DbPlan>;

@@ -6,7 +6,12 @@ import { nowIso } from "@shared/core/utils/ids";
 import type {
   IPriceHistoryRepository,
   LinePriceChangePayload,
+  PlanPriceChangePayload,
 } from "@shared/modules/customer/customer-plans/repository/IPriceHistoryRepository";
+import {
+  latestMonthPrices,
+  monthPriceAuditFields,
+} from "@shared/modules/customer/customer-plans/repository/monthPriceAudit";
 
 type ChangeTable = "plan_price_changes" | "line_price_changes";
 
@@ -68,6 +73,43 @@ export class OfflinePriceHistoryRepository
       });
       return updated;
     });
+  }
+
+  async addMonthPrices(
+    changes: PlanPriceChangePayload[],
+  ): Promise<DbPlanPriceChange[]> {
+    if (changes.length === 0) return [];
+    const rows: DbPlanPriceChange[] = changes.map((c) => ({
+      ...c,
+      updated_at: c.created_at,
+    }));
+    await this.write(async (db) => {
+      for (const row of rows) {
+        const month = row.from_month?.slice(0, 10) ?? "";
+        const plan = await db.getFirstAsync<{
+          name: string;
+          branch_id: string | null;
+        }>("SELECT name, branch_id FROM plans WHERE id = ?", [row.plan_id]);
+        const priors = this.decodeAll<DbPlanPriceChange>(
+          "plan_price_changes",
+          await db.getAllAsync(
+            "SELECT * FROM plan_price_changes WHERE plan_id = ? AND from_month = ?",
+            [row.plan_id, month],
+          ),
+        );
+        const before = latestMonthPrices(priors, month).get(row.plan_id);
+        await insertDirty(db, "plan_price_changes", row);
+        await this.auditIn(db, {
+          table: "plans",
+          recordId: row.plan_id,
+          action: "update",
+          before: monthPriceAuditFields(plan?.name ?? null, before ?? null),
+          after: monthPriceAuditFields(plan?.name ?? null, row),
+          branchId: plan?.branch_id ?? null,
+        });
+      }
+    });
+    return rows;
   }
 
   private async readChanges<R>(

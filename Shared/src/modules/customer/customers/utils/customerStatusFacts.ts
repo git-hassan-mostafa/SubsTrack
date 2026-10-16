@@ -14,6 +14,7 @@ import type {
 import { balanceUsd, isDebtItem } from "@shared/modules/ledger/utils/debtRule";
 import type { RateCurrency } from "@shared/modules/ledger/utils/mergeOwed";
 import { priceHistoryOf } from "@shared/modules/customer/customer-plans/utils/priceHistory";
+import { usageOf } from "@shared/modules/admin/plans/utils/mapper";
 
 export type WireCustomer = [
   id: string,
@@ -68,6 +69,11 @@ export type WirePlan = [
   branchId: string | null,
   tenantId: string,
   createdAt: string,
+  billingType?: "fixed" | "usage" | null,
+  usageEntry?: "reading" | "direct" | null,
+  unitName?: string | null,
+  feeName?: string | null,
+  highUsagePercent?: number | null,
 ];
 
 export type WireCurrency = [id: string, ratePerUsd: number];
@@ -81,6 +87,7 @@ export type WirePlanChange = [
   durationMonths: number,
   isCustomPrice: boolean,
   createdAt: string,
+  fixedFee?: number | null,
 ];
 
 export type WireLineChange = [
@@ -142,7 +149,22 @@ export interface CustomerStatusFacts {
 
 function readPlans(wire: WirePlan[]): Plan[] {
   return wire.map(
-    ([id, name, price, isCustomPrice, durationMonths, currencyId, branchId, tenantId, createdAt]) => ({
+    ([
+      id,
+      name,
+      price,
+      isCustomPrice,
+      durationMonths,
+      currencyId,
+      branchId,
+      tenantId,
+      createdAt,
+      billingType,
+      usageEntry,
+      unitName,
+      feeName,
+      highUsagePercent,
+    ]) => ({
       id,
       name,
       price: price === null ? null : Number(price),
@@ -152,6 +174,13 @@ function readPlans(wire: WirePlan[]): Plan[] {
       branchId,
       tenantId,
       createdAt,
+      usage: usageOf({
+        billing_type: billingType ?? null,
+        usage_entry: usageEntry ?? null,
+        unit_name: unitName ?? null,
+        fee_name: feeName ?? null,
+        high_usage_percent: highUsagePercent ?? null,
+      }),
     }),
   );
 }
@@ -159,7 +188,7 @@ function readPlans(wire: WirePlan[]): Plan[] {
 function readPrices(wire: CustomerStatusFactsWire): PriceHistory {
   return priceHistoryOf({
     planChanges: (wire.planChanges ?? []).map(
-      ([id, planId, fromMonth, price, currencyId, durationMonths, isCustomPrice, createdAt]) => ({
+      ([id, planId, fromMonth, price, currencyId, durationMonths, isCustomPrice, createdAt, fixedFee]) => ({
         id,
         planId,
         fromMonth,
@@ -167,6 +196,7 @@ function readPrices(wire: CustomerStatusFactsWire): PriceHistory {
         currencyId,
         durationMonths,
         isCustomPrice,
+        fixedFee: fixedFee == null ? null : Number(fixedFee),
         createdAt,
       }),
     ),

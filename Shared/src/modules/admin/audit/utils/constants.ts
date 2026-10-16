@@ -6,6 +6,7 @@ export const CUSTOMER_HISTORY_TABLES: AuditTable[] = [
   "charges",
   "collections",
   "skipped_months",
+  "usage_readings",
 ];
 
 export const AUDITED_TABLES: AuditTable[] = [
@@ -15,6 +16,7 @@ export const AUDITED_TABLES: AuditTable[] = [
   "customers",
   "customer_plans",
   "skipped_months",
+  "usage_readings",
   "products",
   "services",
   "stock_movements",

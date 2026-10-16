@@ -105,17 +105,21 @@ Sources: https://www.annahar.com/lebanon/342933/ and https://www.lbcgroup.tv/new
 
 The problem: the app cannot do this. The only way today is a plan with no set price, where staff type an amount every month. No reading is saved, nobody can see how the amount was calculated, and because the amount is unknown until someone types it, the app does not know what these customers owe — the dashboard, the reminders and the debts all miss them.
 
-How it should work:
-1. A monthly price table: an admin types the ministry's kWh price for each zone (below / above 700 m) when it comes out, in Lebanese pounds by default. The organization also sets the fixed fee for each amperage, and the three-phase rule.
-2. A metered subscription on a customer: amperage, zone, meter number, single or three phase. If the amperage changes, the app remembers from which month the new one applies.
-3. A meter reading each month for each subscriber. The previous reading comes from last month; the first one is taken at installation. The app saves who read it and when, and warns when a reading is lower than last time or jumps a lot.
-4. "Create bills" for a month: once the readings and the price are in, the app creates all the bills at once. Each bill shows the readings, kWh, price, fixed fee and total. Running it again only adds the missing ones. A bill that got money never changes. A wrong unpaid bill can be corrected, and the history shows who changed it. Two phones working offline must never create the same bill twice.
-5. From then on the bill behaves like any other monthly bill: part payments, debts, reminders, receipts, the customer portal and reports.
+How it should work — keep it generic, built on what the app already has:
+1. A new plan type: "meter". Instead of one monthly price, a meter plan has, for each month, a kWh price AND a fixed fee, in Lebanese pounds by default. Reuse the plan price history we already have — each month keeps its own kWh price and fee. The owner makes one meter plan per case (for example "5A", "10A", "15A", "10A above 700 m", "three-phase"), so zones, amperages and three-phase need no special rules.
+2. Updating the price must be fast: when the ministry publishes the month's kWh price, the admin can set it on ALL meter plans at once (or pick some), and can still set a different price on one plan.
+3. A customer on a meter plan has a meter number and a first reading taken at installation.
+4. Each month, staff type the METER READING (not the kWh). The app remembers last month's reading and works out kWh by itself (for example 1,250 − 1,130 = 120 kWh). It saves who read it and when, and warns when a reading is lower than last time or jumps a lot. The reading can be typed in two places: on its own (a reading round, without collecting) and inside the collect screen (when the customer pays at once).
+5. The bill is created by itself as soon as the app has both the month's reading and that month's price: bill = fixed fee + kWh × kWh price. If the reading comes first, the bill appears when the admin enters the price; if the price is already in, the bill appears when the reading is saved. A month with no reading or no price yet has no bill and shows "waiting for reading" (or "waiting for price") — never "unpaid".
+6. The amount is filled in automatically, and staff can edit it. The bill always keeps its parts (last reading, new reading, kWh, kWh price, fixed fee), the calculated total and the edited total, so anyone can see the difference. The history shows who edited it and when. A bill can only be edited while nothing is paid on it; after that, use void + record again, as today. A wrong reading on an unpaid bill can be corrected the same way.
+7. If a customer pays several months at once, each month needs its own reading. If a month's price is not set yet, the collect screen says so clearly ("August price not set yet") and does not guess a price.
+8. From then on the bill behaves like any other monthly bill: part payments, debts, reminders, receipts, the customer portal and reports.
 
 Be careful about:
-- A created bill with nothing paid yet must count as owed. (Today a month with nothing paid is treated as if it was never touched.)
-- The price comes out after the month ends, so a month is not due until its bill is created. September must not show as unpaid or overdue on September 1st, and "pay the oldest month first" must not block on a month that has no bill yet.
-- It must work offline (readings and creating bills), on the phone and on the web.
+- A created meter bill with nothing paid yet MUST count as owed — on the dashboard, in debts, reminders and collect. Today a month with nothing paid is priced from the plan on the fly; that cannot work for meter plans, so for them a saved bill always counts, even with 0 paid.
+- The price comes out after the month ends, so a meter month is not due until its bill exists. September must not show as unpaid or overdue on September 1st, and "pay the oldest month first" must not block on a month that has no bill yet.
+- Two phones working offline must never create two bills (or two readings) for the same month of the same customer.
+- It must work offline (readings, bills, collecting), on the phone and on the web.
 - Customers on a fixed monthly price must keep working exactly as today.
 
 This is a big change. Plan first: the data you need, the screens on the phone and the web, and the steps to build it in. Wait for my OK, then build one step at a time.

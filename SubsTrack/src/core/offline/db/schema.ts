@@ -71,6 +71,8 @@ export const CREATE_INDEX_STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_sale_items_product ON sale_items(product_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sale_items_service ON sale_items(service_id);`,
   `CREATE INDEX IF NOT EXISTS idx_skipped_months_customer ON skipped_months(customer_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_usage_readings_customer ON usage_readings(customer_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_usage_readings_month ON usage_readings(billing_month);`,
   `CREATE INDEX IF NOT EXISTS idx_collections_customer ON collections(customer_id);`,
   `CREATE INDEX IF NOT EXISTS idx_collections_holder ON collections(held_by_user_id);`,
   `CREATE INDEX IF NOT EXISTS idx_collection_items_charge ON collection_items(charge_id);`,

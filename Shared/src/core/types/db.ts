@@ -70,6 +70,11 @@ export interface DbPlan {
   branch_id: string | null;
   tenant_id: string;
   created_at: string;
+  billing_type: "fixed" | "usage" | null;
+  usage_entry: "reading" | "direct" | null;
+  unit_name: string | null;
+  fee_name: string | null;
+  high_usage_percent: number | null;
 }
 
 export interface DbCustomer {
@@ -103,10 +108,32 @@ export interface DbCustomerPlan {
   active: boolean;
   custom_price: number | null;
   custom_currency_id: string | null;
+  meter_number: string | null;
+  start_reading: number | null;
   tenant_id: string;
   created_at: string;
   updated_at: string;
   plans?: DbPlan | null;
+}
+
+// One month's meter reading (or typed units) on one usage line — no money.
+export interface DbUsageReading {
+  id: string;
+  tenant_id: string;
+  customer_id: string;
+  customer_plan_id: string;
+  billing_month: string;
+  reading: number | null;
+  units: number | null;
+  old_meter_final: number | null;
+  new_meter_start: number | null;
+  new_meter_number: string | null;
+  recorded_by_user_id: string | null;
+  recorded_at: string;
+  voided_at: string | null;
+  voided_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // A month one service line is not expected to pay. `skipped` is a toggle: the
@@ -135,6 +162,7 @@ export interface DbPlanPriceChange {
   currency_id: string | null;
   duration_months: number;
   is_custom_price: boolean;
+  fixed_fee: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -274,6 +302,12 @@ export interface DbCharge {
   written_off_at: string | null;
   written_off_by: string | null;
   write_off_reason: string | null;
+  usage_previous_reading?: number | null;
+  usage_reading?: number | null;
+  usage_units?: number | null;
+  unit_price?: number | null;
+  fixed_fee?: number | null;
+  computed_amount?: number | null;
   customers?: DbCustomer | null;
   customer_plans?: DbCustomerPlan | null;
   sales?: DbSale | null;

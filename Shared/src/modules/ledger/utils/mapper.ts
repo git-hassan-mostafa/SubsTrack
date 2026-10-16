@@ -1,9 +1,41 @@
-import type { Charge, Collection, CollectionItem } from "@shared/core/types";
+import type {
+  Charge,
+  ChargeUsage,
+  Collection,
+  CollectionItem,
+} from "@shared/core/types";
 import type {
   DbCharge,
   DbCollection,
   DbCollectionItem,
 } from "@shared/core/types/db";
+
+const numberOrNull = (value: number | null | undefined) =>
+  value != null ? Number(value) : null;
+
+function chargeUsageOf(row: DbCharge): ChargeUsage | null {
+  if (row.computed_amount == null) return null;
+  return {
+    previousReading: numberOrNull(row.usage_previous_reading),
+    reading: numberOrNull(row.usage_reading),
+    units: Number(row.usage_units ?? 0),
+    unitPrice: Number(row.unit_price ?? 0),
+    fixedFee: Number(row.fixed_fee ?? 0),
+    computedAmount: Number(row.computed_amount),
+  };
+}
+
+// A usage bill's parts as columns; any other bill leaves them empty.
+export function chargeUsageColumns(usage: ChargeUsage | null) {
+  return {
+    usage_previous_reading: usage?.previousReading ?? null,
+    usage_reading: usage?.reading ?? null,
+    usage_units: usage?.units ?? null,
+    unit_price: usage?.unitPrice ?? null,
+    fixed_fee: usage?.fixedFee ?? null,
+    computed_amount: usage?.computedAmount ?? null,
+  };
+}
 
 export function mapDbChargeToCharge(row: DbCharge): Charge {
   return {
@@ -33,6 +65,7 @@ export function mapDbChargeToCharge(row: DbCharge): Charge {
     writtenOffAt: row.written_off_at,
     writtenOffBy: row.written_off_by,
     writeOffReason: row.write_off_reason,
+    usage: chargeUsageOf(row),
   };
 }
 

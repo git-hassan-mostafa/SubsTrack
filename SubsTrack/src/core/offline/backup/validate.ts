@@ -15,6 +15,7 @@ import {
 const NATURAL_KEYS: Record<string, string[]> = {
   charges: ["customer_plan_id", "billing_month"],
   skipped_months: ["customer_plan_id", "billing_month"],
+  usage_readings: ["customer_plan_id", "billing_month"],
   collection_items: ["collection_id", "charge_id"],
 };
 

@@ -216,6 +216,8 @@ Branch scoping: the one deliberate mirror ≠ RLS — both tables filter on **ow
 
 **Skipped months (`skipped_months`):** wave 4 next to `charges` (branch-via-customer RLS, `set_updated_at` trigger). **Same natural key** as month `charges` — `UNIQUE (customer_plan_id, billing_month)` locally too → in `NATURAL_KEYS`, writes via `upsertNaturalKeyDirty` (generalized `upsertPaymentDirty`), `deterministicId('skip', line, month)`. Unskip = **boolean flip, never delete**: a deleted row carries nothing through latest-wins pull, so `skipped = false` tells other devices (nothing in `pending_deletes`). features.md → Skipped Months.
 
+**Usage readings (`usage_readings`):** wave 4 next to `skipped_months`, same shape: branch-via-customer RLS, natural key `(customer_plan_id, billing_month)` in all four `NATURAL_KEYS` copies (`dml.ts`, `push.ts` `conflictTarget`, `backup/validate.ts`, `tests/helpers/fakeSqlite.ts`), `deterministicId('usage', line, month)` → two phones reading one month converge on ONE row (latest `updated_at` wins, both saves in the trail). Remove = `voided_at`, never delete; `OfflineUsageReadingRepository.save` upserts with `voided_at = NULL` (revives, #115). No money on the row. New mirror columns (`plans` usage settings, `customer_plans.meter_number`/`start_reading`, `plan_price_changes.fixed_fee`, `charges` usage parts) are additive → `applySchema` adds them; rows pulled before read NULL (`billing_type` NULL = fixed).
+
 ## Exception logger (`src/core/errorLog/`) + Developer page
 
 Small, deliberately unlayered debug feature, native-only:

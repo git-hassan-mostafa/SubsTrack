@@ -4,7 +4,10 @@ import type {
   DbPlan,
   DbPlanPriceChange,
 } from "@shared/core/types/db";
-import type { IPlanRepository } from "@shared/modules/admin/plans/repository/IPlanRepository";
+import type {
+  IPlanRepository,
+  PlanColumns,
+} from "@shared/modules/admin/plans/repository/IPlanRepository";
 import type { ICustomerPlanRepository } from "@shared/modules/customer/customer-plans/repository/ICustomerPlanRepository";
 import type {
   IPriceHistoryRepository,
@@ -53,6 +56,11 @@ export const fakePriceHistoryRepository: IPriceHistoryRepository = {
     row.updated_at = new Date().toISOString();
     return row;
   },
+  async addMonthPrices(changes) {
+    const rows = changes.map((c) => ({ ...c, updated_at: c.created_at }));
+    priceStore.plans.push(...rows);
+    return rows;
+  },
 };
 
 // Saved service lines + the ids money reached; what syncLines reads and writes.
@@ -83,6 +91,15 @@ export const fakeCustomerPlanRepository = {
 } as unknown as ICustomerPlanRepository;
 
 export const fakePlanRepository = {
+  async create(payload: Omit<DbPlan, "id" | "created_at">) {
+    const row: DbPlan = {
+      ...payload,
+      id: `plan-${priceStore.catalog.length + 1}`,
+      created_at: new Date().toISOString(),
+    };
+    priceStore.catalog.push(row);
+    return row;
+  },
   async update(id: string, payload: Partial<DbPlan>) {
     if (payload.name) {
       const dup = priceStore.catalog.find(
@@ -97,15 +114,7 @@ export const fakePlanRepository = {
   },
   async updateWithPriceChange(
     id: string,
-    payload: Pick<
-      DbPlan,
-      | "name"
-      | "price"
-      | "is_custom_price"
-      | "duration_months"
-      | "currency_id"
-      | "branch_id"
-    >,
+    payload: PlanColumns,
     first: PlanPriceChangePayload,
     change: Pick<PlanPriceChangePayload, "id" | "from_month" | "created_at">,
   ) {
@@ -127,6 +136,7 @@ export const fakePlanRepository = {
       currency_id: payload.currency_id,
       duration_months: payload.duration_months,
       is_custom_price: payload.is_custom_price,
+      fixed_fee: null,
       created_at: change.created_at,
       updated_at: change.created_at,
     };

@@ -345,6 +345,7 @@ const PLAN: Plan = {
   branchId: null,
   tenantId: "t1",
   createdAt: "2025-01-01T00:00:00.000Z",
+  usage: null,
 };
 
 function line(over: Partial<CustomerPlan> = {}): CustomerPlan {
@@ -357,6 +358,8 @@ function line(over: Partial<CustomerPlan> = {}): CustomerPlan {
     active: true,
     customPrice: null,
     customCurrencyId: null,
+    meterNumber: null,
+    startReading: null,
     tenantId: "t1",
     createdAt: "2025-01-01T00:00:00.000Z",
     updatedAt: "2025-01-01T00:00:00.000Z",

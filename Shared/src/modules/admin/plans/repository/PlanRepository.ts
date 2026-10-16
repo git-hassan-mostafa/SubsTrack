@@ -3,7 +3,10 @@ import type { BranchFilter } from "@shared/core/constants";
 import type { Page } from "@shared/core/types";
 import type { DbPlan } from "@shared/core/types/db";
 import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
-import type { IPlanRepository } from "@shared/modules/admin/plans/repository/IPlanRepository";
+import type {
+  IPlanRepository,
+  PlanColumns,
+} from "@shared/modules/admin/plans/repository/IPlanRepository";
 import type { PlanPageQuery } from "@shared/modules/admin/plans/utils/types";
 import type { PlanPriceChangePayload } from "@shared/modules/customer/customer-plans/repository/IPriceHistoryRepository";
 
@@ -57,34 +60,13 @@ export class PlanRepository extends BaseRepository implements IPlanRepository {
     return created;
   }
 
-  async update(
-    id: string,
-    payload: Partial<
-      Pick<
-        DbPlan,
-        | "name"
-        | "price"
-        | "is_custom_price"
-        | "duration_months"
-        | "currency_id"
-        | "branch_id"
-      >
-    >,
-  ): Promise<DbPlan> {
+  async update(id: string, payload: Partial<PlanColumns>): Promise<DbPlan> {
     return this.auditedUpdate<DbPlan>("plans", id, payload);
   }
 
   async updateWithPriceChange(
     id: string,
-    payload: Pick<
-      DbPlan,
-      | "name"
-      | "price"
-      | "is_custom_price"
-      | "duration_months"
-      | "currency_id"
-      | "branch_id"
-    >,
+    payload: PlanColumns,
     firstChange: PlanPriceChangePayload,
     nextChange: Pick<PlanPriceChangePayload, "id" | "from_month" | "created_at">,
   ): Promise<DbPlan> {

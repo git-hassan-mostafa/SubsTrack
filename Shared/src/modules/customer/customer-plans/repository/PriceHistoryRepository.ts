@@ -4,7 +4,12 @@ import type { DbLinePriceChange, DbPlanPriceChange } from "@shared/core/types/db
 import type {
   IPriceHistoryRepository,
   LinePriceChangePayload,
+  PlanPriceChangePayload,
 } from "@shared/modules/customer/customer-plans/repository/IPriceHistoryRepository";
+import {
+  latestMonthPrices,
+  monthPriceAuditFields,
+} from "@shared/modules/customer/customer-plans/repository/monthPriceAudit";
 
 type ChangeTable = "plan_price_changes" | "line_price_changes";
 
@@ -63,6 +68,51 @@ export class PriceHistoryRepository
       branchId: plan?.branch_id ?? null,
     });
     return updated;
+  }
+
+  async addMonthPrices(
+    changes: PlanPriceChangePayload[],
+  ): Promise<DbPlanPriceChange[]> {
+    if (changes.length === 0) return [];
+    const planIds = [...new Set(changes.map((c) => c.plan_id))];
+    const months = [...new Set(changes.map((c) => c.from_month ?? ""))];
+    const [plans, priors] = await Promise.all([
+      this.db.from("plans").select("id, name, branch_id").in("id", planIds),
+      this.db
+        .from("plan_price_changes")
+        .select("*")
+        .in("plan_id", planIds)
+        .in("from_month", months),
+    ]);
+    if (plans.error) this.handleError(plans.error);
+    if (priors.error) this.handleError(priors.error);
+    const { data, error } = await this.db
+      .from("plan_price_changes")
+      .insert(changes)
+      .select();
+    if (error) this.handleError(error);
+    const saved = (data ?? []) as DbPlanPriceChange[];
+    const planById = new Map(
+      ((plans.data ?? []) as { id: string; name: string; branch_id: string | null }[]).map(
+        (p) => [p.id, p],
+      ),
+    );
+    for (const row of saved) {
+      const plan = planById.get(row.plan_id);
+      const before = latestMonthPrices(
+        (priors.data ?? []) as DbPlanPriceChange[],
+        row.from_month?.slice(0, 10) ?? "",
+      ).get(row.plan_id);
+      this.audit({
+        table: "plans",
+        recordId: row.plan_id,
+        action: "update",
+        before: monthPriceAuditFields(plan?.name ?? null, before ?? null),
+        after: monthPriceAuditFields(plan?.name ?? null, row),
+        branchId: plan?.branch_id ?? null,
+      });
+    }
+    return saved;
   }
 
   private async readChanges<R>(

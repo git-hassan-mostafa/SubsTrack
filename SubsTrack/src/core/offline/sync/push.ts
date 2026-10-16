@@ -47,6 +47,7 @@ function conflictTarget(table: string, row: Record<string, unknown>): string {
       : "id";
   }
   if (table === "skipped_months") return "customer_plan_id,billing_month";
+  if (table === "usage_readings") return "customer_plan_id,billing_month";
   if (table === "collection_items") return "collection_id,charge_id";
   if (table === "tenant_settings") return "tenant_id,key";
   return "id";

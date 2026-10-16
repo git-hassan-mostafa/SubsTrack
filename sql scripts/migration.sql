@@ -116,3 +116,14 @@ DROP VIEW IF EXISTS charge_balances;
 --
 -- A fresh database never needs this — script.sql no longer declares the column.
 ALTER TABLE line_price_changes DROP COLUMN IF EXISTS plan_id;
+
+-- ---------------------------------------------------------------------------
+-- 2026-10-16 — usage plans: the plan price check learns billing_type
+-- ---------------------------------------------------------------------------
+-- chk_plan_price_consistency demanded a price on every non-custom plan, which
+-- refuses a usage plan (priced per month in plan_price_changes, no plan price).
+-- script.sql declares the replacement chk_plan_price_by_type; the old one goes
+-- here. Safe to run repeatedly.
+--
+-- A fresh database never needs this — script.sql no longer declares the old check.
+ALTER TABLE plans DROP CONSTRAINT IF EXISTS chk_plan_price_consistency;

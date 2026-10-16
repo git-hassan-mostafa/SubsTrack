@@ -41,6 +41,8 @@ export class OfflineCustomerPlanRepository
       active: true,
       custom_price: payload.custom_price,
       custom_currency_id: payload.custom_currency_id,
+      meter_number: null,
+      start_reading: null,
       tenant_id: payload.tenant_id,
       created_at: now,
       updated_at: now,

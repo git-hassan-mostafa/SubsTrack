@@ -1,0 +1,86 @@
+import i18n from "@shared/core/i18n";
+import { repositories } from "@shared/core/runtime/repositories";
+import type {
+  CustomerPlan,
+  MeterChange,
+  UsageReading,
+} from "@shared/core/types";
+import { inChunks } from "@shared/core/utils/chunk";
+import { nowIso } from "@shared/core/utils/ids";
+import { mapDbUsageReading } from "@shared/modules/customer/customer-payments/utils/mapper";
+import { currentBillingMonth } from "@shared/modules/customer/customer-plans/utils/priceHistory";
+
+const ID_BATCH_SIZE = 200;
+
+export interface SaveUsageInput {
+  line: Pick<CustomerPlan, "id" | "customerId" | "tenantId" | "startDate" | "plan">;
+  billingMonth: string;
+  value: number;
+  meterChange: MeterChange | null;
+  recordedByUserId: string | null;
+}
+
+const isAmount = (n: number) => Number.isFinite(n) && n >= 0;
+
+class UsageReadingService {
+  async getForLines(lineIds: string[]): Promise<UsageReading[]> {
+    if (lineIds.length === 0) return [];
+    const repo = repositories().usageReading;
+    const rows = (
+      await Promise.all(
+        inChunks(lineIds, ID_BATCH_SIZE).map((ids) => repo.findForLines(ids)),
+      )
+    ).flat();
+    return rows.map(mapDbUsageReading);
+  }
+
+  // A fix keeps the first save's time and author — the bill's day counts from it.
+  async save(input: SaveUsageInput): Promise<UsageReading> {
+    const usage = input.line.plan?.usage;
+    if (!usage) throw new Error(i18n.t("errors.usage_line_not_usage"));
+    this.assertMonth(input.line.startDate, input.billingMonth);
+    if (!isAmount(input.value)) throw new Error(i18n.t("errors.usage_value_invalid"));
+    const change = usage.entry === "reading" ? input.meterChange : null;
+    if (
+      change &&
+      !(isAmount(change.oldMeterFinal) && isAmount(change.newMeterStart))
+    ) {
+      throw new Error(i18n.t("errors.usage_value_invalid"));
+    }
+    const existing = (await this.getForLines([input.line.id])).find(
+      (r) => r.billingMonth === input.billingMonth,
+    );
+    const row = await repositories().usageReading.save({
+      tenant_id: input.line.tenantId,
+      customer_id: input.line.customerId,
+      customer_plan_id: input.line.id,
+      billing_month: input.billingMonth,
+      reading: usage.entry === "reading" ? input.value : null,
+      units: usage.entry === "direct" ? input.value : null,
+      old_meter_final: change?.oldMeterFinal ?? null,
+      new_meter_start: change?.newMeterStart ?? null,
+      new_meter_number: change?.newMeterNumber?.trim() || null,
+      recorded_by_user_id: existing?.recordedByUserId ?? input.recordedByUserId,
+      recorded_at: existing?.recordedAt ?? nowIso(),
+    });
+    return mapDbUsageReading(row);
+  }
+
+  async remove(reading: UsageReading, voidedBy: string): Promise<void> {
+    await repositories().usageReading.remove(reading.id, voidedBy);
+  }
+
+  private assertMonth(startDate: string, billingMonth: string): void {
+    if (!/^\d{4}-\d{2}-01$/.test(billingMonth)) {
+      throw new Error(i18n.t("errors.billing_month_format"));
+    }
+    if (billingMonth < `${startDate.slice(0, 7)}-01`) {
+      throw new Error(i18n.t("errors.usage_before_start"));
+    }
+    if (billingMonth > currentBillingMonth()) {
+      throw new Error(i18n.t("errors.usage_future_month"));
+    }
+  }
+}
+
+export const usageReadingService = new UsageReadingService();

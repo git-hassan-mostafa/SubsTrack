@@ -5,7 +5,10 @@ import type { PlanPageQuery } from "@shared/modules/admin/plans/utils/types";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import { insertDirty, updateDirty } from "@/src/core/offline/db/dml";
 import { newId, nowIso } from "@shared/core/utils/ids";
-import type { IPlanRepository } from "@shared/modules/admin/plans/repository/IPlanRepository";
+import type {
+  IPlanRepository,
+  PlanColumns,
+} from "@shared/modules/admin/plans/repository/IPlanRepository";
 import type { PlanPriceChangePayload } from "@shared/modules/customer/customer-plans/repository/IPriceHistoryRepository";
 
 // DbPlan has no updated_at: the local column serves the pull merge only.
@@ -54,20 +57,7 @@ export class OfflinePlanRepository
     return row;
   }
 
-  async update(
-    id: string,
-    payload: Partial<
-      Pick<
-        DbPlan,
-        | "name"
-        | "price"
-        | "is_custom_price"
-        | "duration_months"
-        | "currency_id"
-        | "branch_id"
-      >
-    >,
-  ): Promise<DbPlan> {
+  async update(id: string, payload: Partial<PlanColumns>): Promise<DbPlan> {
     const row = await this.auditedUpdate<DbPlan>("plans", id, payload);
     if (!row) this.handleError(new Error("Plan not found"));
     return row;
@@ -75,15 +65,7 @@ export class OfflinePlanRepository
 
   async updateWithPriceChange(
     id: string,
-    payload: Pick<
-      DbPlan,
-      | "name"
-      | "price"
-      | "is_custom_price"
-      | "duration_months"
-      | "currency_id"
-      | "branch_id"
-    >,
+    payload: PlanColumns,
     firstChange: PlanPriceChangePayload,
     nextChange: Pick<PlanPriceChangePayload, "id" | "from_month" | "created_at">,
   ): Promise<DbPlan> {
@@ -118,6 +100,7 @@ export class OfflinePlanRepository
         currency_id: payload.currency_id,
         duration_months: payload.duration_months,
         is_custom_price: payload.is_custom_price,
+        fixed_fee: null,
         created_at: nextChange.created_at,
         updated_at: nextChange.created_at,
       });

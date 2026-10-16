@@ -35,6 +35,14 @@ export const LBP: Currency = {
   updatedAt: "2024-01-01T00:00:00.000Z",
 };
 
+export const FIXED_PLAN_COLUMNS = {
+  billing_type: "fixed",
+  usage_entry: null,
+  unit_name: null,
+  fee_name: null,
+  high_usage_percent: null,
+} as const;
+
 export function plan(over: Partial<Plan> = {}): Plan {
   return {
     id: over.id ?? id("plan"),
@@ -46,6 +54,7 @@ export function plan(over: Partial<Plan> = {}): Plan {
     branchId: null,
     tenantId: "t1",
     createdAt: "2024-01-01T00:00:00.000Z",
+    usage: null,
     ...over,
   };
 }
@@ -79,6 +88,8 @@ export function line(over: Partial<CustomerPlan> = {}): CustomerPlan {
     active: true,
     customPrice: null,
     customCurrencyId: null,
+    meterNumber: null,
+    startReading: null,
     tenantId: "t1",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
@@ -116,6 +127,7 @@ export function charge(over: Partial<Charge> = {}): Charge {
     writtenOffAt: null,
     writtenOffBy: null,
     writeOffReason: null,
+    usage: null,
     ...over,
   };
 }

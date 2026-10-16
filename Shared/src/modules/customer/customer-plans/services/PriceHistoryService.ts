@@ -22,6 +22,12 @@ import {
 
 const ID_BATCH_SIZE = 200;
 
+export interface UsageMonthPriceInput {
+  plan: Plan;
+  unitPrice: number;
+  fixedFee: number;
+}
+
 async function readInChunks<R>(
   ids: string[],
   read: (chunk: string[]) => Promise<R[]>,
@@ -36,6 +42,7 @@ function planFields(fields: PlanPriceFields) {
     currency_id: fields.isCustomPrice ? null : fields.currencyId,
     duration_months: fields.durationMonths,
     is_custom_price: fields.isCustomPrice,
+    fixed_fee: null,
   };
 }
 
@@ -134,6 +141,40 @@ class PriceHistoryService {
       row(await deterministicId("line-price", previous.id), null, previous),
       row(newId(), fromMonth, next),
     );
+  }
+
+  // One write prices `month` on every given usage plan; a later row for the month wins.
+  async setUsageMonthPrices(
+    month: string,
+    prices: UsageMonthPriceInput[],
+  ): Promise<PlanPriceChange[]> {
+    if (prices.length === 0) return [];
+    if (!isPriceStartMonth(month)) throw new Error(i18n.t("errors.usage_price_month"));
+    for (const { plan, unitPrice, fixedFee } of prices) {
+      if (!plan.usage) throw new Error(i18n.t("errors.usage_price_fixed_plan"));
+      if (!(Number.isFinite(unitPrice) && unitPrice > 0)) {
+        throw new Error(i18n.t("errors.usage_unit_price_positive"));
+      }
+      if (!(Number.isFinite(fixedFee) && fixedFee >= 0)) {
+        throw new Error(i18n.t("errors.usage_fixed_fee_not_negative"));
+      }
+    }
+    const createdAt = nowIso();
+    const rows = await repositories().priceHistory.addMonthPrices(
+      prices.map(({ plan, unitPrice, fixedFee }) => ({
+        id: newId(),
+        tenant_id: plan.tenantId,
+        plan_id: plan.id,
+        from_month: month,
+        price: unitPrice,
+        currency_id: plan.currencyId,
+        duration_months: 1,
+        is_custom_price: false,
+        fixed_fee: fixedFee,
+        created_at: createdAt,
+      })),
+    );
+    return rows.map(mapDbPlanPriceChange);
   }
 
   private assertStartMonth(month: string): void {

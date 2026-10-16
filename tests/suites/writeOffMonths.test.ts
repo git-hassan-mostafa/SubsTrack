@@ -19,7 +19,7 @@ import {
   matchesCustomerFilters,
   toCustomerFilterQuery,
 } from "@shared/modules/customer/customers/utils/customerFilters";
-import { bill, customer, line, plan, LBP } from "../helpers/factories";
+import { bill, customer, line, plan, LBP, FIXED_PLAN_COLUMNS } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
 
 // TC-WO-* — writing off unpaid months that money never reached (gotcha #186).
@@ -90,6 +90,7 @@ describe("writing off months nobody paid", () => {
         branch_id: null,
         tenant_id: "t1",
         created_at: "2026-01-01T00:00:00.000Z",
+        ...FIXED_PLAN_COLUMNS,
       },
     ];
     const raised = await planService.updatePlan(
@@ -101,6 +102,7 @@ describe("writing off months nobody paid", () => {
         durationMonths: 1,
         currencyId: null,
         branchId: null,
+        usage: null,
       },
       "2026-03-01",
     );

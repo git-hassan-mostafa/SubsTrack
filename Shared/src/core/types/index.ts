@@ -93,6 +93,16 @@ export interface AppUser {
   createdAt: string;
 }
 
+export type UsageEntry = "reading" | "direct";
+
+// A usage plan bills fixed fee + units × unit price, each month priced on its own.
+export interface PlanUsage {
+  entry: UsageEntry;
+  unitName: string;
+  feeName: string;
+  highUsagePercent: number | null;
+}
+
 export interface Plan {
   id: string;
   name: string;
@@ -103,6 +113,7 @@ export interface Plan {
   branchId: string | null;
   tenantId: string;
   createdAt: string;
+  usage: PlanUsage | null;
 }
 
 export interface Customer {
@@ -135,6 +146,8 @@ export interface CustomerPlan {
   active: boolean;
   customPrice: number | null;
   customCurrencyId: string | null;
+  meterNumber: string | null;
+  startReading: number | null;
   tenantId: string;
   createdAt: string;
   updatedAt: string;
@@ -156,7 +169,30 @@ export interface SkippedMonth {
   updatedAt: string;
 }
 
-// One price edit, effective from `fromMonth`; null = the price before any edit.
+// A meter replaced during the month: units = old meter's tail + new meter's head.
+export interface MeterChange {
+  oldMeterFinal: number;
+  newMeterStart: number;
+  newMeterNumber: string | null;
+}
+
+// One month's usage on one usage line: a meter `reading` or typed `units`.
+export interface UsageReading {
+  id: string;
+  tenantId: string;
+  customerId: string;
+  customerPlanId: string;
+  billingMonth: string;
+  reading: number | null;
+  units: number | null;
+  meterChange: MeterChange | null;
+  recordedByUserId: string | null;
+  recordedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// One price edit, effective from `fromMonth`; a usage plan's row prices only that month.
 export interface PlanPriceChange {
   id: string;
   planId: string;
@@ -165,6 +201,7 @@ export interface PlanPriceChange {
   currencyId: string | null;
   durationMonths: number;
   isCustomPrice: boolean;
+  fixedFee: number | null;
   createdAt: string;
 }
 
@@ -452,6 +489,17 @@ export interface Charge {
   writtenOffAt: string | null;
   writtenOffBy: string | null;
   writeOffReason: string | null;
+  usage: ChargeUsage | null;
+}
+
+// A usage bill's parts as saved; `amount` differs from computedAmount when edited.
+export interface ChargeUsage {
+  previousReading: number | null;
+  reading: number | null;
+  units: number;
+  unitPrice: number;
+  fixedFee: number;
+  computedAmount: number;
 }
 
 // One physical hand-over of cash. This is the ONLY carrier of wallet custody in
@@ -792,6 +840,7 @@ export type AuditTable =
   | "customers"
   | "customer_plans"
   | "skipped_months"
+  | "usage_readings"
   | "plans"
   | "products"
   | "services"

@@ -18,4 +18,6 @@ export interface IPriceHistoryRepository {
     fromMonth: string,
     oldFromMonth: string | null,
   ): Promise<DbPlanPriceChange>;
+  // Usage plans: one row per plan pricing exactly its from_month, all in one write.
+  addMonthPrices(changes: PlanPriceChangePayload[]): Promise<DbPlanPriceChange[]>;
 }

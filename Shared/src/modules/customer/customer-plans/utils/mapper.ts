@@ -22,6 +22,8 @@ export function mapDbCustomerPlanToCustomerPlan(
     active: db.active,
     customPrice: db.custom_price != null ? Number(db.custom_price) : null,
     customCurrencyId: db.custom_currency_id,
+    meterNumber: db.meter_number ?? null,
+    startReading: db.start_reading != null ? Number(db.start_reading) : null,
     tenantId: db.tenant_id,
     createdAt: db.created_at,
     updatedAt: db.updated_at,
@@ -42,6 +44,7 @@ export function mapDbPlanPriceChange(db: DbPlanPriceChange): PlanPriceChange {
     currencyId: db.currency_id,
     durationMonths: db.duration_months,
     isCustomPrice: db.is_custom_price,
+    fixedFee: db.fixed_fee != null ? Number(db.fixed_fee) : null,
     createdAt: db.created_at,
   };
 }

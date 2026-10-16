@@ -32,7 +32,7 @@ import {
   priceStore,
 } from "../helpers/fakePriceHistory";
 import { store } from "../helpers/fakeLedger";
-import { bill, customer, line, plan, LBP } from "../helpers/factories";
+import { bill, customer, line, plan, LBP, FIXED_PLAN_COLUMNS } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
 
 // TC-PH-* — a month is priced as it stood IN that month — gotcha #185.
@@ -48,6 +48,7 @@ function planEdit(over: Partial<PlanPriceChange>): PlanPriceChange {
     currencyId: null,
     durationMonths: 1,
     isCustomPrice: false,
+    fixedFee: null,
     createdAt: "2026-01-01T00:00:00.000Z",
     ...over,
   };
@@ -267,6 +268,7 @@ describe("recording a price edit", () => {
         branch_id: null,
         tenant_id: "t1",
         created_at: "2026-01-01T00:00:00.000Z",
+        ...FIXED_PLAN_COLUMNS,
       },
     ];
     return plan({ id: "p1", price: 20 });
@@ -278,6 +280,7 @@ describe("recording a price edit", () => {
     durationMonths: 1,
     currencyId: null,
     branchId: null,
+    usage: null,
   });
 
   it("TC-PH-11 a plan price edit keeps the old price, then adds the new one from the chosen month", async () => {
@@ -344,6 +347,7 @@ describe("recording a price edit", () => {
       branch_id: null,
       tenant_id: "t1",
       created_at: "2026-01-01T00:00:00.000Z",
+      ...FIXED_PLAN_COLUMNS,
     });
 
     await expect(
@@ -401,6 +405,8 @@ describe("switching a line's plan", () => {
     active: true,
     custom_price: l.customPrice,
     custom_currency_id: l.customCurrencyId,
+    meter_number: l.meterNumber,
+    start_reading: l.startReading,
     tenant_id: "t1",
     created_at: l.createdAt,
     updated_at: l.updatedAt,
@@ -503,6 +509,7 @@ describe("the price-start picker", () => {
           branch_id: null,
           tenant_id: "t1",
           created_at: "2026-01-01T00:00:00.000Z",
+          ...FIXED_PLAN_COLUMNS,
         },
       ];
       return plan({ id: "p1", price: 20 });
@@ -514,6 +521,7 @@ describe("the price-start picker", () => {
       durationMonths: 1,
       currencyId: null,
       branchId: null,
+      usage: null,
     });
 
     it("TC-PH-26 getForPlan returns the plan's stored changes", async () => {

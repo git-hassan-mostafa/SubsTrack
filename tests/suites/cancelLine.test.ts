@@ -27,6 +27,8 @@ const dbRow = (l: CustomerPlan): DbCustomerPlan => ({
   active: true,
   custom_price: l.customPrice,
   custom_currency_id: l.customCurrencyId,
+  meter_number: l.meterNumber,
+  start_reading: l.startReading,
   tenant_id: "t1",
   created_at: l.createdAt,
   updated_at: l.updatedAt,

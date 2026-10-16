@@ -15,6 +15,7 @@ export function planDraftOf(plan: Plan | null, newBranchId: string | null): Plan
     currencyId: plan?.currencyId ?? null,
     branchId: plan ? plan.branchId : newBranchId,
     durationMonths: plan?.durationMonths ?? 1,
+    usage: plan?.usage ?? null,
   };
 }
 
@@ -33,10 +34,25 @@ export function withPlanDuration(draft: PlanDraft, months: number): PlanDraft {
 }
 
 export function canSavePlan(draft: PlanDraft): boolean {
-  return draft.name.trim().length > 0 && (draft.isCustomPrice || isPositivePrice(draft.price));
+  if (draft.name.trim().length === 0) return false;
+  if (draft.usage) {
+    return (
+      draft.usage.unitName.trim().length > 0 &&
+      draft.usage.feeName.trim().length > 0
+    );
+  }
+  return draft.isCustomPrice || isPositivePrice(draft.price);
 }
 
 export function planInput(draft: PlanDraft): PlanInput {
+  if (draft.usage) {
+    return {
+      ...draft,
+      price: null,
+      isCustomPrice: false,
+      durationMonths: 1,
+    };
+  }
   return {
     ...draft,
     price: draft.isCustomPrice ? null : draft.price,
