@@ -188,6 +188,7 @@
     "status_unpaid": "Not paid",
     "status_future": "Not due yet",
     "status_before_start": "Before the plan started",
+    "status_waiting": "Waiting for reading or price",
     "status_skipped": "Skipped",
     "table_label": "Months of {{year}}",
     "col_month": "Month",

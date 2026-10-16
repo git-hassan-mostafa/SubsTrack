@@ -41,7 +41,7 @@ export function priceHistoryOf(args: {
   };
 }
 
-function isLater(a: DatedPriceChange, b: DatedPriceChange): boolean {
+export function isLater(a: DatedPriceChange, b: DatedPriceChange): boolean {
   return a.createdAt > b.createdAt || (a.createdAt === b.createdAt && a.id > b.id);
 }
 

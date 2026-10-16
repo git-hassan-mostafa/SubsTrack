@@ -10,6 +10,12 @@ export function toBillingMonth(year: number, month: number): string {
   return `${year}-${mm}-01`;
 }
 
+export function shiftBillingMonth(billingMonth: string, by: number): string {
+  const [year, month] = billingMonth.split("-").map(Number);
+  const day = new Date(year, month - 1 + by, 1);
+  return toBillingMonth(day.getFullYear(), day.getMonth() + 1);
+}
+
 let pinnedToday: Date | null = null;
 
 // The clock every month rule reads; `onCalendarDay` can pin it for a sync call.

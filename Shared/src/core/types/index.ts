@@ -8,7 +8,8 @@ export type MonthStatus =
   | "future"
   | "before_start"
   | "skipped"
-  | "written_off";
+  | "written_off"
+  | "waiting";
 
 // The bill is planAllowance's unit, not customerAllowance's — see gotcha #149.
 export interface Tenant {
@@ -192,6 +193,44 @@ export interface UsageReading {
   updatedAt: string;
 }
 
+// What a usage month still lacks before its bill can be worked out.
+export type UsageWait = "reading" | "previous_reading" | "price" | "reading_below_previous";
+
+// A usage month's bill as worked out; `billedAt` = later of reading and first price save.
+export interface UsageBill {
+  previousReading: number | null;
+  reading: number | null;
+  units: number;
+  unitPrice: number;
+  fixedFee: number;
+  amount: number;
+  currencyId: string | null;
+  billedAt: string;
+}
+
+export type UsageMonth =
+  | { kind: "bill"; bill: UsageBill }
+  | { kind: "waiting"; waitingFor: UsageWait };
+
+export type StatusReading = Pick<
+  UsageReading,
+  "billingMonth" | "reading" | "units" | "meterChange" | "recordedAt"
+>;
+
+export type StatusPriceChange = Pick<
+  PlanPriceChange,
+  "id" | "fromMonth" | "price" | "currencyId" | "fixedFee" | "createdAt"
+>;
+
+// Everything one usage line's bills are worked out from — see usageBill.ts.
+export interface LineUsage {
+  entry: UsageEntry;
+  startDate: string;
+  startReading: number | null;
+  readings: Map<string, StatusReading>;
+  prices: StatusPriceChange[];
+}
+
 // One price edit, effective from `fromMonth`; a usage plan's row prices only that month.
 export interface PlanPriceChange {
   id: string;
@@ -233,7 +272,8 @@ export type StatusCharge = Pick<
   | "amount"
   | "voidedAt"
   | "writtenOffAt"
->;
+> &
+  Partial<Pick<Charge, "usage">>;
 
 export interface StatusBill<C extends StatusCharge = StatusCharge> {
   charge: C;
@@ -263,6 +303,7 @@ export interface MonthCell<
   isGroupSecondary: boolean;
   balance: number;
   skip: S | null;
+  usage: UsageMonth | null;
 }
 
 export type MonthEntry = MonthCell;

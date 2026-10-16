@@ -1,6 +1,7 @@
 import type {
   CustomerMonthStatus,
   CustomerStatus,
+  LineUsage,
   MonthBill,
   MonthCell,
   MonthEntry,
@@ -12,6 +13,7 @@ import type {
   StatusLine,
   StatusSkip,
   UnpaidStartRule,
+  UsageMonth,
 } from "@shared/core/types";
 import { MONTHS } from "@shared/core/constants";
 import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
@@ -20,8 +22,15 @@ import {
   isBeforeStartDate,
   isNotDueYet,
   isNotLateYet,
+  isUsageNotLateYet,
 } from "@shared/modules/customer/customer-payments/utils/monthDueRules";
+import {
+  isEditedUsageBill,
+  usageMonthOf,
+} from "@shared/modules/customer/customer-payments/utils/usageBill";
 import { DEFAULT_UNPAID_START_RULE } from "@shared/modules/admin/tenant-settings/utils/constants";
+
+const NO_USAGE: ReadonlyMap<string, LineUsage> = new Map();
 
 // The ONLY place a month's status is decided — see docs/month-grid.md.
 export function buildMonthGrid(
@@ -30,8 +39,9 @@ export function buildMonthGrid(
   skips: SkippedMonth[],
   year: number,
   unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+  usage: LineUsage | null = null,
 ): MonthEntry[] {
-  return monthCells(line, bills, skips, year, unpaidRule);
+  return monthCells(line, bills, skips, year, unpaidRule, usage);
 }
 
 // The grid over only the fields it reads, so server facts fit (month-grid.md).
@@ -41,6 +51,7 @@ export function monthCells<C extends StatusCharge, S extends StatusSkip>(
   skips: S[],
   year: number,
   unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+  usage: LineUsage | null = null,
 ): MonthCell<C, S>[] {
   const { year: cy, month: cm } = getCurrentYearMonth();
 
@@ -87,12 +98,16 @@ export function monthCells<C extends StatusCharge, S extends StatusSkip>(
         isGroupSecondary: false,
         balance: 0,
         skip: null,
+        usage: null,
       };
     }
 
     const collected = bill?.collected ?? 0;
     const isEffectivelyPaid = collected > 0;
     const skip = skipByMonth.get(billingMonth) ?? null;
+    const isFuture = year > cy || (year === cy && month > cm);
+    const usageMonth: UsageMonth | null =
+      usage && !isFuture ? usageMonthOf(usage, billingMonth) : null;
 
     let status: MonthStatus;
     if (isEffectivelyPaid) {
@@ -101,8 +116,12 @@ export function monthCells<C extends StatusCharge, S extends StatusSkip>(
       status = "written_off";
     } else if (skip) {
       status = "skipped";
-    } else if (year > cy || (year === cy && month > cm)) {
+    } else if (isFuture) {
       status = "future";
+    } else if (usageMonth) {
+      const billed =
+        usageMonth.kind === "bill" || (!!bill && isEditedUsageBill(bill.charge));
+      status = billed ? "unpaid" : "waiting";
     } else if (isNotDueYet(unpaidRule, year, month, line.startDate)) {
       status = "future";
     } else {
@@ -122,8 +141,21 @@ export function monthCells<C extends StatusCharge, S extends StatusSkip>(
       isGroupSecondary,
       balance,
       skip: status === "skipped" ? skip : null,
+      usage: usageMonth,
     };
   });
+}
+
+// A usage bill runs on its own clock; every other month on the tenant's unpaid rule.
+function isLateMonth(
+  entry: MonthCell<StatusCharge, StatusSkip>,
+  line: StatusLine,
+  unpaidRule: UnpaidStartRule,
+): boolean {
+  if (entry.usage) {
+    return entry.usage.kind === "bill" && !isUsageNotLateYet(entry.usage.bill.billedAt);
+  }
+  return !isNotLateYet(unpaidRule, entry.year, entry.month, line.startDate);
 }
 
 // A written-off month owes nothing, so it settles a line exactly like money.
@@ -137,6 +169,7 @@ export function buildCustomerStatus(
   bills: StatusBill[],
   skips: StatusSkip[],
   unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+  usageByLine: ReadonlyMap<string, LineUsage> = NO_USAGE,
 ): CustomerStatus {
   const { year: currentYear, month: currentMonth } = getCurrentYearMonth();
   const notDueLineIds: string[] = [];
@@ -167,6 +200,7 @@ export function buildCustomerStatus(
         lineSkips,
         year,
         unpaidRule,
+        usageByLine.get(line.id) ?? null,
       )) {
         if (isSettledStatus(entry.status) || entry.status === "unpaid") {
           lineRequired++;
@@ -181,9 +215,7 @@ export function buildCustomerStatus(
         }
         if (entry.status !== "unpaid") continue;
         lineUncovered = true;
-        if (!isNotLateYet(unpaidRule, entry.year, entry.month, line.startDate)) {
-          lineOverdue = true;
-        }
+        if (isLateMonth(entry, line, unpaidRule)) lineOverdue = true;
       }
     }
     if (lineOverdue) overdue = true;
@@ -199,7 +231,7 @@ export function buildCustomerStatus(
       notDueLineIds.push(line.id);
       continue;
     }
-    if (current.status === "future") continue;
+    if (current.status === "future" || current.status === "waiting") continue;
 
     dueThisMonth++;
     if (current.status === "written_off") writtenOffThisMonth++;
@@ -234,6 +266,7 @@ export function getCustomerStatuses(
   bills: StatusBill[],
   skips: StatusSkip[],
   unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+  usageByLine: ReadonlyMap<string, LineUsage> = NO_USAGE,
 ): Map<string, CustomerStatus> {
   const billsByCustomer = groupBy(bills, (b) => b.charge.customerId ?? "");
   const skipsByCustomer = groupBy(skips, (s) => s.customerId);
@@ -248,6 +281,7 @@ export function getCustomerStatuses(
         billsByCustomer.get(customer.id) ?? [],
         skipsByCustomer.get(customer.id) ?? [],
         unpaidRule,
+        usageByLine,
       ),
     );
   }
@@ -262,6 +296,7 @@ export function getOverdueMonthCounts(
   bills: StatusBill[],
   skips: StatusSkip[],
   unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+  usageByLine: ReadonlyMap<string, LineUsage> = NO_USAGE,
 ): Map<string, number> {
   const live = customers.map((customer) => ({
     ...customer,
@@ -275,6 +310,7 @@ export function getOverdueMonthCounts(
     bills,
     skips,
     unpaidRule,
+    usageByLine,
   )) {
     if (status.unpaidMonths > 0) counts.set(id, status.unpaidMonths);
   }
@@ -287,6 +323,7 @@ export function unpaidBillingMonths(
   lineBills: StatusBill[],
   lineSkips: StatusSkip[],
   unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+  usage: LineUsage | null = null,
 ): string[] {
   const { year: currentYear } = getCurrentYearMonth();
   const months: string[] = [];
@@ -301,6 +338,7 @@ export function unpaidBillingMonths(
       lineSkips,
       year,
       unpaidRule,
+      usage,
     )) {
       if (entry.status === "unpaid") months.push(entry.billingMonth);
     }
@@ -308,13 +346,14 @@ export function unpaidBillingMonths(
   return months;
 }
 
-// Every month money has not reached yet, future ones too — the pay-order input.
+// Every month money has not reached yet, future ones too; a waiting month never blocks.
 export function uncoveredBillingMonths(
   line: StatusLine,
   lineBills: StatusBill[],
   lineSkips: StatusSkip[],
   unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
   throughYear?: number,
+  usage: LineUsage | null = null,
 ): string[] {
   const { year: currentYear } = getCurrentYearMonth();
   const covered = paidBillingMonths(lineBills);
@@ -337,6 +376,7 @@ export function uncoveredBillingMonths(
       lineSkips,
       year,
       unpaidRule,
+      usage,
     )) {
       if (entry.status === "unpaid" || entry.status === "future") {
         months.push(entry.billingMonth);

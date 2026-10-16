@@ -148,6 +148,7 @@ Domain types (camelCase) `Shared/src/core/types/index.ts`; DB rows (snake_case) 
 2b. bill written off, no money             → "written_off" (owes nothing; #186)
 3. active skip covers the month            → "skipped" (money outranks a skip)
 4. month in the future                     → "future"
+4b. usage line: bill not worked out yet    → "waiting" (owes nothing, never blocks)
 5. CURRENT month + 'customer_start_day' rule
    + today < line's start day-of-month     → "future" ("not due yet", still payable)
 6. otherwise                               → "unpaid"

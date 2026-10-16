@@ -192,6 +192,7 @@
     "status_unpaid": "غير مدفوع",
     "status_future": "غير مستحق بعد",
     "status_before_start": "قبل بدء الخطة",
+    "status_waiting": "بانتظار العداد أو السعر",
     "status_skipped": "متخطّى",
     "table_label": "أشهر سنة {{year}}",
     "col_month": "الشهر",

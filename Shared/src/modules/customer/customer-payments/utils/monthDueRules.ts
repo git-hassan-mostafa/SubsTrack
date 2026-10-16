@@ -75,3 +75,16 @@ export function isNotLateYet(
   if ((cy - year) * 12 + (cm - month) !== 1) return false;
   return !hasReachedStartDay(cy, cm, startDate);
 }
+
+// A usage bill is late one month after it could first be billed; the unpaid rule never applies.
+export function isUsageNotLateYet(billedAt: string): boolean {
+  const at = new Date(billedAt);
+  const daysInNextMonth = new Date(at.getFullYear(), at.getMonth() + 2, 0).getDate();
+  const lateFrom = new Date(
+    at.getFullYear(),
+    at.getMonth() + 1,
+    Math.min(at.getDate(), daysInNextMonth),
+  );
+  const today = currentDate();
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate()) < lateFrom;
+}

@@ -24,5 +24,6 @@ export function chargeToMonthEntry(
     isGroupSecondary: false,
     balance: charge.amount - collected,
     skip: null,
+    usage: null,
   };
 }

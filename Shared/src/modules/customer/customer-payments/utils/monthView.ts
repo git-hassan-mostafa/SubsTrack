@@ -16,7 +16,8 @@ export type MonthCellTone =
   | "future"
   | "before_start"
   | "skipped"
-  | "written_off";
+  | "written_off"
+  | "waiting";
 
 // A non-regular customer is never chased, so an empty month stays plain grey.
 export function monthCellTone(entry: MonthEntry, isRegular: boolean): MonthCellTone {
@@ -53,6 +54,7 @@ const ROW_STATUS_TONE: Record<MonthRowStatus, Tone> = {
   skipped: "sky",
   future: "gray",
   before_start: "gray",
+  waiting: "indigo",
 };
 
 export function monthRowStatusTone(status: MonthRowStatus, isRegular: boolean): Tone {

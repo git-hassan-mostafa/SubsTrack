@@ -54,6 +54,17 @@ What a month shows after money moves. A month is Paid as soon as **any** money r
 26. Pay any month on a line → that line's start date can no longer be changed.
 26b. Remove a paid plan and pick an earlier "Stopped on" date → months after that month can no longer be paid; months up to it still can. The picker never goes earlier than the plan's last paid month (that month is allowed). A plan paid ahead can only stop in its last paid month.
 
+## Meter plans
+
+28. Meter month with no reading, or no price set for that month → reads "Waiting"; not owed, not unpaid, not overdue, and does not stop paying a later month.
+29. Reading 1120 on a line that started at 1000, month price 40,000 per kWh + 685,000 fixed fee → bill is 685,000 + 120 × 40,000 = 5,485,000.
+30. Next month reading 1250 → that month bills 130 kWh (counts from last month's reading).
+31. A month price applies to that month only; the next month waits until it gets its own price.
+32. Meter replaced (old meter ended at 1200, new meter starts at 0, reads 50; last reading 1120) → 80 + 50 = 130 kWh.
+33. Reading lower than last month's (and no meter change) → month stays "Waiting", no bill.
+34. Unpaid meter bill → turns Overdue one month after the later of: the day the reading was saved, the day that month's price was FIRST saved. The tenant's unpaid rule does not change this.
+35. Money on a month, or on the month after it → that month's meter reading can no longer be changed. Typed-units plans: only money on the same month locks it.
+
 ## Customer portal
 
 27. Open the customer portal link → the months, bills, payments and amount owed match what the app shows for that customer.

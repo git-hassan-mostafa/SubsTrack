@@ -1,4 +1,4 @@
-import { toBillingMonth } from "@shared/core/utils/date";
+import { shiftBillingMonth } from "@shared/core/utils/date";
 
 export { billingMonthLabel } from "@shared/core/utils/billingMonth";
 
@@ -7,11 +7,9 @@ export function coveredBillingMonths(
   billingMonth: string,
   durationMonths: number,
 ): string[] {
-  const [year, month] = billingMonth.split("-").map(Number);
-  return Array.from({ length: Math.max(1, durationMonths) }, (_, d) => {
-    const date = new Date(year, month - 1 + d, 1);
-    return toBillingMonth(date.getFullYear(), date.getMonth() + 1);
-  });
+  return Array.from({ length: Math.max(1, durationMonths) }, (_, d) =>
+    shiftBillingMonth(billingMonth, d),
+  );
 }
 
 /**

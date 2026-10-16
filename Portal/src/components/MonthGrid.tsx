@@ -14,6 +14,7 @@ const REGULAR_BG: Record<MonthStatus, string> = {
   before_start: "bg-gray-100",
   skipped: "bg-gray-500",
   written_off: "bg-gray-200",
+  waiting: "bg-indigo-50",
 };
 
 const NON_REGULAR_BG: Record<MonthStatus, string> = {
@@ -23,6 +24,7 @@ const NON_REGULAR_BG: Record<MonthStatus, string> = {
   before_start: "bg-gray-100",
   skipped: "bg-gray-500",
   written_off: "bg-gray-200",
+  waiting: "bg-indigo-50",
 };
 
 const REGULAR_TEXT: Record<MonthStatus, string> = {
@@ -32,6 +34,7 @@ const REGULAR_TEXT: Record<MonthStatus, string> = {
   before_start: "text-gray-400",
   skipped: "text-white",
   written_off: "text-orange-700",
+  waiting: "text-indigo-500",
 };
 
 const NON_REGULAR_TEXT: Record<MonthStatus, string> = {
@@ -41,6 +44,7 @@ const NON_REGULAR_TEXT: Record<MonthStatus, string> = {
   before_start: "text-gray-400",
   skipped: "text-white",
   written_off: "text-orange-700",
+  waiting: "text-indigo-500",
 };
 
 interface Props {
