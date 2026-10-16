@@ -25,7 +25,7 @@ export function QuotaReachedModal({ payload, onClose, onNavigate }: Props) {
   function handleGoToSettings() {
     onClose();
     onNavigate?.();
-    router.push("/(app)/(tabs)/admin/tenant-settings" as Href);
+    router.push("/(app)/(tabs)/more/tenant-settings" as Href);
   }
 
   return (

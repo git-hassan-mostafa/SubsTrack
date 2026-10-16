@@ -1,6 +1,5 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { COLORS } from "@/src/shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import {
   CardAmount,
@@ -27,9 +26,7 @@ export function OwingCustomerCard({ debtor, onPress, onMenu }: Props) {
 
   return (
     <EntityCard
-      icon="person-outline"
-      iconColor={COLORS.danger}
-      iconBgClassName="bg-red-50"
+      avatarName={debtor.customerName}
       onPress={onPress}
       onMenu={onMenu}
     >

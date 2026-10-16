@@ -331,6 +331,7 @@ export function UserListScreen() {
             }
             ListEmptyComponent={
               <EmptyState
+                icon="people-outline"
                 message={t("users.no_staff")}
                 subMessage={t("users.no_staff_hint")}
                 actionLabel={

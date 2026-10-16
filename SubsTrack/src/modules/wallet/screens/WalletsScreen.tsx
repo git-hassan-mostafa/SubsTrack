@@ -10,7 +10,8 @@ import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { SectionLabel } from "@/src/shared/components/SectionLabel";
+import { SheetHeader } from "@/src/shared/components/SheetHeader";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import { toActionMenuItems, type Glyph } from "@/src/shared/lib/menuActions";
 import { formatMoney } from "@shared/core/utils/currency";
@@ -99,9 +100,7 @@ export function WalletsScreen() {
       {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
       <ResponsiveContainer className="flex-1">
         <View className="px-5 py-4">
-          <Text className="text-xs text-gray-400 uppercase tracking-wide">
-            {t("wallet.cash_on_hand")}
-          </Text>
+          <SectionLabel className="">{t("wallet.cash_on_hand")}</SectionLabel>
           <Text fontWeight="Bold" className="text-2xl text-gray-900 mt-1">
             {formatMoney(cashOnHandUsd(items), null, target)}
           </Text>
@@ -129,6 +128,7 @@ export function WalletsScreen() {
           ListEmptyComponent={
             loading ? null : (
               <EmptyState
+                icon="wallet-outline"
                 message={t("wallet.list_empty_title")}
                 subMessage={t("wallet.list_empty_desc")}
               />
@@ -144,20 +144,10 @@ export function WalletsScreen() {
         dismissOnBackdropPress={false}
       >
         <ResponsiveContainer className="flex-1">
-          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-            <Text
-              fontWeight="Bold"
-              className="text-lg text-gray-900 flex-1 pe-2"
-              numberOfLines={1}
-            >
-              {openWallet?.holderName ?? ""}
-            </Text>
-            <PressableOpacity onPress={closeHolder}>
-              <Text fontWeight="Medium" className="text-base text-primary">
-                {t("common.close")}
-              </Text>
-            </PressableOpacity>
-          </View>
+          <SheetHeader
+            title={openWallet?.holderName ?? ""}
+            onClose={closeHolder}
+          />
           {detailReady && openWallet ? (
             <WalletDetailView
               detail={detail}

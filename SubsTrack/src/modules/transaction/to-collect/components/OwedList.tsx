@@ -1,6 +1,7 @@
 import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
+import { SectionLabel } from "@/src/shared/components/SectionLabel";
 import { COLORS } from "@/src/shared/constants";
 import type { OpenItem } from "@shared/core/types";
 import { sortOwed } from "@shared/modules/transaction/to-collect/utils/allItemsFilter";
@@ -81,12 +82,7 @@ export function OwedList({
 
       {unpaidMonths.length > 0 && (
         <>
-          <Text
-            fontWeight="SemiBold"
-            className="mt-4 mb-2 text-xs uppercase tracking-wide text-gray-400"
-          >
-            {t("ledger.unpaid_months_section")}
-          </Text>
+          <SectionLabel className="mt-4 mb-2">{t("ledger.unpaid_months_section")}</SectionLabel>
           {monthRows.map((item) => (
             <OwedItemCard
               key={rowKey(item)}

@@ -6,10 +6,16 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: { DEFAULT: "#2f36a8", dark: "#262b86" },
+        primary: {
+          DEFAULT: "#2f36a8",
+          container: "#e0e1fa",
+          "on-container": "#141a6b",
+        },
         success: "#22c55e",
         "success-light": "#f0fdf4",
         danger: "#ef4444",
+        warning: "#f59e0b",
+        "warning-light": "#fffbeb",
       },
       fontFamily: {
         cairo: ["Cairo", "System"],

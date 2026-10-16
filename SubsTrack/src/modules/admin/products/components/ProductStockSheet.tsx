@@ -459,7 +459,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
                   {voided ? (
                     <View className="flex-row mt-1.5">
                       <View className="rounded-md bg-gray-200 px-1.5 py-0.5">
-                        <Text className="text-[10px] text-gray-600">
+                        <Text className="text-xs text-gray-600">
                           {t("products.stock_reversed")}
                         </Text>
                       </View>

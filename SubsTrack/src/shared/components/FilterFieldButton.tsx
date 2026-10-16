@@ -33,13 +33,14 @@ export function FilterFieldButton({
       <PressableOpacity
         onPress={onPress}
         disabled={disabled}
-        className={`flex-row items-center gap-x-2 rounded-xl border px-3 py-2.5 ${
+        containerClassName={`rounded-xl border ${
           disabled
             ? "bg-gray-50 border-gray-100 opacity-50"
             : active
-              ? "bg-indigo-50 border-indigo-200"
-              : "bg-white border-gray-200"
+              ? "bg-primary-container border-primary-container"
+              : "bg-white border-gray-300"
         }`}
+        className="flex-row items-center gap-x-2 px-3 py-2.5 min-h-11"
       >
         <Text
           fontWeight={active ? "SemiBold" : undefined}

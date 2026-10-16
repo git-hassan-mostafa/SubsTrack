@@ -1,6 +1,6 @@
-// The white block every card and panel sits in — one border, one radius.
-export const CARD_SURFACE = "bg-white border border-gray-100 rounded-2xl";
+// elevated white card; never on a pressable's className — see gotcha #46
+export const CARD_SURFACE = "bg-white rounded-2xl elevation-sm";
 
-// A card whose row is switched off: a heavier border, faded out.
+// flat on purpose: an elevated view with opacity shows its shadow through
 export const CARD_SURFACE_DIMMED =
   "bg-white border border-gray-200 rounded-2xl opacity-60";

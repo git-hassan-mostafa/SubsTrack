@@ -240,6 +240,7 @@ export function PlanListScreen() {
             )}
             ListEmptyComponent={
               <EmptyState
+                icon="pricetag-outline"
                 message={t("plans.no_plans")}
                 subMessage={t("plans.no_plans_hint")}
                 actionLabel={

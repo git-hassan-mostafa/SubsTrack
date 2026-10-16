@@ -19,6 +19,7 @@ import {
 } from "@/src/modules/transaction/sales";
 import { CustomerToCollectPanel } from "@/src/modules/transaction/to-collect";
 import { CustomerDetailsCard } from "../components/CustomerDetailsCard";
+import { CustomerHero } from "../components/CustomerHero";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
@@ -61,24 +62,10 @@ export function CustomerDetailScreen() {
   return (
     <Screen>
       <PageHeader
-        title={customer?.name ?? ""}
+        title={t("customers.details_section")}
         showBack
         onBack={() => router.back()}
         iconActions={[
-          {
-            key: "history",
-            group: "history",
-            icon: "time-outline",
-            label: t("audit.customer_history_action"),
-            onPress: () => setHistoryVisible(true),
-          },
-          {
-            key: "edit",
-            group: "manage",
-            icon: "create-outline",
-            label: t("common.edit"),
-            onPress: () => setEditVisible(true),
-          },
           ...(whatsappReminder
             ? [
                 {
@@ -117,6 +104,11 @@ export function CustomerDetailScreen() {
               />
             }
           >
+            <CustomerHero
+              customer={customer}
+              onEdit={() => setEditVisible(true)}
+              onHistory={() => setHistoryVisible(true)}
+            />
             <CustomerPaymentPanel
               customer={customer}
               refreshToken={refreshToken}

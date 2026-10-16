@@ -1,1 +1,1 @@
-export { SettingsScreen } from "./screens/SettingsScreen";
+export { MoreScreen } from "./screens/MoreScreen";

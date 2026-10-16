@@ -246,6 +246,7 @@ export function BranchesScreen() {
           )}
           ListEmptyComponent={
             <EmptyState
+              icon="business-outline"
               message={t("branches.no_branches")}
               subMessage={t("branches.no_branches_hint")}
               actionLabel={t("branches.add_branch")}

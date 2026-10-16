@@ -9,6 +9,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { Input } from "@/src/shared/components/Input";
 import { Text } from "@/src/shared/components/Text";
+import { SectionLabel } from "@/src/shared/components/SectionLabel";
 import { CARD_SURFACE } from "@/src/shared/constants";
 
 interface SendWhatsAppSheetProps {
@@ -108,12 +109,7 @@ export function SendWhatsAppSheet({
 
           {form.template ? (
             <View className={`${CARD_SURFACE} p-4 mb-4`}>
-              <Text
-                fontWeight="SemiBold"
-                className="text-xs text-gray-400 uppercase tracking-wide mb-2"
-              >
-                {t("whatsapp.preview")}
-              </Text>
+              <SectionLabel className="mb-2">{t("whatsapp.preview")}</SectionLabel>
               <Text className="text-sm text-gray-800">{form.preview}</Text>
             </View>
           ) : null}

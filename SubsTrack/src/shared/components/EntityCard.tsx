@@ -1,8 +1,11 @@
 import { type ComponentProps, type ReactNode } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Checkbox } from "@/src/shared/components/Checkbox";
+import { Avatar } from "@/src/shared/components/Avatar";
+import { IconButton } from "@/src/shared/components/IconButton";
+import { IconTile } from "@/src/shared/components/IconTile";
 import {
   CARD_SURFACE,
   CARD_SURFACE_DIMMED,
@@ -14,6 +17,7 @@ interface EntityCardProps {
   iconColor?: string;
   iconBgClassName?: string;
   renderIcon?: ReactNode;
+  avatarName?: string;
 
   onPress?: () => void;
   onMenu?: () => void;
@@ -32,12 +36,35 @@ interface EntityCardProps {
   children: ReactNode;
 }
 
+function Leading({
+  icon,
+  iconColor,
+  iconBgClassName,
+  renderIcon,
+  avatarName,
+}: Pick<
+  EntityCardProps,
+  "icon" | "iconColor" | "iconBgClassName" | "renderIcon" | "avatarName"
+>) {
+  if (renderIcon) {
+    return (
+      <View className="w-10 h-10 items-center justify-center">{renderIcon}</View>
+    );
+  }
+  if (avatarName !== undefined) return <Avatar name={avatarName} />;
+  if (icon) {
+    return <IconTile icon={icon} color={iconColor} bgClassName={iconBgClassName} />;
+  }
+  return <View className="w-10 h-10" />;
+}
+
 // Shared shell for every list row: chrome, selection handshake, 3-dot menu.
 export function EntityCard({
   icon,
   iconColor = COLORS.primary,
   iconBgClassName = "bg-indigo-50",
   renderIcon,
+  avatarName,
   onPress,
   onMenu,
   menuLoading = false,
@@ -56,49 +83,42 @@ export function EntityCard({
       onPress={() => (selectionMode ? onToggleSelect?.() : onPress?.())}
       onLongPress={selectionMode ? undefined : (onEnterSelection ?? onMenu)}
       disabled={disabled}
-      className={`${
+      containerClassName={`${
         dimmed ? CARD_SURFACE_DIMMED : CARD_SURFACE
-      } px-4 py-2 flex-row items-center mb-2.5 ${className}`}
+      } mb-2.5 ${className}`}
+      className="ps-4 pe-2 py-3 min-h-[72px] flex-row items-center"
     >
-      {selectionMode ? (
-        <View className="w-10 h-10 items-center justify-center me-3 flex-shrink-0">
-          <Checkbox checked={selected} />
-        </View>
-      ) : (
-        <View
-          className={`w-10 h-10 rounded-xl items-center justify-center me-3 ${
-            renderIcon ? "" : iconBgClassName
-          }`}
-        >
-          {renderIcon ??
-            (icon ? (
-              <Ionicons name={icon} size={18} color={iconColor} />
-            ) : null)}
-        </View>
-      )}
+      <View className="me-3 flex-shrink-0">
+        {selectionMode ? (
+          <View className="w-10 h-10 items-center justify-center">
+            <Checkbox checked={selected} />
+          </View>
+        ) : (
+          <Leading
+            icon={icon}
+            iconColor={iconColor}
+            iconBgClassName={iconBgClassName}
+            renderIcon={renderIcon}
+            avatarName={avatarName}
+          />
+        )}
+      </View>
 
       {children}
 
       {onMenu && !selectionMode ? (
-        <PressableOpacity
+        <IconButton
+          icon="ellipsis-vertical"
+          size={20}
+          color={COLORS.gray600}
           onPress={onMenu}
-          disabled={menuLoading}
-          hitSlop={8}
-          className="ms-1 w-9 h-9 items-center justify-center rounded-full"
-        >
-          {menuLoading ? (
-            <ActivityIndicator size="small" color={COLORS.gray600} />
-          ) : (
-            <Ionicons
-              name="ellipsis-vertical"
-              size={20}
-              color={COLORS.gray600}
-            />
-          )}
-        </PressableOpacity>
+          loading={menuLoading}
+        />
       ) : reserveMenuSpace && !selectionMode ? (
-        <View className="ms-1 w-9 h-9" />
-      ) : null}
+        <View className="w-12 h-12" />
+      ) : (
+        <View className="w-2" />
+      )}
     </PressableOpacity>
   );
 }

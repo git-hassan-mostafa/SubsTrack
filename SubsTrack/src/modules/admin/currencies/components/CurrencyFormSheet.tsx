@@ -156,7 +156,7 @@ export function CurrencyFormSheet({
       {currency && currency.active && onRequestDelete ? (
         <PressableOpacity
           onPress={() => onRequestDelete(currency)}
-          className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
+          containerClassName="border border-red-200 rounded-xl mt-3" className="py-3.5 items-center"
         >
           <Text fontWeight="SemiBold" className="text-red-500">
             {t("common.delete")}
@@ -167,7 +167,7 @@ export function CurrencyFormSheet({
       {currency && !currency.active ? (
         <PressableOpacity
           onPress={handleReactivate}
-          className="border border-indigo-200 rounded-xl py-3.5 items-center mt-3"
+          containerClassName="border border-indigo-200 rounded-xl mt-3" className="py-3.5 items-center"
         >
           <Text fontWeight="SemiBold" className="text-primary">
             {t("tenant_settings.reactivate")}

@@ -1,16 +1,29 @@
 import { useRef } from "react";
-import { Pressable, type PressableProps } from "react-native";
+import { Pressable, View, type PressableProps } from "react-native";
+import { COLORS } from "@/src/shared/constants";
 
 type PressEvent = Parameters<NonNullable<PressableProps["onPress"]>>[0];
 
-// swallows the stray onPress Android fires after a long press — see gotcha #46
+export type RippleKind = "bounded" | "borderless" | "none";
+
+interface Props extends PressableProps {
+  ripple?: RippleKind;
+  rippleColor?: string;
+  containerClassName?: string;
+}
+
+const BORDERLESS_RADIUS = 24;
+
+// stray-press guard + why rounded shapes need containerClassName — see gotcha #46
 export function PressableOpacity({
   onPress,
   onLongPress,
   onPressIn,
-  className,
+  ripple = "bounded",
+  rippleColor = COLORS.ripple,
+  containerClassName,
   ...props
-}: PressableProps) {
+}: Props) {
   const longPressed = useRef(false);
 
   const handlePressIn = (e: PressEvent) => {
@@ -35,13 +48,29 @@ export function PressableOpacity({
       }
     : undefined;
 
-  return (
+  const androidRipple =
+    ripple === "none"
+      ? undefined
+      : {
+          color: rippleColor,
+          borderless: ripple === "borderless",
+          radius: ripple === "borderless" ? BORDERLESS_RADIUS : undefined,
+          foreground: true,
+        };
+
+  const pressable = (
     <Pressable
       {...props}
-      className={`active:opacity-60 ${className ?? ""}`}
+      android_ripple={androidRipple}
       onPressIn={handlePressIn}
       onPress={handlePress}
       onLongPress={handleLongPress}
     />
+  );
+
+  if (!containerClassName) return pressable;
+
+  return (
+    <View className={`overflow-hidden ${containerClassName}`}>{pressable}</View>
   );
 }

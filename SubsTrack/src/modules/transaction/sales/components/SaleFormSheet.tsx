@@ -3,6 +3,8 @@ import { View } from "react-native";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
+import { SectionLabel } from "@/src/shared/components/SectionLabel";
+import { FieldLabel } from "@/src/shared/components/FieldLabel";
 import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -68,9 +70,7 @@ export function SaleFormSheet({
 
         {form.customerLocked ? (
           <View className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50">
-            <Text className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-              {t("sales.customer_label")}
-            </Text>
+            <FieldLabel className="mb-1">{t("sales.customer_label")}</FieldLabel>
             <Text fontWeight="Medium" className="text-base text-gray-900">
               {customer?.name}
             </Text>
@@ -110,18 +110,13 @@ export function SaleFormSheet({
         {hasCustomer ? (
           <>
             {editing ? (
-              <Text
-                fontWeight="SemiBold"
-                className="mb-2 text-xs uppercase tracking-wide text-gray-500"
-              >
-                {t("sales.collected_total_label", {
+              <SectionLabel className="mb-2">{t("sales.collected_total_label", {
                   amount: formatMoney(
                     form.collectedOnSale,
                     form.collectedCurrency,
                     form.collectedCurrency,
                   ),
-                })}
-              </Text>
+                })}</SectionLabel>
             ) : null}
             <AmountCollectedSection
               paymentMode={form.paymentMode}

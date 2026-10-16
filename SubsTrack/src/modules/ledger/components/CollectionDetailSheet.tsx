@@ -3,6 +3,7 @@ import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { Text } from "@/src/shared/components/Text";
+import { SectionLabel } from "@/src/shared/components/SectionLabel";
 import { InfoRows } from "@/src/shared/components/InfoRows";
 import { Chip } from "@/src/shared/components/Chip";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -116,12 +117,7 @@ function DetailBody({
       </View>
 
       <View className="pb-6 pt-5">
-        <Text
-          fontWeight="SemiBold"
-          className="pb-2 text-xs uppercase tracking-wide text-gray-500"
-        >
-          {voided ? t("ledger.this_paid") : t("ledger.this_pays")}
-        </Text>
+        <SectionLabel className="pb-2">{voided ? t("ledger.this_paid") : t("ledger.this_pays")}</SectionLabel>
         {voided ? (
           <Text className="pb-2 text-xs text-gray-500">
             {t("ledger.voided_hint")}

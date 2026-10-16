@@ -33,7 +33,9 @@ export function SendOnWhatsAppButton({
       <PressableOpacity
         onPress={onPress}
         disabled={isDisabled}
-        className={`rounded-xl py-3.5 px-6 flex-row items-center justify-center bg-[#25D366] ${isDisabled ? "opacity-40" : ""}`}
+        containerClassName={`rounded-xl bg-[#25D366] ${isDisabled ? "opacity-40" : ""}`}
+        className="py-3.5 px-6 flex-row items-center justify-center"
+        rippleColor={COLORS.rippleOnDark}
       >
         {loading ? (
           <ActivityIndicator color={COLORS.white} size="small" />

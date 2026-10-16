@@ -1,6 +1,5 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { COLORS } from "@/src/shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import {
   CardAmount,
@@ -21,21 +20,14 @@ interface Props {
   menuLoading?: boolean;
 }
 
-// One row on the admin Wallets screen: someone holding cash, with the total in
-// their hands (USD, formatted into the display currency). Tapping opens the
-// wallet detail; the trailing menu offers the bulk action without opening it.
-// The viewer's own wallet is marked "You" — it is listed like any other (they
-// need to see what they carry) but they can never receive from themselves.
-// Deactivated holders are dimmed but still shown.
+// own wallet is listed (marked "You") though they can never receive from it
 export function WalletCard({ wallet, onPress, onMenu, menuLoading }: Props) {
   const { t } = useTranslation();
   const target = useDisplayCurrency();
 
   return (
     <EntityCard
-      icon="wallet-outline"
-      iconColor={COLORS.primary}
-      iconBgClassName="bg-indigo-50"
+      avatarName={wallet.holderName}
       dimmed={!wallet.active}
       onPress={onPress}
       onMenu={onMenu}

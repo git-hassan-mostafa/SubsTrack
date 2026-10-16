@@ -8,6 +8,7 @@ import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { Text } from "@/src/shared/components/Text";
+import { SheetHeader } from "@/src/shared/components/SheetHeader";
 import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -193,20 +194,10 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
     >
       {(dismiss) => (
         <ResponsiveContainer className="flex-1">
-          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-            <Text
-              fontWeight="Bold"
-              className="text-lg text-gray-900"
-              numberOfLines={1}
-            >
-              {t("products.batch_restock_title")}
-            </Text>
-            <PressableOpacity onPress={dismiss}>
-              <Text fontWeight="Medium" className="text-base text-primary">
-                {t("common.close")}
-              </Text>
-            </PressableOpacity>
-          </View>
+          <SheetHeader
+            title={t("products.batch_restock_title")}
+            onClose={dismiss}
+          />
 
           <SheetFlatList
             data={visible}

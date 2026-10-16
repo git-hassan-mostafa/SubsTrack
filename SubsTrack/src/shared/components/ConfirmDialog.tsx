@@ -70,20 +70,21 @@ export function ConfirmDialog({
       }}
     >
       <View className="flex-1 bg-black/50 items-center justify-center px-8">
-        <View className="bg-white rounded-2xl p-6 w-full max-w-sm">
-          <Text fontWeight="SemiBold" className="text-lg text-gray-900 mb-2">
+        <View className="bg-white rounded-[28px] p-6 w-full max-w-sm elevation-lg">
+          <Text fontWeight="SemiBold" className="text-xl text-gray-900 mb-3">
             {title}
           </Text>
-          <Text className="text-sm text-gray-600 mb-4">{message}</Text>
-          {children ? <View className="mb-4">{children}</View> : null}
-          <View className="flex-row gap-3">
+          <Text className="text-base text-gray-600 mb-5">{message}</Text>
+          {children ? <View className="mb-5">{children}</View> : null}
+          <View className="flex-row flex-wrap justify-end items-center gap-2">
             {!hideCancel ? (
               <PressableOpacity
                 onPress={onCancel}
                 disabled={cancelIsDisabled}
-                className={`flex-1 border border-gray-300 rounded-lg py-3 items-center ${cancelIsDisabled ? "opacity-40" : ""}`}
+                containerClassName={`rounded-full ${cancelIsDisabled ? "opacity-40" : ""}`}
+                className="min-h-12 px-4 items-center justify-center"
               >
-                <Text fontWeight="Medium" className="text-gray-700">
+                <Text fontWeight="SemiBold" className="text-base text-primary">
                   {cancelLabel ?? t("common.cancel")}
                 </Text>
               </PressableOpacity>
@@ -91,12 +92,14 @@ export function ConfirmDialog({
             <PressableOpacity
               onPress={handleConfirm}
               disabled={confirmIsDisabled}
-              className={`flex-1 rounded-lg py-3 items-center justify-center ${confirmIsDisabled ? "opacity-40" : ""} ${destructive ? "bg-danger" : "bg-primary"}`}
+              rippleColor={COLORS.rippleOnDark}
+              containerClassName={`rounded-full ${confirmIsDisabled ? "opacity-40" : ""} ${destructive ? "bg-danger" : "bg-primary"}`}
+              className="min-h-12 px-6 items-center justify-center"
             >
               {loading ? (
                 <ActivityIndicator color={COLORS.white} size="small" />
               ) : (
-                <Text fontWeight="Medium" className="text-white">
+                <Text fontWeight="SemiBold" className="text-base text-white">
                   {confirmLabel ?? t("common.confirm")}
                 </Text>
               )}

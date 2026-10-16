@@ -72,7 +72,7 @@ export function PlanLineCard({
               <View className="ms-2 rounded-full bg-gray-200 px-2 py-0.5">
                 <Text
                   fontWeight="SemiBold"
-                  className="text-[10px] text-gray-500"
+                  className="text-xs text-gray-500"
                 >
                   {t("subscriptions.cancelled_badge")}
                 </Text>

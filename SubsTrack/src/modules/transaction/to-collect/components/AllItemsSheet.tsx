@@ -7,6 +7,7 @@ import { SheetFlatList } from "@/src/shared/components/SheetScrollComponents";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
+import { SheetHeader } from "@/src/shared/components/SheetHeader";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
@@ -112,31 +113,15 @@ export function AllItemsSheet({
       dismissOnBackdropPress={false}
     >
       <ResponsiveContainer className="flex-1">
-        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-          <View className="flex-1 pe-2">
-            <Text
-              fontWeight="Bold"
-              className="text-lg text-gray-900"
-              numberOfLines={1}
-            >
-              {showingWrittenOff
-                ? t("debts.scope_written_off")
-                : t("debts.all_debts_title")}
-            </Text>
-            <Text
-              fontWeight="SemiBold"
-              className="text-sm text-gray-500 mt-0.5"
-              numberOfLines={1}
-            >
-              {shownTotal} · {t("debts.n_bills", { count: rows.length })}
-            </Text>
-          </View>
-          <PressableOpacity onPress={onDismiss}>
-            <Text fontWeight="Medium" className="text-base text-primary">
-              {t("common.close")}
-            </Text>
-          </PressableOpacity>
-        </View>
+        <SheetHeader
+          title={
+            showingWrittenOff
+              ? t("debts.scope_written_off")
+              : t("debts.all_debts_title")
+          }
+          subtitle={`${shownTotal} · ${t("debts.n_bills", { count: rows.length })}`}
+          onClose={onDismiss}
+        />
 
         {bodyReady ? (
           <>

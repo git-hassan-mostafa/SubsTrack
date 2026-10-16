@@ -6,13 +6,12 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { ScrollView, View } from "react-native";
+import { ScrollView } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Ionicons } from "@expo/vector-icons";
 import { AppBottomSheet } from "./AppBottomSheet";
 import { ResponsiveContainer } from "./ResponsiveContainer";
-import { PressableOpacity } from "./PressableOpacity";
-import { Text } from "./Text";
+import { IconButton } from "./IconButton";
+import { SheetHeader } from "./SheetHeader";
 import { ActionMenu, type ActionMenuItem } from "./ActionMenu";
 import { COLORS } from "@/src/shared/constants";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
@@ -116,55 +115,22 @@ function FormSheetBody({
 
   return (
     <ResponsiveContainer className="flex-1">
-      <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-        {subject ? (
-          <View className="flex-1 me-3 flex-row items-center gap-2.5">
-            <View className="h-9 w-9 items-center justify-center rounded-full bg-indigo-50">
-              <Ionicons
-                name="person-outline"
-                size={18}
-                color={COLORS.primary}
-              />
-            </View>
-            <View className="flex-1">
-              <Text
-                fontWeight="Bold"
-                numberOfLines={1}
-                className="text-lg text-gray-900"
-              >
-                {subject}
-              </Text>
-              <Text numberOfLines={1} className="text-xs text-gray-500">
-                {title}
-              </Text>
-            </View>
-          </View>
-        ) : (
-          <Text fontWeight="Bold" className="flex-1 me-3 text-lg text-gray-900">
-            {title}
-          </Text>
-        )}
-        <View className="flex-row items-center gap-4">
-          {hasMenu ? (
-            <PressableOpacity
+      <SheetHeader
+        title={title}
+        subject={subject}
+        onClose={onDismiss}
+        actions={
+          hasMenu ? (
+            <IconButton
+              icon="ellipsis-vertical"
+              size={20}
+              color={COLORS.gray600}
               onPress={openMenu}
-              hitSlop={8}
               accessibilityLabel={t("common.more_actions")}
-            >
-              <Ionicons
-                name="ellipsis-vertical"
-                size={20}
-                color={COLORS.gray600}
-              />
-            </PressableOpacity>
-          ) : null}
-          <PressableOpacity onPress={onDismiss}>
-            <Text fontWeight="Medium" className="text-base text-primary">
-              {t("common.close")}
-            </Text>
-          </PressableOpacity>
-        </View>
-      </View>
+            />
+          ) : null
+        }
+      />
 
       <SheetScrollView
         ref={bodyRef}

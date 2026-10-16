@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
+import { FieldLabel } from "@/src/shared/components/FieldLabel";
 import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -47,9 +48,7 @@ export function CustomDebtFormSheet({
 
         {form.customerLocked ? (
           <View className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50">
-            <Text className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-              {t("debts.customer_label")}
-            </Text>
+            <FieldLabel className="mb-1">{t("debts.customer_label")}</FieldLabel>
             <Text fontWeight="Medium" className="text-base text-gray-900">
               {form.customer?.name}
             </Text>

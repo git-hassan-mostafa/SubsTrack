@@ -87,7 +87,7 @@ export function CustomerSalesPanel({ customer }: Props) {
             <PressableOpacity
               onPress={() => setFormOpen(true)}
               accessibilityLabel={t("sales.record_button")}
-              className="w-8 h-8 rounded-full bg-emerald-50 items-center justify-center"
+              containerClassName="rounded-full bg-emerald-50 w-8 h-8" className="w-8 h-8 items-center justify-center"
             >
               <Ionicons name="add" size={18} color={COLORS.success} />
             </PressableOpacity>

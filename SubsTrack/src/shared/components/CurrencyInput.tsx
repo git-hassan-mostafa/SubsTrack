@@ -14,6 +14,7 @@ import { useLastUsedCurrency } from "@shared/shared/hooks/useLastUsedCurrency";
 import { DropdownModal } from "./Dropdown";
 import { AppTextInput } from "./AppTextInput";
 import { useTextField } from "@/src/shared/hooks/useTextField";
+import { FieldLabel } from "./FieldLabel";
 import {
   amountText,
   decimalDigitsOnly,
@@ -87,23 +88,14 @@ export function CurrencyInput({
     <View className="mb-4">
       {label || labelAction ? (
         <View className="flex-row items-center justify-between gap-2 mb-1.5">
-          {label ? (
-            <Text
-              fontWeight="SemiBold"
-              className="text-xs text-gray-500 uppercase tracking-wide"
-            >
-              {label}
-            </Text>
-          ) : (
-            <View />
-          )}
+          {label ? <FieldLabel className="">{label}</FieldLabel> : <View />}
           {labelAction}
         </View>
       ) : null}
 
       <View
-        className={`flex-row items-center border rounded-xl bg-white px-4 ${
-          error ? "border-danger" : "border-gray-200"
+        className={`flex-row items-center min-h-14 border rounded-xl bg-white px-4 ${
+          error ? "border-danger" : "border-gray-300"
         }`}
       >
         <AppTextInput

@@ -121,7 +121,7 @@ export const CustomerCard = memo(function CustomerCard({
 
   return (
     <EntityCard
-      icon="person-outline"
+      avatarName={customer.name}
       onPress={() => onPress(customer)}
       onMenu={() => onMenu(customer)}
       menuLoading={menuLoading}

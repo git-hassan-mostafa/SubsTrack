@@ -55,7 +55,7 @@ Owner switch `tenants.whatsapp_enabled` (SuperAdmin), guarded by `trg_tenants_gu
 - **Opt-outs.** STOP reply + admin's **Stop messages** both go through `recordOptOut`, which also cancels that number's queued rows (#169). **Allow messages** clears the customer's current number + admin's own blocks for that customer. A STOP from a number the customer no longer has stays in force, but unlinked from the customer.
 - **Template webhooks** via `templateStatusForEvent`: `REINSTATED` / `UNARCHIVED` → `APPROVED`; `FLAGGED` / `LOCKED` / `UNLOCKED` leave status alone (#168). Template whose buttons/header need a value Sijil can't fill (copy-code, dynamic URL, media, OTP, flow, catalog) stored as not supported (`isSendableTemplate`).
 - **Not connected.** One-customer reminder opens `wa.me` w/ same template wording. Bulk sends + notices need a connection.
-- **Connect page.** Trusts `postMessage` only from `facebook.com` or `*.facebook.com`. `FINISH_ONLY_WABA` (admin finished Meta's window w/o phone number) shows own message, never sent to server. Started from web app → page gets `?from=web`, and **Return to Sijil** goes back to Admin → WhatsApp (`/admin/whatsapp`, same path in Expo web and `Web/`) in same tab instead of `sijil://`. `Web/` has its own `/whatsapp-connect` (public, outside `SessionGate`, reads options itself); `WhatsAppConnectUrl` decides which one Meta's link opens until H2. Native WhatsApp screen refetches when app returns to front.
+- **Connect page.** Trusts `postMessage` only from `facebook.com` or `*.facebook.com`. `FINISH_ONLY_WABA` (admin finished Meta's window w/o phone number) shows own message, never sent to server. Started from web app → page gets `?from=web`, and **Return to Sijil** goes back to Admin → WhatsApp (`/admin/whatsapp` in `Web/`; legacy Expo web = `/more/whatsapp`) in same tab instead of `sijil://`. `Web/` has its own `/whatsapp-connect` (public, outside `SessionGate`, reads options itself); `WhatsAppConnectUrl` decides which one Meta's link opens until H2. Native WhatsApp screen refetches when app returns to front.
 
 ## 4. Meta setup (SaaS owner, once)
 
@@ -86,15 +86,15 @@ Owner switch `tenants.whatsapp_enabled` (SuperAdmin), guarded by `trg_tenants_gu
 3. Choose the number:
    - keep the **WhatsApp Business app** number (update the app; phone keeps working), or
    - a number **not** on WhatsApp.
-4. Admin → WhatsApp: choose language, tick consent, **Connect WhatsApp**, then in Meta's window:
+4. More → Admin → WhatsApp: choose language, tick consent, **Connect WhatsApp**, then in Meta's window:
    - log in;
    - choose/create business portfolio;
    - scan QR w/ WhatsApp Business app, or add new number + type SMS/call code;
    - confirm.
 5. **WhatsApp Manager → Overview → Add payment method**. Without it sends fail w/ "payment method".
 6. Wait until templates show **Approved** (minutes, up to 24 h).
-7. Customers → select → **Send on WhatsApp**, or row menu → **Send payment reminder**. Results in Admin → **WhatsApp messages**.
-8. Disconnect in Admin → WhatsApp. To fully remove access also Meta Business Settings → Integrations → Connected apps.
+7. Customers → select → **Send on WhatsApp**, or row menu → **Send payment reminder**. Results in More → Admin → **WhatsApp messages**.
+8. Disconnect in More → Admin → WhatsApp. To fully remove access also Meta Business Settings → Integrations → Connected apps.
 
 ## 7. Policy notes
 

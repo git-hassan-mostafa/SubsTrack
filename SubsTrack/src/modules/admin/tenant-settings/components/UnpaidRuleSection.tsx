@@ -3,6 +3,7 @@ import { CARD_SURFACE } from "@/src/shared/constants";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
+import { SectionLabel } from "@/src/shared/components/SectionLabel";
 import {
   Dropdown,
   type DropdownOption,
@@ -37,12 +38,7 @@ export function UnpaidRuleSection() {
 
   return (
     <View className={`${CARD_SURFACE} p-4 mb-4`}>
-      <Text
-        fontWeight="SemiBold"
-        className="text-xs text-gray-400 uppercase tracking-wide mb-1"
-      >
-        {t("tenant_settings.unpaid_section_title")}
-      </Text>
+      <SectionLabel className="mb-1">{t("tenant_settings.unpaid_section_title")}</SectionLabel>
       <Text className="text-xs text-gray-500 mb-3">
         {t("tenant_settings.unpaid_rule_hint")}
       </Text>

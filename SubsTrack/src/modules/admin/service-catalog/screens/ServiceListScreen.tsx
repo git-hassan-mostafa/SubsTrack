@@ -251,6 +251,7 @@ export function ServiceListScreen() {
             )}
             ListEmptyComponent={
               <EmptyState
+                icon="construct-outline"
                 message={t("services.no_services")}
                 subMessage={t("services.no_services_hint")}
                 actionLabel={

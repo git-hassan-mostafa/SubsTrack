@@ -154,7 +154,7 @@ See #38.
 - **RLS:** `tenant_settings_select` → every member (non-admin collector needs values); `tenant_settings_write` → `ALL` for `admin`/`superadmin`. Both on `current_tenant_id()`.
 - **Module** `src/modules/admin/tenant-settings/`: repository (platform switch) + service + mapper + `TENANT_SETTING_KEYS`. `TenantSettingService` **parses** raw strings → typed; no caller reads a raw value — except unpaid rule, parsed by pure `parseUnpaidStartRule` (`tenant-settings/utils/unpaidStartRule.ts`) b/c `customer-status` edge function runs it.
 - **State:** `tenantSettings` slice, loaded in `primePostAuth`, **reset on logout** (unlike `options`; must not leak to next tenant). Hooks `Shared/src/state/hooks/useTenantSettingSlice.ts`: `useTenantSettingValue(key)`, `useUnpaidStartRule()`. Keys via `TENANT_SETTING_KEYS`.
-- **UI:** Admin → Tenant Settings, one section per setting (`UnpaidRuleSection`, card layout like `DisplayCurrencySection`). Save refreshes current-month badge sets (rule restates which months are unpaid).
+- **UI:** More → Admin → Tenant Settings, one section per setting (`UnpaidRuleSection`, card layout like `DisplayCurrencySection`). Save refreshes current-month badge sets (rule restates which months are unpaid).
 - **Offline:** synced table; write derives **deterministic id from `(tenant_id, key)`**, upserts on natural key (in `NATURAL_KEYS` **and** `sync/push.ts` `conflictTarget`) → two offline devices converge on one row, no UNIQUE-index push stall.
 
 **Keys:** `UnpaidStartRule` (`'month_start'` default \| `'customer_start_day'`) — when a month turns unpaid + when "Overdue" starts. Under `'customer_start_day'` **two** facts: current month grey until line's billing day (`isNotDueYet`); last month red but not _late_ until that day (`isNotLateYet`) — #83. Rule → `AGENTS.md` §7 Month Grid; helpers in `customer-payments/utils/monthDueRules.ts` (grid + customer-list aggregator).
@@ -326,7 +326,7 @@ supabase functions deploy create-tenant --no-verify-jwt
 
 **Is NOT:** stocked or costed — no `stock_movements`, no oversell check, no expense; staff pay still hand-typed under `salaries` expense category. Stock paths narrow via `productLines()` / `savedProductLines()` (`sales/utils/saleLines.ts`), never a nullable-id test (gotcha #97).
 
-**Price list (`services`).** Admin → Services (admin menu). Products screen minus stock/cost: name, description, price + currency, branch (`branch_id IS NULL` = SHARED), `active`. `UNIQUE(tenant_id, branch_id, name)` + RLS `services_select` / `services_modify` copied verbatim from `products` → **collector** can add one from the sale form; branch user writes own branch only. Uncapped. Soft-delete if any sale line refs it (voided lines count, FK `ON DELETE RESTRICT`), else hard — same two-mode `deleteService` as products + batch counterpart. Audited; **History** on card menu via `useHistoryDoor('services')`.
+**Price list (`services`).** More → Admin → Services (admin menu). Products screen minus stock/cost: name, description, price + currency, branch (`branch_id IS NULL` = SHARED), `active`. `UNIQUE(tenant_id, branch_id, name)` + RLS `services_select` / `services_modify` copied verbatim from `products` → **collector** can add one from the sale form; branch user writes own branch only. Uncapped. Soft-delete if any sale line refs it (voided lines count, FK `ON DELETE RESTRICT`), else hard — same two-mode `deleteService` as products + batch counterpart. Audited; **History** on card menu via `useHistoryDoor('services')`.
 
 Layers: `src/modules/admin/service-catalog/` — repository (+ `.offline`, platform switch), `ServiceCatalogService`, `ServiceListScreen`, `ServiceCard`, `ServiceFormSheet`, `services` slice w/ `loaded` guard. Not `ServiceService` / `admin/services/services/…` b/c "service" names the whole layer.
 
@@ -570,7 +570,7 @@ Money **out**, so the dashboard answers "did I actually make money?". **Admin-on
 Each tenant connects its **own** WhatsApp Business number (Embedded Signup, web page `/whatsapp-connect`); Meta bills the tenant directly. SaaS owner enables it per tenant in SuperAdmin.
 
 - **Where:** customer row menu → Send payment reminder / Send WhatsApp message / Stop · Allow WhatsApp messages; customer list multi-select → Send on WhatsApp; customer detail header icon.
-- **Screens:** Admin → WhatsApp (org-wide admins only: connection, language, templates) + WhatsApp messages (history w/ status + failure reason).
+- **Screens:** More → Admin → WhatsApp (org-wide admins only: connection, language, templates) + WhatsApp messages (history w/ status + failure reason).
 - **Messages:** Sijil submits 4 UTILITY templates (en + ar): payment reminder (amount, months, due-since from ledger — only bills already due, never a prepaid future month), service outage, service back, general notice (free text). Tenant's own approved templates offered too.
 - **Background:** queued + background-processed, retries, Meta daily limit, idempotent webhooks. Opt-out (STOP reply or admin) also cancels that number's waiting messages; account problem (e.g. no payment method) keeps them waiting until **Check again**.
 - **Not connected:** single reminder opens `wa.me` w/ same wording.
@@ -627,7 +627,7 @@ Bottom **Transactions** tab (`app/(app)/(tabs)/transactions`) hosts segments via
 - **Sales** → `SalesPanel` (former `SalesListScreen` body — `sales` slice).
 - **Expenses** → `ExpensesPanel` (see Expenses — `expenses` slice). **Admin-only**: segment dropped from the array for non-admins, matching table RLS.
 
-> **No Services segment** — a service is a **line on a sale**, so Sales already lists them; the price list is Admin → Services. See Products & One-Off Sales → Services.
+> **No Services segment** — a service is a **line on a sale**, so Sales already lists them; the price list is More → Admin → Services. See Products & One-Off Sales → Services.
 
 > **Money-in history is a sheet, not a tab.** `CollectionsPanel` lives in full-height `CollectionsHistorySheet`, launched from the PageHeader 3-dot quick-actions menu ("Money received", first item) on any screen, via the `ui`-slice / `QuickActionSheets` seam. **One** list: month, sale and custom fee are all settled by the same `collections` row.
 >
@@ -1111,7 +1111,7 @@ Non-exclusive dropdown filters on Web support multi-selection (Customers: Paymen
 - Order `occurred_at DESC`, never `updated_at`.
 - Returns `{ rows, source }` (+ `hasMore` paged). **`hasMore` is the repository's answer**: merged `rows` length can't show if server page was full, and paging differs — local `OFFLINE_PAGE_SIZE` (100), Supabase `PAGE_SIZE` (30).
 
-**UI — Admin → Audit Log** (`app/(app)/(tabs)/admin/audit.tsx`): filter chips (record type / action / staff / date range), day-ordered list, tap → field-by-field _before → new_ diff sheet; one-line note above list ("the full history from the server" / "No connection — the last 30 days saved on this device"), informational only (nothing to press).
+**UI — More → Admin → Audit Log** (`app/(app)/(tabs)/more/audit.tsx`): filter chips (record type / action / staff / date range), day-ordered list, tap → field-by-field _before → new_ diff sheet; one-line note above list ("the full history from the server" / "No connection — the last 30 days saved on this device"), informational only (nothing to press).
 
 **Entry = SENTENCE built at read time** — "Super Admin voided the **March 2026** bill for **John Doe**", "…changed Price on the plan **Gold** from 10.00 $ to **12.00 $**", "…updated Price, Name and 3 other fields on the plan **Gold**". Card = sentence over muted timestamp, action only as small coloured icon; sheet repeats sentence on top, meta / diff / snapshot cards below. `buildAuditSummary` (`audit/utils/summary.ts`, pure) uses a **special** template when generic would misstate: `active` → "deactivated", `written_off_at` → "wrote off", `skipped_months` create → "skipped March 2026", edit of own name → "renamed X to Y"; else one generic template per action, single-field case with own _from → to_. Record name from `recordDetail()` per table (month label, `#RECEIPT`, plan name, money) → identity columns ride with diffs: **gotcha #132** (+ why bold in translations is a marker pair, not `<Trans>`). Bill/hand-over names its **service line** in brackets ("added a new **March 2026** bill (plan **Internet**)", "recorded a **subscription payment** of **20.00 $** (plan **Internet**)") b/c two lines bill same months; hand-over over two lines (or line + sale) names none, like `kind` 'mixed': **gotcha #141**. Trail money formatted via display registry in its **stored currency**, never re-converted.
 
@@ -1244,9 +1244,9 @@ Holder ≠ always collector (admin who only received recorded none) → `UserSer
 
 ### Where it lives
 
-- **Admin → Wallets** (`app/(app)/(tabs)/admin/wallets.tsx` → `WalletsScreen`): every wallet in branch scope **incl. viewer's own** ("You" chip, no receive). Holder viewer can't read (users RLS branch-scoped; branch admin can't see tenant-wide admin) → **dropped** (un-nameable, un-actionable = worse than nothing).
+- **More → Admin → Wallets** (`app/(app)/(tabs)/more/wallets.tsx` → `WalletsScreen`): every wallet in branch scope **incl. viewer's own** ("You" chip, no receive). Holder viewer can't read (users RLS branch-scoped; branch admin can't see tenant-wide admin) → **dropped** (un-nameable, un-actionable = worse than nothing).
 - **Web**: `/admin/wallets` (`Web/src/modules/wallet/screens/WalletsPage.tsx`), `/admin/wallets/:holderId` + `/my-wallet` share `WalletDetail.tsx` — see `docs/ui-patterns.md`.
-- **Settings → My Wallet** (`app/(app)/(tabs)/settings/my-wallet.tsx` → `MyWalletScreen`), every user: own cash; read-only below rank 2, "Close out" for tenant-wide admin/owner.
+- **More → My Wallet** (`app/(app)/(tabs)/more/my-wallet.tsx` → `MyWalletScreen`), every user: own cash; read-only below rank 2, "Close out" for tenant-wide admin/owner.
 - Dashboard (**admin-only**) **Cash on hand** tile: branch's un-settled net USD + `{holders} · {transactions}`, only when > 0. `DashboardService.getMetrics(branchFilter, viewer)` folds `walletService.getWalletsView(viewer, branchFilter)` into `walletCash` / `walletCollectors` / `walletTransactions`; slice passes `viewer = null` for non-admin → not computed.
 
 ### Code map

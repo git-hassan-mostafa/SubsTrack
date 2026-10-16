@@ -41,7 +41,7 @@ export function CardSubtitle({
 }: LineProps) {
   return (
     <Text
-      className={`text-xs text-gray-500 ${className}`}
+      className={`text-sm text-gray-600 ${className}`}
       numberOfLines={numberOfLines}
     >
       {children}
@@ -57,7 +57,7 @@ export function CardMeta({
 }: LineProps) {
   return (
     <Text
-      className={`text-[11px] text-gray-400 ${className}`}
+      className={`text-xs text-gray-500 ${className}`}
       numberOfLines={numberOfLines}
     >
       {children}
@@ -79,7 +79,7 @@ export function CardAmount({
   return (
     <Text
       fontWeight="Bold"
-      className={`text-sm ${AMOUNT_TONE_CLASSES[tone]} ${className}`}
+      className={`text-base ${AMOUNT_TONE_CLASSES[tone]} ${className}`}
       numberOfLines={numberOfLines}
     >
       {children}
@@ -97,7 +97,7 @@ export function CardChips({ children, reserveSpace = false }: CardChipsProps) {
   return (
     <View
       className={`mt-1 flex-row flex-wrap items-center gap-1 ${
-        reserveSpace ? "min-h-[19px]" : ""
+        reserveSpace ? "min-h-6" : ""
       }`}
     >
       {children}

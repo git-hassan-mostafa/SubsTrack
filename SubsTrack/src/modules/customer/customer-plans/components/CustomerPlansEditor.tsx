@@ -68,7 +68,7 @@ export function CustomerPlansEditor({ drafts, branchId }: Props) {
 
       <PressableOpacity
         onPress={drafts.addRow}
-        className="flex-row items-center justify-center rounded-xl border border-dashed border-gray-300 py-2"
+        containerClassName="rounded-xl border border-dashed border-gray-300" className="flex-row items-center justify-center py-2"
       >
         <Ionicons name="add" size={16} color={COLORS.primary} />
         <Text fontWeight="SemiBold" className="text-primary text-xs ms-1">

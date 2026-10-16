@@ -9,7 +9,7 @@ export function CollectAllButton({ onPress }: { onPress: () => void }) {
     <PressableOpacity
       onPress={onPress}
       hitSlop={8}
-      className="rounded-lg bg-gray-100 px-2.5 py-1"
+      containerClassName="rounded-lg bg-gray-100" className="px-2.5 py-1"
     >
       <Text fontWeight="Medium" className="text-xs text-primary">
         {t("ledger.collect_all")}

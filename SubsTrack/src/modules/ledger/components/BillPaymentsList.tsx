@@ -3,6 +3,7 @@ import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
+import { SectionLabel } from "@/src/shared/components/SectionLabel";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import {
   ActionMenu,
@@ -133,12 +134,7 @@ export function BillPaymentsList({
         <ErrorBanner message={error} onDismiss={clearError} />
       ) : null}
 
-      <Text
-        fontWeight="SemiBold"
-        className="text-xs uppercase tracking-wide text-gray-500"
-      >
-        {[t("ledger.payments_title"), ...headerCounts].join(" · ")}
-      </Text>
+      <SectionLabel className="">{[t("ledger.payments_title"), ...headerCounts].join(" · ")}</SectionLabel>
 
       {header.hintKey ? (
         <Text className="text-xs text-gray-500">{t(header.hintKey)}</Text>
@@ -159,9 +155,10 @@ export function BillPaymentsList({
             <PressableOpacity
               key={p.id}
               onPress={() => setDetailId(p.id)}
-              className={`flex-row items-center gap-3 rounded-xl border border-gray-200 px-3 py-2.5 ${
+              containerClassName={`rounded-xl border border-gray-200 ${
                 voided ? "opacity-50" : ""
               }`}
+              className="flex-row items-center gap-3 px-3 py-2.5"
             >
               <Ionicons
                 name="cash-outline"

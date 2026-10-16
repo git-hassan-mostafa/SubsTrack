@@ -3,10 +3,9 @@ import { View } from "react-native";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { SheetScrollView } from "@/src/shared/components/SheetScrollComponents";
 import { useTranslation } from "react-i18next";
-import { Ionicons } from "@expo/vector-icons";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
-import { Text } from "@/src/shared/components/Text";
+import { IconButton } from "@/src/shared/components/IconButton";
+import { SheetHeader } from "@/src/shared/components/SheetHeader";
 import { Button } from "@/src/shared/components/Button";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -75,52 +74,30 @@ export function OwingCustomerSheet({
         dismissOnBackdropPress={false}
       >
         <ResponsiveContainer className="flex-1">
-          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-            <View className="flex-1 pe-2">
-              <Text
-                fontWeight="Bold"
-                className="text-lg text-gray-900"
-                numberOfLines={1}
-              >
-                {debtor.customerName}
-              </Text>
-              <Text
-                fontWeight="SemiBold"
-                className="text-sm text-gray-500 mt-0.5"
-                numberOfLines={1}
-              >
-                {formatMoney(totalUsd, null, target)} ·{" "}
-                {t("debts.total_outstanding")}
-              </Text>
-            </View>
-            <View className="flex-row items-center gap-3">
-              <PressableOpacity
-                onPress={() => setCustomDebtOpen(true)}
-                accessibilityLabel={t("debts.add_custom_debt")}
-                className="w-8 h-8 rounded-full bg-indigo-50 items-center justify-center"
-              >
-                <Ionicons name="add" size={18} color={COLORS.primary} />
-              </PressableOpacity>
-              {onWriteOffAll && owed.length > 0 ? (
-                <PressableOpacity
-                  onPress={() => setMenuOpen(true)}
-                  accessibilityLabel={t("common.more_actions")}
-                  className="w-8 h-8 rounded-full items-center justify-center"
-                >
-                  <Ionicons
-                    name="ellipsis-vertical"
-                    size={18}
+          <SheetHeader
+            subject={debtor.customerName}
+            title={`${formatMoney(totalUsd, null, target)} · ${t("debts.total_outstanding")}`}
+            onClose={onDismiss}
+            actions={
+              <>
+                <IconButton
+                  icon="add"
+                  color={COLORS.primary}
+                  onPress={() => setCustomDebtOpen(true)}
+                  accessibilityLabel={t("debts.add_custom_debt")}
+                />
+                {onWriteOffAll && owed.length > 0 ? (
+                  <IconButton
+                    icon="ellipsis-vertical"
+                    size={20}
                     color={COLORS.gray500}
+                    onPress={() => setMenuOpen(true)}
+                    accessibilityLabel={t("common.more_actions")}
                   />
-                </PressableOpacity>
-              ) : null}
-              <PressableOpacity onPress={onDismiss}>
-                <Text fontWeight="Medium" className="text-base text-primary">
-                  {t("common.close")}
-                </Text>
-              </PressableOpacity>
-            </View>
-          </View>
+                ) : null}
+              </>
+            }
+          />
 
           <SheetScrollView
             style={{ flex: 1 }}

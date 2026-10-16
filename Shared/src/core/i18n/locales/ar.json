@@ -12,6 +12,7 @@
     "close": "إغلاق",
     "confirm": "تأكيد",
     "back": "< رجوع",
+    "go_back": "رجوع",
     "no_plan": "بدون خطة",
     "active": "نشط",
     "inactive": "غير نشط",
@@ -217,6 +218,7 @@
     "create_first_customer": "+ أضف أول عميل لك",
     "plan_label": "الخطة",
     "phone_label": "الهاتف",
+    "call_action": "اتصال",
     "address_label": "العنوان",
     "area_label": "المنطقة",
     "area_placeholder": "مثال: وسط البلد، منطقة ب",
@@ -623,6 +625,9 @@
     "tenant_wide_admin": "مسؤول على مستوى المؤسسة",
     "tenant_wide_hint": "يطّلع على جميع الفروع ويديرها.",
     "staff_needs_branch_hint": "يجب تعيين الموظفين لفرع."
+  },
+  "more": {
+    "title": "المزيد"
   },
   "settings": {
     "title": "الإعدادات",

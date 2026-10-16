@@ -2,6 +2,7 @@ import { View, type TextStyle } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
+import { FieldLabel } from "@/src/shared/components/FieldLabel";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { AppTextInput } from "@/src/shared/components/AppTextInput";
 import { useTextField } from "@/src/shared/hooks/useTextField";
@@ -64,12 +65,7 @@ export function AllowanceField({
     <View className="mb-4">
       <View className="flex-row items-start gap-3 mb-1">
         <View className="flex-1">
-          <Text
-            fontWeight="SemiBold"
-            className="text-xs text-gray-500 uppercase tracking-wide mb-1.5"
-          >
-            {label}
-          </Text>
+          <FieldLabel>{label}</FieldLabel>
           <AppTextInput
             {...totalField}
             keyboardType="number-pad"
@@ -86,20 +82,16 @@ export function AllowanceField({
         </View>
 
         <View className="flex-1">
-          <Text
-            fontWeight="SemiBold"
-            className="text-xs text-gray-500 uppercase tracking-wide mb-1.5"
-          >
-            {t("billing.change_label")}
-          </Text>
+          <FieldLabel>{t("billing.change_label")}</FieldLabel>
           <View className="h-12 flex-row items-center rounded-xl border border-gray-200 bg-white px-1">
             <PressableOpacity
               onPress={() => step(-1)}
               {...holdDown}
               disabled={atFloor}
-              className={`w-10 h-10 rounded-lg items-center justify-center ${
+              containerClassName={`w-10 h-10 rounded-lg ${
                 atFloor ? "bg-gray-50" : "bg-gray-100"
               }`}
+              className="w-10 h-10 items-center justify-center"
             >
               <Ionicons
                 name="remove"
@@ -127,7 +119,7 @@ export function AllowanceField({
             <PressableOpacity
               onPress={() => step(1)}
               {...holdUp}
-              className="w-10 h-10 rounded-lg bg-gray-100 items-center justify-center"
+              containerClassName="rounded-lg bg-gray-100 w-10 h-10" className="w-10 h-10 items-center justify-center"
             >
               <Ionicons name="add" size={16} color={COLORS.gray700} />
             </PressableOpacity>

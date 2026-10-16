@@ -17,6 +17,9 @@ import { COLORS } from "@/src/shared/constants";
 import { BottomSheetScaffold } from "@/src/shared/components/BottomSheetScaffold";
 import { Input } from "./Input";
 import { FilterFieldButton } from "./FilterFieldButton";
+import { FilterChip } from "./FilterChip";
+import { FieldLabel } from "./FieldLabel";
+import { SheetHeader } from "./SheetHeader";
 
 // "default" = labelled form field; "chip" = pill; "filter" = FilterRow value box.
 export type AsyncEntityPickerTriggerStyle = "default" | "chip" | "filter";
@@ -115,28 +118,13 @@ export function AsyncEntityPicker<T>({
   if (triggerStyle === "chip") {
     return (
       <>
-        <PressableOpacity
-          onPress={() => !disabled && setOpen(true)}
+        <FilterChip
+          label={displayLabel ?? placeholder ?? t("common.input_search")}
+          active={isActive}
           disabled={disabled}
-          className={`flex-row items-center gap-x-1.5 rounded-full px-3 py-1.5 border ${
-            isActive
-              ? "bg-indigo-50 border-indigo-200"
-              : "bg-white border-gray-200"
-          }`}
-        >
-          <Text
-            fontWeight="Medium"
-            className={`text-sm ${isActive ? "text-primary" : "text-gray-500"}`}
-            numberOfLines={1}
-          >
-            {displayLabel ?? placeholder ?? t("common.input_search")}
-          </Text>
-          <Ionicons
-            name="chevron-down"
-            size={12}
-            color={isActive ? COLORS.primary : COLORS.gray400}
-          />
-        </PressableOpacity>
+          dropdown
+          onPress={() => setOpen(true)}
+        />
 
         {open && (
           <AsyncPickerModal<T>
@@ -160,23 +148,15 @@ export function AsyncEntityPicker<T>({
     <View className="mb-4">
       {label || onAddNew ? (
         <View className="flex-row items-center justify-between mb-1.5">
-          {label ? (
-            <Text
-              fontWeight="SemiBold"
-              className="text-xs text-gray-500 uppercase tracking-wide"
-            >
-              {label}
-            </Text>
-          ) : (
-            <View />
-          )}
+          {label ? <FieldLabel className="">{label}</FieldLabel> : <View />}
           {onAddNew ? (
             <PressableOpacity
               onPress={onAddNew}
               hitSlop={8}
+              ripple="borderless"
               accessibilityLabel={t("common.add_new")}
             >
-              <Ionicons name="add-circle" size={18} color={COLORS.primary} />
+              <Ionicons name="add-circle" size={22} color={COLORS.primary} />
             </PressableOpacity>
           ) : null}
         </View>
@@ -185,9 +165,10 @@ export function AsyncEntityPicker<T>({
       <PressableOpacity
         onPress={() => !disabled && setOpen(true)}
         disabled={disabled}
-        className={`border border-gray-200 rounded-xl px-4 py-3 flex-row items-center justify-between ${
+        containerClassName={`border border-gray-300 rounded-xl ${
           disabled ? "bg-gray-50" : "bg-white"
         }`}
+        className="min-h-14 px-4 py-3 flex-row items-center justify-between"
       >
         <Text
           className={`text-base flex-1 ${
@@ -196,7 +177,7 @@ export function AsyncEntityPicker<T>({
         >
           {displayLabel ?? placeholder ?? t("common.input_search")}
         </Text>
-        <Ionicons name="chevron-down" size={16} color={COLORS.gray400} />
+        <Ionicons name="chevron-down" size={18} color={COLORS.gray500} />
       </PressableOpacity>
 
       {open && (
@@ -302,16 +283,7 @@ function AsyncPickerModal<T>({
 
   return (
     <BottomSheetScaffold visible onDismiss={handleClose} scrollable>
-      <View className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
-        <Text fontWeight="SemiBold" className="text-base text-gray-900">
-          {title}
-        </Text>
-        <PressableOpacity onPress={handleClose}>
-          <Text fontWeight="Medium" className="text-base text-primary">
-            {t("common.close")}
-          </Text>
-        </PressableOpacity>
-      </View>
+      <SheetHeader title={title} onClose={handleClose} />
 
       <View className="px-4 py-2 border-b border-gray-100">
         <Input
@@ -328,8 +300,8 @@ function AsyncPickerModal<T>({
       {nullable ? (
         <PressableOpacity
           onPress={() => handleSelect(null)}
-          className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${
-            value === null ? "bg-indigo-50" : "bg-white"
+          className={`flex-row items-center min-h-14 px-5 py-3 ${
+            value === null ? "bg-primary-container" : "bg-white"
           }`}
         >
           <View className="flex-1">
@@ -387,8 +359,8 @@ function AsyncPickerModal<T>({
           return (
             <PressableOpacity
               onPress={() => handleSelect(item)}
-              className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${
-                isSelected ? "bg-indigo-50" : "bg-white"
+              className={`flex-row items-center min-h-14 px-5 py-3 ${
+                isSelected ? "bg-primary-container" : "bg-white"
               }`}
             >
               <View className="flex-1">

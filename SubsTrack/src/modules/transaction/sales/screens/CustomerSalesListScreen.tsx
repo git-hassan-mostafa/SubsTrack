@@ -192,6 +192,7 @@ export function CustomerSalesListScreen() {
             )}
             ListEmptyComponent={
               <EmptyState
+                icon="receipt-outline"
                 message={t("sales.no_sales_for_customer")}
                 actionLabel={
                   !debouncedSearch ? t("sales.record_button") : undefined

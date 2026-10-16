@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { AppState, Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { AppState, RefreshControl, ScrollView } from "react-native";
 import { Screen } from "@/src/shared/components/Screen";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter, type Href } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { COLORS, CARD_SURFACE } from "@/src/shared/constants";
-import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
+import { COLORS } from "@/src/shared/constants";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { Text } from "@/src/shared/components/Text";
+import { ListGroup } from "@/src/shared/components/ListGroup";
+import { ListRow } from "@/src/shared/components/ListRow";
 import { useTenantSettingSlice } from "@shared/state/hooks/useTenantSettingSlice";
 import { useWhatsAppSlice } from "@shared/state/hooks/useWhatsAppSlice";
 import { WhatsAppConnectionSection } from "../components/WhatsAppConnectionSection";
@@ -73,18 +72,15 @@ export function WhatsAppSettingsScreen() {
           <WhatsAppConnectionSection />
           <WhatsAppLanguageSection />
           {account ? <WhatsAppTemplatesSection /> : null}
-          <Pressable
-            onPress={() => router.push("/(app)/(tabs)/admin/whatsapp-history" as Href)}
-            className={`${CARD_SURFACE} p-4 mb-4 flex-row items-center justify-between`}
-          >
-            <View className="flex-row items-center gap-3">
-              <Ionicons name="time-outline" size={20} color={COLORS.primary} />
-              <Text fontWeight="Medium" className="text-sm text-gray-900">
-                {t("whatsapp.history_title")}
-              </Text>
-            </View>
-            <DirectionalIcon name="chevron-forward" size={18} color={COLORS.gray400} />
-          </Pressable>
+          <ListGroup className="mb-4">
+            <ListRow
+              icon="time-outline"
+              title={t("whatsapp.history_title")}
+              onPress={() =>
+                router.push("/(app)/(tabs)/more/whatsapp-history" as Href)
+              }
+            />
+          </ListGroup>
         </ScrollView>
       </ResponsiveContainer>
     </Screen>

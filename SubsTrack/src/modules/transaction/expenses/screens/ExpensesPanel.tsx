@@ -175,12 +175,13 @@ export function ExpensesPanel({ header }: Props) {
                 item={item}
                 onVoid={(expense) => void list.remove(expense)}
                 onOpenProduct={() =>
-                  router.push("/(app)/(tabs)/admin/products")
+                  router.push("/(app)/(tabs)/more/products")
                 }
               />
             )}
             ListEmptyComponent={
               <EmptyState
+                icon="trending-down-outline"
                 message={t("expenses.no_expenses")}
                 subMessage={t("expenses.no_expenses_hint")}
               />

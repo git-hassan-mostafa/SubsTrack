@@ -340,7 +340,7 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
               {hasActiveFilters ? (
                 <PressableOpacity
                   onPress={clearFilters}
-                  className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
+                  ripple="borderless" className="flex-row items-center gap-x-1 px-3 py-1.5"
                 >
                   <Ionicons name="close" size={14} color={COLORS.gray500} />
                   <Text fontWeight="Medium" className="text-sm text-gray-500">
@@ -352,7 +352,7 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
 
             {totalUsd === null ? null : (
               <View className="mt-3 flex-row items-baseline justify-between border-t border-gray-100 px-4 pt-3">
-                <Text className="text-xs uppercase tracking-wide text-gray-500">
+                <Text className="text-xs text-gray-500">
                   {t("ledger.total_in_period")}
                 </Text>
                 <Text fontWeight="SemiBold" className="text-sm text-emerald-700">
@@ -445,6 +445,7 @@ export function CollectionsPanel({ onOpenSale, inSheet = false }: Props = {}) {
             )}
             ListEmptyComponent={
               <EmptyState
+                icon="cash-outline"
                 message={t("payments.no_payments")}
                 subMessage={t("payments.no_payments_hint")}
               />

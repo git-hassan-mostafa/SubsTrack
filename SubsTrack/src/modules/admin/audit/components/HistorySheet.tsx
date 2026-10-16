@@ -3,9 +3,8 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { EmptyState } from "@/src/shared/components/EmptyState";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { Text } from "@/src/shared/components/Text";
+import { SheetHeader } from "@/src/shared/components/SheetHeader";
 import type { RecordHistoryState } from "@shared/modules/admin/audit/hooks/useRecordHistory";
 import { HistoryList } from "./HistoryList";
 
@@ -34,27 +33,7 @@ export function HistorySheet({
       dismissOnBackdropPress={false}
     >
       <ResponsiveContainer className="flex-1">
-        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-          <View className="flex-1 pe-2">
-            <Text
-              fontWeight="Bold"
-              className="text-lg text-gray-900"
-              numberOfLines={1}
-            >
-              {title}
-            </Text>
-            {subtitle ? (
-              <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
-                {subtitle}
-              </Text>
-            ) : null}
-          </View>
-          <PressableOpacity onPress={onDismiss}>
-            <Text fontWeight="Medium" className="text-base text-primary">
-              {t("common.close")}
-            </Text>
-          </PressableOpacity>
-        </View>
+        <SheetHeader title={title} subtitle={subtitle} onClose={onDismiss} />
 
         {isAdmin ? (
           <HistoryList

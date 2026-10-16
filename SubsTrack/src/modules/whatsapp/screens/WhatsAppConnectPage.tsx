@@ -12,7 +12,7 @@ import { CONNECT_FROM_WEB } from "@shared/modules/whatsapp/utils/constants";
 import { isSignupPin, SIGNUP_PIN_LENGTH } from "@shared/modules/whatsapp/utils/embeddedSignup";
 
 const APP_RETURN_URL = "sijil://";
-const WEB_RETURN_ROUTE = "/(app)/(tabs)/admin/whatsapp" as Href;
+const WEB_RETURN_ROUTE = "/(app)/(tabs)/more/whatsapp" as Href;
 
 // Web-only: Embedded Signup needs the Facebook JS SDK, never the native app.
 export function WhatsAppConnectPage() {

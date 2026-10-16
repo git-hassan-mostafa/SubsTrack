@@ -9,6 +9,9 @@ import { COLORS } from "@/src/shared/constants";
 import { Input } from "@/src/shared/components/Input";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
 import { FilterFieldButton } from "./FilterFieldButton";
+import { FilterChip } from "./FilterChip";
+import { FieldLabel } from "./FieldLabel";
+import { SheetHeader } from "./SheetHeader";
 import { matchesOptionSearch } from "@shared/shared/lib/optionSearch";
 
 export interface DropdownOption<T = string> {
@@ -93,30 +96,13 @@ export function Dropdown<T extends string | number | null = string>({
   if (triggerStyle === "chip") {
     return (
       <>
-        <PressableOpacity
-          onPress={() => !disabled && setOpen(true)}
+        <FilterChip
+          label={displayLabel ?? placeholder ?? t("customers.select_plan")}
+          active={isActive}
           disabled={disabled}
-          className={`flex-row items-center gap-x-1.5 rounded-full px-3 py-1.5 border ${
-            disabled
-              ? "bg-gray-50 border-gray-100 opacity-50"
-              : isActive
-                ? "bg-indigo-50 border-indigo-200"
-                : "bg-white border-gray-200"
-          }`}
-        >
-          <Text
-            fontWeight="Medium"
-            className={`text-sm ${isActive ? "text-primary" : "text-gray-500"}`}
-            numberOfLines={1}
-          >
-            {displayLabel ?? placeholder ?? t("customers.select_plan")}
-          </Text>
-          <Ionicons
-            name="chevron-down"
-            size={12}
-            color={isActive ? COLORS.primary : COLORS.gray400}
-          />
-        </PressableOpacity>
+          dropdown
+          onPress={() => setOpen(true)}
+        />
         {modal}
       </>
     );
@@ -126,23 +112,15 @@ export function Dropdown<T extends string | number | null = string>({
     <View className="mb-4">
       {label || (onAddNew && !disabled) ? (
         <View className="flex-row items-center justify-between mb-1.5">
-          {label ? (
-            <Text
-              fontWeight="SemiBold"
-              className="text-xs text-gray-500 uppercase tracking-wide"
-            >
-              {label}
-            </Text>
-          ) : (
-            <View />
-          )}
+          {label ? <FieldLabel className="">{label}</FieldLabel> : <View />}
           {onAddNew && !disabled ? (
             <PressableOpacity
               onPress={onAddNew}
               hitSlop={8}
+              ripple="borderless"
               accessibilityLabel={t("common.add_new")}
             >
-              <Ionicons name="add-circle" size={18} color={COLORS.primary} />
+              <Ionicons name="add-circle" size={22} color={COLORS.primary} />
             </PressableOpacity>
           ) : null}
         </View>
@@ -151,9 +129,10 @@ export function Dropdown<T extends string | number | null = string>({
       <PressableOpacity
         onPress={() => !disabled && setOpen(true)}
         disabled={disabled}
-        className={`border rounded-xl px-4 py-3 flex-row items-center justify-between ${
-          disabled ? "border-gray-100 bg-gray-50" : "border-gray-200 bg-white"
+        containerClassName={`border rounded-xl ${
+          disabled ? "border-gray-200 bg-gray-50" : "border-gray-300 bg-white"
         }`}
+        className="min-h-14 px-4 py-3 flex-row items-center justify-between"
       >
         <Text
           numberOfLines={1}
@@ -170,7 +149,7 @@ export function Dropdown<T extends string | number | null = string>({
             placeholder ??
             t("customers.select_plan")}
         </Text>
-        <Ionicons name="chevron-down" size={16} color={COLORS.gray400} />
+        <Ionicons name="chevron-down" size={18} color={COLORS.gray500} />
       </PressableOpacity>
       {modal}
     </View>
@@ -249,16 +228,7 @@ export function DropdownModal<T extends string | number | null = string>({
 
   return (
     <BottomSheetScaffold visible={visible} onDismiss={handleClose}>
-      <View className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
-        <Text fontWeight="SemiBold" className="text-base text-gray-900">
-          {title}
-        </Text>
-        <PressableOpacity onPress={handleClose}>
-          <Text fontWeight="Medium" className="text-base text-primary">
-            {t("common.close")}
-          </Text>
-        </PressableOpacity>
-      </View>
+      <SheetHeader title={title} onClose={handleClose} />
 
       {searchable && (
         <View className="px-4 py-2 border-b border-gray-100">
@@ -286,17 +256,17 @@ export function DropdownModal<T extends string | number | null = string>({
             <PressableOpacity
               onPress={() => !item.disabled && handleSelect(item.value)}
               disabled={item.disabled}
-              className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${
+              className={`flex-row items-center min-h-14 px-5 py-3 ${
                 item.disabled
                   ? "bg-gray-50"
                   : isSelected
-                    ? "bg-indigo-50"
+                    ? "bg-primary-container"
                     : "bg-white"
               }`}
             >
               <View className="flex-1">
                 <Text
-                  fontWeight="SemiBold"
+                  fontWeight={isSelected ? "SemiBold" : "Medium"}
                   className={`text-base ${
                     item.disabled
                       ? "text-gray-400"
@@ -308,7 +278,7 @@ export function DropdownModal<T extends string | number | null = string>({
                   {item.label}
                 </Text>
                 {item.sublabel ? (
-                  <Text className="text-xs text-gray-400 mt-0.5">
+                  <Text className="text-sm text-gray-500 mt-0.5">
                     {item.sublabel}
                   </Text>
                 ) : null}

@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
+import { SheetHeader } from "./SheetHeader";
 import { sortActions, type ActionGroup } from "@shared/shared/lib/actionOrder";
 
 const ROWS_MAX_HEIGHT_RATIO = 0.65;
@@ -50,26 +51,7 @@ export function ActionMenu({
 
   return (
     <BottomSheetScaffold visible={visible} onDismiss={onDismiss}>
-      <View className="flex-row items-center justify-between px-5 pt-2 pb-3 border-b border-gray-100">
-        {title ? (
-          <Text
-            className="flex-1 me-3 text-base text-gray-900"
-            fontWeight="Bold"
-            numberOfLines={1}
-          >
-            {title}
-          </Text>
-        ) : (
-          <View className="flex-1" />
-        )}
-        <PressableOpacity
-          onPress={onDismiss}
-          hitSlop={8}
-          accessibilityLabel={t("common.close")}
-        >
-          <Ionicons name="close" size={22} color={COLORS.gray500} />
-        </PressableOpacity>
-      </View>
+      <SheetHeader title={title} onClose={onDismiss} closeStyle="icon" />
 
       {rows.length === 0 ? (
         <View className="px-5 py-6 items-center">
@@ -81,23 +63,23 @@ export function ActionMenu({
         <SheetScrollView
           style={{ maxHeight: Math.round(height * ROWS_MAX_HEIGHT_RATIO) }}
         >
-          {rows.map((item, index) => (
+          {rows.map((item) => (
             <PressableOpacity
               key={item.key}
               onPress={() => handlePress(item)}
               disabled={item.disabled}
-              className={`flex-row items-center px-5 py-4 ${
-                index > 0 ? "border-t border-gray-100" : ""
-              } ${item.disabled ? "opacity-40" : ""}`}
+              className={`flex-row items-center min-h-14 px-5 py-3 ${
+                item.disabled ? "opacity-40" : ""
+              }`}
             >
               {item.renderIcon ? (
-                <View className="w-7 items-start">{item.renderIcon(20)}</View>
+                <View className="w-10 items-start">{item.renderIcon(22)}</View>
               ) : item.icon ? (
-                <View className="w-7 items-start">
+                <View className="w-10 items-start">
                   <View>
                     <Ionicons
                       name={item.icon}
-                      size={20}
+                      size={22}
                       color={item.destructive ? COLORS.danger : COLORS.gray700}
                     />
                     {item.iconBadge ? (
@@ -124,7 +106,7 @@ export function ActionMenu({
                   {item.label}
                 </Text>
                 {item.caption ? (
-                  <Text className="text-xs text-gray-400 mt-0.5">
+                  <Text className="text-xs text-gray-500 mt-0.5">
                     {item.caption}
                   </Text>
                 ) : null}

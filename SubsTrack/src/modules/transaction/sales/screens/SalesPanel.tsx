@@ -221,6 +221,7 @@ export function SalesPanel({ header }: Props) {
             )}
             ListEmptyComponent={
               <EmptyState
+                icon="receipt-outline"
                 message={t("sales.no_sales")}
                 subMessage={t("sales.no_sales_hint")}
                 actionLabel={

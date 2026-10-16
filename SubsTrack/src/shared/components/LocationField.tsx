@@ -29,7 +29,7 @@ export function LocationField({ value, onChange }: Props) {
         trailing={
           <PressableOpacity
             onPress={() => setHelpVisible(true)}
-            className="w-12 h-12 rounded-xl border border-gray-200 bg-white items-center justify-center"
+            containerClassName="rounded-xl border border-gray-200 bg-white w-12 h-12" className="w-12 h-12 items-center justify-center"
           >
             <Ionicons
               name="information-circle-outline"

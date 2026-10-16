@@ -10,6 +10,7 @@ import type { Currency, DashboardMetrics } from "@shared/core/types";
 import { formatMoney } from "@shared/core/utils/currency";
 import { revenueHero } from "@shared/modules/dashboard/utils/dashboardView";
 import { formatKpiValue, money } from "@shared/modules/reports/utils/reportKpis";
+import { COLORS } from "@/src/shared/constants";
 
 interface Props {
   metrics: DashboardMetrics;
@@ -29,19 +30,21 @@ export function RevenueHeroCard({ metrics, isAdmin, displayCurrency, onPress }: 
   const year = now.getFullYear();
   const changeUp = (hero.changePct ?? 0) >= 0;
 
-  const Wrapper = onPress ? PressableOpacity : View;
-
   return (
-    <Wrapper
+    <PressableOpacity
       onPress={onPress}
+      disabled={!onPress}
+      ripple={onPress ? "bounded" : "none"}
+      rippleColor={COLORS.rippleOnDark}
       accessibilityRole={onPress ? "button" : undefined}
-      className="mx-4 mb-3 rounded-3xl bg-primary p-5"
+      containerClassName="mx-4 mb-3 rounded-3xl bg-primary elevation-sm"
+      className="p-5"
     >
       <View className="flex-row items-center gap-2 mb-4">
         <Text
           fontWeight="SemiBold"
           numberOfLines={1}
-          className="flex-1 text-xs text-indigo-200 uppercase tracking-widest"
+          className="flex-1 text-sm text-indigo-100"
         >
           {t("dashboard.monthly_collected", { month: monthLabel, year })}
         </Text>
@@ -153,7 +156,7 @@ export function RevenueHeroCard({ metrics, isAdmin, displayCurrency, onPress }: 
         <View className="flex-row items-center justify-between rounded-2xl bg-white/10 px-4 py-3 mt-3">
           <Text
             fontWeight="SemiBold"
-            className="text-xs text-indigo-200 uppercase tracking-widest"
+            className="text-sm text-indigo-100"
           >
             {t("dashboard.net_income")}
           </Text>
@@ -170,7 +173,7 @@ export function RevenueHeroCard({ metrics, isAdmin, displayCurrency, onPress }: 
         <View className="flex-row justify-between items-center mb-2">
           <Text
             fontWeight="SemiBold"
-            className="text-xs text-indigo-200 uppercase tracking-widest"
+            className="text-sm text-indigo-100"
           >
             {t("dashboard.collection_progress")}
           </Text>
@@ -191,7 +194,7 @@ export function RevenueHeroCard({ metrics, isAdmin, displayCurrency, onPress }: 
           })}
         </Text>
       </View>
-    </Wrapper>
+    </PressableOpacity>
   );
 }
 

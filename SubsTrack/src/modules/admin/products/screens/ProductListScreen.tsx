@@ -225,7 +225,7 @@ export function ProductListScreen() {
           <View className="px-4 pt-4 flex-row items-center justify-end">
             <PressableOpacity
               onPress={() => setBatchRestockOpen(true)}
-              className="flex-row items-center justify-center h-9 px-3 rounded-xl bg-emerald-50"
+              containerClassName="rounded-xl bg-emerald-50 h-9" className="flex-row items-center justify-center h-9 px-3"
               accessibilityLabel={t("products.batch_restock_title")}
             >
               <Ionicons name="cube-outline" size={16} color={COLORS.success} />
@@ -286,6 +286,7 @@ export function ProductListScreen() {
             )}
             ListEmptyComponent={
               <EmptyState
+                icon="cube-outline"
                 message={t("products.no_products")}
                 subMessage={t("products.no_products_hint")}
                 actionLabel={

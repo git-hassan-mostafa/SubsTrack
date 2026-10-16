@@ -138,7 +138,7 @@ export function LoginScreen() {
             <CanCreateOrganization>
               <View className="flex-row items-center my-6">
                 <View className="flex-1 h-px bg-gray-200" />
-                <Text className="mx-3 text-xs text-gray-400 uppercase tracking-wide">
+                <Text className="mx-3 text-xs text-gray-400">
                   {t("auth.or")}
                 </Text>
                 <View className="flex-1 h-px bg-gray-200" />

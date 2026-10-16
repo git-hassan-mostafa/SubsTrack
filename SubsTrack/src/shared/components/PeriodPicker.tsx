@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "./PressableOpacity";
+import { FilterChip } from "./FilterChip";
 import { DatePickerInput } from "./DatePickerInput";
 import { formatDate } from "@shared/core/utils/date";
 import {
@@ -17,11 +17,6 @@ interface Props {
   onChange: (period: ReportPeriod) => void;
 }
 
-/**
- * Preset chips + a custom From/To range. Lives in `shared/` rather than in the
- * reports module because Expenses, Sales and Audit all hand-roll their own
- * from/to pair today and can adopt this without a dependency on reports.
- */
 export function PeriodPicker({ value, onChange }: Props) {
   const { t } = useTranslation();
   const [customOpen, setCustomOpen] = useState(value.preset === "custom");
@@ -43,26 +38,14 @@ export function PeriodPicker({ value, onChange }: Props) {
         showsHorizontalScrollIndicator={false}
         contentContainerClassName="gap-2 px-4"
       >
-        {PERIOD_PRESETS.map((preset) => {
-          const active = value.preset === preset;
-          return (
-            <PressableOpacity
-              key={preset}
-              onPress={() => pick(preset)}
-              className={`px-3 py-1.5 rounded-full border ${
-                active
-                  ? "bg-primary border-primary"
-                  : "bg-white border-gray-200"
-              }`}
-            >
-              <Text
-                className={`text-xs ${active ? "text-white" : "text-gray-600"}`}
-              >
-                {t(`reports.period_${preset}`)}
-              </Text>
-            </PressableOpacity>
-          );
-        })}
+        {PERIOD_PRESETS.map((preset) => (
+          <FilterChip
+            key={preset}
+            label={t(`reports.period_${preset}`)}
+            active={value.preset === preset}
+            onPress={() => pick(preset)}
+          />
+        ))}
       </ScrollView>
 
       {customOpen ? (

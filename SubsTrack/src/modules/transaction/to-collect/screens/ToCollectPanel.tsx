@@ -155,14 +155,14 @@ export function ToCollectPanel({ header, onOpenSale }: Props) {
             <PressableOpacity
               onPress={() => setAllItemsOpen(true)}
               accessibilityLabel={t("debts.all_debts_title")}
-              className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center"
+              containerClassName="rounded-full bg-gray-100 w-9 h-9" className="w-9 h-9 items-center justify-center"
             >
               <Ionicons name="list-outline" size={18} color={COLORS.gray600} />
             </PressableOpacity>
             <PressableOpacity
               onPress={() => setHistoryOpen(true)}
               accessibilityLabel={t("debts.history_title")}
-              className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center"
+              containerClassName="rounded-full bg-gray-100 w-9 h-9" className="w-9 h-9 items-center justify-center"
             >
               <Ionicons name="time-outline" size={18} color={COLORS.gray600} />
             </PressableOpacity>
@@ -209,6 +209,7 @@ export function ToCollectPanel({ header, onOpenSale }: Props) {
             )}
             ListEmptyComponent={
               <EmptyState
+                icon="checkmark-done-outline"
                 message={t("debts.no_debtors")}
                 subMessage={
                   debouncedDebtorSearch.trim()

@@ -8,6 +8,8 @@ import { SheetScrollView } from "./SheetScrollComponents";
 import { PressableOpacity } from "./PressableOpacity";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
 import { BranchFilterCard } from "./BranchFilterCard";
+import { SheetHeader } from "./SheetHeader";
+import { SectionLabel } from "./SectionLabel";
 
 const BODY_MAX_HEIGHT_RATIO = 0.7;
 
@@ -31,16 +33,7 @@ export function FiltersSheet({ visible, onDismiss, showBranch, filters }: Props)
 
   return (
     <BottomSheetScaffold visible={visible} onDismiss={onDismiss}>
-      <View className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
-        <Text fontWeight="SemiBold" className="text-base text-gray-900">
-          {t("filters.title")}
-        </Text>
-        <PressableOpacity onPress={onDismiss} hitSlop={8}>
-          <Text fontWeight="Medium" className="text-base text-primary">
-            {t("common.close")}
-          </Text>
-        </PressableOpacity>
-      </View>
+      <SheetHeader title={t("filters.title")} onClose={onDismiss} />
 
       <SheetScrollView
         keyboardShouldPersistTaps="handled"
@@ -51,12 +44,9 @@ export function FiltersSheet({ visible, onDismiss, showBranch, filters }: Props)
         {filters ? (
           <View className="gap-y-3">
             {showBranch ? (
-              <Text
-                fontWeight="SemiBold"
-                className="text-xs text-gray-500 uppercase tracking-wide"
-              >
+              <SectionLabel className="">
                 {t("filters.this_list_title")}
-              </Text>
+              </SectionLabel>
             ) : null}
             {filters.children}
           </View>
@@ -68,9 +58,10 @@ export function FiltersSheet({ visible, onDismiss, showBranch, filters }: Props)
           <PressableOpacity
             onPress={filters.onClear}
             disabled={!filters.active}
-            className={`flex-row items-center justify-center gap-x-1.5 rounded-xl border border-gray-200 py-3 ${
+            containerClassName={`rounded-full border border-gray-300 ${
               filters.active ? "" : "opacity-40"
             }`}
+            className="flex-row items-center justify-center gap-x-1.5 min-h-12 py-3"
           >
             <Ionicons name="close" size={16} color={COLORS.gray700} />
             <Text fontWeight="Medium" className="text-sm text-gray-700">

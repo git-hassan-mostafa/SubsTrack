@@ -6,7 +6,7 @@ import { WhatsAppHistoryScreen } from "@/src/modules/whatsapp/screens/WhatsAppHi
 export default function WhatsAppHistoryRoute() {
   const viewer = useAuth();
   if (!canOpenPage(viewer, "whatsapp_history")) {
-    return <Redirect href="/(app)/(tabs)/admin" />;
+    return <Redirect href="/(app)/(tabs)/more" />;
   }
   return <WhatsAppHistoryScreen />;
 }

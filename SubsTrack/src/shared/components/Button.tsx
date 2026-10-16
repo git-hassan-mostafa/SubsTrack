@@ -14,12 +14,16 @@ interface ButtonProps {
   fullWidth?: boolean;
 }
 
-const variantStyles: Record<Variant, { container: string; text: string }> = {
-  primary: { container: "bg-primary", text: "text-white" },
-  danger: { container: "bg-danger", text: "text-white" },
+const variantStyles: Record<
+  Variant,
+  { container: string; text: string; ripple: string }
+> = {
+  primary: { container: "bg-primary", text: "text-white", ripple: COLORS.rippleOnDark },
+  danger: { container: "bg-danger", text: "text-white", ripple: COLORS.rippleOnDark },
   ghost: {
     container: "bg-transparent border border-gray-300",
     text: "text-gray-700",
+    ripple: COLORS.ripple,
   },
 };
 
@@ -38,7 +42,9 @@ export function Button({
     <PressableOpacity
       onPress={onPress}
       disabled={isDisabled}
-      className={`rounded-xl py-3.5 px-6 items-center justify-center ${styles.container} ${fullWidth ? "w-full" : ""} ${isDisabled ? "opacity-50" : ""}`}
+      rippleColor={styles.ripple}
+      containerClassName={`rounded-full ${styles.container} ${fullWidth ? "w-full" : ""} ${isDisabled ? "opacity-50" : ""}`}
+      className="min-h-12 py-3 px-6 items-center justify-center"
     >
       {loading ? (
         <ActivityIndicator

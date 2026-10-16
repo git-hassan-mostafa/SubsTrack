@@ -6,6 +6,7 @@ import { Chip } from "@/src/shared/components/Chip";
 import { InfoRows } from "@/src/shared/components/InfoRows";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
+import { SectionLabel } from "@/src/shared/components/SectionLabel";
 import { CARD_SURFACE } from "@/src/shared/constants";
 import { useWhatsAppConnection } from "@shared/modules/whatsapp/hooks/useWhatsAppConnection";
 import { CONNECT_FROM_PARAM, CONNECT_FROM_WEB } from "@shared/modules/whatsapp/utils/constants";
@@ -28,12 +29,7 @@ export function WhatsAppConnectionSection() {
 
   return (
     <View className={`${CARD_SURFACE} p-4 mb-4`}>
-      <Text
-        fontWeight="SemiBold"
-        className="text-xs text-gray-400 uppercase tracking-wide mb-1"
-      >
-        {t("whatsapp.connection_title")}
-      </Text>
+      <SectionLabel className="mb-1">{t("whatsapp.connection_title")}</SectionLabel>
 
       {account ? (
         <>

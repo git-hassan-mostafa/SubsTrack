@@ -2,6 +2,7 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
+import { SectionLabel } from "@/src/shared/components/SectionLabel";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import {
   CardAmount,
@@ -39,14 +40,9 @@ export function AllocationPreview({
 
   return (
     <View>
-      <Text
-        fontWeight="SemiBold"
-        className="mb-2 text-xs uppercase tracking-wide text-gray-500"
-      >
-        {t("ledger.this_pays")}
-      </Text>
+      <SectionLabel className="mb-2">{t("ledger.this_pays")}</SectionLabel>
       {onToggle && items.length > 1 ? (
-        <Text className="-mt-1 mb-2 text-[11px] text-gray-400">
+        <Text className="-mt-1 mb-2 text-xs text-gray-400">
           {t("ledger.skip_bill_hint")}
         </Text>
       ) : null}

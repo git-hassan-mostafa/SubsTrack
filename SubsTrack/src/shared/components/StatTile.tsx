@@ -44,26 +44,26 @@ const iconColor: Record<Tone, string> = {
   primary: COLORS.primary,
 };
 
-// One compact metric: label, big value, optional sub-line and leading icon.
-// The shared building block for every stat grid (dashboard + reports).
+// the one stat building block for the dashboard and reports grids
 export function StatTile({ label, value, sub, tone = "default", icon }: Props) {
   return (
     <View className={`${CARD_SURFACE} flex-1 p-4`}>
-      <View className="flex-row items-center gap-1.5 mb-3">
+      <View className="flex-row items-center gap-2 mb-2">
         {icon ? (
-          <Ionicons name={icon} size={13} color={iconColor[tone]} />
+          <Ionicons name={icon} size={16} color={iconColor[tone]} />
         ) : null}
-        <Text className="text-xs text-gray-400 uppercase tracking-wide">
+        <Text
+          fontWeight="Medium"
+          className="flex-1 text-sm text-gray-600"
+          numberOfLines={1}
+        >
           {label}
         </Text>
       </View>
-      <Text
-        fontWeight="Bold"
-        className={`text-2xl leading-none mb-1 ${valueColor[tone]}`}
-      >
+      <Text fontWeight="Bold" className={`text-2xl mb-0.5 ${valueColor[tone]}`}>
         {value}
       </Text>
-      {sub ? <Text className="text-xs text-gray-400">{sub}</Text> : null}
+      {sub ? <Text className="text-xs text-gray-500">{sub}</Text> : null}
     </View>
   );
 }

@@ -462,6 +462,7 @@ export function CustomerListScreen() {
         }
         ListEmptyComponent={
           <EmptyState
+            icon="people-outline"
             message={t("customers.no_customers")}
             subMessage={
               narrowed

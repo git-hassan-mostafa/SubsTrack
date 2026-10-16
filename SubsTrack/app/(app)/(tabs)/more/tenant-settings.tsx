@@ -6,7 +6,7 @@ import { canOpenPage } from "@shared/modules/authentication/auth/utils/pageAcces
 export default function Index() {
   const viewer = useAuth();
 
-  if (!canOpenPage(viewer, "organization")) return <Redirect href="/(app)/(tabs)/admin" />;
+  if (!canOpenPage(viewer, "organization")) return <Redirect href="/(app)/(tabs)/more" />;
 
   return <TenantSettingsScreen />;
 }

@@ -46,7 +46,7 @@ export function RemovePlanChoice({ bounds, onChange }: Props) {
       ) : null}
       <PressableOpacity
         onPress={() => update(!hardDelete, cancelDate)}
-        className="flex-row items-start rounded-xl border border-red-200 bg-red-50 p-3"
+        containerClassName="rounded-xl border border-red-200 bg-red-50" className="flex-row items-start p-3"
       >
         <Checkbox checked={hardDelete} size={22} tone="danger" />
         <View className="flex-1 ms-3">

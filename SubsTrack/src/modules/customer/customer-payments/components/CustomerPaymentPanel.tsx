@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { FilterChip } from "@/src/shared/components/FilterChip";
 import {
   ActionMenu,
   type ActionMenuItem,
@@ -194,29 +195,22 @@ export function CustomerPaymentPanel({
               const isSel = line.id === selectedLine?.id;
               const dot = grid.indicatorOf(line.id);
               return (
-                <PressableOpacity
-                  key={line.id}
-                  onPress={() => grid.selectLine(line.id)}
-                  className={`flex-row items-center rounded-full px-3 py-1.5 border ${
-                    isSel
-                      ? "bg-gray-900 border-gray-900"
-                      : "bg-white border-gray-200"
-                  } ${line.active ? "" : "opacity-50"}`}
-                >
-                  {dot ? (
-                    <View
-                      className={`w-2 h-2 rounded-full me-1.5 ${INDICATOR_DOT[dot]}`}
-                    />
-                  ) : null}
-                  <Text
-                    fontWeight="SemiBold"
-                    className={`text-xs ${isSel ? "text-white" : "text-gray-700"}`}
-                    numberOfLines={1}
-                  >
-                    {lineLabel(line, t("common.no_plan"))}
-                    {line.active ? "" : ` · ${t("subscriptions.cancelled")}`}
-                  </Text>
-                </PressableOpacity>
+                <View key={line.id} className={line.active ? "" : "opacity-50"}>
+                  <FilterChip
+                    active={isSel}
+                    onPress={() => grid.selectLine(line.id)}
+                    leading={
+                      dot ? (
+                        <View
+                          className={`w-2 h-2 rounded-full ${INDICATOR_DOT[dot]}`}
+                        />
+                      ) : undefined
+                    }
+                    label={`${lineLabel(line, t("common.no_plan"))}${
+                      line.active ? "" : ` · ${t("subscriptions.cancelled")}`
+                    }`}
+                  />
+                </View>
               );
             })}
           </ScrollView>
@@ -258,11 +252,10 @@ export function CustomerPaymentPanel({
                   <PressableOpacity
                     onPress={() => grid.stepYear(-1)}
                     disabled={year <= grid.minYear}
-                    className="w-10 h-10 rounded-full items-center justify-center"
-                    style={{
-                      backgroundColor: COLORS.primaryLight,
-                      opacity: year <= grid.minYear ? 0.35 : 1,
-                    }}
+                    containerClassName={`rounded-full bg-primary-container ${
+                      year <= grid.minYear ? "opacity-40" : ""
+                    }`}
+                    className="w-10 h-10 items-center justify-center"
                   >
                     <DirectionalIcon
                       name="chevron-back"
@@ -272,8 +265,8 @@ export function CustomerPaymentPanel({
                   </PressableOpacity>
                   <PressableOpacity
                     onPress={() => grid.stepYear(1)}
-                    className="w-10 h-10 rounded-full items-center justify-center"
-                    style={{ backgroundColor: COLORS.primaryLight }}
+                    containerClassName="rounded-full bg-primary-container"
+                    className="w-10 h-10 items-center justify-center"
                   >
                     <DirectionalIcon
                       name="chevron-forward"
@@ -337,20 +330,22 @@ export function CustomerPaymentPanel({
       </GestureDetector>
 
       {banner ? (
-        <View className="mx-4 mt-3 bg-red-50 border border-red-200 rounded-2xl px-4 py-3 flex-row items-center">
-          <Text className="text-base me-2">⚠️</Text>
-          <View className="flex-1">
-            <Text fontWeight="SemiBold" className="text-sm text-red-600">
+        <View className="mx-4 mt-3 bg-red-50 rounded-2xl ps-4 pe-3 py-3 flex-row items-center">
+          <Ionicons name="alert-circle" size={22} color={COLORS.danger} />
+          <View className="flex-1 ms-3">
+            <Text fontWeight="SemiBold" className="text-sm text-red-700">
               {billingMonthLabel(banner.billingMonth)} {t("dashboard.unpaid")}
             </Text>
-            <Text className="text-xs text-gray-500 mt-0.5">
+            <Text className="text-xs text-gray-600 mt-0.5">
               {t("payments.amount_due")}
             </Text>
           </View>
           <PressableOpacity
             onPress={() => void grid.quickPay(banner)}
             disabled={grid.busyMonth === banner.billingMonth}
-            className="bg-red-500 rounded-xl px-3 py-2 ms-2"
+            rippleColor={COLORS.rippleOnDark}
+            containerClassName="bg-red-600 rounded-full ms-2"
+            className="min-h-10 px-4 py-2 items-center justify-center"
           >
             {grid.busyMonth === banner.billingMonth ? (
               <ActivityIndicator size="small" color="#fff" />

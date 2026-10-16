@@ -109,16 +109,15 @@ export const MonthCell = memo(function MonthCell({
   }
 
   return (
-    <PressableOpacity
-      onPress={handlePress}
-      onLongPress={
-        !selectionMode && selectable ? () => onLongPress?.(entry) : undefined
-      }
-      delayLongPress={250}
-      className={`w-1/4 aspect-square ${padClass}`}
-    >
-      <View
-        className={`${roundClass} ${ringClass} items-center justify-center flex-1 w-full ${containerBg}`}
+    <View className={`w-1/4 aspect-square ${padClass}`}>
+      <PressableOpacity
+        onPress={handlePress}
+        onLongPress={
+          !selectionMode && selectable ? () => onLongPress?.(entry) : undefined
+        }
+        delayLongPress={250}
+        containerClassName={`flex-1 w-full ${roundClass} ${ringClass} ${containerBg}`}
+        className="flex-1 items-center justify-center"
       >
         <Text fontWeight="SemiBold" className={`text-sm ${labelColor}`}>
           {t(`months.${entry.label}`)}
@@ -144,7 +143,8 @@ export const MonthCell = memo(function MonthCell({
             onPress={() => onMenu?.(entry)}
             disabled={menuLoading}
             hitSlop={10}
-            className="absolute top-1 end-1 w-6 h-6 rounded-full items-center justify-center"
+            ripple="borderless"
+            className="absolute top-1 end-1 w-6 h-6 items-center justify-center"
           >
             {menuLoading ? (
               <ActivityIndicator size="small" color={menuIconColor} />
@@ -168,7 +168,7 @@ export const MonthCell = memo(function MonthCell({
             )}
           </View>
         ) : null}
-      </View>
-    </PressableOpacity>
+      </PressableOpacity>
+    </View>
   );
 });

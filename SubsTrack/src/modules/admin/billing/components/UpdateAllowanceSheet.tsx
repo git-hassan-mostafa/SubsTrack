@@ -149,7 +149,7 @@ export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
         <PressableOpacity
           onPress={() => void submitRaise(true)}
           disabled={!draft.valid || saving}
-          className="border border-green-200 rounded-xl py-3.5 items-center mt-3"
+          containerClassName="border border-green-200 rounded-xl mt-3" className="py-3.5 items-center"
         >
           <Text fontWeight="SemiBold" className="text-green-700">
             {t("billing.send_request_whatsapp")}

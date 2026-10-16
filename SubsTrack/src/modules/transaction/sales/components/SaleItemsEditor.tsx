@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
+import { FieldLabel } from "@/src/shared/components/FieldLabel";
 import { Input } from "@/src/shared/components/Input";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import {
@@ -204,16 +205,11 @@ export function SaleItemsEditor({ cart, onFocusClearError }: Props) {
           <View className="flex-row items-start gap-2">
             {row.lineType === "product" ? (
               <View className="mb-4">
-                <Text
-                  fontWeight="SemiBold"
-                  className="text-xs text-gray-500 uppercase tracking-wide mb-1.5"
-                >
-                  {t("sales.quantity_label")}
-                </Text>
+                <FieldLabel>{t("sales.quantity_label")}</FieldLabel>
                 <View className="flex-row items-center border border-gray-200 rounded-xl bg-white px-2 py-1.5">
                   <PressableOpacity
                     onPress={() => cart.setQuantity(row.key, row.quantity - 1)}
-                    className="w-8 h-8 rounded-lg bg-gray-100 items-center justify-center"
+                    containerClassName="rounded-lg bg-gray-100 w-8 h-8" className="w-8 h-8 items-center justify-center"
                   >
                     <Ionicons name="remove" size={16} color={COLORS.gray700} />
                   </PressableOpacity>
@@ -225,7 +221,7 @@ export function SaleItemsEditor({ cart, onFocusClearError }: Props) {
                   </Text>
                   <PressableOpacity
                     onPress={() => cart.setQuantity(row.key, row.quantity + 1)}
-                    className="w-8 h-8 rounded-lg bg-gray-100 items-center justify-center"
+                    containerClassName="rounded-lg bg-gray-100 w-8 h-8" className="w-8 h-8 items-center justify-center"
                   >
                     <Ionicons name="add" size={16} color={COLORS.gray700} />
                   </PressableOpacity>
@@ -315,7 +311,7 @@ function AddLineButton({
   return (
     <PressableOpacity
       onPress={onPress}
-      className="flex-1 flex-row items-center justify-center rounded-2xl border border-dashed border-gray-300 py-3 px-2"
+      containerClassName="flex-1 rounded-2xl border border-dashed border-gray-300" className="flex-row items-center justify-center py-3 px-2"
     >
       <Ionicons name={icon} size={16} color={COLORS.primary} />
       <Text

@@ -3,6 +3,7 @@ import { Switch, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
+import { FieldLabel } from "@/src/shared/components/FieldLabel";
 import { Input } from "@/src/shared/components/Input";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
@@ -107,9 +108,7 @@ export function PortalAccessField({
 
           {link ? (
             <View className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-              <Text className="text-xs text-gray-500 uppercase tracking-wide mb-1.5">
-                {t("customers.portal_link_label")}
-              </Text>
+              <FieldLabel>{t("customers.portal_link_label")}</FieldLabel>
               <Text className="text-xs text-gray-700" numberOfLines={2}>
                 {isolate(link)}
               </Text>
@@ -164,7 +163,8 @@ function FieldIconButton({
       onPress={onPress}
       disabled={disabled}
       accessibilityLabel={accessibilityLabel}
-      className={`w-12 h-12 rounded-xl border border-gray-200 bg-white items-center justify-center ${disabled ? "opacity-40" : ""}`}
+      containerClassName={`w-12 h-12 rounded-xl border border-gray-200 bg-white ${disabled ? "opacity-40" : ""}`}
+      className="w-12 h-12 items-center justify-center"
     >
       <Ionicons name={icon} size={22} color={color} />
     </PressableOpacity>

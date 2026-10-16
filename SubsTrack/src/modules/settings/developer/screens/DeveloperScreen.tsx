@@ -7,6 +7,7 @@ import Constants from "expo-constants";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { Text } from "@/src/shared/components/Text";
+import { SectionLabel } from "@/src/shared/components/SectionLabel";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
@@ -517,12 +518,7 @@ export function DeveloperScreen() {
           </View>
 
           <View className="mx-4 mb-8">
-            <Text
-              fontWeight="SemiBold"
-              className="text-xs text-gray-400 uppercase tracking-wide mb-2 px-1"
-            >
-              {t("settings.developer_tables_section")}
-            </Text>
+            <SectionLabel>{t("settings.developer_tables_section")}</SectionLabel>
             <View className={`${CARD_SURFACE} overflow-hidden`}>
               {ALL_TABLE_NAMES.map((name, index) => (
                 <PressableOpacity

@@ -3,6 +3,7 @@ import { Switch, View } from "react-native";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
+import { FieldLabel } from "@/src/shared/components/FieldLabel";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -111,12 +112,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
       />
 
       <View className="mb-4">
-        <Text
-          fontWeight="SemiBold"
-          className="text-xs text-gray-500 uppercase tracking-wide mb-2"
-        >
-          {t("plans.duration_label")}
-        </Text>
+        <FieldLabel className="mb-2">{t("plans.duration_label")}</FieldLabel>
 
         <View className="flex-row flex-wrap" style={{ gap: 8 }}>
           {DURATION_OPTIONS.map((d) => {
@@ -125,11 +121,13 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
               <PressableOpacity
                 key={d}
                 onPress={() => setDuration(d)}
-                className={`px-4 py-2.5 rounded-xl border ${
+                containerClassName={`rounded-xl border ${
                   selected
                     ? "bg-primary border-primary"
                     : "bg-white border-gray-200"
                 }`}
+                className="px-4 py-2.5"
+                rippleColor={selected ? COLORS.rippleOnDark : undefined}
               >
                 <Text
                   fontWeight="SemiBold"
@@ -151,7 +149,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
           <View className="flex-row items-center">
             <PressableOpacity
               onPress={() => setDuration(form.durationMonths - 1)}
-              className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
+              containerClassName="rounded-lg bg-gray-100 w-9 h-9" className="w-9 h-9 items-center justify-center"
             >
               <Text fontWeight="Bold" className="text-gray-700 text-lg">
                 −
@@ -165,7 +163,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
             </Text>
             <PressableOpacity
               onPress={() => setDuration(form.durationMonths + 1)}
-              className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
+              containerClassName="rounded-lg bg-gray-100 w-9 h-9" className="w-9 h-9 items-center justify-center"
             >
               <Text fontWeight="Bold" className="text-gray-700 text-lg">
                 +
@@ -248,7 +246,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
             onPress={() => {
               onRequestDelete(plan);
             }}
-            className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
+            containerClassName="border border-red-200 rounded-xl mt-3" className="py-3.5 items-center"
           >
             <Text fontWeight="SemiBold" className="text-red-500">
               {t("common.delete")}

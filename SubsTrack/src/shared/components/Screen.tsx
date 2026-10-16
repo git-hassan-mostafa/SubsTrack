@@ -11,7 +11,7 @@ interface Props {
   edges?: Edge[];
 }
 
-// Status-bar band stays white to join the white PageHeader; `edges` = the rest
+// status band = page colour so the flat PageHeader joins it
 export function Screen({
   children,
   edges = ["bottom", "left", "right"],
@@ -19,7 +19,7 @@ export function Screen({
   const { top } = useSafeAreaInsets();
   return (
     <View className="flex-1 bg-gray-50">
-      <View className="bg-white" style={{ height: top }} />
+      <View style={{ height: top }} />
       <SafeAreaView className="flex-1" edges={edges}>
         {children}
       </SafeAreaView>

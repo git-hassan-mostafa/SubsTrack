@@ -9,7 +9,6 @@ import type { AppUser, UserRole } from "@shared/core/types";
 import { roleLabelKey } from "@shared/modules/admin/users/utils/userRules";
 import { useTranslation } from "react-i18next";
 import { EntityCard } from "@/src/shared/components/EntityCard";
-import { COLORS } from "@/src/shared/constants";
 
 interface Props {
   user: AppUser;
@@ -40,9 +39,7 @@ export function UserCard({
 
   return (
     <EntityCard
-      icon="person-outline"
-      iconColor={COLORS.success}
-      iconBgClassName="bg-success-light"
+      avatarName={user.fullName}
       dimmed={!user.active}
       onPress={() => onEdit(user)}
       onMenu={() => onMenu(user)}

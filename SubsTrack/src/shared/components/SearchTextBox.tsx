@@ -22,11 +22,11 @@ export default function SearchTextBox({
 
   const { t } = useTranslation();
   return (
-    <View className="flex-row items-center bg-gray-100 rounded-xl px-3 py-1">
-      <Ionicons name="search-outline" size={16} color={COLORS.gray400} />
+    <View className="flex-row items-center bg-gray-200/70 rounded-full ps-4 pe-3 min-h-12">
+      <Ionicons name="search-outline" size={20} color={COLORS.gray500} />
       <AppTextInput
-        containerClassName="flex-1 ms-2"
-        className="text-sm text-gray-900"
+        containerClassName="flex-1 ms-3"
+        className="text-base text-gray-900"
         style={{ textAlignVertical: "top" }}
         placeholder={placeholder || t("common.input_search")}
         placeholderTextColor={COLORS.gray400}

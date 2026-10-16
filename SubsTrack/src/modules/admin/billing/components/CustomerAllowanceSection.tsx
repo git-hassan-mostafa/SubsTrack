@@ -4,6 +4,7 @@ import { useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { CARD_SURFACE } from "@/src/shared/constants";
 import { Text } from "@/src/shared/components/Text";
+import { SectionLabel } from "@/src/shared/components/SectionLabel";
 import { Button } from "@/src/shared/components/Button";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
@@ -61,12 +62,7 @@ export function CustomerAllowanceSection() {
 
   return (
     <View className={`${CARD_SURFACE} p-4 mb-4`}>
-      <Text
-        fontWeight="SemiBold"
-        className="text-xs text-gray-400 uppercase tracking-wide mb-3"
-      >
-        {t("billing.section_title")}
-      </Text>
+      <SectionLabel className="mb-3">{t("billing.section_title")}</SectionLabel>
 
       <UsageBar
         kind="customers"
@@ -83,7 +79,7 @@ export function CustomerAllowanceSection() {
           <Text className="text-xs text-gray-500">
             {t("billing.monthly_amount")}
           </Text>
-          <Text className="text-[11px] text-gray-400 mt-0.5">
+          <Text className="text-xs text-gray-400 mt-0.5">
             {t("billing.amount_note", {
               count: limits.plans,
               price: price.toString(),
@@ -107,7 +103,7 @@ export function CustomerAllowanceSection() {
             <PressableOpacity
               onPress={() => setSheet("edit")}
               disabled={saving}
-              className="flex-1 border border-amber-300 rounded-xl py-2.5 items-center"
+              containerClassName="flex-1 border border-amber-300 rounded-xl" className="py-2.5 items-center"
             >
               <Text fontWeight="SemiBold" className="text-sm text-amber-900">
                 {t("billing.edit_request")}
@@ -116,7 +112,7 @@ export function CustomerAllowanceSection() {
             <PressableOpacity
               onPress={() => void handleCancel()}
               disabled={saving}
-              className="flex-1 border border-red-200 rounded-xl py-2.5 items-center"
+              containerClassName="flex-1 border border-red-200 rounded-xl" className="py-2.5 items-center"
             >
               <Text fontWeight="SemiBold" className="text-sm text-red-500">
                 {t("billing.cancel_request")}
@@ -146,7 +142,7 @@ export function CustomerAllowanceSection() {
               fullWidth
             />
           </View>
-          <Text className="text-[11px] text-gray-400 text-center mt-2">
+          <Text className="text-xs text-gray-400 text-center mt-2">
             {t("billing.update_number_hint", { count: remaining })}
           </Text>
         </>

@@ -1,7 +1,5 @@
 import { ScrollView } from "react-native";
-import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
-import { COLORS } from "@/src/shared/constants";
+import { FilterChip } from "@/src/shared/components/FilterChip";
 
 export interface PillTab<T extends string> {
   key: T;
@@ -15,14 +13,7 @@ interface PillTabsProps<T extends string> {
   className?: string;
 }
 
-// A row of dark toggle pills — active pill is solid (bg-gray-900), the rest are
-// light (bg-gray-100). Used as a lightweight secondary tab/filter switch (the
-// customer-list filter tabs, the inner Debts sub-tabs). Distinct from the
-// SegmentedTabs pill track so nested levels read as different levels.
-// The row stays ONE line and scrolls sideways — the customer list carries eight
-// tabs, which never fit a phone screen. `keyboardShouldPersistTaps` because the
-// row sits right under a search box: a tap must pick the tab, not just close the
-// keyboard.
+// one line that scrolls sideways; persisted taps so a tap under a search box picks
 export function PillTabs<T extends string>({
   value,
   onChange,
@@ -37,24 +28,14 @@ export function PillTabs<T extends string>({
       className={className}
       contentContainerStyle={{ gap: 8, alignItems: "center" }}
     >
-      {tabs.map((tab) => {
-        const active = tab.key === value;
-        return (
-          <PressableOpacity
-            key={tab.key}
-            onPress={() => onChange(tab.key)}
-            className={`rounded-full px-3 py-1.5 ${active ? "bg-gray-900" : "bg-gray-100"}`}
-          >
-            <Text
-              fontWeight="SemiBold"
-              className="text-xs"
-              style={{ color: active ? COLORS.white : COLORS.gray600 }}
-            >
-              {tab.label}
-            </Text>
-          </PressableOpacity>
-        );
-      })}
+      {tabs.map((tab) => (
+        <FilterChip
+          key={tab.key}
+          label={tab.label}
+          active={tab.key === value}
+          onPress={() => onChange(tab.key)}
+        />
+      ))}
     </ScrollView>
   );
 }

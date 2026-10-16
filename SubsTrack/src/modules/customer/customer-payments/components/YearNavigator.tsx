@@ -18,7 +18,8 @@ export function YearNavigator({ year, minYear, onPrev, onNext }: Props) {
       <PressableOpacity
         onPress={onPrev}
         disabled={!canGoPrev}
-        className={`w-10 h-10 items-center justify-center rounded-full ${canGoPrev ? "bg-gray-100" : "opacity-30"}`}
+        containerClassName={`w-10 h-10 rounded-full ${canGoPrev ? "bg-gray-100" : "opacity-30"}`}
+        className="w-10 h-10 items-center justify-center"
       >
         <Text
           fontWeight="SemiBold"
@@ -33,7 +34,7 @@ export function YearNavigator({ year, minYear, onPrev, onNext }: Props) {
       </Text>
       <PressableOpacity
         onPress={onNext}
-        className="w-10 h-10 items-center justify-center rounded-full bg-gray-100"
+        containerClassName="rounded-full bg-gray-100 w-10 h-10" className="w-10 h-10 items-center justify-center"
       >
         <Text
           fontWeight="SemiBold"

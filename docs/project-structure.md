@@ -81,7 +81,7 @@ SubsTrack/
     index.tsx         redirect to login or home
     (auth)/           login, signup-organization, signup-account
     (app)/_layout.tsx auth guard (session, tenantActive)
-    (app)/(tabs)/     home, customers ([id]/index, [id]/sales), transactions, reports, admin/*, settings — role-aware tab bar in _layout.tsx
+    (app)/(tabs)/     home, customers ([id]/index, [id]/sales), transactions, reports, more (settings + admin/*) — role-aware tab bar (AppTabBar) in _layout.tsx
   src/platform/       what phone hands to Shared
     configurePhone.ts       configureShared({ supabase, repositories, ids, storage, actor, … })
     offlineRepositories.ts  createOfflineRepositories() — *.offline.ts twins

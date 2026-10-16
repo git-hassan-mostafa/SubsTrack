@@ -14,9 +14,7 @@ interface SegmentedTabsProps<T extends string> {
   segments: Segment<T>[];
 }
 
-// iOS-style segmented control: a pill track with one highlighted segment.
-// Used as the in-page tab switcher (e.g. the Transactions hub: Debts / Sales /
-// Expenses) and as a per-row choice (a sale line: Product / Service).
+// page-level switcher (Transactions hub) and a per-row choice (sale line kind)
 export function SegmentedTabs<T extends string>({
   value,
   onChange,
@@ -30,14 +28,15 @@ export function SegmentedTabs<T extends string>({
           <PressableOpacity
             key={seg.key}
             onPress={() => onChange(seg.key)}
-            className={`flex-1 rounded-full py-2 items-center ${
-              active ? "bg-white" : ""
+            containerClassName={`flex-1 rounded-full ${
+              active ? "bg-white elevation-sm" : ""
             }`}
+            className="py-2 items-center"
           >
             <Text
-              fontWeight={active ? "SemiBold" : undefined}
+              fontWeight={active ? "SemiBold" : "Medium"}
               className="text-sm"
-              style={{ color: active ? COLORS.gray900 : COLORS.gray500 }}
+              style={{ color: active ? COLORS.gray900 : COLORS.gray600 }}
               numberOfLines={1}
             >
               {seg.label}

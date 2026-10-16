@@ -1,11 +1,9 @@
 import { useState } from "react";
-import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { useUiPrefStore } from "@shared/shared/lib/uiPrefStore";
 import { useCanPickBranch } from "@shared/modules/admin/branches/hooks/useCanPickBranch";
-import { PressableOpacity } from "./PressableOpacity";
+import { IconButton } from "./IconButton";
 import { FiltersSheet, type ListFilters } from "./FiltersSheet";
 
 interface Props {
@@ -27,21 +25,13 @@ export function HeaderFilterButton({ filters, hideBranch = false }: Props) {
 
   return (
     <>
-      <PressableOpacity
+      <IconButton
+        icon="filter-outline"
         onPress={() => setOpen(true)}
-        className="p-1"
-        hitSlop={8}
         accessibilityLabel={t("filters.title")}
-      >
-        <Ionicons
-          name="filter-outline"
-          size={22}
-          color={narrowed ? COLORS.primary : COLORS.gray700}
-        />
-        {narrowed ? (
-          <View className="absolute top-0.5 end-0.5 w-2 h-2 rounded-full bg-amber-500 border border-white" />
-        ) : null}
-      </PressableOpacity>
+        color={narrowed ? COLORS.primary : COLORS.gray700}
+        badge={narrowed}
+      />
       <FiltersSheet
         visible={open}
         onDismiss={() => setOpen(false)}

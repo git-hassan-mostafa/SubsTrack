@@ -77,7 +77,7 @@ export function CustomerToCollectPanel({ customer, onOpenSale }: Props) {
           <PressableOpacity
             onPress={() => setCustomDebtOpen(true)}
             accessibilityLabel={t("debts.add_custom_debt")}
-            className="w-8 h-8 rounded-full bg-indigo-50 items-center justify-center"
+            containerClassName="rounded-full bg-indigo-50 w-8 h-8" className="w-8 h-8 items-center justify-center"
           >
             <Ionicons name="add" size={18} color={COLORS.primary} />
           </PressableOpacity>
@@ -85,7 +85,7 @@ export function CustomerToCollectPanel({ customer, onOpenSale }: Props) {
             <PressableOpacity
               onPress={() => setMenuOpen(true)}
               accessibilityLabel={t("common.more_actions")}
-              className="w-8 h-8 rounded-full items-center justify-center"
+              ripple="borderless" className="w-8 h-8 items-center justify-center"
             >
               <Ionicons
                 name="ellipsis-vertical"

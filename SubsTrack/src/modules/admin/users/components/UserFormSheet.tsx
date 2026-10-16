@@ -176,11 +176,12 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
             onPress={() =>
               setForm((prev) => withChangePassword(prev, !prev.changePassword))
             }
-            className={`flex-row items-center justify-between border rounded-xl px-4 py-3.5 mb-4 ${
+            containerClassName={`border rounded-xl mb-4 ${
               form.changePassword
                 ? "border-primary bg-indigo-50"
                 : "border-gray-300 bg-white"
             }`}
+            className="flex-row items-center justify-between px-4 py-3.5"
           >
             <Text
               fontWeight="Medium"
@@ -262,11 +263,12 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
             onPress={() =>
               !roleLocked && setForm((prev) => ({ ...prev, role: r }))
             }
-            className={`flex-1 border rounded-lg py-3 items-center ${
+            containerClassName={`flex-1 border rounded-lg ${
               form.role === r
                 ? "border-primary bg-indigo-50"
                 : "border-gray-300"
             } ${roleLocked ? "opacity-40" : ""}`}
+            className="py-3 items-center"
           >
             <Text
               fontWeight="Medium"
@@ -304,11 +306,12 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
             );
             if (saved) onDismiss();
           }}
-          className={`mt-3 rounded-xl py-3.5 items-center mb-3 border ${
+          containerClassName={`mt-3 rounded-xl mb-3 border ${
             editUser.active
               ? "bg-red-50 border-red-200"
               : "bg-green-50 border-green-200"
           }`}
+          className="py-3.5 items-center"
         >
           <Text
             fontWeight="SemiBold"
@@ -324,7 +327,8 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
       {canDelete && editUser ? (
         <PressableOpacity
           onPress={() => void handleDeletePress()}
-          className="rounded-xl py-3.5 items-center mb-6 border bg-red-50 border-red-200"
+          containerClassName="rounded-xl mb-6 border bg-red-50 border-red-200"
+          className="py-3.5 items-center"
         >
           <Text fontWeight="SemiBold" className="text-base text-red-600">
             {t("users.delete_label")}

@@ -18,8 +18,8 @@ const TONE_CLASSES: Record<ChipTone, string> = {
 };
 
 const SIZE_CLASSES: Record<ChipSize, string> = {
-  sm: "rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide",
-  md: "rounded-full px-3 py-1 text-xs",
+  sm: "rounded-full px-2 py-0.5 text-xs",
+  md: "rounded-full px-3 py-1 text-sm",
 };
 
 interface Props {
@@ -32,7 +32,7 @@ interface Props {
 export function Chip({ text, tone, size = "sm" }: Props) {
   return (
     <Text
-      fontWeight={size === "md" ? "SemiBold" : "Regular"}
+      fontWeight={size === "md" ? "SemiBold" : "Medium"}
       className={`${SIZE_CLASSES[size]} ${TONE_CLASSES[tone]}`}
       numberOfLines={1}
     >

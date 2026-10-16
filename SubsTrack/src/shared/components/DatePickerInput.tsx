@@ -7,6 +7,8 @@ import { COLORS } from "@/src/shared/constants";
 import { useTranslation } from "react-i18next";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
 import { FilterFieldButton } from "./FilterFieldButton";
+import { FilterChip } from "./FilterChip";
+import { FieldLabel } from "./FieldLabel";
 import { confirm } from "@shared/shared/lib/confirm";
 import { formatPickedDay } from "@shared/core/utils/date";
 
@@ -96,7 +98,8 @@ function ScrollColumn({
           <PressableOpacity
             onPress={() => onSelect(v)}
             style={{ height: ITEM_HEIGHT }}
-            className={`rounded-lg items-center justify-center ${selected === v ? "bg-primary" : ""}`}
+            containerClassName={`rounded-lg ${selected === v ? "bg-primary" : ""}`}
+            className="items-center justify-center"
           >
             <Text
               fontWeight="Medium"
@@ -148,7 +151,8 @@ function MonthScrollColumn({
             <PressableOpacity
               onPress={() => onSelect(m)}
               style={{ height: ITEM_HEIGHT }}
-              className={`rounded-lg items-center justify-center ${selected === m ? "bg-primary" : ""}`}
+              containerClassName={`rounded-lg ${selected === m ? "bg-primary" : ""}`}
+              className="items-center justify-center"
             >
               <Text
                 fontWeight="Medium"
@@ -291,8 +295,12 @@ export function DatePickerInput({
 
   const picker = (
     <BottomSheetScaffold visible={open} onDismiss={() => setOpen(false)}>
-      <View className="flex-row justify-between items-center px-5 py-3 border-b border-gray-100">
-        <PressableOpacity onPress={() => setOpen(false)}>
+      <View className="flex-row justify-between items-center min-h-14 px-2 border-b border-gray-100">
+        <PressableOpacity
+          onPress={() => setOpen(false)}
+          ripple="borderless"
+          className="min-h-12 px-3 justify-center"
+        >
           <Text fontWeight="Medium" className="text-base text-primary">
             {t("common.close")}
           </Text>
@@ -300,7 +308,11 @@ export function DatePickerInput({
         <Text fontWeight="SemiBold" className="text-base text-gray-900">
           {label ?? t("customers.start_date_label")}
         </Text>
-        <PressableOpacity onPress={handleConfirm}>
+        <PressableOpacity
+          onPress={handleConfirm}
+          ripple="borderless"
+          className="min-h-12 px-3 justify-center"
+        >
           <Text fontWeight="SemiBold" className="text-base text-primary">
             {t("common.confirm")}
           </Text>
@@ -377,29 +389,22 @@ export function DatePickerInput({
   if (triggerStyle === "chip") {
     return (
       <>
-        <PressableOpacity
+        <FilterChip
+          active={isActive}
           onPress={handleOpen}
-          className={`flex-row items-center gap-x-1.5 rounded-full px-3 py-1.5 border ${
+          leading={
+            <Ionicons
+              name="calendar-outline"
+              size={14}
+              color={isActive ? COLORS.onPrimaryContainer : COLORS.gray500}
+            />
+          }
+          label={
             isActive
-              ? "bg-indigo-50 border-indigo-200"
-              : "bg-white border-gray-200"
-          }`}
-        >
-          <Ionicons
-            name="calendar-outline"
-            size={12}
-            color={isActive ? COLORS.primary : COLORS.gray400}
-          />
-          <Text
-            fontWeight="Medium"
-            className={`text-sm ${isActive ? "text-primary" : "text-gray-500"}`}
-            numberOfLines={1}
-          >
-            {isActive
               ? `${placeholder ?? ""} ${formattedValue}`.trim()
-              : (placeholder ?? t("customers.start_date_placeholder"))}
-          </Text>
-        </PressableOpacity>
+              : (placeholder ?? t("customers.start_date_placeholder"))
+          }
+        />
         {picker}
       </>
     );
@@ -407,17 +412,14 @@ export function DatePickerInput({
 
   return (
     <View className="mb-4">
-      {label ? (
-        <Text fontWeight="Medium" className="text-sm text-gray-700 mb-1">
-          {label}
-        </Text>
-      ) : null}
+      {label ? <FieldLabel>{label}</FieldLabel> : null}
       <PressableOpacity
         onPress={handleOpen}
         disabled={disabled && !disabledReason}
-        className={`border border-gray-300 rounded-lg px-4 py-3 flex-row items-center justify-between ${
-          disabled ? "bg-gray-100" : "bg-white"
+        containerClassName={`border rounded-xl ${
+          disabled ? "border-gray-200 bg-gray-50" : "border-gray-300 bg-white"
         }`}
+        className="min-h-14 px-4 py-3 flex-row items-center justify-between"
       >
         <Text
           numberOfLines={1}
@@ -433,7 +435,12 @@ export function DatePickerInput({
             placeholder ??
             t("customers.start_date_placeholder")}
         </Text>
-        <Text className="text-gray-400 text-base ms-1">📅</Text>
+        <Ionicons
+          name="calendar-outline"
+          size={20}
+          color={COLORS.gray500}
+          style={{ marginStart: 4 }}
+        />
       </PressableOpacity>
       {picker}
     </View>

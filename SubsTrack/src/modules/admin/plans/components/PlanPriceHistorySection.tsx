@@ -4,6 +4,7 @@ import { Dropdown } from "@/src/shared/components/Dropdown";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
+import { SectionLabel } from "@/src/shared/components/SectionLabel";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency, Plan, PlanPriceChange } from "@shared/core/types";
 import { findCurrency } from "@shared/core/utils/currency";
@@ -53,12 +54,7 @@ export function PlanPriceHistorySection({
 
   return (
     <View className="border border-gray-200 rounded-2xl p-4 mb-4 bg-gray-50/50">
-      <Text
-        fontWeight="SemiBold"
-        className="text-xs text-gray-500 uppercase tracking-wide mb-3"
-      >
-        {t("plans.price_history_title")}
-      </Text>
+      <SectionLabel className="mb-3">{t("plans.price_history_title")}</SectionLabel>
 
       {error ? (
         <View className="mb-3">
@@ -134,7 +130,7 @@ export function PlanPriceHistorySection({
                   {canEditPriceStart(item, sortedHistory) && !isEditing ? (
                     <PressableOpacity
                       onPress={() => startEdit(item)}
-                      className="px-2.5 py-1 rounded-lg bg-gray-100"
+                      containerClassName="rounded-lg bg-gray-100" className="px-2.5 py-1"
                     >
                       <Text
                         fontWeight="SemiBold"
@@ -165,7 +161,7 @@ export function PlanPriceHistorySection({
                       <PressableOpacity
                         onPress={cancelEdit}
                         disabled={submitting}
-                        className="px-3 py-1.5 rounded-lg bg-gray-100"
+                        containerClassName="rounded-lg bg-gray-100" className="px-3 py-1.5"
                       >
                         <Text
                           fontWeight="SemiBold"
@@ -180,11 +176,13 @@ export function PlanPriceHistorySection({
                         disabled={
                           submitting || selectedMonth === item.fromMonth
                         }
-                        className={`px-3 py-1.5 rounded-lg ${
+                        containerClassName={`rounded-lg ${
                           submitting || selectedMonth === item.fromMonth
                             ? "bg-primary/50"
                             : "bg-primary"
                         }`}
+                        className="px-3 py-1.5"
+                        rippleColor={COLORS.rippleOnDark}
                       >
                         <Text
                           fontWeight="SemiBold"

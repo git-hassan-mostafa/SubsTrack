@@ -6,6 +6,7 @@ import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
 import { PressableOpacity } from "./PressableOpacity";
+import { IconButton } from "./IconButton";
 import SearchTextBox from "./SearchTextBox";
 import { HeaderFilterButton } from "./HeaderFilterButton";
 import type { ListFilters } from "./FiltersSheet";
@@ -89,60 +90,60 @@ export function PageHeader({
   return (
     <View className="relative">
       <View
-        className={`flex-row items-center px-4 py-2 min-h-14 bg-white border-b border-gray-100 gap-2 ${
+        className={`flex-row items-center ${showBack ? "ps-1" : "ps-4"} pe-1 py-1 min-h-16 bg-gray-50 ${
           covered ? "opacity-0" : ""
         }`}
         pointerEvents={covered ? "none" : "auto"}
       >
         {showBack ? (
-          <PressableOpacity onPress={onBack} className="p-1 me-1">
+          <PressableOpacity
+            onPress={onBack}
+            ripple="borderless"
+            accessibilityRole="button"
+            accessibilityLabel={t("common.go_back")}
+            className="w-12 h-12 items-center justify-center me-1"
+          >
             <DirectionalIcon
-              name="chevron-back"
-              size={22}
-              color={COLORS.primary}
+              name="arrow-back"
+              size={24}
+              color={COLORS.gray900}
             />
           </PressableOpacity>
         ) : null}
-        <View className="flex-1 min-w-0">
+        <View className="flex-1 min-w-0 me-1">
           <Text
-            fontWeight="Bold"
-            className="text-lg text-gray-900"
+            fontWeight="SemiBold"
+            className="text-[22px] text-gray-900"
             numberOfLines={1}
           >
             {title}
           </Text>
           {subtitle ? (
-            <Text className="text-xs text-gray-500" numberOfLines={1}>
+            <Text className="text-sm text-gray-500" numberOfLines={1}>
               {subtitle}
             </Text>
           ) : null}
         </View>
         {search ? (
-          <PressableOpacity
+          <IconButton
+            icon="search-outline"
             onPress={() => setSearchOpen(true)}
-            className="p-1"
-            hitSlop={8}
             accessibilityLabel={t("filters.open_search")}
-          >
-            <Ionicons name="search-outline" size={22} color={COLORS.gray700} />
-          </PressableOpacity>
+          />
         ) : null}
         <HeaderFilterButton filters={filters} hideBranch={hideBranchSelector} />
         {sortActions(iconActions ?? []).map((action) => (
-          <PressableOpacity
+          <IconButton
             key={action.key}
+            icon={action.icon}
             onPress={action.onPress}
-            className="p-1"
-            hitSlop={8}
             accessibilityLabel={action.label}
-          >
-            <Ionicons name={action.icon} size={22} color={COLORS.gray700} />
-          </PressableOpacity>
+          />
         ))}
         {!hideQuickActions && <QuickActionsMenuButton />}
       </View>
       {search && searchOpen && !selecting ? (
-        <View className="absolute inset-0 flex-row items-center gap-2 px-4 bg-white border-b border-gray-100">
+        <View className="absolute inset-0 flex-row items-center gap-1 ps-3 pe-1 bg-gray-50">
           <View className="flex-1">
             <SearchTextBox
               searchText={search.value}
@@ -151,14 +152,11 @@ export function PageHeader({
               autoFocus
             />
           </View>
-          <PressableOpacity
+          <IconButton
+            icon="close"
             onPress={closeSearch}
-            className="p-1"
-            hitSlop={8}
             accessibilityLabel={t("filters.close_search")}
-          >
-            <Ionicons name="close" size={24} color={COLORS.gray700} />
-          </PressableOpacity>
+          />
         </View>
       ) : null}
       {selection?.active ? (

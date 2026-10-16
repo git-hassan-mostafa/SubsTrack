@@ -6,7 +6,7 @@ import { WhatsAppSettingsScreen } from "@/src/modules/whatsapp/screens/WhatsAppS
 export default function WhatsAppRoute() {
   const viewer = useAuth();
   if (!canOpenPage(viewer, "whatsapp")) {
-    return <Redirect href="/(app)/(tabs)/admin" />;
+    return <Redirect href="/(app)/(tabs)/more" />;
   }
   return <WhatsAppSettingsScreen />;
 }

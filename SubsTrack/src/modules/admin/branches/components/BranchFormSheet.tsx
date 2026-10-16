@@ -86,7 +86,7 @@ export function BranchFormSheet({ branch, onDismiss, onRequestDelete }: Props) {
       {branch && branch.active && onRequestDelete ? (
         <PressableOpacity
           onPress={() => onRequestDelete(branch)}
-          className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
+          containerClassName="border border-red-200 rounded-xl mt-3" className="py-3.5 items-center"
         >
           <Text fontWeight="SemiBold" className="text-red-500">
             {t("common.delete")}
@@ -97,7 +97,7 @@ export function BranchFormSheet({ branch, onDismiss, onRequestDelete }: Props) {
       {branch && !branch.active ? (
         <PressableOpacity
           onPress={handleReactivate}
-          className="border border-indigo-200 rounded-xl py-3.5 items-center mt-3"
+          containerClassName="border border-indigo-200 rounded-xl mt-3" className="py-3.5 items-center"
         >
           <Text fontWeight="SemiBold" className="text-primary">
             {t("branches.reactivate")}

@@ -1,31 +1,12 @@
 import { useState } from "react";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
-import { COLORS } from "@/src/shared/constants";
 import { useUiStore } from "@shared/shared/lib/uiStore";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
-import { quickActionItems, type QuickActionKey } from "@shared/shared/lib/quickActions";
-import { toActionMenuItems, type Glyph } from "../lib/menuActions";
-import { PressableOpacity } from "./PressableOpacity";
+import { quickActionItems } from "@shared/shared/lib/quickActions";
+import { toActionMenuItems } from "../lib/menuActions";
+import { QUICK_ACTION_BADGES, QUICK_ACTION_ICONS } from "../lib/quickActionIcons";
+import { IconButton } from "./IconButton";
 import { ActionMenu } from "./ActionMenu";
-
-const QUICK_ACTION_ICONS: Record<QuickActionKey, Glyph> = {
-  collect: "cash-outline",
-  customer: "person-add-outline",
-  sale: "receipt-outline",
-  customDebt: "document-text-outline",
-  expense: "trending-down-outline",
-  batchRestock: "cube-outline",
-  moneyReceived: "time-outline",
-};
-
-const QUICK_ACTION_BADGES: Partial<Record<QuickActionKey, Glyph>> = {
-  collect: "add",
-  sale: "add",
-  customDebt: "add",
-  expense: "add",
-  batchRestock: "add",
-};
 
 // App-wide 3-dot menu — QuickActionSheets hosts the sheets these rows open.
 export function QuickActionsMenuButton() {
@@ -50,13 +31,11 @@ export function QuickActionsMenuButton() {
 
   return (
     <>
-      <PressableOpacity
+      <IconButton
+        icon="ellipsis-vertical"
         onPress={() => setMenuOpen(true)}
-        className="p-1"
         accessibilityLabel={t("quick_actions.title")}
-      >
-        <Ionicons name="ellipsis-vertical" size={22} color={COLORS.gray700} />
-      </PressableOpacity>
+      />
       <ActionMenu
         visible={menuOpen}
         title={t("quick_actions.title")}

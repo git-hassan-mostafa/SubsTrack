@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
+import { FieldLabel } from "@/src/shared/components/FieldLabel";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import type { Currency, Plan } from "@shared/core/types";
@@ -63,12 +64,7 @@ export function PlanLinePriceField({
   return (
     <View>
       <View className="flex-row items-center justify-between mb-1.5">
-        <Text
-          fontWeight="SemiBold"
-          className="text-xs text-gray-500 uppercase tracking-wide"
-        >
-          {t("subscriptions.price_special_per", { period })}
-        </Text>
+        <FieldLabel className="">{t("subscriptions.price_special_per", { period })}</FieldLabel>
         <PressableOpacity
           onPress={
             disabled

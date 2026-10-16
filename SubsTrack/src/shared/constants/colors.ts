@@ -1,6 +1,10 @@
 export const COLORS = {
   primary: "#2f36a8",
   primaryLight: "#eef2ff",
+  primaryContainer: "#e0e1fa",
+  onPrimaryContainer: "#141a6b",
+  ripple: "rgba(17,24,39,0.12)",
+  rippleOnDark: "rgba(255,255,255,0.24)",
   success: "#22c55e",
   successLight: "#f0fdf4",
   danger: "#ef4444",

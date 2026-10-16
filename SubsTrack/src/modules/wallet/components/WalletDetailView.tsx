@@ -3,6 +3,7 @@ import { ActivityIndicator, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
+import { SectionLabel } from "@/src/shared/components/SectionLabel";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { EntityCard } from "@/src/shared/components/EntityCard";
@@ -168,7 +169,7 @@ export function WalletDetailView({
         }}
       >
         <View className="items-center py-4">
-          <Text className="text-xs text-gray-400 uppercase tracking-wide">
+          <Text className="text-xs text-gray-400">
             {t("wallet.total_held")}
           </Text>
           <Text fontWeight="Bold" className="text-3xl text-gray-900 mt-1">
@@ -198,9 +199,11 @@ export function WalletDetailView({
           <PressableOpacity
             onPress={onActAll}
             disabled={busy}
-            className={`flex-row items-center justify-center gap-2 rounded-xl py-3 mb-5 ${
+            containerClassName={`rounded-xl mb-5 ${
               busy ? "bg-primary/60" : "bg-primary"
             }`}
+            className="flex-row items-center justify-center gap-2 py-3"
+            rippleColor={COLORS.rippleOnDark}
           >
             <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
             <Text fontWeight="SemiBold" className="text-sm text-white">
@@ -218,12 +221,7 @@ export function WalletDetailView({
           <View>
             {!selecting ? (
               <View className="flex-row items-center justify-between mb-2">
-                <Text
-                  fontWeight="SemiBold"
-                  className="text-xs text-gray-400 uppercase tracking-wide"
-                >
-                  {t("wallet.transactions_section")}
-                </Text>
+                <SectionLabel className="">{t("wallet.transactions_section")}</SectionLabel>
                 <FilterToggleButton
                   hasActiveFilters={filters.active}
                   onPress={() => setFiltersOpen(true)}
@@ -274,7 +272,7 @@ export function WalletDetailView({
                         {item.customerName ?? t("wallet.walk_in")}
                       </Text>
                       <Text
-                        className="text-[11px] text-gray-400 mt-0.5"
+                        className="text-xs text-gray-400 mt-0.5"
                         numberOfLines={1}
                       >
                         {subline}

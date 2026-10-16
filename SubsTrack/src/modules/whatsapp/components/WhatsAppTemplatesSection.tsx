@@ -4,6 +4,7 @@ import type { WhatsAppTemplate } from "@shared/core/types";
 import { Button } from "@/src/shared/components/Button";
 import { Chip } from "@/src/shared/components/Chip";
 import { Text } from "@/src/shared/components/Text";
+import { SectionLabel } from "@/src/shared/components/SectionLabel";
 import { CARD_SURFACE } from "@/src/shared/constants";
 import { useWhatsAppSlice } from "@shared/state/hooks/useWhatsAppSlice";
 import { templateLabel } from "@shared/modules/whatsapp/utils/labels";
@@ -51,12 +52,7 @@ export function WhatsAppTemplatesSection() {
 
   return (
     <View className={`${CARD_SURFACE} p-4 mb-4`}>
-      <Text
-        fontWeight="SemiBold"
-        className="text-xs text-gray-400 uppercase tracking-wide mb-1"
-      >
-        {t("whatsapp.templates_title")}
-      </Text>
+      <SectionLabel className="mb-1">{t("whatsapp.templates_title")}</SectionLabel>
       <Text className="text-xs text-gray-500 mb-2">
         {t("whatsapp.templates_hint")}
       </Text>

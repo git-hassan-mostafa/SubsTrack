@@ -1,13 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, ScrollView, View } from "react-native";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { Screen } from "@/src/shared/components/Screen";
+import { PageHeader } from "@/src/shared/components/PageHeader";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
+import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { Avatar } from "@/src/shared/components/Avatar";
+import { ListGroup } from "@/src/shared/components/ListGroup";
+import { ListRow } from "@/src/shared/components/ListRow";
 import { useTranslation } from "react-i18next";
 import { useRouter, type Href } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { DropdownModal } from "@/src/shared/components/Dropdown";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { confirm } from "@shared/shared/lib/confirm";
@@ -18,6 +21,7 @@ import {
   type SupportedLanguage,
 } from "@/src/core/i18n/languageStore";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
+import { roleLabelKey } from "@shared/modules/admin/users/utils/userRules";
 import { endSession } from "@shared/shared/lib/session";
 import { IS_OFFLINE_CAPABLE, syncNow } from "@/src/core/offline";
 import { useSyncStatus } from "@/src/shared/hooks/useSyncStatus";
@@ -26,80 +30,12 @@ import { formatDateTimeShort } from "@shared/core/utils/date";
 import * as Updates from "expo-updates";
 import Constants from "expo-constants";
 import { useCopyText } from "@/src/shared/hooks/useCopyText";
+import { AdminSection } from "../components/AdminSection";
 
-function SettingsRow({
-  icon,
-  label,
-  value,
-  last,
-  onPress,
-  destructive,
-}: {
-  icon: string;
-  label: string;
-  value?: string;
-  last?: boolean;
-  onPress?: () => void;
-  destructive?: boolean;
-}) {
-  return (
-    <PressableOpacity
-      onPress={onPress}
-      className={`flex-row items-center justify-between px-4 py-3.5 ${last ? "" : "border-b border-gray-100"}`}
-    >
-      <View className="flex-row items-center gap-3">
-        <Ionicons
-          name={icon as any}
-          size={18}
-          color={destructive ? COLORS.danger : COLORS.gray500}
-        />
-        <Text
-          fontWeight="Medium"
-          className={`text-sm ${destructive ? "text-red-500" : "text-gray-900"}`}
-        >
-          {label}
-        </Text>
-      </View>
-      <View className="flex-row items-center gap-1">
-        {value ? <Text className="text-sm text-gray-400">{value}</Text> : null}
-        <DirectionalIcon
-          name="chevron-forward"
-          size={14}
-          color={COLORS.gray300}
-        />
-      </View>
-    </PressableOpacity>
-  );
-}
+type SyncFailure = "offline" | "failed";
 
-function SyncTimeRow({
-  icon,
-  label,
-  at,
-  last,
-}: {
-  icon: string;
-  label: string;
-  at: string | null;
-  last?: boolean;
-}) {
-  const { t } = useTranslation();
-  return (
-    <View
-      className={`flex-row items-center justify-between px-4 py-3 ${last ? "" : "border-b border-gray-100"}`}
-    >
-      <View className="flex-row items-center gap-3">
-        <Ionicons name={icon as any} size={18} color={COLORS.gray500} />
-        <Text className="text-sm text-gray-600">{label}</Text>
-      </View>
-      <Text className="text-sm text-gray-400">
-        {at ? formatDateTimeShort(at) : t("settings.sync_never")}
-      </Text>
-    </View>
-  );
-}
-
-export function SettingsScreen() {
+// sync failure stays inline; success shows as the new sync time
+export function MoreScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { user, isAdmin } = useAuth();
@@ -114,30 +50,15 @@ export function SettingsScreen() {
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
   const { lastPushAt, lastPullAt, lastManualSyncAt } = useSyncStatus();
   const [manualSyncing, setManualSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<
-    "done" | "offline" | "failed" | null
-  >(null);
-  const resultTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (resultTimer.current) clearTimeout(resultTimer.current);
-    };
-  }, []);
-
-  function flashResult(result: "done" | "offline" | "failed") {
-    if (resultTimer.current) clearTimeout(resultTimer.current);
-    setSyncResult(result);
-    resultTimer.current = setTimeout(() => setSyncResult(null), 3000);
-  }
+  const [syncFailure, setSyncFailure] = useState<SyncFailure | null>(null);
 
   async function handleSyncPress() {
     if (manualSyncing) return;
-    setSyncResult(null);
+    setSyncFailure(null);
     setManualSyncing(true);
     try {
       const { ok, offline } = await syncNow();
-      flashResult(offline ? "offline" : ok ? "done" : "failed");
+      setSyncFailure(offline ? "offline" : ok ? null : "failed");
       refreshActiveData();
     } finally {
       setManualSyncing(false);
@@ -169,237 +90,140 @@ export function SettingsScreen() {
       onConfirm: endSession,
     });
   }
+
+  const syncTime = (at: string | null) =>
+    at ? formatDateTimeShort(at) : t("settings.sync_never");
+
+  const branchName = user?.branchId
+    ? (user.branch?.name ?? "")
+    : t("branches.tenant_wide_admin");
+
   return (
     <Screen>
+      <PageHeader title={t("more.title")} hideQuickActions />
       <ResponsiveContainer className="flex-1">
-        <ScrollView>
-          <View className="flex-row items-center gap-2 px-5 pt-5 pb-4">
-            <Text fontWeight="Bold" className="text-2xl text-gray-900">
-              {t("settings.title")}
-            </Text>
-          </View>
-
-          {/* Profile card */}
+        <ScrollView contentContainerStyle={{ paddingTop: 8 }}>
           {user ? (
             <View
               className={`${CARD_SURFACE} mx-4 mb-5 px-4 py-4 flex-row items-center`}
             >
-              <View className="w-10 h-10 rounded-xl bg-success-light items-center justify-center me-3">
-                <Ionicons
-                  name="person-outline"
-                  size={18}
-                  color={COLORS.success}
-                />
-              </View>
-              <View className="flex-1">
-                <Text fontWeight="SemiBold" className="text-base text-gray-900">
+              <Avatar name={user.fullName} size={56} />
+              <View className="flex-1 ms-4">
+                <Text
+                  fontWeight="SemiBold"
+                  className="text-lg text-gray-900"
+                  numberOfLines={1}
+                >
                   {user.fullName}
                 </Text>
-                <Text className="text-xs text-gray-400 mt-0.5">
-                  @{user.username} · {user.role} · {user.tenant.name}
+                <Text className="text-sm text-gray-500" numberOfLines={1}>
+                  @{user.username} · {t(roleLabelKey(user.role))}
+                </Text>
+                <Text className="text-sm text-gray-500" numberOfLines={1}>
+                  {user.tenant.name}
+                  {branchName ? ` · ${branchName}` : ""}
                 </Text>
               </View>
-              <DirectionalIcon
-                name="chevron-forward"
-                size={16}
-                color={COLORS.gray300}
-              />
             </View>
           ) : null}
 
-          {/* My wallet — cash this user has collected but not handed over yet. */}
-          <View className="mx-4 mb-5">
-            <View className={`${CARD_SURFACE} overflow-hidden`}>
-              <SettingsRow
-                icon="wallet-outline"
-                label={t("wallet.my_title")}
-                last
-                onPress={() =>
-                  router.push("/(app)/(tabs)/settings/my-wallet" as Href)
-                }
-              />
-            </View>
-          </View>
+          {isAdmin ? <AdminSection /> : null}
 
-          {/* Preferences */}
-          <View className="mx-4 mb-5">
-            <Text
-              fontWeight="SemiBold"
-              className="text-xs text-gray-400 uppercase tracking-wide mb-2 px-1"
-            >
-              {t("settings.preferences_section")}
-            </Text>
-            <View className={`${CARD_SURFACE} overflow-hidden`}>
-              <PressableOpacity
-                onPress={() => setLanguagePickerOpen(true)}
-                className="flex-row items-center justify-between px-4 py-3.5"
-              >
-                <View className="flex-row items-center gap-3">
-                  <Ionicons
-                    name="globe-outline"
-                    size={18}
-                    color={COLORS.gray500}
-                  />
-                  <Text fontWeight="Medium" className="text-sm text-gray-900">
-                    {t("settings.language_section")}
-                  </Text>
-                </View>
-                <View className="flex-row items-center gap-1">
-                  <Text className="text-sm text-gray-400">
-                    {LANGUAGE_NAMES[language]}
-                  </Text>
-                  <Ionicons
-                    name="chevron-down"
-                    size={14}
-                    color={COLORS.gray400}
-                  />
-                </View>
-              </PressableOpacity>
-            </View>
-          </View>
+          <ListGroup>
+            <ListRow
+              icon="wallet-outline"
+              title={t("wallet.my_title")}
+              onPress={() => router.push("/(app)/(tabs)/more/my-wallet" as Href)}
+            />
+          </ListGroup>
 
-          {/* Organization */}
-          <View className="mx-4 mb-5">
-            <Text
-              fontWeight="SemiBold"
-              className="text-xs text-gray-400 uppercase tracking-wide mb-2 px-1"
-            >
-              {t("settings.organization")}
-            </Text>
-            <View className={`${CARD_SURFACE} overflow-hidden`}>
-              <SettingsRow
-                icon="grid-outline"
-                label={t("settings.organization")}
-                value={user?.tenant.name}
-              />
-              <SettingsRow
-                icon="git-branch-outline"
-                label={t("settings.branch")}
-                value={
-                  user?.branchId
-                    ? (user.branch?.name ?? "")
-                    : t("branches.tenant_wide_admin")
-                }
-                last
-              />
-            </View>
-          </View>
+          <ListGroup label={t("settings.preferences_section")}>
+            <ListRow
+              icon="globe-outline"
+              title={t("settings.language_section")}
+              value={LANGUAGE_NAMES[language]}
+              onPress={() => setLanguagePickerOpen(true)}
+            />
+          </ListGroup>
 
           {IS_OFFLINE_CAPABLE ? (
-            <View className="mx-4 mb-5">
-              <Text
-                fontWeight="SemiBold"
-                className="text-xs text-gray-400 uppercase tracking-wide mb-2 px-1"
-              >
-                {t("settings.data_section")}
-              </Text>
-              <View className={`${CARD_SURFACE} overflow-hidden`}>
-                <PressableOpacity
-                  onPress={() => void handleSyncPress()}
+            <View>
+              {syncFailure ? (
+                <View className="mx-4">
+                  <ErrorBanner
+                    message={
+                      syncFailure === "offline"
+                        ? t("settings.sync_offline")
+                        : t("settings.sync_failed")
+                    }
+                    onDismiss={() => setSyncFailure(null)}
+                  />
+                </View>
+              ) : null}
+              <ListGroup label={t("settings.data_section")}>
+                <ListRow
+                  icon="sync-outline"
+                  title={t("settings.sync_now")}
                   disabled={manualSyncing}
-                  className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100"
-                >
-                  <View className="flex-row items-center gap-3">
-                    <Ionicons
-                      name="sync-outline"
-                      size={18}
-                      color={COLORS.gray500}
-                    />
-                    <Text fontWeight="Medium" className="text-sm text-gray-900">
-                      {t("settings.sync_now")}
-                    </Text>
-                  </View>
-                  {manualSyncing ? (
-                    <ActivityIndicator size="small" color={COLORS.gray400} />
-                  ) : (
-                    <DirectionalIcon
-                      name="chevron-forward"
-                      size={14}
-                      color={COLORS.gray300}
-                    />
-                  )}
-                </PressableOpacity>
-                <SyncTimeRow
+                  onPress={() => void handleSyncPress()}
+                  trailing={
+                    manualSyncing ? (
+                      <ActivityIndicator size="small" color={COLORS.gray400} />
+                    ) : undefined
+                  }
+                />
+                <ListRow
                   icon="cloud-upload-outline"
-                  label={t("settings.last_push")}
-                  at={lastPushAt}
+                  title={t("settings.last_push")}
+                  value={syncTime(lastPushAt)}
                 />
-                <SyncTimeRow
+                <ListRow
                   icon="cloud-download-outline"
-                  label={t("settings.last_pull")}
-                  at={lastPullAt}
+                  title={t("settings.last_pull")}
+                  value={syncTime(lastPullAt)}
                 />
-                <SyncTimeRow
+                <ListRow
                   icon="time-outline"
-                  label={t("settings.last_manual_sync")}
-                  at={lastManualSyncAt}
-                  last={!isAdmin}
+                  title={t("settings.last_manual_sync")}
+                  value={syncTime(lastManualSyncAt)}
                 />
                 {isAdmin ? (
-                  <SettingsRow
+                  <ListRow
                     icon="code-slash-outline"
-                    label={t("settings.developer")}
-                    last
+                    title={t("settings.developer")}
                     onPress={() =>
-                      router.push("/(app)/(tabs)/settings/developer")
+                      router.push("/(app)/(tabs)/more/developer" as Href)
                     }
                   />
                 ) : null}
-              </View>
+              </ListGroup>
             </View>
           ) : null}
 
-          <View className="mx-4 mb-6">
-            <View className={`${CARD_SURFACE} overflow-hidden`}>
-              <SettingsRow
-                icon="log-out-outline"
-                label={t("settings.logout")}
-                last
-                onPress={() => void handleLogoutPress()}
-                destructive
-              />
-            </View>
-          </View>
+          <ListGroup className="mx-4 mb-6">
+            <ListRow
+              icon="log-out-outline"
+              title={t("settings.logout")}
+              destructive
+              onPress={() => void handleLogoutPress()}
+            />
+          </ListGroup>
 
           <PressableOpacity
             onPress={fingerprint ? () => void copy(fingerprint) : undefined}
+            ripple="none"
             className="items-center pb-8"
           >
             {appVersion ? (
-              <Text className="text-xs text-gray-400">v{appVersion}</Text>
+              <Text className="text-xs text-gray-500">v{appVersion}</Text>
             ) : null}
             {fingerprint ? (
-              <Text className="text-[11px] text-gray-400 font-mono mt-0.5">
+              <Text className="text-xs text-gray-400 font-mono mt-0.5">
                 {copied ? t("common.copied") : fingerprint}
               </Text>
             ) : null}
           </PressableOpacity>
         </ScrollView>
-
-        {IS_OFFLINE_CAPABLE && syncResult ? (
-          <View className="absolute inset-x-0 bottom-0 px-4 pb-4">
-            <View
-              className={`flex-row items-center gap-2 rounded-xl px-4 py-3 ${
-                syncResult === "done" ? "bg-success" : "bg-red-500"
-              }`}
-            >
-              <Ionicons
-                name={
-                  syncResult === "done" ? "checkmark-circle" : "alert-circle"
-                }
-                size={18}
-                color="#fff"
-              />
-              <Text fontWeight="Medium" className="flex-1 text-sm text-white">
-                {syncResult === "done"
-                  ? t("settings.sync_done")
-                  : syncResult === "offline"
-                    ? t("settings.sync_offline")
-                    : t("settings.sync_failed")}
-              </Text>
-            </View>
-          </View>
-        ) : null}
       </ResponsiveContainer>
 
       <DropdownModal<SupportedLanguage>

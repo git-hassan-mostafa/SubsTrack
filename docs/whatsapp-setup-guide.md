@@ -134,15 +134,15 @@ Start this early. **Business Verification can take a few days.**
     - confirm.
 
     The page then shows "WhatsApp is connected". On the phone, tap **Return to Sijil**.
-23. **Check the connection.** Admin → WhatsApp shows **Connected**, the number, quality and "Customers per day". Under **Message templates** there are 8 rows (4 messages × English and Arabic) marked **Waiting**.
+23. **Check the connection.** More → Admin → WhatsApp shows **Connected**, the number, quality and "Customers per day". Under **Message templates** there are 8 rows (4 messages × English and Arabic) marked **Waiting**.
 24. **Add a card in Meta.** [business.facebook.com](https://business.facebook.com) → WhatsApp Manager → Overview → **Add payment method**. Without it every send fails with a payment message.
 25. **Wait for approval.** When the templates show **Approved** (minutes, up to 24 h), tap **Refresh from Meta**.
 26. **Make a test customer.** Create a customer with **your personal WhatsApp number** as the phone, give them a plan, and leave at least one month unpaid.
 27. **Send one reminder.** Customers → the customer's row menu → **Send payment reminder** → check the preview (the amount must match the collect sheet) → **Send**. The message arrives on your personal WhatsApp.
-28. **Watch the status.** Admin → **WhatsApp messages** should show Sent → Delivered → Read after you open it.
+28. **Watch the status.** More → Admin → **WhatsApp messages** should show Sent → Delivered → Read after you open it.
 29. **Send to many.** Make 2–3 test customers (other phones you own). Customers → select them → **Send on WhatsApp** → pick **Service outage** → type the details → Send.
 30. **Test STOP.** Reply `STOP` from your personal WhatsApp. That customer now shows "Asked not to get WhatsApp messages" and is skipped next time. Undo it from the row menu → **Allow WhatsApp messages**.
-31. **Disconnect and reconnect.** Admin → WhatsApp → **Disconnect**. History stays. Connect again with the same number, and the old history is still there.
+31. **Disconnect and reconnect.** More → Admin → WhatsApp → **Disconnect**. History stays. Connect again with the same number, and the old history is still there.
 32. **Test a branch admin.** Log in as a branch admin. They can send only to their own branch, and they do not see the WhatsApp settings screen.
 33. **Test "not connected".** On another tenant that is not connected, the row menu → **Send payment reminder** opens WhatsApp on the phone with the same text (the `wa.me` fallback).
 
@@ -155,7 +155,7 @@ Until this part is done, only people with a role on your Meta app (step 8) can c
 34. **Business Verification** from step 2 must be approved.
 35. **App Review.** developers.facebook.com → your app → App Review → request **Advanced access** for `whatsapp_business_management` and `whatsapp_business_messaging`. Meta asks for one screen recording per permission:
     - `whatsapp_business_messaging`: Sijil sends a reminder and it arrives in WhatsApp (steps 27–28).
-    - `whatsapp_business_management`: Sijil creates templates (Admin → WhatsApp → **Submit templates again**, then the templates in WhatsApp Manager).
+    - `whatsapp_business_management`: Sijil creates templates (More → Admin → WhatsApp → **Submit templates again**, then the templates in WhatsApp Manager).
 36. Switch the app from **Development** to **Live** (top of the app dashboard).
 37. Finish any **Tech Provider** steps the WhatsApp dashboard still shows.
 
@@ -174,11 +174,11 @@ Until this part is done, only people with a role on your Meta app (step 8) can c
 3. Choose the number:
    - your **WhatsApp Business app** number (update the app first; your phone keeps working), **or**
    - a number that is **not on WhatsApp** and can get an SMS or call.
-4. In Sijil: **Admin → WhatsApp** → choose the language → tick the consent box → **Connect WhatsApp** → follow Meta's window → **Return to Sijil**. Only an organization-wide admin sees this screen.
+4. In Sijil: **More → Admin → WhatsApp** → choose the language → tick the consent box → **Connect WhatsApp** → follow Meta's window → **Return to Sijil**. Only an organization-wide admin sees this screen.
 5. In Meta: **WhatsApp Manager → Overview → Add payment method.** Meta bills you directly for each delivered message.
-6. Wait until the templates in Admin → WhatsApp show **Approved**.
-7. Send: **Customers** → select customers → **Send on WhatsApp**, or a customer's row menu → **Send payment reminder**. Results are in **Admin → WhatsApp messages**.
-8. To stop: Admin → WhatsApp → **Disconnect**. To fully remove Sijil's access, also go to Meta Business Settings → Integrations → Connected apps.
+6. Wait until the templates in More → Admin → WhatsApp show **Approved**.
+7. Send: **Customers** → select customers → **Send on WhatsApp**, or a customer's row menu → **Send payment reminder**. Results are in **More → Admin → WhatsApp messages**.
+8. To stop: More → Admin → WhatsApp → **Disconnect**. To fully remove Sijil's access, also go to Meta Business Settings → Integrations → Connected apps.
 
 ---
 
@@ -193,4 +193,4 @@ Until this part is done, only people with a role on your Meta app (step 8) can c
 | Webhook "Verify and save" fails | Step 14 test; the verify token must be the same in both places |
 | Templates stay **Waiting** forever | The webhook is not set up (steps 17–18). Tap **Refresh from Meta** to pull the status by hand |
 | Messages stay **Waiting** | One of the three Vault secrets in step 12 is missing or wrong, or the account shows **Needs attention** |
-| Failed: payment method | Step 24, then Admin → WhatsApp → **Check again** |
+| Failed: payment method | Step 24, then More → Admin → WhatsApp → **Check again** |

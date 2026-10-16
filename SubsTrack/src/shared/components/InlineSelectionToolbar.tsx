@@ -38,9 +38,10 @@ export function InlineSelectionToolbar({ count, actions, onClose }: Props) {
             disabled={action.disabled}
             hitSlop={8}
             accessibilityLabel={action.label}
-            className={`w-9 h-9 rounded-full items-center justify-center bg-white border border-gray-200 ${
+            containerClassName={`w-9 h-9 rounded-full bg-white border border-gray-200 ${
               action.disabled ? "opacity-40" : ""
             }`}
+            className="w-9 h-9 items-center justify-center"
           >
             {action.renderIcon ? (
               action.renderIcon(18)

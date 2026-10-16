@@ -257,6 +257,7 @@ export function CurrenciesScreen() {
             )}
             ListEmptyComponent={
               <EmptyState
+                icon="cash-outline"
                 message={t("tenant_settings.no_currencies")}
                 subMessage={t("tenant_settings.no_currencies_hint")}
                 actionLabel={t("tenant_settings.add_currency")}

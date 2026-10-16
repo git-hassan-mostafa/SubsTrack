@@ -29,7 +29,7 @@ export function TenantInactiveScreen() {
         </Text>
         <PressableOpacity
           onPress={endSession}
-          className="border border-gray-300 rounded-lg px-6 py-3"
+          containerClassName="border border-gray-300 rounded-lg" className="px-6 py-3"
         >
           <Text fontWeight="Medium" className="text-gray-700">
             {t("common.back")}
