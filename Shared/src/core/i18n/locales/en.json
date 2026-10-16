@@ -191,6 +191,13 @@
     "special_badge": "Special price",
     "cancelled": "cancelled",
     "select_branch_first": "Select a branch first",
+    "priced_by_usage": "{{billing}} · priced each month",
+    "meter_number_label": "Meter number",
+    "meter_number_placeholder": "e.g. M-1024",
+    "start_reading_label": "Start reading",
+    "start_reading_placeholder": "e.g. 1520",
+    "start_reading_hint": "Empty = the first month waits until you add it.",
+    "start_reading_locked": "Start reading is locked — the first month already has payments.",
     "empty": "No plans yet — add one from the customer's edit screen."
   },
   "customers": {
@@ -800,6 +807,8 @@
     "plan_locked_paid": "This plan already has payments recorded, so it can no longer be changed to another plan. Add a new plan instead.",
     "cancel_date_range": "The stop date can't be before the plan's start date or before its last paid month, and can't be after today unless later months are already paid.",
     "custom_price_positive": "Special price must be greater than 0",
+    "start_reading_not_negative": "Start reading cannot be below 0",
+    "start_reading_locked_paid": "The first month of this plan already has payments, so its start reading can no longer be changed.",
     "price_start_month": "The new price can start this month or an earlier month, not a future one.",
     "price_change_not_found": "Price change record not found.",
     "price_change_not_editable": "Only the newest price change can move its start month.",

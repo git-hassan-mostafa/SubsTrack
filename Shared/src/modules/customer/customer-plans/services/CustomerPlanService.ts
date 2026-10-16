@@ -16,34 +16,56 @@ import {
   type RemoveLineChoice,
 } from "@shared/modules/customer/customer-plans/utils/cancelDate";
 import { paidBillingMonths } from "@shared/modules/customer/customer-payments/utils/monthStatus";
+import { isStartReadingLocked } from "@shared/modules/customer/customer-payments/utils/usageBill";
 import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 import {
   currentBillingMonth,
   linePriceChanged,
 } from "@shared/modules/customer/customer-plans/utils/priceHistory";
 
-// A new / edited service line. planId null = custom/occasional line (ad-hoc
-// amounts, no fixed plan).
-export type CustomerPlanInput = {
-  customerId: string;
+// planId null = a custom line; meter fields only on a line billed by meter reading.
+export type LineFields = {
   planId: string | null;
   startDate: string;
   customPrice: number | null;
   customCurrencyId: string | null;
+  meterNumber: string | null;
+  startReading: number | null;
 };
 
-// One row in the customer form's inline Plans editor. `id` present = an existing
-// line being kept/edited; absent = a new line to create.
-export type LineDraft = {
-  id?: string;
-  planId: string | null;
-  startDate: string;
-  customPrice: number | null;
-  customCurrencyId: string | null;
-  priceFrom?: string;
-};
+export type CustomerPlanInput = LineFields & { customerId: string };
+
+// `id` present = a saved line being kept or edited; absent = a new line.
+export type LineDraft = LineFields & { id?: string; priceFrom?: string };
 
 export type RemovedLine = RemoveLineChoice & { id: string };
+
+function fieldsOf(line: LineDraft): LineFields {
+  return {
+    planId: line.planId,
+    startDate: line.startDate,
+    customPrice: line.customPrice,
+    customCurrencyId: line.customCurrencyId,
+    meterNumber: line.meterNumber?.trim() || null,
+    startReading: line.startReading,
+  };
+}
+
+function sameLineFields(prev: CustomerPlan, line: LineDraft): boolean {
+  const next = fieldsOf(line);
+  return (Object.keys(next) as (keyof LineFields)[]).every((key) => prev[key] === next[key]);
+}
+
+function lineRowOf(data: LineFields) {
+  return {
+    plan_id: data.planId,
+    start_date: data.startDate,
+    custom_price: data.customPrice,
+    custom_currency_id: data.customCurrencyId,
+    meter_number: data.meterNumber,
+    start_reading: data.startReading,
+  };
+}
 
 class CustomerPlanService {
   async createLine(
@@ -53,31 +75,20 @@ class CustomerPlanService {
     this.validateDate(data.startDate);
     const row = await repositories().customerPlan.create({
       customer_id: data.customerId,
-      plan_id: data.planId,
-      start_date: data.startDate,
-      custom_price: data.customPrice,
-      custom_currency_id: data.customCurrencyId,
       tenant_id: tenantId,
+      ...lineRowOf(data),
     });
     return mapDbCustomerPlanToCustomerPlan(row);
   }
 
   async updateLine(
     id: string,
-    data: {
-      planId: string | null;
-      startDate: string;
-      customPrice: number | null;
-      customCurrencyId: string | null;
-    },
+    data: LineFields,
     reactivate = false,
   ): Promise<CustomerPlan> {
     this.validateDate(data.startDate);
     const row = await repositories().customerPlan.update(id, {
-      plan_id: data.planId,
-      start_date: data.startDate,
-      custom_price: data.customPrice,
-      custom_currency_id: data.customCurrencyId,
+      ...lineRowOf(data),
       ...(reactivate ? { active: true, cancelled_at: null } : {}),
     });
     return mapDbCustomerPlanToCustomerPlan(row);
@@ -120,6 +131,8 @@ class CustomerPlanService {
     });
     await this.assertPaidLinesKept(customerId, lines, existingById);
     this.assertCustomPricesAllowed(lines);
+    this.assertStartReadingsAllowed(lines);
+    await this.assertStartReadingsKept(lines, existingById);
     await this.assertCancelDatesAllowed(removed, existingById);
 
     const removals = Promise.all(removed.map((r) => this.deleteLine(r)));
@@ -127,27 +140,11 @@ class CustomerPlanService {
     const upserts = Promise.all(
       lines.map(async (line) => {
         if (!line.id) {
-          return this.createLine(
-            {
-              customerId,
-              planId: line.planId,
-              startDate: line.startDate,
-              customPrice: line.customPrice,
-              customCurrencyId: line.customCurrencyId,
-            },
-            tenantId,
-          );
+          return this.createLine({ customerId, ...fieldsOf(line) }, tenantId);
         }
         const reactivate = reactivatedSet.has(line.id);
         const prev = existingById.get(line.id);
-        if (
-          !reactivate &&
-          prev &&
-          prev.planId === line.planId &&
-          prev.startDate === line.startDate &&
-          prev.customPrice === line.customPrice &&
-          prev.customCurrencyId === line.customCurrencyId
-        ) {
+        if (!reactivate && prev && sameLineFields(prev, line)) {
           return prev;
         }
         if (prev && linePriceChanged(prev, line)) {
@@ -157,16 +154,7 @@ class CustomerPlanService {
             line.priceFrom ?? currentBillingMonth(),
           );
         }
-        return this.updateLine(
-          line.id,
-          {
-            planId: line.planId,
-            startDate: line.startDate,
-            customPrice: line.customPrice,
-            customCurrencyId: line.customCurrencyId,
-          },
-          reactivate,
-        );
+        return this.updateLine(line.id, fieldsOf(line), reactivate);
       }),
     );
 
@@ -189,6 +177,16 @@ class CustomerPlanService {
     const bills = (await chargeService.getMonthBillsForLines([lineId])).get(lineId) ?? [];
     const months = paidBillingMonths(bills);
     return months.length > 0 ? months[months.length - 1] : null;
+  }
+
+  async getStartPaidLineIds(
+    lines: Pick<CustomerPlan, "id" | "startDate">[],
+  ): Promise<string[]> {
+    if (lines.length === 0) return [];
+    const bills = await chargeService.getMonthBillsForLines(lines.map((l) => l.id));
+    return lines
+      .filter((l) => isStartReadingLocked(l.startDate, paidBillingMonths(bills.get(l.id) ?? [])))
+      .map((l) => l.id);
   }
 
   // A line money reached keeps its plan and start date; switch = a new line.
@@ -232,6 +230,25 @@ class CustomerPlanService {
       }),
     );
     if (checks.includes(false)) throw new Error(i18n.t("errors.cancel_date_range"));
+  }
+
+  private async assertStartReadingsKept(
+    lines: LineDraft[],
+    existingById: Map<string, CustomerPlan>,
+  ): Promise<void> {
+    const changed = lines.flatMap((line) => {
+      const prev = line.id ? existingById.get(line.id) : undefined;
+      return prev && prev.startReading !== line.startReading ? [prev] : [];
+    });
+    if ((await this.getStartPaidLineIds(changed)).length > 0) {
+      throw new Error(i18n.t("errors.start_reading_locked_paid"));
+    }
+  }
+
+  private assertStartReadingsAllowed(lines: LineDraft[]): void {
+    if (lines.some((l) => l.startReading !== null && !(l.startReading >= 0))) {
+      throw new Error(i18n.t("errors.start_reading_not_negative"));
+    }
   }
 
   private assertCustomPricesAllowed(lines: LineDraft[]): void {

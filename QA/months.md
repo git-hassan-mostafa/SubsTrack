@@ -66,6 +66,8 @@ What a month shows after money moves. A month is Paid as soon as **any** money r
 35. Money on a month, or on the month after it → that month's meter reading can no longer be changed. Typed-units plans: only money on the same month locks it.
 36. Month prices screen: change a month's price that was already set → that month's unpaid meter bills use the new price; Overdue still counts from the day the price was FIRST saved.
 37. Month prices screen: type only one of the two prices for a plan, or a price per unit of 0 → Save stays off; nothing is saved for any plan.
+38. Customer form, meter line with no start reading → its first month stays "Waiting"; type the start reading and save → the first month gets its bill.
+39. Money on the line's first month → the start reading can no longer be changed (field locked, save refused). Money only on later months → it can still be fixed.
 
 ## Customer portal
 

@@ -415,7 +415,7 @@ describe("switching a line's plan", () => {
   const sync = (prev: CustomerPlan, next: Partial<LineDraft>) =>
     customerPlanService.syncLines(
       "cust-1",
-      [{ id: prev.id, planId: prev.planId, startDate: prev.startDate, customPrice: prev.customPrice, customCurrencyId: prev.customCurrencyId, ...next }],
+      [{ id: prev.id, planId: prev.planId, startDate: prev.startDate, customPrice: prev.customPrice, customCurrencyId: prev.customCurrencyId, meterNumber: prev.meterNumber, startReading: prev.startReading, ...next }],
       [],
       [],
       "t1",
@@ -478,6 +478,8 @@ describe("the price-start picker", () => {
     planId: "p1",
     startDate: "2026-01-01",
     customPrice: null,
+    meterNumber: "",
+    startReading: null,
     customCurrencyId: null,
     status: "active",
     ...over,

@@ -9,6 +9,7 @@ import { newId, nowIso } from "@shared/core/utils/ids";
 import type {
   CreateCustomerPlanPayload,
   ICustomerPlanRepository,
+  UpdateCustomerPlanPayload,
 } from "@shared/modules/customer/customer-plans/repository/ICustomerPlanRepository";
 
 /** SQLite-backed customer_plans repository (service lines). Mirrors `'*, plans(*)'`. */
@@ -41,8 +42,8 @@ export class OfflineCustomerPlanRepository
       active: true,
       custom_price: payload.custom_price,
       custom_currency_id: payload.custom_currency_id,
-      meter_number: null,
-      start_reading: null,
+      meter_number: payload.meter_number,
+      start_reading: payload.start_reading,
       tenant_id: payload.tenant_id,
       created_at: now,
       updated_at: now,
@@ -92,17 +93,7 @@ export class OfflineCustomerPlanRepository
 
   async update(
     id: string,
-    payload: Partial<
-      Pick<
-        DbCustomerPlan,
-        | "plan_id"
-        | "start_date"
-        | "active"
-        | "cancelled_at"
-        | "custom_price"
-        | "custom_currency_id"
-      >
-    >,
+    payload: UpdateCustomerPlanPayload,
   ): Promise<DbCustomerPlan> {
     const action =
       payload.active === true && payload.cancelled_at === null

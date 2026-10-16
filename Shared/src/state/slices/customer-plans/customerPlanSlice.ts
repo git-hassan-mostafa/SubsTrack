@@ -1,5 +1,5 @@
 import type { StateCreator } from "zustand";
-import type { Customer } from "@shared/core/types";
+import type { Customer, CustomerPlan } from "@shared/core/types";
 import customerPlanService from "@shared/modules/customer/customer-plans/services/CustomerPlanService";
 import type { LineDraft, RemovedLine } from "@shared/modules/customer/customer-plans/services/CustomerPlanService";
 import { QuotaExceededError } from "@shared/modules/admin/billing/utils/quotaError";
@@ -19,6 +19,7 @@ export interface CustomerPlanSlice {
   hasPayments: (lineId: string) => Promise<boolean>;
   getPaidLineIds: (customerId: string) => Promise<string[]>;
   getLastPaidMonth: (lineId: string) => Promise<string | null>;
+  getStartPaidLineIds: (lines: Pick<CustomerPlan, "id" | "startDate">[]) => Promise<string[]>;
   clearError: () => void;
   reset: () => void;
 }
@@ -86,6 +87,8 @@ export const createCustomerPlanSlice: StateCreator<
     customerPlanService.getPaidLineIds(customerId),
 
   getLastPaidMonth: (lineId) => customerPlanService.getLastPaidMonth(lineId),
+
+  getStartPaidLineIds: (lines) => customerPlanService.getStartPaidLineIds(lines),
 
   clearError: () =>
     set((state) => {

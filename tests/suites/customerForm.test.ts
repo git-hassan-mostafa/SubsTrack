@@ -77,12 +77,12 @@ describe("rowsFromCustomer", () => {
 
 describe("toLineDrafts", () => {
   it("TC-CF-04 cancelled rows are not saved as lines", () => {
-    const drafts = toLineDrafts([row({ key: "a" }), row({ key: "b", id: "l2", status: "cancelled" })]);
+    const drafts = toLineDrafts([row({ key: "a" }), row({ key: "b", id: "l2", status: "cancelled" })], []);
     expect(drafts).toHaveLength(1);
   });
 
   it("TC-CF-05 a special price keeps its currency", () => {
-    const [draft] = toLineDrafts([row({ customPrice: 50000, customCurrencyId: "lbp" })]);
+    const [draft] = toLineDrafts([row({ customPrice: 50000, customCurrencyId: "lbp" })], []);
     expect(draft).toMatchObject({ customPrice: 50000, customCurrencyId: "lbp" });
   });
 
@@ -90,7 +90,7 @@ describe("toLineDrafts", () => {
     const drafts = toLineDrafts([
       row({ customPrice: null, customCurrencyId: "lbp" }),
       row({ customPrice: 0, customCurrencyId: "lbp" }),
-    ]);
+    ], []);
     expect(drafts.map((d) => [d.customPrice, d.customCurrencyId])).toEqual([
       [null, null],
       [null, null],

@@ -8,7 +8,9 @@ import { PlanPicker } from "@/src/shared/components/PlanPicker";
 import { PriceStartPicker } from "@/src/shared/components/PriceStartPicker";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency, Plan } from "@shared/core/types";
+import { usageBillingLabel } from "@shared/modules/admin/plans/utils/planLabels";
 import { PlanLinePriceField } from "./PlanLinePriceField";
+import { PlanLineMeterFields } from "./PlanLineMeterFields";
 import type { LineRow } from "@shared/modules/customer/customer-plans/utils/lineDrafts";
 
 interface Props {
@@ -18,6 +20,7 @@ interface Props {
   branchId: string | null;
   currencies: Currency[];
   locked: boolean;
+  startReadingLocked: boolean;
   showHeader: boolean;
   canRemove: boolean;
   removing: boolean;
@@ -26,6 +29,8 @@ interface Props {
   onPlanChange: (planId: string | null) => void;
   onStartDateChange: (date: string) => void;
   onPriceChange: (amount: number | null, currencyId: string | null) => void;
+  onMeterNumberChange: (meterNumber: string) => void;
+  onStartReadingChange: (startReading: number | null) => void;
   onRemove: () => void;
   onReactivate: () => void;
   onAddPlan: () => void;
@@ -39,6 +44,7 @@ export function PlanLineCard({
   branchId,
   currencies,
   locked,
+  startReadingLocked,
   showHeader,
   canRemove,
   removing,
@@ -47,6 +53,8 @@ export function PlanLineCard({
   onPlanChange,
   onStartDateChange,
   onPriceChange,
+  onMeterNumberChange,
+  onStartReadingChange,
   onRemove,
   onReactivate,
   onAddPlan,
@@ -147,20 +155,42 @@ export function PlanLineCard({
         </View>
       </View>
 
-      <PlanLinePriceField
-        plan={plan}
-        customPrice={row.customPrice}
-        customCurrencyId={row.customCurrencyId}
-        onPriceChange={onPriceChange}
-        currencies={currencies}
-        disabled={cancelled}
-      />
+      {plan?.usage ? (
+        <>
+          <Text className="text-sm text-gray-500" numberOfLines={1}>
+            {t("subscriptions.priced_by_usage", {
+              billing: usageBillingLabel(plan.usage, t),
+            })}
+          </Text>
+          {plan.usage.entry === "reading" ? (
+            <PlanLineMeterFields
+              meterNumber={row.meterNumber}
+              startReading={row.startReading}
+              startReadingLocked={startReadingLocked}
+              disabled={cancelled}
+              onMeterNumberChange={onMeterNumberChange}
+              onStartReadingChange={onStartReadingChange}
+            />
+          ) : null}
+        </>
+      ) : (
+        <>
+          <PlanLinePriceField
+            plan={plan}
+            customPrice={row.customPrice}
+            customCurrencyId={row.customCurrencyId}
+            onPriceChange={onPriceChange}
+            currencies={currencies}
+            disabled={cancelled}
+          />
 
-      {priceChanged ? (
-        <View className="mt-3 -mb-4">
-          <PriceStartPicker value={row.priceFrom} onChange={onPriceFromChange} />
-        </View>
-      ) : null}
+          {priceChanged ? (
+            <View className="mt-3 -mb-4">
+              <PriceStartPicker value={row.priceFrom} onChange={onPriceFromChange} />
+            </View>
+          ) : null}
+        </>
+      )}
     </View>
   );
 }

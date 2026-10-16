@@ -13,9 +13,13 @@ export interface LineRow {
   startDate: string;
   customPrice: number | null;
   customCurrencyId: string | null;
+  meterNumber: string;
+  startReading: number | null;
   status: "active" | "cancelled";
   priceFrom?: string;
 }
+
+type LinePlan = Pick<Plan, "id" | "usage">;
 
 export function newLineRow(suffix: number, startDate: string): LineRow {
   return {
@@ -24,6 +28,8 @@ export function newLineRow(suffix: number, startDate: string): LineRow {
     startDate,
     customPrice: null,
     customCurrencyId: null,
+    meterNumber: "",
+    startReading: null,
     status: "active",
   };
 }
@@ -42,6 +48,8 @@ export function rowsFromCustomer(
     startDate: line.startDate,
     customPrice: line.customPrice,
     customCurrencyId: line.customCurrencyId,
+    meterNumber: line.meterNumber ?? "",
+    startReading: line.startReading,
     status: line.active ? "active" : "cancelled",
   }));
 }
@@ -60,16 +68,31 @@ function specialPriceOf(row: LineRow): LinePriceFields {
   };
 }
 
-export function toLineDrafts(rows: LineRow[]): LineDraft[] {
+export function isMeterLine(planId: string | null, plans: readonly LinePlan[]): boolean {
+  return plans.find((p) => p.id === planId)?.usage?.entry === "reading";
+}
+
+export function isUsageLine(planId: string | null, plans: readonly LinePlan[]): boolean {
+  return !!plans.find((p) => p.id === planId)?.usage;
+}
+
+// A usage line is priced each month, so it never keeps a special price.
+export function toLineDrafts(rows: LineRow[], plans: readonly LinePlan[]): LineDraft[] {
   return rows
     .filter((row) => row.status === "active")
-    .map((row) => ({
-      id: row.id,
-      planId: row.planId,
-      startDate: row.startDate,
-      ...specialPriceOf(row),
-      priceFrom: row.priceFrom,
-    }));
+    .map((row) => {
+      const meter = isMeterLine(row.planId, plans);
+      const usage = isUsageLine(row.planId, plans);
+      return {
+        id: row.id,
+        planId: row.planId,
+        startDate: row.startDate,
+        ...(usage ? { customPrice: null, customCurrencyId: null } : specialPriceOf(row)),
+        meterNumber: meter ? row.meterNumber.trim() || null : null,
+        startReading: meter ? row.startReading : null,
+        priceFrom: row.priceFrom,
+      };
+    });
 }
 
 // Only a saved special price has a history; a plan switch never asks — #185.
@@ -110,6 +133,8 @@ export function lineRowsChanged(
       (base.planId !== row.planId && !autoCleared.includes(row.key)) ||
       base.startDate !== row.startDate ||
       base.customPrice !== row.customPrice ||
+      base.meterNumber !== row.meterNumber ||
+      base.startReading !== row.startReading ||
       (row.customPrice !== null && base.customCurrencyId !== row.customCurrencyId) ||
       base.status !== row.status
     );

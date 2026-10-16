@@ -3,6 +3,7 @@ import type { DbCustomerPlan } from "@shared/core/types/db";
 import type {
   CreateCustomerPlanPayload,
   ICustomerPlanRepository,
+  UpdateCustomerPlanPayload,
 } from "@shared/modules/customer/customer-plans/repository/ICustomerPlanRepository";
 
 const SELECT = "*, plans(*)";
@@ -60,17 +61,7 @@ export class CustomerPlanRepository
 
   async update(
     id: string,
-    payload: Partial<
-      Pick<
-        DbCustomerPlan,
-        | "plan_id"
-        | "start_date"
-        | "active"
-        | "cancelled_at"
-        | "custom_price"
-        | "custom_currency_id"
-      >
-    >,
+    payload: UpdateCustomerPlanPayload,
   ): Promise<DbCustomerPlan> {
     const action =
       payload.active === true && payload.cancelled_at === null

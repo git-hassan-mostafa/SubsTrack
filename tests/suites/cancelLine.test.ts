@@ -90,6 +90,8 @@ describe("cancelling a paid line on a picked day", () => {
           startDate: other.startDate,
           customPrice: other.customPrice,
           customCurrencyId: other.customCurrencyId,
+          meterNumber: other.meterNumber,
+          startReading: other.startReading,
         },
       ],
       removed,

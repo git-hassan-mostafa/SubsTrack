@@ -151,6 +151,12 @@ export function isEditedUsageBill(charge: StatusCharge): boolean {
   return !!charge.usage && charge.amount !== charge.usage.computedAmount;
 }
 
+// The start reading starts the first month's bill, so money on that month locks it.
+export function isStartReadingLocked(startDate: string, paidMonths: string[]): boolean {
+  const startMonth = startDate.slice(0, 7);
+  return paidMonths.some((month) => month.slice(0, 7) === startMonth);
+}
+
 // A meter reading also starts next month's bill, so money on either month locks it.
 export function isReadingLocked(
   entry: UsageEntry,

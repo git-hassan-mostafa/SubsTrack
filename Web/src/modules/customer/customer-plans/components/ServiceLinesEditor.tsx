@@ -19,11 +19,13 @@ import DeleteOutlined from "@mui/icons-material/DeleteOutlined";
 import ReplayOutlined from "@mui/icons-material/ReplayOutlined";
 import type { LineDrafts } from "@shared/modules/customer/customer-plans/hooks/useLineDrafts";
 import type { LineRow } from "@shared/modules/customer/customer-plans/utils/lineDrafts";
+import { usageBillingLabel } from "@shared/modules/admin/plans/utils/planLabels";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { DateField } from "@/shared/components/DateField";
 import { PriceStartField } from "@/shared/components/PriceStartField";
 import { PlanFormDialog } from "@/modules/admin/plans/components/PlanFormDialog";
+import { LineMeterFields } from "./LineMeterFields";
 import { LinePriceField } from "./LinePriceField";
 import { PlanPicker } from "./PlanPicker";
 
@@ -60,7 +62,7 @@ export function ServiceLinesEditor({ drafts, branchId }: ServiceLinesEditorProps
             <TableRow>
               <TableCell>{t("customers.plan_label")}</TableCell>
               <TableCell sx={{ width: 180 }}>{t("subscriptions.start_label")}</TableCell>
-              <TableCell sx={{ width: 300 }}>{t("plans.price_label")}</TableCell>
+              <TableCell sx={{ width: 340 }}>{t("plans.price_label")}</TableCell>
               <TableCell sx={{ width: 56 }} />
             </TableRow>
           </TableHead>
@@ -145,23 +147,43 @@ function ServiceLineRow({ row, drafts, branchId, onAddPlan }: ServiceLineRowProp
         </Tooltip>
       </TableCell>
       <TableCell>
-        <LinePriceField
-          plan={plan}
-          customPrice={row.customPrice}
-          customCurrencyId={row.customCurrencyId}
-          onPriceChange={(amount, currencyId) => drafts.setPrice(row.key, amount, currencyId)}
-          currencies={currencies}
-          disabled={cancelled}
-        />
-        {drafts.priceChanged(row) ? (
-          <Box sx={{ mt: 1.5 }}>
-            <PriceStartField
-              value={row.priceFrom}
-              onChange={(month) => drafts.setPriceFrom(row.key, month)}
-              size="small"
+        {plan?.usage ? (
+          <Stack spacing={1.5}>
+            <Typography variant="body2" color="text.secondary">
+              {t("subscriptions.priced_by_usage", { billing: usageBillingLabel(plan.usage, t) })}
+            </Typography>
+            {plan.usage.entry === "reading" ? (
+              <LineMeterFields
+                meterNumber={row.meterNumber}
+                startReading={row.startReading}
+                startReadingLocked={drafts.isStartReadingLocked(row)}
+                disabled={cancelled}
+                onMeterNumberChange={(meterNumber) => drafts.setMeterNumber(row.key, meterNumber)}
+                onStartReadingChange={(startReading) => drafts.setStartReading(row.key, startReading)}
+              />
+            ) : null}
+          </Stack>
+        ) : (
+          <>
+            <LinePriceField
+              plan={plan}
+              customPrice={row.customPrice}
+              customCurrencyId={row.customCurrencyId}
+              onPriceChange={(amount, currencyId) => drafts.setPrice(row.key, amount, currencyId)}
+              currencies={currencies}
+              disabled={cancelled}
             />
-          </Box>
-        ) : null}
+            {drafts.priceChanged(row) ? (
+              <Box sx={{ mt: 1.5 }}>
+                <PriceStartField
+                  value={row.priceFrom}
+                  onChange={(month) => drafts.setPriceFrom(row.key, month)}
+                  size="small"
+                />
+              </Box>
+            ) : null}
+          </>
+        )}
       </TableCell>
       <TableCell align="right">
         {cancelled ? (

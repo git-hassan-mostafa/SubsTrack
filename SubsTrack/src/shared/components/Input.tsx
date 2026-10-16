@@ -11,6 +11,7 @@ interface InputProps extends Omit<TextInputProps, "value"> {
   label?: string;
   error?: string | null;
   sanitize?: (next: string) => string;
+  expectedEcho?: (next: string) => string;
   trailing?: ReactNode;
 }
 
@@ -21,10 +22,11 @@ export function Input({
   value,
   onChangeText,
   sanitize,
+  expectedEcho,
   trailing,
   ...props
 }: InputProps) {
-  const field = useTextField(value, onChangeText, { sanitize });
+  const field = useTextField(value, onChangeText, { sanitize, expectedEcho });
   return (
     <View className="mb-4">
       {label ? <FieldLabel>{label}</FieldLabel> : null}

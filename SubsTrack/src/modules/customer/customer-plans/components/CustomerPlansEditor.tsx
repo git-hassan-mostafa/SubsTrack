@@ -50,6 +50,7 @@ export function CustomerPlansEditor({ drafts, branchId }: Props) {
           branchId={branchId}
           currencies={currencies}
           locked={drafts.isPaidLine(row)}
+          startReadingLocked={drafts.isStartReadingLocked(row)}
           showHeader={multiple}
           canRemove={drafts.activeCount > 1}
           removing={drafts.removingKey === row.key}
@@ -60,6 +61,8 @@ export function CustomerPlansEditor({ drafts, branchId }: Props) {
           onPriceChange={(amount, currencyId) =>
             drafts.setPrice(row.key, amount, currencyId)
           }
+          onMeterNumberChange={(v) => drafts.setMeterNumber(row.key, v)}
+          onStartReadingChange={(v) => drafts.setStartReading(row.key, v)}
           onRemove={() => void drafts.removeRow(row.key)}
           onReactivate={() => drafts.reactivateRow(row.key)}
           onAddPlan={() => setAddPlanOpen(true)}

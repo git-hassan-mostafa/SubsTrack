@@ -48,6 +48,9 @@ export interface LineDrafts {
   removingKey: string | null;
   dirty: boolean;
   isPaidLine: (row: LineRow) => boolean;
+  isStartReadingLocked: (row: LineRow) => boolean;
+  setMeterNumber: (key: string, meterNumber: string) => void;
+  setStartReading: (key: string, startReading: number | null) => void;
   setPlan: (key: string, planId: string | null) => void;
   setPrice: (key: string, amount: number | null, currencyId: string | null) => void;
   setStartDate: (key: string, date: string) => void;
@@ -69,6 +72,7 @@ export function useLineDrafts({
   const hasPayments = useCustomerPlanSlice((s) => s.hasPayments);
   const getPaidLineIds = useCustomerPlanSlice((s) => s.getPaidLineIds);
   const getLastPaidMonth = useCustomerPlanSlice((s) => s.getLastPaidMonth);
+  const getStartPaidLineIds = useCustomerPlanSlice((s) => s.getStartPaidLineIds);
   const rowKey = useRef(0);
   const [rows, setRows] = useState<LineRow[]>(() =>
     rowsFromCustomer(customer, getTodayDateString()),
@@ -77,6 +81,8 @@ export function useLineDrafts({
   const [removed, setRemoved] = useState<RemovedLine[]>([]);
   const [reactivated, setReactivated] = useState<string[]>([]);
   const [lockedLineIds, setLockedLineIds] = useState<string[]>([]);
+  const [startLockedLineIds, setStartLockedLineIds] = useState<string[]>([]);
+  const [savedLines] = useState(() => customer?.customerPlans ?? []);
   const [autoCleared, setAutoCleared] = useState<string[]>([]);
   const [removingKey, setRemovingKey] = useState<string | null>(null);
 
@@ -91,6 +97,18 @@ export function useLineDrafts({
       alive = false;
     };
   }, [customerId, getPaidLineIds]);
+
+  useEffect(() => {
+    const meterLines = savedLines.filter((line) => line.plan?.usage?.entry === "reading");
+    if (meterLines.length === 0) return;
+    let alive = true;
+    void getStartPaidLineIds(meterLines).then((ids) => {
+      if (alive) setStartLockedLineIds(ids);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [savedLines, getStartPaidLineIds]);
 
   const [checkedScope, setCheckedScope] = useState<{
     branchId: string | null;
@@ -177,6 +195,9 @@ export function useLineDrafts({
       reactivated.length > 0 ||
       lineRowsChanged(initialRows, rows, autoCleared),
     isPaidLine: (row) => row.id != null && lockedLineIds.includes(row.id),
+    isStartReadingLocked: (row) => row.id != null && startLockedLineIds.includes(row.id),
+    setMeterNumber: (key, meterNumber) => patchRow(key, { meterNumber }),
+    setStartReading: (key, startReading) => patchRow(key, { startReading }),
     setPlan: (key, planId) => {
       patchRow(key, { planId });
       setAutoCleared((prev) => prev.filter((k) => k !== key));
@@ -196,6 +217,6 @@ export function useLineDrafts({
     },
     removeRow,
     reactivateRow,
-    result: () => ({ lines: toLineDrafts(rows), removed, reactivated }),
+    result: () => ({ lines: toLineDrafts(rows, plans), removed, reactivated }),
   };
 }
