@@ -8,7 +8,10 @@ import {
 } from "@/src/shared/components/CardText";
 import { Chip } from "@/src/shared/components/Chip";
 import { useMoneyPair } from "@shared/shared/hooks/useMoneyPair";
-import { planDurationLabel } from "@shared/modules/admin/plans/utils/planLabels";
+import {
+  planDurationLabel,
+  usageBillingLabel,
+} from "@shared/modules/admin/plans/utils/planLabels";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 
 interface Props {
@@ -51,7 +54,9 @@ export function PlanCard({
       </View>
 
       <View className="items-end">
-        {plan.isCustomPrice ? (
+        {plan.usage ? (
+          <Chip text={usageBillingLabel(plan.usage, t)} tone="indigo" />
+        ) : plan.isCustomPrice ? (
           <Chip text={t("common.custom")} tone="indigo" />
         ) : (
           <>

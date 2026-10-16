@@ -75,7 +75,12 @@ class PriceHistoryService {
 
   async getForPlan(planId: string): Promise<PlanPriceChange[]> {
     if (!planId) return [];
-    const rows = await repositories().priceHistory.findPlanChanges([planId]);
+    return this.getForPlans([planId]);
+  }
+
+  async getForPlans(planIds: string[]): Promise<PlanPriceChange[]> {
+    const repo = repositories().priceHistory;
+    const rows = await readInChunks(planIds, (ids) => repo.findPlanChanges(ids));
     return rows.map(mapDbPlanPriceChange);
   }
 

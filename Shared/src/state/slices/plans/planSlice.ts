@@ -1,7 +1,10 @@
 import type { StateCreator } from "zustand";
 import type { Plan, PlanPriceChange } from "@shared/core/types";
 import planService from "@shared/modules/admin/plans/services/PlanService";
-import { priceHistoryService } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
+import {
+  priceHistoryService,
+  type UsageMonthPriceInput,
+} from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
 import { planPriceChanged } from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import type { PlanInput } from "@shared/modules/admin/plans/utils/types";
 import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
@@ -26,6 +29,10 @@ export interface PlanSlice {
     planId: string,
     fromMonth: string,
   ) => Promise<PlanPriceChange | null>;
+  setUsageMonthPrices: (
+    month: string,
+    prices: UsageMonthPriceInput[],
+  ) => Promise<PlanPriceChange[] | null>;
   deletePlan: (id: string) => Promise<boolean>;
   bulkDeletePlans: (ids: string[]) => Promise<boolean>;
   clearError: () => void;
@@ -131,6 +138,27 @@ export const createPlanSlice: StateCreator<
     );
     get().ledger.markOwedChanged();
     return updated;
+  },
+
+  setUsageMonthPrices: async (month, prices) => {
+    set((state) => {
+      state.plans.loading = true;
+      state.plans.error = null;
+    });
+    try {
+      const saved = await priceHistoryService.setUsageMonthPrices(month, prices);
+      set((state) => {
+        state.plans.loading = false;
+      });
+      get().ledger.markOwedChanged();
+      return saved;
+    } catch (e) {
+      set((state) => {
+        state.plans.error = (e as Error).message;
+        state.plans.loading = false;
+      });
+      return null;
+    }
   },
 
   deletePlan: async (id) => {

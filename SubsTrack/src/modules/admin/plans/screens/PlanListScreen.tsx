@@ -30,9 +30,11 @@ import {
 } from "@shared/shared/lib/catalogMenu";
 import { PlanCard } from "../components/PlanCard";
 import { PlanFormSheet } from "../components/PlanFormSheet";
+import { UsageMonthPricesSheet } from "../components/UsageMonthPricesSheet";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import {
   PageHeader,
+  type PageHeaderIconAction,
   type SelectionAction,
 } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
@@ -58,6 +60,7 @@ export function PlanListScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [menuPlan, setMenuPlan] = useState<Plan | null>(null);
+  const [pricesVisible, setPricesVisible] = useState(false);
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
   const branchFilter = useEffectiveBranchFilter();
@@ -129,6 +132,18 @@ export function PlanListScreen() {
     clearExportError,
   } = useExportRows("plans.title", filtered);
 
+  const monthPricesActions: PageHeaderIconAction[] = plans.some((p) => p.usage)
+    ? [
+        {
+          key: "month-prices",
+          group: "money",
+          icon: "calendar-outline",
+          label: t("plans.month_prices_title"),
+          onPress: () => setPricesVisible(true),
+        },
+      ]
+    : [];
+
   const selectedPlans = filtered.filter((p) => selectedIds.has(p.id));
 
   async function runBulkDelete(selected: Plan[]) {
@@ -174,7 +189,7 @@ export function PlanListScreen() {
   return (
     <Screen>
       <PageHeader
-        iconActions={exportIconActions}
+        iconActions={[...monthPricesActions, ...(exportIconActions ?? [])]}
         title={t("plans.title")}
         subtitle={t("plans.active_count", { count: plans.length })}
         showBack
@@ -265,6 +280,13 @@ export function PlanListScreen() {
             setEditingPlan(null);
           }}
           onRequestDelete={(plan) => void handleDeletePlan(plan)}
+        />
+      )}
+
+      {pricesVisible && (
+        <UsageMonthPricesSheet
+          plans={plans}
+          onDismiss={() => setPricesVisible(false)}
         />
       )}
 

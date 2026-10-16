@@ -64,6 +64,8 @@ What a month shows after money moves. A month is Paid as soon as **any** money r
 33. Reading lower than last month's (and no meter change) → month stays "Waiting", no bill.
 34. Unpaid meter bill → turns Overdue one month after the later of: the day the reading was saved, the day that month's price was FIRST saved. The tenant's unpaid rule does not change this.
 35. Money on a month, or on the month after it → that month's meter reading can no longer be changed. Typed-units plans: only money on the same month locks it.
+36. Month prices screen: change a month's price that was already set → that month's unpaid meter bills use the new price; Overdue still counts from the day the price was FIRST saved.
+37. Month prices screen: type only one of the two prices for a plan, or a price per unit of 0 → Save stays off; nothing is saved for any plan.
 
 ## Customer portal
 

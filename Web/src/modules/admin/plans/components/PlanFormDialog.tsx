@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import FormControlLabel from "@mui/material/FormControlLabel";
+import FormHelperText from "@mui/material/FormHelperText";
+import FormLabel from "@mui/material/FormLabel";
 import MenuItem from "@mui/material/MenuItem";
+import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import type { Plan } from "@shared/core/types";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
@@ -14,9 +19,13 @@ import {
   isMultiMonthPlan,
   isPlanFormDirty,
   MAX_PLAN_DURATION,
+  planBillingTypeOf,
   planDraftOf,
   planInput,
+  withBillingType,
   withPlanDuration,
+  withPlanUsage,
+  type PlanBillingType,
   type PlanDraft,
 } from "@shared/modules/admin/plans/utils/planForm";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
@@ -34,8 +43,11 @@ import { FormDialog } from "@/shared/components/FormDialog";
 import { PriceStartField } from "@/shared/components/PriceStartField";
 import { markCustomersTableStale } from "@/state/customersTable";
 import { PlanPriceHistory } from "./PlanPriceHistory";
+import { PlanUsageFields } from "./PlanUsageFields";
+import { UsagePriceHistory } from "./UsagePriceHistory";
 
 const DURATIONS = Array.from({ length: MAX_PLAN_DURATION }, (_, i) => i + 1);
+const BILLING_TYPES: PlanBillingType[] = ["fixed", "usage"];
 
 interface PlanFormDialogProps {
   plan: Plan | null;
@@ -61,7 +73,7 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
   const [customPriceFrom, setCustomPriceFrom] = useState<string | null>(null);
   const dirty = useDirtyForm(form, ["currencyId"]);
   const isMultiMonth = isMultiMonthPlan(form);
-  const priceChanged = plan ? planPriceChanged(plan, planInput(form)) : false;
+  const priceChanged = plan && !form.usage ? planPriceChanged(plan, planInput(form)) : false;
   const priceFrom = customPriceFrom ?? currentBillingMonth();
 
   useEffect(() => {
@@ -74,8 +86,8 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
     if (error) clearError();
   };
 
-  const changeDuration = (months: number) => {
-    setForm((prev) => withPlanDuration(prev, months));
+  const reshape = (next: (prev: PlanDraft) => PlanDraft) => {
+    setForm(next);
     if (error) clearError();
   };
 
@@ -118,57 +130,100 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
         onChange={(branchId) => change({ branchId })}
         nullLabel={t("branches.shared_all_branches")}
       />
-      <TextField
-        select
-        label={t("plans.duration_label")}
-        value={form.durationMonths}
-        onChange={(event) => changeDuration(Number(event.target.value))}
-        helperText={isMultiMonth ? t("plans.bundle_price_hint") : t("plans.per_month")}
-        fullWidth
-      >
-        {DURATIONS.map((months) => (
-          <MenuItem key={months} value={months}>
-            {planDurationLabel(months, t)}
-          </MenuItem>
-        ))}
-      </TextField>
-      {isMultiMonth ? null : (
-        <FormControlLabel
-          control={
-            <Switch
-              checked={form.isCustomPrice}
-              onChange={(event) => change({ isCustomPrice: event.target.checked })}
-            />
-          }
-          label={
-            <>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {t("plans.custom_pricing_label")}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {t("plans.custom_pricing_hint")}
-              </Typography>
-            </>
-          }
-        />
-      )}
-      {form.isCustomPrice ? null : (
-        <CurrencyInput
-          label={isMultiMonth ? t("plans.bundle_price_label") : t("plans.price_label")}
-          amount={form.price}
+      <Stack spacing={1}>
+        <FormLabel id="plan-billing-type-label">{t("plans.billing_type_label")}</FormLabel>
+        <ToggleButtonGroup
+          exclusive
+          color="primary"
+          value={planBillingTypeOf(form)}
+          onChange={(_event, type: PlanBillingType | null) => {
+            if (type) reshape((prev) => withBillingType(prev, type));
+          }}
+          disabled={plan !== null}
+          aria-labelledby="plan-billing-type-label"
+        >
+          {BILLING_TYPES.map((type) => (
+            <ToggleButton key={type} value={type} sx={{ px: 3 }}>
+              {type === "usage" ? t("plans.billing_usage") : t("plans.billing_fixed")}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+        {plan ? <FormHelperText>{t("plans.billing_type_locked_hint")}</FormHelperText> : null}
+      </Stack>
+      {form.usage ? (
+        <PlanUsageFields
+          usage={form.usage}
           currencyId={form.currencyId}
-          onChange={({ amount, currencyId }) => change({ price: amount, currencyId })}
           currencies={currencies}
-          required
+          onChange={(patch) => reshape((prev) => withPlanUsage(prev, patch))}
+          onCurrencyChange={(currencyId) => change({ currencyId })}
         />
+      ) : (
+        <>
+          <TextField
+            select
+            label={t("plans.duration_label")}
+            value={form.durationMonths}
+            onChange={(event) =>
+              reshape((prev) => withPlanDuration(prev, Number(event.target.value)))
+            }
+            helperText={isMultiMonth ? t("plans.bundle_price_hint") : t("plans.per_month")}
+            fullWidth
+          >
+            {DURATIONS.map((months) => (
+              <MenuItem key={months} value={months}>
+                {planDurationLabel(months, t)}
+              </MenuItem>
+            ))}
+          </TextField>
+          {isMultiMonth ? null : (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.isCustomPrice}
+                  onChange={(event) => change({ isCustomPrice: event.target.checked })}
+                />
+              }
+              label={
+                <>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {t("plans.custom_pricing_label")}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {t("plans.custom_pricing_hint")}
+                  </Typography>
+                </>
+              }
+            />
+          )}
+          {form.isCustomPrice ? null : (
+            <CurrencyInput
+              label={isMultiMonth ? t("plans.bundle_price_label") : t("plans.price_label")}
+              amount={form.price}
+              currencyId={form.currencyId}
+              onChange={({ amount, currencyId }) => change({ price: amount, currencyId })}
+              currencies={currencies}
+              required
+            />
+          )}
+          {priceChanged ? (
+            <PriceStartField
+              value={priceFrom}
+              onChange={(month) => setCustomPriceFrom(month)}
+            />
+          ) : null}
+        </>
       )}
-      {priceChanged ? (
-        <PriceStartField
-          value={priceFrom}
-          onChange={(month) => setCustomPriceFrom(month)}
+      {plan?.usage ? (
+        <UsagePriceHistory
+          usage={plan.usage}
+          currencies={currencies}
+          sortedHistory={historyState.sortedHistory}
+          loading={historyState.loading}
+          error={historyState.error}
+          clearError={historyState.clearError}
         />
-      ) : null}
-      {plan ? (
+      ) : plan ? (
         <PlanPriceHistory
           plan={plan}
           currencies={currencies}

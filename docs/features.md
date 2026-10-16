@@ -96,6 +96,16 @@ Storage + grid → #13, #14, #15.
 
 ---
 
+## Usage (meter) plans — plans screens
+
+Bill = fixed fee + units × unit price, each month priced on its own (data → `docs/db-schema.md` `plans` / `plan_price_changes`; rules → `docs/month-grid.md`).
+- **Plan form** (phone `PlanFormSheet`, web `PlanFormDialog`): "How is it billed?" Fixed price | By usage — chosen on create only, read-only after (`withBillingType`, `planBillingTypeOf` in `planForm.ts`). Usage fields (`PlanUsageFields` both apps): entry Meter reading | Typed usage, unit name *, fixed fee name *, currency of the prices, high usage warning % (optional). Duration, price, custom price, price-start picker hidden for usage.
+- **Saved usage plan's history** = `UsagePriceHistorySection` (phone) / `UsagePriceHistory` (web): one row per priced month, newest first, latest save wins (`usageMonthPriceRows`); read-only.
+- **Month prices** (phone header icon, web toolbar button; shown only when a usage plan exists): ONE screen for every usage plan — pick month (this month or 11 earlier, never future), type fee + unit price per plan in the plan's currency (locked). Prefill = that month's saved price; no price → "Last set (month): …" hint. Save writes ONLY changed + complete rows in one batch (`usagePricesToSave` → `planSlice.setUsageMonthPrices` → `priceHistoryService.setUsageMonthPrices`) then `ledger.markOwedChanged()`; web also marks customers table stale. Half-typed, unit price ≤ 0, or a cleared saved price blocks Save (a month price is replaced, never removed). Switching month drops typed edits and re-derives from held rows (no re-read, #121). Logic `Shared/.../plans/utils/usageMonthPrices.ts` + hook `useUsageMonthPrices`.
+- List: usage plan shows "By usage (unit)" chip instead of a price (`usageBillingLabel`, `planBillingLabel`; `planPriceSublabel` in plan pickers too).
+
+---
+
 ## Multi-Currency
 
 Any non-USD currencies per tenant; USD = implicit base, never in `currencies`.

@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
+import CalendarMonthOutlined from "@mui/icons-material/CalendarMonthOutlined";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Plan } from "@shared/core/types";
 import { useEffectiveBranchFilter } from "@shared/shared/hooks/useEffectiveBranchFilter";
@@ -17,7 +19,11 @@ import { useBranchColumn } from "@/shared/table/useBranchColumn";
 import { readAllPlans, usePlansTable } from "@/state/plansTable";
 import { useHistoryDoor } from "@/modules/admin/audit/hooks/useHistoryDoor";
 import { PlanFormDialog } from "../components/PlanFormDialog";
-import { planDurationLabel } from "@shared/modules/admin/plans/utils/planLabels";
+import {
+  planBillingLabel,
+  usageBillingLabel,
+} from "@shared/modules/admin/plans/utils/planLabels";
+import { UsageMonthPricesDialog } from "../components/UsageMonthPricesDialog";
 
 export function PlansPage() {
   const { t } = useTranslation();
@@ -35,6 +41,14 @@ export function PlansPage() {
   const branchColumn = useBranchColumn<Plan>(t("branches.shared_all_branches"));
   const history = useHistoryDoor("plans");
   const [form, setForm] = useState<{ plan: Plan | null } | null>(null);
+  const [pricesOpen, setPricesOpen] = useState(false);
+  const getPlans = usePlanSlice((s) => s.getPlans);
+  const anyUsagePlan = usePlanSlice((s) => s.items.some((p) => p.usage !== null));
+  const hasUsagePlans = anyUsagePlan || paged.tableProps.rows.some((p) => p.usage !== null);
+
+  useEffect(() => {
+    getPlans();
+  }, [getPlans]);
 
   const { rowActions, bulkActions } = useCatalogRowActions<Plan>({
     kind: "plan",
@@ -70,6 +84,9 @@ export function PlansPage() {
       headerName: t("plans.price_label"),
       width: 180,
       renderCell: (params) => {
+        if (params.row.usage) {
+          return <StatusChip label={usageBillingLabel(params.row.usage, t)} tone="indigo" />;
+        }
         if (params.row.isCustomPrice || params.row.price === null) {
           return <StatusChip label={t("common.custom")} tone="indigo" />;
         }
@@ -81,13 +98,13 @@ export function PlansPage() {
       field: "durationMonths",
       headerName: t("web.plans.billing"),
       width: 160,
-      valueGetter: (_value, row) => planDurationLabel(row.durationMonths, t),
+      valueGetter: (_value, row) => planBillingLabel(row, t),
     },
   ];
 
   return (
     <Stack spacing={2}>
-      <ErrorBanner message={form ? null : writeError} onDismiss={clearWriteError} />
+      <ErrorBanner message={form || pricesOpen ? null : writeError} onDismiss={clearWriteError} />
       <DataTable<Plan>
         label={t("plans.title")}
         columns={columns}
@@ -96,6 +113,17 @@ export function PlansPage() {
           ...paged.search,
           placeholder: t("web.plans.search"),
         }}
+        toolbarActions={
+          hasUsagePlans ? (
+            <Button
+              variant="outlined"
+              startIcon={<CalendarMonthOutlined />}
+              onClick={() => setPricesOpen(true)}
+            >
+              {t("plans.month_prices_title")}
+            </Button>
+          ) : null
+        }
         add={{ label: t("web.plans.add"), onClick: () => setForm({ plan: null }) }}
         exportConfig={{ nameKey: "plans.title", loadAll: () => readAllPlans(query) }}
         rowLabel={(plan) => plan.name}
@@ -115,6 +143,7 @@ export function PlansPage() {
           }}
         />
       ) : null}
+      {pricesOpen ? <UsageMonthPricesDialog onClose={() => setPricesOpen(false)} /> : null}
       {history.dialog}
     </Stack>
   );

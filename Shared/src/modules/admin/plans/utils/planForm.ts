@@ -1,4 +1,4 @@
-import type { Plan } from "@shared/core/types";
+import type { Plan, PlanUsage } from "@shared/core/types";
 import { isPositivePrice } from "@shared/core/utils/catalogItemDraft";
 import { currentBillingMonth } from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import type { PlanInput } from "@shared/modules/admin/plans/utils/types";
@@ -6,6 +6,15 @@ import type { PlanInput } from "@shared/modules/admin/plans/utils/types";
 export const MAX_PLAN_DURATION = 12;
 
 export type PlanDraft = PlanInput;
+
+export type PlanBillingType = "fixed" | "usage";
+
+export const EMPTY_PLAN_USAGE: PlanUsage = {
+  entry: "reading",
+  unitName: "",
+  feeName: "",
+  highUsagePercent: null,
+};
 
 export function planDraftOf(plan: Plan | null, newBranchId: string | null): PlanDraft {
   return {
@@ -31,6 +40,25 @@ export function withPlanDuration(draft: PlanDraft, months: number): PlanDraft {
     durationMonths,
     isCustomPrice: durationMonths > 1 ? false : draft.isCustomPrice,
   };
+}
+
+export function planBillingTypeOf(draft: Pick<PlanDraft, "usage">): PlanBillingType {
+  return draft.usage ? "usage" : "fixed";
+}
+
+// A usage plan lasts one month and is never custom-priced; a saved plan keeps its type.
+export function withBillingType(draft: PlanDraft, type: PlanBillingType): PlanDraft {
+  if (type === "fixed") return { ...draft, usage: null };
+  return {
+    ...draft,
+    usage: draft.usage ?? EMPTY_PLAN_USAGE,
+    isCustomPrice: false,
+    durationMonths: 1,
+  };
+}
+
+export function withPlanUsage(draft: PlanDraft, patch: Partial<PlanUsage>): PlanDraft {
+  return { ...draft, usage: { ...(draft.usage ?? EMPTY_PLAN_USAGE), ...patch } };
 }
 
 export function canSavePlan(draft: PlanDraft): boolean {
