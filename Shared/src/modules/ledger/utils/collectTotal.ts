@@ -2,6 +2,7 @@ import type {
   ChargeKind,
   Currency,
   Customer,
+  LineUsage,
   MonthBill,
   OpenItem,
   PriceHistory,
@@ -23,6 +24,7 @@ export interface CollectTotalArgs {
   stored: OpenItem[];
   billsByLine: Map<string, MonthBill[]>;
   prices?: PriceHistory;
+  usageByLine?: ReadonlyMap<string, LineUsage>;
   skips: SkippedMonth[];
   unpaidRule: UnpaidStartRule;
   currencies: Currency[];
@@ -42,6 +44,7 @@ function owedPerCustomer(args: CollectTotalArgs) {
       stored: storedByCustomer.get(customer.id) ?? [],
       billsByLine: args.billsByLine,
       prices: args.prices,
+      usageByLine: args.usageByLine,
       today: args.today,
       withOpenMonths,
     });

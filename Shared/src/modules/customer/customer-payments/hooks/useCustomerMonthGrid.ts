@@ -109,6 +109,7 @@ export function useCustomerMonthGrid({
   const [billEntry, setBillEntry] = useState<MonthEntry | null>(null);
   const [voidEntry, setVoidEntry] = useState<MonthEntry | null>(null);
   const [readingEntry, setReadingEntry] = useState<MonthEntry | null>(null);
+  const [retypeEntry, setRetypeEntry] = useState<MonthEntry | null>(null);
   const [history, setHistory] = useState<MonthHistoryRequest | null>(null);
   const [skipRequest, setSkipRequest] = useState<SkipRequest | null>(null);
   const sendAfterCollect = useRef(false);
@@ -154,7 +155,7 @@ export function useCustomerMonthGrid({
 
   const itemFor = (entry: MonthEntry): OpenItem | null => {
     if (!selectedLine) return null;
-    const price = priceAt(entry.billingMonth);
+    const price = priceAt(entry);
     return monthItemFromEntry({
       entry,
       customerId: customer.id,
@@ -393,6 +394,9 @@ export function useCustomerMonthGrid({
       case "reading":
         setReadingEntry(entry);
         return;
+      case "edit-bill":
+        setRetypeEntry(entry);
+        return;
       case "history":
         void openHistory(entry);
         return;
@@ -408,6 +412,8 @@ export function useCustomerMonthGrid({
         voidBill(entry);
     }
   };
+
+  const retypeItem = retypeEntry ? (itemsFor([retypeEntry])[0] ?? null) : null;
 
   const selectedEntries = grid.filter((m) =>
     selection.selectedIds.has(m.billingMonth),
@@ -538,6 +544,9 @@ export function useCustomerMonthGrid({
     revertWriteOff,
     reading: readingEntry,
     closeReading: () => setReadingEntry(null),
+    usageBill:
+      retypeEntry && retypeItem ? { entry: retypeEntry, item: retypeItem } : null,
+    closeUsageBill: () => setRetypeEntry(null),
     voidRequest: voidEntry,
     closeVoid: () => setVoidEntry(null),
     confirmVoid,

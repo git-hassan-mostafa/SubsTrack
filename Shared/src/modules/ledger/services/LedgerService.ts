@@ -4,8 +4,10 @@ import type {
   Customer,
   CustomerPlan,
   DebtsView,
+  LineUsage,
   MonthBill,
   OpenItem,
+  PriceHistory,
   SkippedMonth,
   UnpaidStartRule,
 } from "@shared/core/types";
@@ -14,6 +16,8 @@ import { mapDbCustomerToCustomer } from "@shared/modules/customer/customers/util
 import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
 import currencyService from "@shared/modules/admin/currencies/services/CurrencyService";
 import { priceHistoryService } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
+import { usageReadingService } from "@shared/modules/customer/customer-payments/services/UsageReadingService";
+import { usageByLineOf } from "@shared/modules/customer/customer-payments/utils/usageBill";
 import { chargeService } from "./ChargeService";
 import { mergeOwed } from "../utils/mergeOwed";
 import {
@@ -48,7 +52,8 @@ class LedgerService {
         : Promise.resolve(new Map<string, MonthBill[]>()),
       priceHistoryService.getForLines(active),
     ]);
-    return mergeOwed({ ...args, stored: open, billsByLine, prices });
+    const usageByLine = await this.usageFor(active, prices);
+    return mergeOwed({ ...args, stored: open, billsByLine, prices, usageByLine });
   }
 
   // One customer's To collect: inactive or occasional owe debts only — gotcha #184.
@@ -90,6 +95,7 @@ class LedgerService {
           : Promise.resolve(new Map<string, MonthBill[]>()),
         priceHistoryService.getForLines(lines),
       ]);
+      const usageByLine = await this.usageFor(lines, prices);
       const openByCustomer = groupBy(open, (item) => item.customerId);
       for (const customer of chunk) {
         owed.set(
@@ -103,6 +109,7 @@ class LedgerService {
             stored: openByCustomer.get(customer.id) ?? [],
             billsByLine,
             prices,
+            usageByLine,
             today: args.today,
           }),
         );
@@ -154,7 +161,27 @@ class LedgerService {
       this.getMonthBillsForLines(lines.map((l) => l.id)),
       priceHistoryService.getForLines(lines),
     ]);
-    return { customers, stored, billsByLine, prices, skips, unpaidRule, currencies };
+    const usageByLine = await this.usageFor(lines, prices);
+    return {
+      customers,
+      stored,
+      billsByLine,
+      prices,
+      usageByLine,
+      skips,
+      unpaidRule,
+      currencies,
+    };
+  }
+
+  private async usageFor(
+    lines: CustomerPlan[],
+    prices: PriceHistory,
+  ): Promise<Map<string, LineUsage>> {
+    const usageLines = lines.filter((l) => l.plan?.usage);
+    if (usageLines.length === 0) return new Map();
+    const readings = await usageReadingService.getForLines(usageLines.map((l) => l.id));
+    return usageByLineOf(usageLines, readings, prices);
   }
 
   getMonthBillsForLines(

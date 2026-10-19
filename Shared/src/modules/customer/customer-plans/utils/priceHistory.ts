@@ -110,7 +110,7 @@ export function linePriceAt(
 
 // A month priced unlike today — the collect form names the price it uses.
 export function isEarlierPrice(month: LinePrice, today: LinePrice): boolean {
-  if (!month.isFixed || month.amount === null) return false;
+  if (!month.isFixed || month.amount === null || month.kind === "usage") return false;
   return (
     month.amount !== today.amount ||
     month.currencyId !== today.currencyId ||

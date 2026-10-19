@@ -629,6 +629,7 @@ export interface OpenItem {
   isDebt: boolean;
   openAmount?: boolean;
   earlierPrice?: boolean;
+  usage?: ChargeUsage | null;
   charge?: Charge | null;
 }
 

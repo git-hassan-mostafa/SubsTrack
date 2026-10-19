@@ -42,7 +42,7 @@ export function MonthsTable({ grid, menuActions }: MonthsTableProps) {
   const money = (amount: number, currency: Currency | null) => formatMoney(amount, currency, currency);
 
   const billCell = (entry: MonthEntry) => {
-    const figure = monthBillFigure(entry, priceAt(entry.billingMonth));
+    const figure = monthBillFigure(entry, priceAt(entry));
     if (!figure) return null;
     if (figure.from === "bill") {
       return <MoneyText primary={money(figure.charge.amount, snapshotCurrency(figure.charge, currencies))} />;

@@ -136,6 +136,8 @@ export interface IChargeRepository {
     mark: WriteOffMark,
   ): Promise<DbCharge[]>;
   revertWriteOff(id: string): Promise<DbCharge>;
+  // The month's one row at the typed price; the caller has checked no money is on it.
+  raiseMonthBill(bill: CreateChargePayload): Promise<DbCharge>;
 
   writtenOffInRange(
     startIso: string,

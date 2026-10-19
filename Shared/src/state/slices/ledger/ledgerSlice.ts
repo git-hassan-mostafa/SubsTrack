@@ -17,7 +17,11 @@ import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
 import { withCallerItems } from "@shared/modules/ledger/utils/voidedRows";
 import { owedByCustomerOf, type CustomerOwedUsd } from "@shared/modules/ledger/utils/owedView";
 import type { CollectInput, CollectionCorrection, CorrectCollectionInput, MultiCollectResult } from "@shared/modules/ledger/services/CollectionService";
-import type { CreateManualChargeInput, UpdateManualChargeInput } from "@shared/modules/ledger/services/ChargeService";
+import type {
+  CreateManualChargeInput,
+  RetypeUsageBillInput,
+  UpdateManualChargeInput,
+} from "@shared/modules/ledger/services/ChargeService";
 import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
 import { getUnpaidRule } from "@shared/state/slices/payments/utils/unpaidRule";
 import type { GlobalState } from "@shared/state/globalStore";
@@ -103,6 +107,7 @@ export interface LedgerSlice {
     reason: string | null,
   ) => Promise<boolean>;
   revertWriteOff: (id: string) => Promise<boolean>;
+  retypeUsageBill: (input: RetypeUsageBillInput) => Promise<boolean>;
 
   markOwedChanged: () => void;
 
@@ -392,6 +397,12 @@ export const createLedgerSlice: StateCreator<
         get().sales.applyWriteOff(result.id, null);
         get().ledger.clearOwed();
       }
+      return result !== null;
+    },
+
+    retypeUsageBill: async (input) => {
+      const result = await run("loading", () => chargeService.retypeUsageBill(input));
+      if (result !== null) get().ledger.clearOwed();
       return result !== null;
     },
 

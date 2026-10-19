@@ -6,6 +6,7 @@ import {
   isWrittenOffMonth,
 } from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
 import type { Tone } from "@shared/shared/lib/tone";
+import { isEditedUsageBill } from "@shared/modules/customer/customer-payments/utils/usageBill";
 
 export type MonthCellTone =
   | "paid"
@@ -78,7 +79,9 @@ export type MonthBillFigure =
 // A bundle's money sits on its first month; unpaid shows a 1-month fixed price.
 export function monthBillFigure(entry: MonthEntry, linePrice: LinePrice): MonthBillFigure | null {
   if (entry.isGroupSecondary) return null;
-  if (entry.charge && hasMonthMoney(entry)) return { from: "bill", charge: entry.charge };
+  if (entry.charge && (hasMonthMoney(entry) || isEditedUsageBill(entry.charge))) {
+    return { from: "bill", charge: entry.charge };
+  }
   const due = entry.status === "unpaid" || entry.status === "future";
   if (!due || !linePrice.isFixed || linePrice.durationMonths > 1 || linePrice.amount === null) {
     return null;

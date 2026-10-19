@@ -555,7 +555,15 @@
       "fix_units": "Change usage",
       "remove": "Remove reading",
       "remove_title": "Remove this reading?",
-      "remove_message": "The month goes back to Waiting until a new reading is saved."
+      "remove_message": "The month goes back to Waiting until a new reading is saved.",
+      "fee": "Fee"
+    },
+    "usage_bill": {
+      "edit": "Change bill amount",
+      "title": "Bill amount · {{month}}",
+      "amount": "Amount to bill ({{currency}})",
+      "hint": "This amount is what the customer owes for the month. Type the worked-out amount again to go back to it.",
+      "use_worked_out": "Use the worked-out amount"
     },
     "skip": {
       "skipped_label": "Skipped",
@@ -859,6 +867,7 @@
     "usage_reading_not_found": "This reading was not found. It may have been removed already.",
     "usage_reading_locked_paid": "This month or the next one already has payments, so this reading can no longer be changed.",
     "usage_units_locked_paid": "This month already has payments, so its usage can no longer be changed.",
+    "usage_bill_locked": "This month already has payments or was written off, so its bill amount can no longer be changed.",
     "product_name_required": "Product name is required",
     "product_price_required": "Price is required",
     "product_price_positive": "Price must be greater than 0",
@@ -1787,6 +1796,9 @@
     "bill_voided_payments_hint": "This bill was voided, so this money was voided with it and is no longer collected.",
     "void_reason_label": "Void reason",
     "bill_total": "Bill total",
+    "usage_readings": "Meter readings",
+    "usage_worked_out": "Worked out",
+    "usage_worked_out_changed": "Worked out (amount changed by staff)",
     "billing_month": "Month billed",
     "recorded_by": "Billed by",
     "correct_payment": "Correct amount",

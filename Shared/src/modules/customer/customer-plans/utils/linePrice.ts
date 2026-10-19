@@ -1,7 +1,7 @@
 import type { CustomerPlan, Plan } from "@shared/core/types";
 
-/** Where a line's amount comes from. "typed" = nothing remembered, staff must enter it. */
-export type LinePriceKind = "special" | "plan" | "typed";
+// "typed" = nothing remembered, staff type it; "usage" = a usage month's worked-out bill.
+export type LinePriceKind = "special" | "plan" | "typed" | "usage";
 
 export interface LinePrice {
   amount: number | null;

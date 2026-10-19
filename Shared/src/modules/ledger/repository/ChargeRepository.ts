@@ -15,6 +15,7 @@ import type {
 } from "@shared/modules/ledger/repository/IChargeRepository";
 import {
   monthBillKey,
+  patchForRetype,
   patchForWriteOff,
   resolveBillTarget,
   writeOffRevertPatch,
@@ -419,6 +420,18 @@ export class ChargeRepository
 
   async revertWriteOff(id: string): Promise<DbCharge> {
     return this.patch(id, writeOffRevertPatch(), "update");
+  }
+
+  async raiseMonthBill(bill: CreateChargePayload): Promise<DbCharge> {
+    const { byKey, byId } = await findBillOwners(this.db, [bill], (e) =>
+      this.handleError(e),
+    );
+    const key = monthBillKey(bill);
+    const target = resolveBillTarget(bill, key ? byKey.get(key) : null, byId.get(bill.id));
+    if ("reuse" in target) {
+      return this.patch(target.reuse.id, patchForRetype(target.reuse, bill), "update");
+    }
+    return this.create(target.idTaken ? { ...bill, id: newId() } : bill);
   }
 
   private async patch(

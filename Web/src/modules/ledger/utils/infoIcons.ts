@@ -2,6 +2,7 @@ import type { SvgIconComponent } from "@mui/icons-material";
 import AccountBalanceOutlined from "@mui/icons-material/AccountBalanceOutlined";
 import AccountBalanceWalletOutlined from "@mui/icons-material/AccountBalanceWalletOutlined";
 import BlockOutlined from "@mui/icons-material/BlockOutlined";
+import CalculateOutlined from "@mui/icons-material/CalculateOutlined";
 import CalendarMonthOutlined from "@mui/icons-material/CalendarMonthOutlined";
 import ChatBubbleOutlineOutlined from "@mui/icons-material/ChatBubbleOutlineOutlined";
 import EditCalendarOutlined from "@mui/icons-material/EditCalendarOutlined";
@@ -11,6 +12,7 @@ import NotesOutlined from "@mui/icons-material/NotesOutlined";
 import PersonOutlined from "@mui/icons-material/PersonOutlined";
 import RemoveCircleOutlineOutlined from "@mui/icons-material/RemoveCircleOutlineOutlined";
 import RequestQuoteOutlined from "@mui/icons-material/RequestQuoteOutlined";
+import SpeedOutlined from "@mui/icons-material/SpeedOutlined";
 import TagOutlined from "@mui/icons-material/TagOutlined";
 import type { InfoKey, LabeledValue } from "@shared/modules/ledger/utils/billView";
 import type { InfoRow } from "@/shared/components/InfoRows";
@@ -18,6 +20,8 @@ import type { InfoRow } from "@/shared/components/InfoRows";
 const INFO_ICONS: Record<InfoKey, SvgIconComponent> = {
   billing_month: CalendarMonthOutlined,
   bill_total: RequestQuoteOutlined,
+  usage_readings: SpeedOutlined,
+  usage_worked_out: CalculateOutlined,
   due_date: EventOutlined,
   issued_at: EditCalendarOutlined,
   recorded_by: PersonOutlined,

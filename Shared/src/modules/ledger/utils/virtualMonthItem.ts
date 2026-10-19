@@ -1,4 +1,4 @@
-import type { OpenItem } from "@shared/core/types";
+import type { ChargeUsage, OpenItem } from "@shared/core/types";
 
 // A month with NO bill yet, derived from the grid; collecting raises its charge.
 export function virtualMonthItem(args: {
@@ -16,6 +16,7 @@ export function virtualMonthItem(args: {
   dueDate: string;
   openAmount?: boolean;
   earlierPrice?: boolean;
+  usage?: ChargeUsage | null;
 }): OpenItem {
   return {
     chargeId: null,
@@ -40,5 +41,6 @@ export function virtualMonthItem(args: {
     isDebt: false,
     openAmount: args.openAmount ?? false,
     earlierPrice: args.earlierPrice ?? false,
+    usage: args.usage ?? null,
   };
 }

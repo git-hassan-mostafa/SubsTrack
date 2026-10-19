@@ -27,7 +27,10 @@ import type {
   CreateCollectionPayload,
   FindCollectionsOptions,
 } from "@shared/modules/ledger/repository/ICollectionRepository";
-import { mapDbCollectionToCollection } from "@shared/modules/ledger/utils/mapper";
+import {
+  chargeUsageColumns,
+  mapDbCollectionToCollection,
+} from "@shared/modules/ledger/utils/mapper";
 import { collectionKind } from "@shared/modules/ledger/utils/collectionKind";
 import { hasClosedBill, withoutCollection } from "@shared/modules/ledger/utils/correction";
 import { chargeLabel } from "@shared/modules/ledger/utils/openItems";
@@ -226,6 +229,7 @@ class CollectionService {
       due_date: item.dueDate,
       recorded_by_user_id: input.receivedByUserId,
       notes: null,
+      ...chargeUsageColumns(item.usage ?? null),
     });
     return id;
   }

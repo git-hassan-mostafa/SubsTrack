@@ -3,6 +3,11 @@ import type { Charge, MonthBill, MonthEntry, OpenItem } from "@shared/core/types
 import type { DbCharge } from "@shared/core/types/db";
 import { receiptId } from "@shared/core/utils/receiptId";
 import { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/utils/blockRangeLabel";
+import {
+  chargeUsageOf,
+  isEditedUsageBill,
+  workedOutBill,
+} from "@shared/modules/customer/customer-payments/utils/usageBill";
 import { isDebtItem } from "@shared/modules/ledger/utils/debtRule";
 import { virtualMonthItem } from "@shared/modules/ledger/utils/virtualMonthItem";
 
@@ -39,6 +44,7 @@ export function openItemFromCharge(
     issuedAt: charge.issuedAt,
     createdAt: charge.createdAt,
     isDebt: isDebtItem(charge.kind, paid),
+    usage: charge.usage,
     charge,
   };
 }
@@ -64,18 +70,10 @@ export function chargeLabel(row: DbCharge): string {
   return row.description?.trim() || i18n.t("debts.custom");
 }
 
-/**
- * One month CELL as something money can be put against.
- *
- * The three cases are the whole model in miniature: a month money has already
- * touched has a bill, so the item is that bill's remaining balance; a month
- * nothing has touched has no row at all, so the item is derived from the line's
- * price and its charge is raised at the moment the money lands; and a line with
- * NO set price has no amount to derive, so the item is left open and whatever
- * staff type becomes the bill.
- */
+// A month with money or a staff-typed usage bill owes its row; any other is derived (#112).
 export function monthItemFromEntry(args: {
-  entry: Pick<MonthEntry, "charge" | "collected" | "billingMonth">;
+  entry: Pick<MonthEntry, "charge" | "collected" | "billingMonth"> &
+    Partial<Pick<MonthEntry, "usage">>;
   customerId: string;
   customerName: string;
   branchId: string | null;
@@ -91,7 +89,7 @@ export function monthItemFromEntry(args: {
   earlierPrice?: boolean;
 }): OpenItem | null {
   const { entry } = args;
-  if (entry.charge && entry.collected > 0) {
+  if (entry.charge && (entry.collected > 0 || isEditedUsageBill(entry.charge))) {
     return openItemFromCharge(
       entry.charge,
       entry.collected,
@@ -100,6 +98,7 @@ export function monthItemFromEntry(args: {
     );
   }
   const priced = args.price.amount !== null && args.price.amount > 0;
+  const usageBill = workedOutBill(entry.usage);
   return virtualMonthItem({
     customerId: args.customerId,
     customerName: args.customerName,
@@ -115,6 +114,7 @@ export function monthItemFromEntry(args: {
     dueDate: entry.billingMonth,
     openAmount: !priced,
     earlierPrice: priced && (args.earlierPrice ?? false),
+    usage: usageBill ? chargeUsageOf(usageBill) : null,
   });
 }
 

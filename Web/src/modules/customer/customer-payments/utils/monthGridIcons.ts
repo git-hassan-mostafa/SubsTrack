@@ -1,6 +1,7 @@
 import type { SvgIconComponent } from "@mui/icons-material";
 import BoltOutlined from "@mui/icons-material/BoltOutlined";
 import CancelOutlined from "@mui/icons-material/CancelOutlined";
+import EditOutlined from "@mui/icons-material/EditOutlined";
 import HistoryOutlined from "@mui/icons-material/HistoryOutlined";
 import OpenInNewOutlined from "@mui/icons-material/OpenInNewOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
@@ -25,6 +26,7 @@ export const MONTH_MENU_ICONS: Record<MonthMenuKey, SvgIconComponent> = {
   unskip: ReplayOutlined,
   bill: ReceiptLongOutlined,
   reading: SpeedOutlined,
+  "edit-bill": EditOutlined,
   "collect-remaining": PaymentsOutlined,
   history: HistoryOutlined,
   "write-off": RemoveCircleOutlineOutlined,

@@ -1,18 +1,26 @@
 import type {
+  ChargeUsage,
   CustomerPlan,
   LineUsage,
+  MonthCell,
   Plan,
   PriceHistory,
   StatusCharge,
   StatusPriceChange,
   StatusReading,
+  UsageBill,
   UsageEntry,
   UsageMonth,
   UsageWait,
 } from "@shared/core/types";
 import { shiftBillingMonth } from "@shared/core/utils/date";
 import { groupBy } from "@shared/core/utils/groupBy";
-import { isLater } from "@shared/modules/customer/customer-plans/utils/priceHistory";
+import type { LinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
+import {
+  isLater,
+  linePriceAt,
+  type HistoricLine,
+} from "@shared/modules/customer/customer-plans/utils/priceHistory";
 
 export type UsageSourceLine = Pick<
   CustomerPlan,
@@ -151,6 +159,39 @@ export function usageMonthOf(usage: LineUsage, billingMonth: string): UsageMonth
       billedAt:
         reading.recordedAt > price.firstPricedAt ? reading.recordedAt : price.firstPricedAt,
     },
+  };
+}
+
+export function workedOutBill(month: UsageMonth | null | undefined): UsageBill | null {
+  return month?.kind === "bill" ? month.bill : null;
+}
+
+// The parts a saved usage bill keeps; computedAmount is what later shows a staff edit.
+export function chargeUsageOf(bill: UsageBill): ChargeUsage {
+  return {
+    previousReading: bill.previousReading,
+    reading: bill.reading,
+    units: bill.units,
+    unitPrice: bill.unitPrice,
+    fixedFee: bill.fixedFee,
+    computedAmount: bill.amount,
+  };
+}
+
+// A usage month costs its worked-out bill, never plan price rows; others their price then.
+export function monthPriceOf(
+  line: HistoricLine,
+  month: Pick<MonthCell, "billingMonth" | "usage">,
+  history: PriceHistory,
+): LinePrice {
+  if (!line.plan?.usage) return linePriceAt(line, month.billingMonth, history);
+  const bill = workedOutBill(month.usage);
+  return {
+    amount: bill?.amount ?? null,
+    currencyId: bill?.currencyId ?? null,
+    durationMonths: 1,
+    isFixed: bill !== null,
+    kind: "usage",
   };
 }
 

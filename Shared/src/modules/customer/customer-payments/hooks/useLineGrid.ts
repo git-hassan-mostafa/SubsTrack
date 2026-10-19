@@ -11,8 +11,8 @@ import {
 import type { LineGates } from "@shared/modules/customer/customer-payments/utils/monthActions";
 import type { MonthBlock } from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
 import { lastBillableMonth } from "@shared/modules/customer/customer-payments/utils/payWindow";
+import { monthPriceOf } from "@shared/modules/customer/customer-payments/utils/usageBill";
 import { resolveLinePrice, type LinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
-import { linePriceAt } from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
 import {
   pricePerPeriod,
@@ -89,8 +89,8 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
   const block: MonthBlock | null = selectedLine
     ? { startDate: selectedLine.startDate, durationMonths: linePrice.durationMonths }
     : null;
-  const priceAt = (billingMonth: string): LinePrice =>
-    selectedLine ? linePriceAt(selectedLine, billingMonth, prices) : linePrice;
+  const priceAt = (entry: Pick<MonthEntry, "billingMonth" | "usage">): LinePrice =>
+    selectedLine ? monthPriceOf(selectedLine, entry, prices) : linePrice;
   const grid = selectedLine
     ? (monthGridsByLine[selectedLine.id] ?? EMPTY_GRID)
     : EMPTY_GRID;

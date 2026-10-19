@@ -21,22 +21,29 @@ export function formatUnits(units: number, unitName: string): string {
   return `${unitNumber.format(units)} ${unitName}`;
 }
 
+type Translate = (key: string, opts?: Record<string, unknown>) => string;
+
+export type UsageParts = Pick<UsageBill, "fixedFee" | "units" | "unitPrice" | "amount">;
+
 // A usage bill stays in its plan's currency, never converted.
 export function usageBillLine(
-  bill: UsageBill,
-  usage: PlanUsage,
-  currencies: Currency[],
-  t: TFunction,
+  parts: UsageParts,
+  currency: Currency | null,
+  feeName: string,
+  t: Translate,
 ): string {
-  const currency = findCurrency(currencies, bill.currencyId);
   const money = (amount: number) => formatMoney(amount, currency, currency);
   return t("payments.reading.bill_line", {
-    feeName: usage.feeName,
-    fee: money(bill.fixedFee),
-    units: unitNumber.format(bill.units),
-    unitPrice: money(bill.unitPrice),
-    amount: money(bill.amount),
+    feeName,
+    fee: money(parts.fixedFee),
+    units: unitNumber.format(parts.units),
+    unitPrice: money(parts.unitPrice),
+    amount: money(parts.amount),
   });
+}
+
+export function formatReading(reading: number): string {
+  return unitNumber.format(reading);
 }
 
 function waitNote(
@@ -91,7 +98,12 @@ export function readingText(
     units: preview.units === null ? null : formatUnits(preview.units, usage.unitName),
     bill:
       preview.month?.kind === "bill"
-        ? usageBillLine(preview.month.bill, usage, currencies, t)
+        ? usageBillLine(
+            preview.month.bill,
+            findCurrency(currencies, preview.month.bill.currencyId),
+            usage.feeName,
+            t,
+          )
         : null,
     note:
       preview.month?.kind === "waiting"

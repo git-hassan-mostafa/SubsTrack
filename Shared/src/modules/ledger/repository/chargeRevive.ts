@@ -52,6 +52,30 @@ export function writeOffRevertPatch() {
   } as const;
 }
 
+const numberOrNull = (value: number | null | undefined) =>
+  value == null ? null : Number(value);
+
+type UsageColumns = Pick<
+  DbCharge,
+  | "usage_previous_reading"
+  | "usage_reading"
+  | "usage_units"
+  | "unit_price"
+  | "fixed_fee"
+  | "computed_amount"
+>;
+
+function usageColumnsOf(row: UsageColumns) {
+  return {
+    usage_previous_reading: numberOrNull(row.usage_previous_reading),
+    usage_reading: numberOrNull(row.usage_reading),
+    usage_units: numberOrNull(row.usage_units),
+    unit_price: numberOrNull(row.unit_price),
+    fixed_fee: numberOrNull(row.fixed_fee),
+    computed_amount: numberOrNull(row.computed_amount),
+  };
+}
+
 /** Nothing about the price moved, so an empty bill needs no re-pricing. */
 export function samePrice(row: DbCharge, next: CreateChargePayload): boolean {
   return (
@@ -59,8 +83,20 @@ export function samePrice(row: DbCharge, next: CreateChargePayload): boolean {
     row.currency_id === next.currency_id &&
     Number(row.rate_per_usd_snapshot) === Number(next.rate_per_usd_snapshot) &&
     row.duration_months === next.duration_months &&
-    row.plan_id === next.plan_id
+    row.plan_id === next.plan_id &&
+    JSON.stringify(usageColumnsOf(row)) === JSON.stringify(usageColumnsOf(next))
   );
+}
+
+function repricePatch(next: CreateChargePayload) {
+  return {
+    amount: next.amount,
+    currency_id: next.currency_id,
+    rate_per_usd_snapshot: next.rate_per_usd_snapshot,
+    duration_months: next.duration_months,
+    plan_id: next.plan_id,
+    ...usageColumnsOf(next),
+  };
 }
 
 /** The natural key `uq_charges_line_month` owns — null for a sale/manual bill. */
@@ -81,15 +117,18 @@ export function patchForIncomingCash(
   const revive = isDeadBill(row) ? revivePatch(next.issued_at) : {};
   const reprice =
     next.kind === "month" && paid <= 0 && !samePrice(row, next)
-      ? {
-          amount: next.amount,
-          currency_id: next.currency_id,
-          rate_per_usd_snapshot: next.rate_per_usd_snapshot,
-          duration_months: next.duration_months,
-          plan_id: next.plan_id,
-        }
+      ? repricePatch(next)
       : {};
   return { ...revive, ...reprice };
+}
+
+// Staff retyping a month bill with no money on it: raised again at the typed price.
+export function patchForRetype(
+  row: DbCharge,
+  next: CreateChargePayload,
+): Partial<DbCharge> {
+  const revive = isDeadBill(row) ? revivePatch(next.issued_at) : {};
+  return { ...revive, ...repricePatch(next) };
 }
 
 export function writeOffMark(

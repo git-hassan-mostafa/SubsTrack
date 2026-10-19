@@ -73,6 +73,11 @@ What a month shows after money moves. A month is Paid as soon as **any** money r
 42. Reading form, reading lower than last month's → warning shown, save still allowed, month stays "Waiting". Tick "Meter replaced this month" and type both meter readings → units = old meter's tail + new meter's head.
 43. Reading form on a month that has money, or (meter plans) whose next month has money → read only, no Save, no Remove; the menu row "Change reading" is greyed with the reason.
 44. Remove a reading → the month goes back to "Waiting".
+45. Collect an unpaid meter month (tap, Pay now, or To collect) → the amount is the worked-out bill in the plan's currency, not a typed amount; the saved bill shows the readings and "fee + units × unit price = total".
+46. Change bill amount on an unpaid meter month (⋮) → the month owes the typed amount; changing the reading later does not change it. Type the worked-out amount again → the month follows the reading again.
+47. Month with money on it, or written off → no Change bill amount; the save is refused.
+48. Payment on a meter month voided, then the reading changed → the month owes the new worked-out amount; reading removed → the month is "Waiting" and owes nothing.
+49. Write off an unpaid meter month → the written-off bill keeps its readings and worked-out sum.
 
 ## Customer portal
 

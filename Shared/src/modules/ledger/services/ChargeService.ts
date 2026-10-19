@@ -21,8 +21,13 @@ import type {
 } from "@shared/modules/ledger/repository/IChargeRepository";
 import { writeOffMark } from "@shared/modules/ledger/repository/chargeRevive";
 import { isWriteOffMonth } from "@shared/modules/ledger/utils/writeOffItems";
-import { mapDbChargeToCharge } from "@shared/modules/ledger/utils/mapper";
+import {
+  chargeUsageColumns,
+  mapDbChargeToCharge,
+} from "@shared/modules/ledger/utils/mapper";
 import { buildOwedView } from "@shared/modules/ledger/utils/owedView";
+import { roundMoney } from "@shared/modules/ledger/utils/waterfall";
+import { paidBillingMonths } from "@shared/modules/customer/customer-payments/utils/monthStatus";
 import {
   chargeLabel,
   openItemFromCharge,
@@ -41,6 +46,13 @@ export interface CreateManualChargeInput {
   dueDate: string;
   recordedByUserId: string | null;
   notes?: string | null;
+}
+
+export interface RetypeUsageBillInput {
+  item: OpenItem;
+  amount: number;
+  tenantId: string;
+  recordedByUserId: string;
 }
 
 export interface UpdateManualChargeInput {
@@ -343,6 +355,30 @@ class ChargeService {
     return [...stored, ...raised.map(mapDbChargeToCharge)];
   }
 
+  // Any staff may retype an unpaid usage bill; the worked-out parts stay beside it.
+  async retypeUsageBill(input: RetypeUsageBillInput): Promise<Charge> {
+    const { item } = input;
+    const lineId = item.customerPlanId;
+    const month = item.billingMonth;
+    if (item.kind !== "month" || !lineId || !month || !item.usage) {
+      throw new Error(i18n.t("errors.usage_line_not_usage"));
+    }
+    this.validateAmount(input.amount);
+    const bills = (await this.getMonthBillsForLines([lineId])).get(lineId) ?? [];
+    const writtenOff = bills.some(
+      (b) => b.charge.billingMonth === month && b.charge.writtenOffAt !== null,
+    );
+    if (writtenOff || paidBillingMonths(bills).includes(month)) {
+      throw new Error(i18n.t("errors.usage_bill_locked"));
+    }
+    const bill = await this.monthBillOf(item, input.tenantId, input.recordedByUserId);
+    const row = await repositories().charge.raiseMonthBill({
+      ...bill,
+      amount: roundMoney(input.amount),
+    });
+    return mapDbChargeToCharge(row);
+  }
+
   // Same id a collect would raise, so two offline phones make ONE row (#186).
   private async monthBillOf(
     item: OpenItem,
@@ -370,6 +406,7 @@ class ChargeService {
       due_date: item.dueDate,
       recorded_by_user_id: recordedBy,
       notes: null,
+      ...chargeUsageColumns(item.usage ?? null),
     };
   }
 

@@ -23,6 +23,7 @@ import type {
   WriteOffMark,
 } from "@shared/modules/ledger/repository/IChargeRepository";
 import {
+  patchForRetype,
   patchForWriteOff,
   writeOffRevertPatch,
 } from "@shared/modules/ledger/repository/chargeRevive";
@@ -529,6 +530,14 @@ export class OfflineChargeRepository
 
   async revertWriteOff(id: string): Promise<DbCharge> {
     return this.patch(id, { ...writeOffRevertPatch() }, "update");
+  }
+
+  async raiseMonthBill(bill: CreateChargePayload): Promise<DbCharge> {
+    const target = await billTargetIn(this.db, bill);
+    if ("reuse" in target) {
+      return this.patch(target.reuse.id, patchForRetype(target.reuse, bill), "update");
+    }
+    return this.create(target.idTaken ? { ...bill, id: newId() } : bill);
   }
 
   private async patch(

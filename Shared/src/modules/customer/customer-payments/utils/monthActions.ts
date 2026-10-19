@@ -99,6 +99,11 @@ export function isMonthReadingLocked(
   return isReadingLocked(usageEntry, entry.billingMonth, gates.paidMonths);
 }
 
+// An unpaid usage bill (worked out or typed) may be retyped by any staff.
+export function canRetypeUsageBill(entry: MonthEntry): boolean {
+  return entry.usage !== null && entry.status === "unpaid";
+}
+
 export type MonthTap =
   | { kind: "before_start" }
   | { kind: "reading" }
@@ -130,6 +135,7 @@ export type MonthMenuKey =
   | "unskip"
   | "bill"
   | "reading"
+  | "edit-bill"
   | "collect-remaining"
   | "history"
   | "write-off"
@@ -212,6 +218,9 @@ export function monthMenuItems(
   }
   if (entry.usage && viewer.usageEntry) {
     items.push(readingMenuItem(entry, gates, viewer.usageEntry));
+  }
+  if (canRetypeUsageBill(entry)) {
+    items.push({ key: "edit-bill", group: "manage", labelKey: "payments.usage_bill.edit" });
   }
   if (entry.status === "unpaid" || entry.status === "future") {
     items.push({

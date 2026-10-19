@@ -25,6 +25,7 @@ import { receivedCustody } from "@shared/modules/wallet/utils/custodyValues";
 import {
   monthBillKey,
   patchForIncomingCash,
+  patchForRetype,
   patchForWriteOff,
   resolveBillTarget,
 } from "@shared/modules/ledger/repository/chargeRevive";
@@ -373,6 +374,23 @@ export const fakeChargeRepository = {
       );
     }
     return written;
+  },
+  async raiseMonthBill(next: CreateChargePayload): Promise<DbCharge> {
+    const key = monthBillKey(next);
+    const target = resolveBillTarget(
+      next,
+      key ? charges.find((c) => monthBillKey(c) === key) : null,
+      charges.find((c) => c.id === next.id),
+    );
+    if ("reuse" in target) {
+      Object.assign(target.reuse, patchForRetype(target.reuse, next), {
+        updated_at: new Date().toISOString(),
+      });
+      return hydrateCharge(target.reuse);
+    }
+    return store.seedCharge(
+      target.idTaken ? { ...next, id: nextId("chg") } : { ...next },
+    );
   },
   async writtenOffInRange(
     startIso: string,
