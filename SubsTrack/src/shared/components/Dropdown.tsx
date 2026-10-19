@@ -144,13 +144,13 @@ export function Dropdown<T extends string | number | null = string>({
                 : "text-gray-400"
           }`}
         >
-          {(disabled ? disabledHint : undefined) ??
-            displayLabel ??
-            placeholder ??
-            t("customers.select_plan")}
+          {displayLabel ?? placeholder ?? t("customers.select_plan")}
         </Text>
         <Ionicons name="chevron-down" size={18} color={COLORS.gray500} />
       </PressableOpacity>
+      {disabled && disabledHint ? (
+        <Text className="mt-1 text-xs text-gray-500">{disabledHint}</Text>
+      ) : null}
       {modal}
     </View>
   );
