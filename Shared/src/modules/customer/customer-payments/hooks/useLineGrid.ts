@@ -14,7 +14,10 @@ import { lastBillableMonth } from "@shared/modules/customer/customer-payments/ut
 import { resolveLinePrice, type LinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
 import { linePriceAt } from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import { useOwedChanged } from "@shared/modules/ledger/hooks/useOwedChanged";
-import { pricePerPeriod } from "@shared/modules/admin/plans/utils/planLabels";
+import {
+  pricePerPeriod,
+  usageBillingLabel,
+} from "@shared/modules/admin/plans/utils/planLabels";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { usePaymentSlice } from "@shared/state/hooks/usePaymentSlice";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
@@ -29,6 +32,7 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
   const bills = usePaymentSlice((s) => s.bills);
   const skips = usePaymentSlice((s) => s.skips);
   const prices = usePaymentSlice((s) => s.prices);
+  const readings = usePaymentSlice((s) => s.readings);
   const monthGridsByLine = usePaymentSlice((s) => s.monthGridsByLine);
   const uncoveredMonthsByLine = usePaymentSlice((s) => s.uncoveredMonthsByLine);
   const paidMonthsByLine = usePaymentSlice((s) => s.paidMonthsByLine);
@@ -74,7 +78,7 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
 
   useEffect(() => {
     if (lines.length > 0 && billsReady) buildGrids(lines, year);
-  }, [year, linesKey, lines, bills, skips, billsReady, buildGrids]);
+  }, [year, linesKey, lines, bills, skips, readings, billsReady, buildGrids]);
 
   useEffect(() => {
     return () => resetPayments();
@@ -115,6 +119,8 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
 
   const priceLabel = (() => {
     if (!selectedLine) return null;
+    const usage = selectedLine.plan?.usage;
+    if (usage) return usageBillingLabel(usage, t);
     if (!linePrice.isFixed) return t("common.custom");
     const amount = formatMoney(
       linePrice.amount!,

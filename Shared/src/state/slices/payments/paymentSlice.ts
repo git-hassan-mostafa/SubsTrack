@@ -8,10 +8,16 @@ import type {
   MonthEntry,
   PriceHistory,
   SkippedMonth,
+  UsageReading,
 } from "@shared/core/types";
 import paymentService from "@shared/modules/customer/customer-payments/services/PaymentService";
 import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
 import type { SetSkipInput } from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
+import {
+  usageReadingService,
+  type SaveUsageInput,
+} from "@shared/modules/customer/customer-payments/services/UsageReadingService";
+import { usageByLineOf } from "@shared/modules/customer/customer-payments/utils/usageBill";
 import { priceHistoryService } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
 import { EMPTY_PRICE_HISTORY } from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import { chargeService } from "@shared/modules/ledger/services/ChargeService";
@@ -26,18 +32,12 @@ import {
   getCustomerStatuses,
 } from "@shared/modules/customer/customer-payments/utils/monthStatus";
 
-/**
- * Month-grid state ONLY.
- *
- * Every write that moves money lives in the `ledger` slice — a month is settled
- * by collecting, exactly like a sale or a custom fee, so there is no separate
- * "record a payment" path any more. What is left here is the viewed customer's
- * bills and skips, and the three per-line derivations the UI gates on.
- */
+// The viewed customer's months only; money moves through the ledger slice.
 export interface PaymentSlice {
   bills: MonthBill[];
   skips: SkippedMonth[];
   prices: PriceHistory;
+  readings: UsageReading[];
   monthGridsByLine: Record<string, MonthEntry[]>;
   uncoveredMonthsByLine: Record<string, string[]>;
   paidMonthsByLine: Record<string, string[]>;
@@ -45,6 +45,7 @@ export interface PaymentSlice {
   billsCustomerId: string | null;
   loading: boolean;
   loadingSkip: boolean;
+  loadingReading: boolean;
   error: string | null;
 
   fetchCustomerStatuses: (customers: Customer[]) => Promise<void>;
@@ -67,6 +68,8 @@ export interface PaymentSlice {
     voidedBy: string,
     reason: string | null,
   ) => Promise<{ ok: boolean; blockedBy: string | null }>;
+  saveReading: (input: SaveUsageInput) => Promise<boolean>;
+  removeReading: (reading: UsageReading, voidedBy: string) => Promise<boolean>;
   clearError: () => void;
   reset: () => void;
 }
@@ -80,6 +83,7 @@ export const createPaymentSlice: StateCreator<
   bills: [],
   skips: [],
   prices: EMPTY_PRICE_HISTORY,
+  readings: [],
   monthGridsByLine: {},
   uncoveredMonthsByLine: {},
   paidMonthsByLine: {},
@@ -87,6 +91,7 @@ export const createPaymentSlice: StateCreator<
   billsCustomerId: null,
   loading: false,
   loadingSkip: false,
+  loadingReading: false,
   error: null,
 
   fetchCustomerStatuses: async (customers) => {
@@ -118,16 +123,19 @@ export const createPaymentSlice: StateCreator<
       state.payments.error = null;
     });
     try {
-      const [bills, skips, prices] = await Promise.all([
+      const usageLineIds = lines.filter((l) => l.plan?.usage).map((l) => l.id);
+      const [bills, skips, prices, readings] = await Promise.all([
         chargeService.getMonthBillsForCustomer(customerId),
         skippedMonthService.getSkipsForCustomer(customerId),
         priceHistoryService.getForLines(lines),
+        usageReadingService.getForLines(usageLineIds),
       ]);
       if (isStaleEpoch(epoch)) return;
       set((state) => {
         state.payments.bills = bills;
         state.payments.skips = skips;
         state.payments.prices = prices;
+        state.payments.readings = readings;
         state.payments.billsCustomerId = customerId;
         state.payments.loading = false;
       });
@@ -151,13 +159,14 @@ export const createPaymentSlice: StateCreator<
   },
 
   buildGrids: (lines, year) => {
-    const { bills, skips } = get().payments;
+    const { bills, skips, readings, prices } = get().payments;
     const derived = buildGridsFor(
       lines,
       bills,
       skips,
       year,
       getUnpaidRule(get),
+      usageByLineOf(lines, readings, prices),
     );
     set((state) => {
       state.payments.monthGridsByLine = derived.grids;
@@ -233,6 +242,54 @@ export const createPaymentSlice: StateCreator<
     return { ok, blockedBy: null };
   },
 
+  saveReading: async (input) => {
+    set((state) => {
+      state.payments.loadingReading = true;
+      state.payments.error = null;
+    });
+    try {
+      const saved = await usageReadingService.save(input);
+      const others = get().payments.readings.filter(
+        (r) =>
+          r.customerPlanId !== saved.customerPlanId ||
+          r.billingMonth !== saved.billingMonth,
+      );
+      set((state) => {
+        state.payments.readings = [...others, saved];
+        state.payments.loadingReading = false;
+      });
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.payments.error = e instanceof Error ? e.message : String(e);
+        state.payments.loadingReading = false;
+      });
+      return false;
+    }
+  },
+
+  removeReading: async (reading, voidedBy) => {
+    set((state) => {
+      state.payments.loadingReading = true;
+      state.payments.error = null;
+    });
+    try {
+      await usageReadingService.remove(reading, voidedBy);
+      const kept = get().payments.readings.filter((r) => r.id !== reading.id);
+      set((state) => {
+        state.payments.readings = kept;
+        state.payments.loadingReading = false;
+      });
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.payments.error = e instanceof Error ? e.message : String(e);
+        state.payments.loadingReading = false;
+      });
+      return false;
+    }
+  },
+
   clearError: () => {
     set((state) => {
       state.payments.error = null;
@@ -244,6 +301,7 @@ export const createPaymentSlice: StateCreator<
       state.payments.bills = [];
       state.payments.skips = [];
       state.payments.prices = EMPTY_PRICE_HISTORY;
+      state.payments.readings = [];
       state.payments.monthGridsByLine = {};
       state.payments.uncoveredMonthsByLine = {};
       state.payments.paidMonthsByLine = {};
@@ -251,6 +309,7 @@ export const createPaymentSlice: StateCreator<
       state.payments.billsCustomerId = null;
       state.payments.loading = false;
       state.payments.loadingSkip = false;
+      state.payments.loadingReading = false;
       state.payments.error = null;
     });
   },

@@ -68,6 +68,11 @@ What a month shows after money moves. A month is Paid as soon as **any** money r
 37. Month prices screen: type only one of the two prices for a plan, or a price per unit of 0 → Save stays off; nothing is saved for any plan.
 38. Customer form, meter line with no start reading → its first month stays "Waiting"; type the start reading and save → the first month gets its bill.
 39. Money on the line's first month → the start reading can no longer be changed (field locked, save refused). Money only on later months → it can still be fixed.
+40. Customer months, tap a "Waiting" meter month → reading form opens; type the reading → it shows the units used and the bill (fixed fee + units × unit price) before saving; save → the month turns Unpaid with no reload.
+41. Reading form on a month whose price is not set → it says the price is not set yet; after saving, the month stays "Waiting".
+42. Reading form, reading lower than last month's → warning shown, save still allowed, month stays "Waiting". Tick "Meter replaced this month" and type both meter readings → units = old meter's tail + new meter's head.
+43. Reading form on a month that has money, or (meter plans) whose next month has money → read only, no Save, no Remove; the menu row "Change reading" is greyed with the reason.
+44. Remove a reading → the month goes back to "Waiting".
 
 ## Customer portal
 

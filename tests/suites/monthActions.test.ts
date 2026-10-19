@@ -42,7 +42,7 @@ import { enabledKeys, greyed } from "../helpers/menus";
 // TC-MA-* — the month grid doors both apps run (tap, menu, selection, link).
 const LINE = line({ id: "line-1", startDate: "2026-01-01", plan: plan({ id: "p1" }) });
 
-const STAFF: MonthMenuViewer = { isAdmin: false, isFixed: true, canSend: true };
+const STAFF: MonthMenuViewer = { isAdmin: false, isFixed: true, canSend: true, usageEntry: null };
 const ADMIN: MonthMenuViewer = { ...STAFF, isAdmin: true };
 
 interface Setup {

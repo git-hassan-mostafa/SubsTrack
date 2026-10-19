@@ -1,5 +1,6 @@
 import type {
   CustomerPlan,
+  LineUsage,
   MonthBill,
   MonthEntry,
   SkippedMonth,
@@ -25,6 +26,7 @@ export function buildGridsFor(
   skips: SkippedMonth[],
   year: number,
   unpaidRule: UnpaidStartRule,
+  usageByLine: ReadonlyMap<string, LineUsage> = new Map(),
 ): LineDerivations {
   const grids: Record<string, MonthEntry[]> = {};
   const uncoveredMonths: Record<string, string[]> = {};
@@ -32,12 +34,14 @@ export function buildGridsFor(
   for (const line of lines) {
     const lineBills = bills.filter((b) => b.charge.customerPlanId === line.id);
     const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
+    const usage = usageByLine.get(line.id) ?? null;
     grids[line.id] = buildMonthGrid(
       line,
       lineBills,
       lineSkips,
       year,
       unpaidRule,
+      usage,
     );
     uncoveredMonths[line.id] = uncoveredBillingMonths(
       line,
@@ -45,6 +49,7 @@ export function buildGridsFor(
       lineSkips,
       unpaidRule,
       year,
+      usage,
     );
     paidMonths[line.id] = paidBillingMonths(lineBills);
   }

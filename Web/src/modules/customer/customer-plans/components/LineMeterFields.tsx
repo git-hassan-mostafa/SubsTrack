@@ -1,8 +1,7 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
-import { amountText, decimalDigitsOnly, parseAmount } from "@shared/core/utils/inputText";
+import { AmountField } from "@/shared/components/AmountField";
 
 interface LineMeterFieldsProps {
   meterNumber: string;
@@ -22,9 +21,6 @@ export function LineMeterFields({
   onStartReadingChange,
 }: LineMeterFieldsProps) {
   const { t } = useTranslation();
-  const [readingText, setReadingText] = useState(amountText(startReading));
-
-  if (parseAmount(readingText) !== startReading) setReadingText(amountText(startReading));
 
   const helperText = startReadingLocked
     ? t("subscriptions.start_reading_locked")
@@ -43,20 +39,15 @@ export function LineMeterFields({
         size="small"
         sx={{ flex: 1 }}
       />
-      <TextField
+      <AmountField
         label={t("subscriptions.start_reading_label")}
-        value={readingText}
-        onChange={(event) => {
-          const next = decimalDigitsOnly(event.target.value);
-          setReadingText(next);
-          onStartReadingChange(parseAmount(next));
-        }}
+        value={startReading}
+        onChange={onStartReadingChange}
         placeholder={t("subscriptions.start_reading_placeholder")}
         disabled={disabled || startReadingLocked}
         helperText={helperText}
         size="small"
         sx={{ flex: 1 }}
-        slotProps={{ htmlInput: { inputMode: "decimal" } }}
       />
     </Stack>
   );

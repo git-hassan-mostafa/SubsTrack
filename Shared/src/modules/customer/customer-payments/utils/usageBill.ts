@@ -91,7 +91,7 @@ export function usagePriceAt(
 }
 
 // The start month counts from the line's start reading, every later month from the one before.
-function previousReadingOf(usage: LineUsage, billingMonth: string): number | null {
+export function previousReadingOf(usage: LineUsage, billingMonth: string): number | null {
   if (billingMonth.slice(0, 7) === usage.startDate.slice(0, 7)) {
     return usage.startReading;
   }
@@ -120,6 +120,14 @@ function unitsOf(
     units: roundTo(parts.reduce((sum, part) => sum + part, 0), 3),
     previousReading: previous,
   };
+}
+
+// Units alone, priced or not — what a new reading is checked against.
+export function usageUnitsOf(usage: LineUsage, billingMonth: string): number | null {
+  const reading = usage.readings.get(billingMonth);
+  if (!reading) return null;
+  const units = unitsOf(usage, reading, billingMonth);
+  return "units" in units ? units.units : null;
 }
 
 // The ONLY place a usage bill is worked out: fixed fee + units × that month's unit price.

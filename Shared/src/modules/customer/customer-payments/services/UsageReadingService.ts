@@ -3,12 +3,16 @@ import { repositories } from "@shared/core/runtime/repositories";
 import type {
   CustomerPlan,
   MeterChange,
+  UsageEntry,
   UsageReading,
 } from "@shared/core/types";
 import { inChunks } from "@shared/core/utils/chunk";
 import { nowIso } from "@shared/core/utils/ids";
 import { mapDbUsageReading } from "@shared/modules/customer/customer-payments/utils/mapper";
+import { paidBillingMonths } from "@shared/modules/customer/customer-payments/utils/monthStatus";
+import { isReadingLocked } from "@shared/modules/customer/customer-payments/utils/usageBill";
 import { currentBillingMonth } from "@shared/modules/customer/customer-plans/utils/priceHistory";
+import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 
 const ID_BATCH_SIZE = 200;
 
@@ -47,6 +51,7 @@ class UsageReadingService {
     ) {
       throw new Error(i18n.t("errors.usage_value_invalid"));
     }
+    await this.assertUnlocked(input.line.id, usage.entry, input.billingMonth);
     const existing = (await this.getForLines([input.line.id])).find(
       (r) => r.billingMonth === input.billingMonth,
     );
@@ -67,7 +72,26 @@ class UsageReadingService {
   }
 
   async remove(reading: UsageReading, voidedBy: string): Promise<void> {
+    const entry: UsageEntry = reading.reading !== null ? "reading" : "direct";
+    await this.assertUnlocked(reading.customerPlanId, entry, reading.billingMonth);
     await repositories().usageReading.remove(reading.id, voidedBy);
+  }
+
+  // Money on the month (by meter, on the next one too) froze the units it paid for.
+  private async assertUnlocked(
+    lineId: string,
+    entry: UsageEntry,
+    billingMonth: string,
+  ): Promise<void> {
+    const bills = (await chargeService.getMonthBillsForLines([lineId])).get(lineId) ?? [];
+    if (!isReadingLocked(entry, billingMonth, paidBillingMonths(bills))) return;
+    throw new Error(
+      i18n.t(
+        entry === "reading"
+          ? "errors.usage_reading_locked_paid"
+          : "errors.usage_units_locked_paid",
+      ),
+    );
   }
 
   private assertMonth(startDate: string, billingMonth: string): void {

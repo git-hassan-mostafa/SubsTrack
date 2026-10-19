@@ -1,4 +1,4 @@
-import type { Charge, MonthEntry, OpenItem } from "@shared/core/types";
+import type { Charge, MonthEntry, OpenItem, UsageEntry } from "@shared/core/types";
 import { ADMIN_ONLY, withReason, type MenuItem } from "@shared/shared/lib/menuItem";
 import {
   blockingPaidMonths,
@@ -6,6 +6,7 @@ import {
   coveredBillingMonths,
 } from "./payOrder";
 import { isAfterMonth, type YearMonth } from "./payWindow";
+import { isReadingLocked } from "./usageBill";
 
 // One line's pay and void gates; all-time, so the viewed year never unlocks one.
 export interface LineGates {
@@ -85,8 +86,22 @@ export function billVoidMonths(charge: Charge, fallbackMonth: string): string[] 
   );
 }
 
+// A usage month with no reading (or typed units) of its own yet.
+export function isUsageMissing(entry: MonthEntry): boolean {
+  return entry.usage?.kind === "waiting" && entry.usage.waitingFor === "reading";
+}
+
+export function isMonthReadingLocked(
+  entry: MonthEntry,
+  gates: LineGates,
+  usageEntry: UsageEntry,
+): boolean {
+  return isReadingLocked(usageEntry, entry.billingMonth, gates.paidMonths);
+}
+
 export type MonthTap =
   | { kind: "before_start" }
+  | { kind: "reading" }
   | { kind: "unskip" }
   | { kind: "bill" }
   | { kind: "pay_limit" }
@@ -95,6 +110,7 @@ export type MonthTap =
 
 export function monthTap(entry: MonthEntry, gates: LineGates): MonthTap {
   if (entry.status === "before_start") return { kind: "before_start" };
+  if (entry.status === "waiting") return { kind: "reading" };
   if (entry.status === "skipped" && !isLockedSkipped(entry, gates)) {
     return { kind: "unskip" };
   }
@@ -113,6 +129,7 @@ export type MonthMenuKey =
   | "skip"
   | "unskip"
   | "bill"
+  | "reading"
   | "collect-remaining"
   | "history"
   | "write-off"
@@ -125,6 +142,24 @@ export interface MonthMenuViewer {
   isAdmin: boolean;
   isFixed: boolean;
   canSend: boolean;
+  usageEntry: UsageEntry | null;
+}
+
+function readingMenuItem(
+  entry: MonthEntry,
+  gates: LineGates,
+  usageEntry: UsageEntry,
+): MonthMenuItem {
+  const meter = usageEntry === "reading";
+  const missing = isUsageMissing(entry);
+  const labelKey = meter
+    ? missing ? "payments.reading.enter_reading" : "payments.reading.fix_reading"
+    : missing ? "payments.reading.enter_units" : "payments.reading.fix_units";
+  return withReason<MonthMenuKey>(
+    { key: "reading", group: "manage", labelKey },
+    isMonthReadingLocked(entry, gates, usageEntry) &&
+      (meter ? "why_disabled.reading_locked" : "why_disabled.usage_locked"),
+  );
 }
 
 // Why Pay now is greyed on a month that still owes; null when it can run.
@@ -174,6 +209,9 @@ export function monthMenuItems(
         labelKey: "ledger.collect_part",
       });
     }
+  }
+  if (entry.usage && viewer.usageEntry) {
+    items.push(readingMenuItem(entry, gates, viewer.usageEntry));
   }
   if (entry.status === "unpaid" || entry.status === "future") {
     items.push({

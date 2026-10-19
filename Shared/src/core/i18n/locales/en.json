@@ -526,6 +526,37 @@
       "confirm_multi_month_message": "This will record a payment of {{amount}} covering {{months}}.",
       "confirm": "Record"
     },
+    "reading": {
+      "title_reading": "Meter reading · {{month}}",
+      "title_units": "Usage · {{month}}",
+      "value_reading": "Reading on the meter",
+      "value_units": "Usage ({{unit}})",
+      "meter_number": "Meter number",
+      "previous": "Last reading",
+      "no_previous": "None yet",
+      "units": "Used",
+      "bill": "Bill",
+      "bill_line": "{{feeName}} {{fee}} + {{units}} × {{unitPrice}} = {{amount}}",
+      "waiting_price": "The price for {{month}} is not set yet. The bill appears once it is set in Month prices.",
+      "waiting_previous_reading": "Last month has no reading, so this month's usage can't be worked out yet.",
+      "waiting_start_reading": "This plan has no start reading. Add it on the customer's plan to work out the first month.",
+      "warn_below_previous": "Lower than the last reading ({{previous}}). If the meter was replaced, tick \"Meter replaced this month\".",
+      "warn_high_usage": "Much higher than usual (about {{usual}} a month).",
+      "locked_reading": "This month or the next one already has payments, so this reading can't be changed.",
+      "locked_units": "This month already has payments, so its usage can't be changed.",
+      "meter_replaced": "Meter replaced this month",
+      "old_meter_final": "Old meter's last reading",
+      "new_meter_start": "New meter's first reading",
+      "new_meter_number": "New meter number (optional)",
+      "saved_on": "Saved on",
+      "enter_reading": "Enter reading",
+      "fix_reading": "Change reading",
+      "enter_units": "Enter usage",
+      "fix_units": "Change usage",
+      "remove": "Remove reading",
+      "remove_title": "Remove this reading?",
+      "remove_message": "The month goes back to Waiting until a new reading is saved."
+    },
     "skip": {
       "skipped_label": "Skipped",
       "skip_action": "Skip month",
@@ -826,6 +857,8 @@
     "usage_before_start": "This month is before the plan started.",
     "usage_future_month": "Usage can't be entered for a future month.",
     "usage_reading_not_found": "This reading was not found. It may have been removed already.",
+    "usage_reading_locked_paid": "This month or the next one already has payments, so this reading can no longer be changed.",
+    "usage_units_locked_paid": "This month already has payments, so its usage can no longer be changed.",
     "product_name_required": "Product name is required",
     "product_price_required": "Price is required",
     "product_price_positive": "Price must be greater than 0",
@@ -2146,6 +2179,8 @@
     "stock_reverted": "This entry is already reversed",
     "line_stopped": "This service stopped before this month",
     "month_skipped": "This month is skipped — unskip it first",
-    "later_month_paid": "A later month is paid — collect this month instead"
+    "later_month_paid": "A later month is paid — collect this month instead",
+    "reading_locked": "This month or the next one is paid",
+    "usage_locked": "This month is paid"
   }
 }

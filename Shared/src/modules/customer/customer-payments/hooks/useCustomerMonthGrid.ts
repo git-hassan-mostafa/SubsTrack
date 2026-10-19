@@ -108,6 +108,7 @@ export function useCustomerMonthGrid({
   const [busyMonth, setBusyMonth] = useState<string | null>(null);
   const [billEntry, setBillEntry] = useState<MonthEntry | null>(null);
   const [voidEntry, setVoidEntry] = useState<MonthEntry | null>(null);
+  const [readingEntry, setReadingEntry] = useState<MonthEntry | null>(null);
   const [history, setHistory] = useState<MonthHistoryRequest | null>(null);
   const [skipRequest, setSkipRequest] = useState<SkipRequest | null>(null);
   const sendAfterCollect = useRef(false);
@@ -219,6 +220,9 @@ export function useCustomerMonthGrid({
     switch (action.kind) {
       case "before_start":
         notAvailable(t("payments.before_start_date"));
+        return;
+      case "reading":
+        setReadingEntry(entry);
         return;
       case "unskip":
         setSkipRequest({ entries: [entry], mode: "unskip" });
@@ -361,6 +365,7 @@ export function useCustomerMonthGrid({
       isAdmin,
       isFixed: quickPayItem(itemsFor([entry])[0]) !== null,
       canSend,
+      usageEntry: selectedLine?.plan?.usage?.entry ?? null,
     });
 
   const runMenu = (key: MonthMenuKey, entry: MonthEntry) => {
@@ -384,6 +389,9 @@ export function useCustomerMonthGrid({
         return;
       case "bill":
         setBillEntry(entry);
+        return;
+      case "reading":
+        setReadingEntry(entry);
         return;
       case "history":
         void openHistory(entry);
@@ -528,6 +536,8 @@ export function useCustomerMonthGrid({
       void writeOff(charge, balance);
     },
     revertWriteOff,
+    reading: readingEntry,
+    closeReading: () => setReadingEntry(null),
     voidRequest: voidEntry,
     closeVoid: () => setVoidEntry(null),
     confirmVoid,

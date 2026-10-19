@@ -36,6 +36,7 @@ import type {
   MonthMenuKey,
   MonthSelectionKey,
 } from "@shared/modules/customer/customer-payments/utils/monthActions";
+import { MeterReadingSheet } from "./MeterReadingSheet";
 import { MonthGrid } from "./MonthGrid";
 import { SkipMonthSheet } from "./SkipMonthSheet";
 import {
@@ -68,6 +69,7 @@ const MENU_ICONS: Record<MonthMenuKey, Glyph> = {
   skip: "play-skip-forward-outline",
   unskip: "refresh-outline",
   bill: "receipt-outline",
+  reading: "speedometer-outline",
   "collect-remaining": "cash-outline",
   history: "time-outline",
   "write-off": "remove-circle-outline",
@@ -395,6 +397,14 @@ export function CustomerPaymentPanel({
           chargeId={grid.history.chargeId}
           subtitle={grid.history.subtitle}
           onDismiss={grid.closeHistory}
+        />
+      )}
+
+      {grid.reading && selectedLine && (
+        <MeterReadingSheet
+          line={selectedLine}
+          billingMonth={grid.reading.billingMonth}
+          onDismiss={grid.closeReading}
         />
       )}
 

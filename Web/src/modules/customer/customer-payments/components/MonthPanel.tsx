@@ -20,6 +20,7 @@ import { BillDialog } from "@/modules/ledger/bill/components/BillDialog";
 import { useCollectDialog } from "@/modules/ledger/collect/hooks/useCollectDialog";
 import { VoidBillDialog } from "@/modules/ledger/void/components/VoidBillDialog";
 import { LineTabs } from "./LineTabs";
+import { MeterReadingDialog } from "./MeterReadingDialog";
 import { MONTH_MENU_ICONS } from "../utils/monthGridIcons";
 import { SkipMonthsDialog } from "./SkipMonthsDialog";
 import { YearCard } from "./YearCard";
@@ -65,7 +66,7 @@ export function MonthPanel({ customer }: { customer: Customer }) {
       run: (key) => grid.runMenu(key, entry),
     });
 
-  const dialogOpen = !!collect.dialog || !!grid.voidRequest || !!grid.skipRequest;
+  const dialogOpen = !!collect.dialog || !!grid.voidRequest || !!grid.skipRequest || !!grid.reading;
   const error = dialogOpen ? null : (grid.paymentsError ?? grid.ledgerError);
   const banner = grid.unpaidBanner;
   const bill = grid.bill;
@@ -146,6 +147,14 @@ export function MonthPanel({ customer }: { customer: Customer }) {
           targets={grid.history.targets}
           name={grid.history.subtitle}
           onClose={grid.closeHistory}
+        />
+      ) : null}
+
+      {grid.reading && selectedLine ? (
+        <MeterReadingDialog
+          line={selectedLine}
+          billingMonth={grid.reading.billingMonth}
+          onClose={grid.closeReading}
         />
       ) : null}
 

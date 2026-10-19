@@ -534,6 +534,37 @@
       "confirm_multi_month_message": "سيتم تسجيل دفعة بقيمة {{amount}} تشمل {{months}}.",
       "confirm": "تسجيل"
     },
+    "reading": {
+      "title_reading": "قراءة العداد · {{month}}",
+      "title_units": "الاستهلاك · {{month}}",
+      "value_reading": "الرقم على العداد",
+      "value_units": "الاستهلاك ({{unit}})",
+      "meter_number": "رقم العداد",
+      "previous": "آخر قراءة",
+      "no_previous": "لا يوجد بعد",
+      "units": "المستهلك",
+      "bill": "الفاتورة",
+      "bill_line": "{{feeName}} {{fee}} + {{units}} × {{unitPrice}} = {{amount}}",
+      "waiting_price": "سعر {{month}} غير محدد بعد. تظهر الفاتورة بعد تحديده في أسعار الأشهر.",
+      "waiting_previous_reading": "الشهر الماضي بلا قراءة، لذلك لا يمكن حساب استهلاك هذا الشهر بعد.",
+      "waiting_start_reading": "هذه الخطة بلا قراءة بداية. أضفها في خطة الزبون لحساب الشهر الأول.",
+      "warn_below_previous": "أقل من آخر قراءة ({{previous}}). إذا تم تبديل العداد، اختر «تم تبديل العداد هذا الشهر».",
+      "warn_high_usage": "أعلى بكثير من المعتاد (حوالي {{usual}} في الشهر).",
+      "locked_reading": "هذا الشهر أو الشهر التالي فيه دفعات، لذلك لا يمكن تغيير هذه القراءة.",
+      "locked_units": "هذا الشهر فيه دفعات، لذلك لا يمكن تغيير استهلاكه.",
+      "meter_replaced": "تم تبديل العداد هذا الشهر",
+      "old_meter_final": "آخر قراءة للعداد القديم",
+      "new_meter_start": "أول قراءة للعداد الجديد",
+      "new_meter_number": "رقم العداد الجديد (اختياري)",
+      "saved_on": "تاريخ الحفظ",
+      "enter_reading": "إدخال القراءة",
+      "fix_reading": "تعديل القراءة",
+      "enter_units": "إدخال الاستهلاك",
+      "fix_units": "تعديل الاستهلاك",
+      "remove": "حذف القراءة",
+      "remove_title": "حذف هذه القراءة؟",
+      "remove_message": "يعود الشهر إلى «بانتظار» حتى تُحفظ قراءة جديدة."
+    },
     "skip": {
       "skipped_label": "متخطّى",
       "skip_action": "تخطّي الشهر",
@@ -834,6 +865,8 @@
     "usage_before_start": "هذا الشهر قبل بدء الخطة.",
     "usage_future_month": "لا يمكن إدخال الاستهلاك لشهر قادم.",
     "usage_reading_not_found": "لم يتم العثور على هذه القراءة. ربما تمت إزالتها.",
+    "usage_reading_locked_paid": "هذا الشهر أو الشهر التالي فيه دفعات، لذلك لم يعد بالإمكان تغيير هذه القراءة.",
+    "usage_units_locked_paid": "هذا الشهر فيه دفعات، لذلك لم يعد بالإمكان تغيير استهلاكه.",
     "product_name_required": "اسم المنتج مطلوب",
     "product_price_required": "السعر مطلوب",
     "product_price_positive": "السعر يجب أن يكون أكبر من 0",
@@ -2290,6 +2323,8 @@
     "stock_reverted": "هذا الإدخال ملغى مسبقاً",
     "line_stopped": "توقفت هذه الخدمة قبل هذا الشهر",
     "month_skipped": "هذا الشهر متخطّى — ألغِ التخطّي أولاً",
-    "later_month_paid": "شهر لاحق مدفوع — حصّل هذا الشهر بدلاً من ذلك"
+    "later_month_paid": "شهر لاحق مدفوع — حصّل هذا الشهر بدلاً من ذلك",
+    "reading_locked": "هذا الشهر أو التالي مدفوع",
+    "usage_locked": "هذا الشهر مدفوع"
   }
 }

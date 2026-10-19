@@ -8,6 +8,7 @@ import RemoveCircleOutlineOutlined from "@mui/icons-material/RemoveCircleOutline
 import ReceiptLongOutlined from "@mui/icons-material/ReceiptLongOutlined";
 import ReplayOutlined from "@mui/icons-material/ReplayOutlined";
 import SkipNextOutlined from "@mui/icons-material/SkipNextOutlined";
+import SpeedOutlined from "@mui/icons-material/SpeedOutlined";
 import UndoOutlined from "@mui/icons-material/UndoOutlined";
 import WhatsApp from "@mui/icons-material/WhatsApp";
 import type {
@@ -23,6 +24,7 @@ export const MONTH_MENU_ICONS: Record<MonthMenuKey, SvgIconComponent> = {
   skip: SkipNextOutlined,
   unskip: ReplayOutlined,
   bill: ReceiptLongOutlined,
+  reading: SpeedOutlined,
   "collect-remaining": PaymentsOutlined,
   history: HistoryOutlined,
   "write-off": RemoveCircleOutlineOutlined,
