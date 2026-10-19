@@ -20,7 +20,7 @@ interface Props {
 
 export function UsagePriceCard({ draft, currencies, onChange, onFocus }: Props) {
   const { t } = useTranslation();
-  const { plan, saved, last } = draft;
+  const { plan, saved, savedInOldCurrency, last } = draft;
   const usage = plan.usage;
   if (!usage) return null;
   const invalid = usagePriceDraftState(draft) === "invalid";
@@ -53,10 +53,16 @@ export function UsagePriceCard({ draft, currencies, onChange, onFocus }: Props) 
 
       {invalid ? (
         <Text className="text-sm text-danger -mt-2">{t("plans.month_prices_invalid")}</Text>
-      ) : saved ? null : (
+      ) : saved ? null : savedInOldCurrency ? (
+        <Text className="text-xs text-gray-400 -mt-2">
+          {t("plans.month_prices_old_currency", {
+            price: usageMonthPriceLabel(savedInOldCurrency, usage, currencies, t),
+          })}
+        </Text>
+      ) : (
         <Text className="text-xs text-gray-400 -mt-2">{t("plans.month_prices_none")}</Text>
       )}
-      {!saved && last ? (
+      {!saved && !savedInOldCurrency && last ? (
         <Text className="text-xs text-gray-400 mt-1">
           {t("plans.month_prices_last", {
             month: billingMonthLabel(last.month, true),

@@ -13,6 +13,7 @@ interface Props {
   usage: PlanUsage;
   currencyId: string | null;
   currencies: Currency[];
+  entryLocked: boolean;
   onChange: (patch: Partial<PlanUsage>) => void;
   onCurrencyChange: (currencyId: string | null) => void;
   onFocus: () => void;
@@ -22,27 +23,38 @@ export function PlanUsageFields({
   usage,
   currencyId,
   currencies,
+  entryLocked,
   onChange,
   onCurrencyChange,
   onFocus,
 }: Props) {
   const { t } = useTranslation();
+  const entryLabel =
+    usage.entry === "reading" ? t("plans.usage_entry_reading") : t("plans.usage_entry_direct");
   return (
     <>
       <View className="mb-4">
         <FieldLabel className="mb-2">{t("plans.usage_entry_label")}</FieldLabel>
-        <SegmentedTabs<UsageEntry>
-          value={usage.entry}
-          onChange={(entry) => onChange({ entry })}
-          segments={[
-            { key: "reading", label: t("plans.usage_entry_reading") },
-            { key: "direct", label: t("plans.usage_entry_direct") },
-          ]}
-        />
+        {entryLocked ? (
+          <Text fontWeight="SemiBold" className="text-sm text-gray-900">
+            {entryLabel}
+          </Text>
+        ) : (
+          <SegmentedTabs<UsageEntry>
+            value={usage.entry}
+            onChange={(entry) => onChange({ entry })}
+            segments={[
+              { key: "reading", label: t("plans.usage_entry_reading") },
+              { key: "direct", label: t("plans.usage_entry_direct") },
+            ]}
+          />
+        )}
         <Text className="text-xs text-gray-400 mt-1.5">
-          {usage.entry === "reading"
-            ? t("plans.usage_entry_reading_hint")
-            : t("plans.usage_entry_direct_hint")}
+          {entryLocked
+            ? t("plans.usage_entry_locked_hint")
+            : usage.entry === "reading"
+              ? t("plans.usage_entry_reading_hint")
+              : t("plans.usage_entry_direct_hint")}
         </Text>
       </View>
 

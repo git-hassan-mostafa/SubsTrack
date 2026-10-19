@@ -260,6 +260,7 @@ export const createPaymentSlice: StateCreator<
         state.payments.readings = [...others, saved];
         state.payments.loadingReading = false;
       });
+      get().ledger.markOwedChanged();
       return true;
     } catch (e) {
       set((state) => {
@@ -282,6 +283,7 @@ export const createPaymentSlice: StateCreator<
         state.payments.readings = kept;
         state.payments.loadingReading = false;
       });
+      get().ledger.markOwedChanged();
       return true;
     } catch (e) {
       set((state) => {

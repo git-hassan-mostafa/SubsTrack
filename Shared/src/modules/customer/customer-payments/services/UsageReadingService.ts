@@ -12,19 +12,27 @@ import { inChunks } from "@shared/core/utils/chunk";
 import { nowIso } from "@shared/core/utils/ids";
 import { mapDbUsageReading } from "@shared/modules/customer/customer-payments/utils/mapper";
 import { paidBillingMonths } from "@shared/modules/customer/customer-payments/utils/monthStatus";
+import { readingProblemsOf } from "@shared/modules/customer/customer-payments/utils/meterReadingForm";
 import {
   isReadingLocked,
+  lineUsageOf,
   usageByLineOf,
   type UsageSourceLine,
 } from "@shared/modules/customer/customer-payments/utils/usageBill";
 import { priceHistoryService } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
-import { currentBillingMonth } from "@shared/modules/customer/customer-plans/utils/priceHistory";
+import {
+  currentBillingMonth,
+  EMPTY_PRICE_HISTORY,
+} from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 
 const ID_BATCH_SIZE = 200;
 
 export interface SaveUsageInput {
-  line: Pick<CustomerPlan, "id" | "customerId" | "tenantId" | "startDate" | "plan">;
+  line: Pick<
+    CustomerPlan,
+    "id" | "customerId" | "tenantId" | "startDate" | "planId" | "startReading" | "plan"
+  >;
   billingMonth: string;
   value: number;
   meterChange: MeterChange | null;
@@ -45,6 +53,10 @@ class UsageReadingService {
     return rows.map(mapDbUsageReading);
   }
 
+  async getForUsageLines(lines: UsageSourceLine[]): Promise<UsageReading[]> {
+    return this.getForLines(lines.filter((l) => l.plan?.usage).map((l) => l.id));
+  }
+
   // What the month rules need for usage lines; fixed lines are left out.
   async getUsageByLine(
     lines: UsageSourceLine[],
@@ -53,7 +65,7 @@ class UsageReadingService {
     const usageLines = lines.filter((l) => l.plan?.usage);
     if (usageLines.length === 0) return new Map();
     const [readings, history] = await Promise.all([
-      this.getForLines(usageLines.map((l) => l.id)),
+      this.getForUsageLines(usageLines),
       prices ?? priceHistoryService.getForLines(usageLines),
     ]);
     return usageByLineOf(usageLines, readings, history);
@@ -72,10 +84,12 @@ class UsageReadingService {
     ) {
       throw new Error(i18n.t("errors.usage_value_invalid"));
     }
-    await this.assertUnlocked(input.line.id, usage.entry, input.billingMonth);
-    const existing = (await this.getForLines([input.line.id])).find(
-      (r) => r.billingMonth === input.billingMonth,
-    );
+    const [, lineReadings] = await Promise.all([
+      this.assertUnlocked(input.line.id, usage.entry, input.billingMonth),
+      this.getForLines([input.line.id]),
+    ]);
+    this.assertCountsUp(input, change, lineReadings);
+    const existing = lineReadings.find((r) => r.billingMonth === input.billingMonth);
     const row = await repositories().usageReading.save({
       tenant_id: input.line.tenantId,
       customer_id: input.line.customerId,
@@ -113,6 +127,20 @@ class UsageReadingService {
           : "errors.usage_units_locked_paid",
       ),
     );
+  }
+
+  private assertCountsUp(
+    input: SaveUsageInput,
+    meterChange: MeterChange | null,
+    lineReadings: UsageReading[],
+  ): void {
+    const usage = lineUsageOf(input.line, lineReadings, EMPTY_PRICE_HISTORY);
+    if (!usage) return;
+    const problems = readingProblemsOf(usage, input.billingMonth, {
+      value: input.value,
+      meterChange,
+    });
+    if (problems.length > 0) throw new Error(i18n.t("errors.usage_reading_out_of_order"));
   }
 
   private assertMonth(startDate: string, billingMonth: string): void {

@@ -137,10 +137,20 @@ describe("Month prices screen", () => {
     expect(hasUsagePriceEdits(cleared)).toBe(true);
   });
 
-  it("TC-UMP-09 a plan whose currency changed saves the same numbers again in the new currency", () => {
+  it("TC-UMP-09 a price saved in the plan's old currency is never re-saved under the new one", () => {
     const usd = { ...p10, currencyId: null };
     const [draft] = usagePriceDraftsOf([usd], changes, "2026-09-01", {});
-    expect(usagePriceDraftState(draft)).toBe("ready");
+    expect(draft.saved).toBeNull();
+    expect(draft.savedInOldCurrency).toMatchObject({ unitPrice: 45000, fixedFee: 685000 });
+    expect([draft.unitPrice, draft.fixedFee]).toEqual([null, null]);
+    expect(usagePriceDraftState(draft)).toBe("empty");
+    expect(usagePricesToSave([draft])).toEqual([]);
+    expect(hasUsagePriceEdits([draft])).toBe(false);
+
+    const [typed] = usagePriceDraftsOf([usd], changes, "2026-09-01", {
+      "p-10a": { unitPrice: 0.5, fixedFee: 8 },
+    });
+    expect(usagePricesToSave([typed]).map((p) => [p.unitPrice, p.fixedFee])).toEqual([[0.5, 8]]);
   });
 
   it("TC-UMP-10 nothing typed means nothing to save and nothing to lose", () => {

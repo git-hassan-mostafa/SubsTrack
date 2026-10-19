@@ -209,3 +209,28 @@ describe("the server's customer list page", () => {
     );
   });
 });
+
+describe("a retyped usage bill whose month waits again", () => {
+  const LID = "line-retyped";
+  const CID = "cust-retyped";
+  const retyped = (month: string) =>
+    bill(month, 0, {
+      customerId: CID,
+      customerPlanId: LID,
+      amount: 3_000_000,
+      usage: { previousReading: null, reading: null, units: 0, unitPrice: 0, fixedFee: 0, computedAmount: 2_500_000 },
+    });
+  const statusWith = (month: string) => {
+    const ln = meterLine(LID, CID);
+    const usage = usageByLineOf([ln], [], priceHistoryOf({ planChanges: [], lineChanges: [] }));
+    return buildCustomerStatus([ln], [retyped(month)], [], "month_start", usage);
+  };
+
+  it("TC-US-07 turns Overdue one month after its own month ends", () => {
+    expect(statusWith(JULY)).toMatchObject({ overdue: true, unpaidMonths: 1 });
+  });
+
+  it("TC-US-08 last month's retyped bill is owed but not late yet", () => {
+    expect(statusWith(SEP)).toMatchObject({ overdue: false, unpaidMonths: 1 });
+  });
+});

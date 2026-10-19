@@ -1,3 +1,4 @@
+import { numberOrNull } from "@shared/core/utils/numberOrNull";
 import { Product, StockMovement } from "@shared/core/types";
 import { DbProduct, DbStockMovement } from "@shared/core/types/db";
 import type { StockCostRow } from "../repository/IProductRepository";
@@ -12,7 +13,7 @@ export function mapDbProductToProduct(db: DbProduct, stockOnHand = 0): Product {
     description: db.description,
     price: Number(db.price),
     currencyId: db.currency_id,
-    costPrice: db.cost_price == null ? null : Number(db.cost_price),
+    costPrice: numberOrNull(db.cost_price),
     costCurrencyId: db.cost_currency_id,
     active: db.active,
     createdAt: db.created_at,
@@ -31,7 +32,7 @@ export function mapDbStockMovementToStockMovement(
     quantityDelta: Number(db.quantity_delta),
     reason: db.reason,
     saleId: db.sale_id,
-    unitCost: db.unit_cost == null ? null : Number(db.unit_cost),
+    unitCost: numberOrNull(db.unit_cost),
     currencyId: db.currency_id,
     ratePerUsdSnapshot:
       db.rate_per_usd_snapshot == null

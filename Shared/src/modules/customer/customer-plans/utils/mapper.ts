@@ -1,3 +1,4 @@
+import { numberOrNull } from "@shared/core/utils/numberOrNull";
 import type {
   CustomerPlan,
   LinePriceChange,
@@ -20,10 +21,10 @@ export function mapDbCustomerPlanToCustomerPlan(
     startDate: db.start_date,
     cancelledAt: db.cancelled_at,
     active: db.active,
-    customPrice: db.custom_price != null ? Number(db.custom_price) : null,
+    customPrice: numberOrNull(db.custom_price),
     customCurrencyId: db.custom_currency_id,
     meterNumber: db.meter_number ?? null,
-    startReading: db.start_reading != null ? Number(db.start_reading) : null,
+    startReading: numberOrNull(db.start_reading),
     tenantId: db.tenant_id,
     createdAt: db.created_at,
     updatedAt: db.updated_at,
@@ -40,11 +41,11 @@ export function mapDbPlanPriceChange(db: DbPlanPriceChange): PlanPriceChange {
     id: db.id,
     planId: db.plan_id,
     fromMonth: toMonth(db.from_month),
-    price: db.price != null ? Number(db.price) : null,
+    price: numberOrNull(db.price),
     currencyId: db.currency_id,
     durationMonths: db.duration_months,
     isCustomPrice: db.is_custom_price,
-    fixedFee: db.fixed_fee != null ? Number(db.fixed_fee) : null,
+    fixedFee: numberOrNull(db.fixed_fee),
     createdAt: db.created_at,
   };
 }
@@ -55,7 +56,7 @@ export function mapDbLinePriceChange(db: DbLinePriceChange): LinePriceChange {
     customerId: db.customer_id,
     customerPlanId: db.customer_plan_id,
     fromMonth: toMonth(db.from_month),
-    customPrice: db.custom_price != null ? Number(db.custom_price) : null,
+    customPrice: numberOrNull(db.custom_price),
     customCurrencyId: db.custom_currency_id,
     createdAt: db.created_at,
   };

@@ -119,7 +119,7 @@ export function MeterReadingDialog({ line, billingMonth, onClose }: MeterReading
           />
         </Stack>
       ) : null}
-      {text.units || text.bill || text.note || text.warnings.length > 0 ? (
+      {text.units || text.bill || text.note || text.warnings.length > 0 || text.problems.length > 0 ? (
         <Stack spacing={1}>
           <InfoRows
             rows={[
@@ -132,6 +132,11 @@ export function MeterReadingDialog({ line, billingMonth, onClose }: MeterReading
               {text.note}
             </Typography>
           ) : null}
+          {text.problems.map((problem) => (
+            <Typography key={problem} variant="body2" color="error">
+              {problem}
+            </Typography>
+          ))}
           {text.warnings.map((warning) => (
             <Typography key={warning} variant="body2" color="warning.dark">
               {warning}

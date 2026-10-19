@@ -155,6 +155,7 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
           usage={form.usage}
           currencyId={form.currencyId}
           currencies={currencies}
+          entryLocked={!!plan?.usage}
           onChange={(patch) => reshape((prev) => withPlanUsage(prev, patch))}
           onCurrencyChange={(currencyId) => change({ currencyId })}
         />

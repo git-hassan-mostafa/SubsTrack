@@ -62,6 +62,7 @@ export function useMeterReading(line: CustomerPlan, billingMonth: string) {
   const locked = isReadingLocked(entry, billingMonth, paidMonths);
   const input = readingInputOf(draft, entry);
   const changed = isReadingDraftChanged(draft, saved, entry);
+  const refused = (preview?.problems.length ?? 0) > 0;
 
   function edit(next: Partial<typeof draft>) {
     setDraft((prev) => ({ ...prev, ...next }));
@@ -77,7 +78,7 @@ export function useMeterReading(line: CustomerPlan, billingMonth: string) {
   }
 
   async function save(): Promise<boolean> {
-    if (!input || locked || !user) return false;
+    if (!input || locked || refused || !user) return false;
     return saveReading({
       line,
       billingMonth,
@@ -117,7 +118,7 @@ export function useMeterReading(line: CustomerPlan, billingMonth: string) {
     saving,
     error,
     clearError,
-    canSave: !!input && changed && !locked && !saving,
+    canSave: !!input && changed && !locked && !refused && !saving,
     dirty: changed,
     save,
     remove,

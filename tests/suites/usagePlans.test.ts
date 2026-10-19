@@ -80,6 +80,13 @@ describe("saving a usage plan", () => {
     ).rejects.toThrow(i18n.t("errors.plan_type_locked"));
   });
 
+  it("TC-UP-03b a saved usage plan never switches between meter reading and typed usage", async () => {
+    await expect(planService.updatePlan(usagePlan, usageInput({ entry: "direct" }))).rejects.toThrow(
+      i18n.t("errors.plan_usage_entry_locked"),
+    );
+    expect(priceStore.catalog).toEqual([]);
+  });
+
   it("TC-UP-04 editing a usage plan writes no price history row", async () => {
     const before = await planService.createPlan(usageInput(), "t1");
     await planService.updatePlan(before, usageInput({ unitName: "kWh (day)" }));

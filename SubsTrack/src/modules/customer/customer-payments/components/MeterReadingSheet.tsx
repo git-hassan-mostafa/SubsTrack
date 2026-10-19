@@ -141,7 +141,11 @@ export function MeterReadingSheet({ line, billingMonth, onDismiss }: Props) {
         </>
       ) : null}
 
-      {text.units || text.bill || text.note || text.warnings.length > 0 ? (
+      {text.units ||
+      text.bill ||
+      text.note ||
+      text.warnings.length > 0 ||
+      text.problems.length > 0 ? (
         <View className="mb-4 gap-2">
           <InfoRows
             rows={[
@@ -150,6 +154,11 @@ export function MeterReadingSheet({ line, billingMonth, onDismiss }: Props) {
             ]}
           />
           {text.note ? <Text className="text-sm text-gray-500">{text.note}</Text> : null}
+          {text.problems.map((problem) => (
+            <Text key={problem} className="text-sm text-red-600">
+              {problem}
+            </Text>
+          ))}
           {text.warnings.map((warning) => (
             <Text key={warning} className="text-sm text-amber-700">
               {warning}

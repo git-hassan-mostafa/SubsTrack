@@ -13,6 +13,7 @@ export interface LineGates {
   payLimit: YearMonth | null;
   uncoveredMonths: string[];
   paidMonths: string[];
+  usageLine: boolean;
 }
 
 // Months settle OLDEST first; months inside the same write never block it.
@@ -44,7 +45,13 @@ export function isLockedSkipped(entry: MonthEntry, gates: LineGates): boolean {
   );
 }
 
+// A usage month owes nothing until its bill is worked out, so it is never prepaid.
+export function isUnbilledUsage(entry: MonthEntry, gates: LineGates): boolean {
+  return gates.usageLine && (entry.status === "future" || entry.status === "waiting");
+}
+
 export function isPayableStatus(entry: MonthEntry, gates: LineGates): boolean {
+  if (isUnbilledUsage(entry, gates)) return false;
   return (
     entry.status === "unpaid" ||
     entry.status === "future" ||
@@ -111,6 +118,7 @@ export type MonthTap =
   | { kind: "bill" }
   | { kind: "pay_limit" }
   | { kind: "pay_order"; month: string }
+  | { kind: "no_bill" }
   | { kind: "collect" };
 
 export function monthTap(entry: MonthEntry, gates: LineGates): MonthTap {
@@ -120,6 +128,7 @@ export function monthTap(entry: MonthEntry, gates: LineGates): MonthTap {
     return { kind: "unskip" };
   }
   if (hasViewableBill(entry)) return { kind: "bill" };
+  if (isUnbilledUsage(entry, gates)) return { kind: "no_bill" };
   if (isPayBlocked(entry, gates)) return { kind: "pay_limit" };
   const blocker = payOrderBlocker(gates, [entry.billingMonth]);
   if (blocker) return { kind: "pay_order", month: blocker };
@@ -368,6 +377,7 @@ export function monthSelectionItems(
 
 export type QuickPayLinkAction =
   | { kind: "skipped" }
+  | { kind: "no_bill" }
   | { kind: "pay_order"; month: string }
   | { kind: "collect" };
 
@@ -379,6 +389,7 @@ export function quickPayLinkAction(
   if (entry.status === "skipped" && !isLockedSkipped(entry, gates)) {
     return { kind: "skipped" };
   }
+  if (isUnbilledUsage(entry, gates)) return { kind: "no_bill" };
   const blocker = payOrderBlocker(gates, [entry.billingMonth]);
   if (blocker) return { kind: "pay_order", month: blocker };
   return { kind: "collect" };

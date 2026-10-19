@@ -1,3 +1,4 @@
+import { numberOrNull } from "@shared/core/utils/numberOrNull";
 import type { DbSkippedMonth, DbUsageReading } from "@shared/core/types/db";
 import type { SkippedMonth, UsageReading } from "@shared/core/types";
 
@@ -9,8 +10,8 @@ export function mapDbUsageReading(db: DbUsageReading): UsageReading {
     customerId: db.customer_id,
     customerPlanId: db.customer_plan_id,
     billingMonth: db.billing_month.slice(0, 10),
-    reading: db.reading != null ? Number(db.reading) : null,
-    units: db.units != null ? Number(db.units) : null,
+    reading: numberOrNull(db.reading),
+    units: numberOrNull(db.units),
     meterChange: replaced
       ? {
           oldMeterFinal: Number(db.old_meter_final),

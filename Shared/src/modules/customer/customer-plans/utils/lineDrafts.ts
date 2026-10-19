@@ -1,4 +1,4 @@
-import type { Customer, Plan } from "@shared/core/types";
+import type { Customer, Plan, PlanUsage } from "@shared/core/types";
 import type { LineDraft } from "@shared/modules/customer/customer-plans/services/CustomerPlanService";
 import {
   linePriceChanged,
@@ -17,6 +17,7 @@ export interface LineRow {
   startReading: number | null;
   status: "active" | "cancelled";
   priceFrom?: string;
+  savedPlan?: LinePlan | null;
 }
 
 type LinePlan = Pick<Plan, "id" | "usage">;
@@ -51,6 +52,7 @@ export function rowsFromCustomer(
     meterNumber: line.meterNumber ?? "",
     startReading: line.startReading,
     status: line.active ? "active" : "cancelled",
+    savedPlan: line.plan ? { id: line.plan.id, usage: line.plan.usage } : null,
   }));
 }
 
@@ -68,12 +70,11 @@ function specialPriceOf(row: LineRow): LinePriceFields {
   };
 }
 
-export function isMeterLine(planId: string | null, plans: readonly LinePlan[]): boolean {
-  return plans.find((p) => p.id === planId)?.usage?.entry === "reading";
-}
-
-export function isUsageLine(planId: string | null, plans: readonly LinePlan[]): boolean {
-  return !!plans.find((p) => p.id === planId)?.usage;
+// The row's own saved plan answers when the loaded plan list lacks it.
+function planUsageOf(row: LineRow, plans: readonly LinePlan[]): PlanUsage | null {
+  const listed = plans.find((p) => p.id === row.planId);
+  if (listed) return listed.usage;
+  return row.savedPlan?.id === row.planId ? row.savedPlan.usage : null;
 }
 
 // A usage line is priced each month, so it never keeps a special price.
@@ -81,8 +82,9 @@ export function toLineDrafts(rows: LineRow[], plans: readonly LinePlan[]): LineD
   return rows
     .filter((row) => row.status === "active")
     .map((row) => {
-      const meter = isMeterLine(row.planId, plans);
-      const usage = isUsageLine(row.planId, plans);
+      const usagePlan = planUsageOf(row, plans);
+      const meter = usagePlan?.entry === "reading";
+      const usage = usagePlan !== null;
       return {
         id: row.id,
         planId: row.planId,

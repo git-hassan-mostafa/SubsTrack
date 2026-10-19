@@ -14,6 +14,7 @@ import {
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
+import { usePlanUsage } from "@shared/modules/admin/plans/hooks/usePlanUsage";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import {
@@ -83,6 +84,7 @@ export function BillSheet({
   const handlePayments = useCallback((v: Collection[]) => setPayments(v), []);
   const handleLoading = useCallback((v: boolean) => setPaymentsLoading(v), []);
 
+  const feeName = usePlanUsage(charge?.usage ? charge.planId : null)?.feeName ?? null;
   const chargeId = charge?.id ?? null;
   const [shownChargeId, setShownChargeId] = useState(chargeId);
   if (chargeId !== shownChargeId) {
@@ -156,7 +158,7 @@ export function BillSheet({
             />
 
             <InfoRows
-              rows={billInfoRows(charge, source, t, userName)}
+              rows={billInfoRows(charge, source, t, userName, feeName)}
             />
           </View>
         )}

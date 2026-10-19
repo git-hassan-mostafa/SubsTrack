@@ -147,6 +147,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
           usage={form.usage}
           currencyId={form.currencyId}
           currencies={currencies}
+          entryLocked={!!plan?.usage}
           onChange={(patch) => setForm((prev) => withPlanUsage(prev, patch))}
           onCurrencyChange={(currencyId) =>
             setForm((prev) => ({ ...prev, currencyId }))

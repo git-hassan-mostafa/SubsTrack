@@ -21,9 +21,9 @@ export function useUsageMonthPrices(plans: Plan[], onSaved?: () => void) {
   const [month, setMonthState] = useState(currentBillingMonth);
   const [edits, setEdits] = useState<Record<string, UsagePriceEdit>>({});
   const setUsageMonthPrices = usePlanSlice((s) => s.setUsageMonthPrices);
-  const saving = usePlanSlice((s) => s.loading);
-  const saveError = usePlanSlice((s) => s.error);
-  const clearSaveError = usePlanSlice((s) => s.clearError);
+  const saving = usePlanSlice((s) => s.pricesSaving);
+  const saveError = usePlanSlice((s) => s.pricesError);
+  const clearSaveError = usePlanSlice((s) => s.clearPricesError);
 
   const reload = useCallback(async () => {
     const ids = planKey ? planKey.split(",") : [];
@@ -41,6 +41,11 @@ export function useUsageMonthPrices(plans: Plan[], onSaved?: () => void) {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  useEffect(() => {
+    clearSaveError();
+    return clearSaveError;
+  }, [clearSaveError]);
 
   const drafts = usagePriceDraftsOf(usagePlans, changes, month, edits);
 

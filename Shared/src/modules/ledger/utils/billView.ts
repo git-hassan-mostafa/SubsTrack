@@ -1,14 +1,12 @@
-import type { Charge, ChargeStatus, ChargeUsage, Collection, Currency } from "@shared/core/types";
+import type { Charge, ChargeStatus, Collection, Currency } from "@shared/core/types";
 import { formatMoney, formatPaidFraction } from "@shared/core/utils/currency";
 import { formatDate, formatDateTime } from "@shared/core/utils/date";
 import { ADMIN_ONLY, pickMenu, type MenuItem, type MenuTable } from "@shared/shared/lib/menuItem";
 import { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/utils/blockRangeLabel";
-import {
-  formatReading,
-  usageBillLine,
-} from "@shared/modules/customer/customer-payments/utils/meterReadingText";
+import { usageBillLine } from "@shared/modules/customer/customer-payments/utils/meterReadingText";
 import { isEditedUsageBill } from "@shared/modules/customer/customer-payments/utils/usageBill";
 import { chargeStatusOf } from "./billState";
+import { usageReadingsValue } from "./usageBillRows";
 import { roundMoney } from "./waterfall";
 
 type Translate = (key: string, opts?: Record<string, unknown>) => string;
@@ -114,20 +112,13 @@ export function billHeadline(
   return { amount, note: facts.closed ? null : `${t("ledger.remaining")} ${money(facts.figure)}` };
 }
 
-function readingsValue(usage: ChargeUsage): string | null {
-  if (usage.reading === null) return null;
-  const reading = formatReading(usage.reading);
-  return usage.previousReading === null
-    ? reading
-    : `${formatReading(usage.previousReading)} → ${reading}`;
-}
-
 // Every field a bill MIGHT print; an empty value is dropped by the view.
 export function billInfoRows(
   charge: Charge,
   source: Currency | null,
   t: Translate,
   userName: UserName,
+  feeName: string | null = null,
 ): LabeledValue[] {
   const usage = charge.usage;
   const monthLabel =
@@ -140,13 +131,18 @@ export function billInfoRows(
     {
       key: "usage_readings",
       label: t("ledger.usage_readings"),
-      value: usage ? readingsValue(usage) : null,
+      value: usage ? usageReadingsValue(usage) : null,
     },
     {
       key: "usage_worked_out",
       label: t(isEditedUsageBill(charge) ? "ledger.usage_worked_out_changed" : "ledger.usage_worked_out"),
       value: usage
-        ? usageBillLine({ ...usage, amount: usage.computedAmount }, source, t("payments.reading.fee"), t)
+        ? usageBillLine(
+            { ...usage, amount: usage.computedAmount },
+            source,
+            feeName ?? t("payments.reading.fee"),
+            t,
+          )
         : null,
     },
     { key: "due_date", label: t("ledger.due_date"), value: formatDate(charge.dueDate) },

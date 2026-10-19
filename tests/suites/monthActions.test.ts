@@ -63,6 +63,7 @@ function setup(
       payLimit: lastBillableMonth(opts.who ?? customer(), on),
       uncoveredMonths: derived.uncoveredMonths[on.id],
       paidMonths: derived.paidMonths[on.id],
+      usageLine: false,
     },
   };
 }

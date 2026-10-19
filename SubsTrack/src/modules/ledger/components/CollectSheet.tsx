@@ -11,12 +11,15 @@ import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { InfoRows } from "@/src/shared/components/InfoRows";
 import { CARD_SURFACE } from "@/src/shared/constants";
 import type { OpenItem } from "@shared/core/types";
 import { useCollectForm } from "@shared/modules/ledger/hooks/useCollectForm";
 import type { CollectSubmission } from "@shared/modules/ledger/utils/collectForm";
 import { groupKey } from "@shared/modules/ledger/utils/currencyGroups";
 import { collectBlockerKey } from "@shared/modules/ledger/utils/allocationRows";
+import { usageBillRows } from "@shared/modules/ledger/utils/usageBillRows";
+import { usePlanUsage } from "@shared/modules/admin/plans/hooks/usePlanUsage";
 import { useRefusedSave } from "@shared/shared/hooks/useRefusedSave";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { CollectAllButton } from "./CollectAllButton";
@@ -49,6 +52,8 @@ export function CollectSheet({
   const form = useCollectForm(owed, singleItem);
   const { single, pool, currencies, display } = form;
   const refused = useRefusedSave(form.canSubmit);
+  const usage = single?.item.usage ?? null;
+  const planUsage = usePlanUsage(usage ? (single?.item.planId ?? null) : null);
 
   useEffect(() => {
     if (visible) clearError();
@@ -101,6 +106,20 @@ export function CollectSheet({
               </Text>
             ) : (
               <CollectHero amount={single.money(single.plan.max)} billCount={1} />
+            )}
+
+            {usage && (
+              <View className="mb-4">
+                <InfoRows
+                  rows={usageBillRows(
+                    usage,
+                    single.item.amount,
+                    planUsage,
+                    single.money,
+                    t,
+                  )}
+                />
+              </View>
             )}
 
             {openItem && (

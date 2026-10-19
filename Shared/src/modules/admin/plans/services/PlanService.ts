@@ -51,6 +51,9 @@ class PlanService {
     if ((previous.usage === null) !== (data.usage === null)) {
       throw new Error(i18n.t("errors.plan_type_locked"));
     }
+    if (previous.usage && data.usage && previous.usage.entry !== data.usage.entry) {
+      throw new Error(i18n.t("errors.plan_usage_entry_locked"));
+    }
     const priceChanged = !data.usage && planPriceChanged(previous, data);
     this.validate(data, priceFrom, priceChanged);
     const payload = this.columns(data);

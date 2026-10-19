@@ -15,6 +15,7 @@ import skippedMonthService from "@shared/modules/customer/customer-payments/serv
 import currencyService from "@shared/modules/admin/currencies/services/CurrencyService";
 import { priceHistoryService } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
 import { usageReadingService } from "@shared/modules/customer/customer-payments/services/UsageReadingService";
+import { usageByLineOf } from "@shared/modules/customer/customer-payments/utils/usageBill";
 import { chargeService } from "./ChargeService";
 import { mergeOwed } from "../utils/mergeOwed";
 import {
@@ -46,14 +47,15 @@ class LedgerService {
   }): Promise<OpenItem[]> {
     const { customer, lines } = args;
     const active = lines.filter((l) => l.active);
-    const [open, billsByLine, prices] = await Promise.all([
+    const [open, billsByLine, prices, readings] = await Promise.all([
       chargeService.getOpenCharges({ customerId: customer.id }),
       active.length > 0
         ? chargeService.getMonthBillsForLines(active.map((l) => l.id))
         : Promise.resolve(new Map<string, MonthBill[]>()),
       priceHistoryService.getForLines(active),
+      usageReadingService.getForUsageLines(active),
     ]);
-    const usageByLine = await usageReadingService.getUsageByLine(active, prices);
+    const usageByLine = usageByLineOf(active, readings, prices);
     return mergeOwed({ ...args, stored: open, billsByLine, prices, usageByLine });
   }
 
@@ -89,14 +91,15 @@ class LedgerService {
         (c.customerPlans ?? []).filter((l) => l.active),
       );
       const lineIds = lines.map((l) => l.id);
-      const [open, billsByLine, prices] = await Promise.all([
+      const [open, billsByLine, prices, readings] = await Promise.all([
         chargeService.getOpenCharges({ customerIds: chunk.map((c) => c.id) }),
         lineIds.length > 0
           ? chargeService.getMonthBillsForLines(lineIds)
           : Promise.resolve(new Map<string, MonthBill[]>()),
         priceHistoryService.getForLines(lines),
+        usageReadingService.getForUsageLines(lines),
       ]);
-      const usageByLine = await usageReadingService.getUsageByLine(lines, prices);
+      const usageByLine = usageByLineOf(lines, readings, prices);
       const openByCustomer = groupBy(open, (item) => item.customerId);
       for (const customer of chunk) {
         owed.set(
@@ -165,11 +168,12 @@ class LedgerService {
     const lines = customers.flatMap((c) =>
       (c.customerPlans ?? []).filter((l) => l.active),
     );
-    const [billsByLine, prices] = await Promise.all([
+    const [billsByLine, prices, readings] = await Promise.all([
       this.getMonthBillsForLines(lines.map((l) => l.id)),
       priceHistoryService.getForLines(lines),
+      usageReadingService.getForUsageLines(lines),
     ]);
-    const usageByLine = await usageReadingService.getUsageByLine(lines, prices);
+    const usageByLine = usageByLineOf(lines, readings, prices);
     return {
       customers,
       stored,

@@ -8,6 +8,7 @@ import customerPlanService, {
 import {
   lineRowsChanged,
   newLineRow,
+  rowsFromCustomer,
   toLineDrafts,
   type LineRow,
 } from "@shared/modules/customer/customer-plans/utils/lineDrafts";
@@ -72,6 +73,19 @@ describe("meter fields in the line drafts", () => {
     expect(lineRowsChanged(initial, [{ ...initial[0], meterNumber: "M-1" }], [])).toBe(true);
     expect(lineRowsChanged(initial, [{ ...initial[0], startReading: 5 }], [])).toBe(true);
     expect(lineRowsChanged(initial, [{ ...initial[0] }], [])).toBe(false);
+  });
+
+  it("TC-ML-04b a saved meter line keeps its fields when the plan list has not loaded it", () => {
+    const saved = line({ id: "l-1", planId: "p-meter", plan: meterPlan, meterNumber: "M-7", startReading: 1520 });
+    const [draft] = toLineDrafts(rowsFromCustomer({ customerPlans: [saved] }, "2026-01-01"), []);
+    expect(draft).toMatchObject({ meterNumber: "M-7", startReading: 1520, customPrice: null });
+  });
+
+  it("TC-ML-04c a line moved to another plan reads that plan, not the saved one", () => {
+    const saved = line({ id: "l-1", planId: "p-meter", plan: meterPlan, meterNumber: "M-7", startReading: 1520 });
+    const [moved] = rowsFromCustomer({ customerPlans: [saved] }, "2026-01-01");
+    const [draft] = toLineDrafts([{ ...moved, planId: "p-fixed" }], PLANS);
+    expect([draft.meterNumber, draft.startReading]).toEqual([null, null]);
   });
 });
 

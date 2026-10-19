@@ -16,7 +16,11 @@ import type {
   UsageMonth,
 } from "@shared/core/types";
 import { MONTHS } from "@shared/core/constants";
-import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
+import {
+  getCurrentYearMonth,
+  shiftBillingMonth,
+  toBillingMonth,
+} from "@shared/core/utils/date";
 import { groupBy } from "@shared/core/utils/groupBy";
 import {
   isBeforeStartDate,
@@ -152,10 +156,14 @@ function isLateMonth(
   line: StatusLine,
   unpaidRule: UnpaidStartRule,
 ): boolean {
-  if (entry.usage) {
-    return entry.usage.kind === "bill" && !isUsageNotLateYet(entry.usage.bill.billedAt);
-  }
+  if (entry.usage) return !isUsageNotLateYet(usageBilledAt(entry, entry.usage));
   return !isNotLateYet(unpaidRule, entry.year, entry.month, line.startDate);
+}
+
+// An edited bill with no worked-out bill left counts from its month's end.
+function usageBilledAt(entry: Pick<MonthCell, "billingMonth">, usage: UsageMonth): string {
+  if (usage.kind === "bill") return usage.bill.billedAt;
+  return `${shiftBillingMonth(entry.billingMonth, 1)}T00:00:00`;
 }
 
 // A written-off month owes nothing, so it settles a line exactly like money.

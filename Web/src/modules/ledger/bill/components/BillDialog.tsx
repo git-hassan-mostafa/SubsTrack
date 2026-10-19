@@ -19,6 +19,7 @@ import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useBillPayments } from "@shared/modules/ledger/hooks/useBillPayments";
 import { billFacts, billInfoRows, billMenuItems } from "@shared/modules/ledger/utils/billView";
 import { useUserNames } from "@shared/shared/hooks/useUserNames";
+import { usePlanUsage } from "@shared/modules/admin/plans/hooks/usePlanUsage";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { InfoRows } from "@/shared/components/InfoRows";
@@ -67,6 +68,7 @@ export function BillDialog({
   const userName = useUserNames();
   const sendBill = useSendBillReceipt();
   const bill = useBillPayments(charge.id, true);
+  const feeName = usePlanUsage(charge.usage ? charge.planId : null)?.feeName ?? null;
   const [historyOpen, setHistoryOpen] = useState(false);
   const titleId = useId();
 
@@ -138,7 +140,7 @@ export function BillDialog({
                 source={source}
                 display={display}
               />
-              <InfoRows rows={withInfoIcons(billInfoRows(charge, source, t, userName))} />
+              <InfoRows rows={withInfoIcons(billInfoRows(charge, source, t, userName, feeName))} />
             </Box>
             <BillPaymentsList
               bill={bill}

@@ -1,4 +1,9 @@
 import type { DbCharge } from "@shared/core/types/db";
+import {
+  chargeUsageColumns,
+  chargeUsageFromRow,
+  type ChargeUsageColumns,
+} from "@shared/modules/ledger/utils/mapper";
 import type { CreateChargePayload, WriteOffMark } from "./IChargeRepository";
 
 /**
@@ -52,28 +57,8 @@ export function writeOffRevertPatch() {
   } as const;
 }
 
-const numberOrNull = (value: number | null | undefined) =>
-  value == null ? null : Number(value);
-
-type UsageColumns = Pick<
-  DbCharge,
-  | "usage_previous_reading"
-  | "usage_reading"
-  | "usage_units"
-  | "unit_price"
-  | "fixed_fee"
-  | "computed_amount"
->;
-
-function usageColumnsOf(row: UsageColumns) {
-  return {
-    usage_previous_reading: numberOrNull(row.usage_previous_reading),
-    usage_reading: numberOrNull(row.usage_reading),
-    usage_units: numberOrNull(row.usage_units),
-    unit_price: numberOrNull(row.unit_price),
-    fixed_fee: numberOrNull(row.fixed_fee),
-    computed_amount: numberOrNull(row.computed_amount),
-  };
+function usageColumnsOf(row: ChargeUsageColumns): ChargeUsageColumns {
+  return chargeUsageColumns(chargeUsageFromRow(row));
 }
 
 /** Nothing about the price moved, so an empty bill needs no re-pricing. */

@@ -14,12 +14,15 @@ import { daysLate, formatDate } from "@shared/core/utils/date";
 import { useCollectForm, type CollectForm } from "@shared/modules/ledger/hooks/useCollectForm";
 import { useCollectSubmit } from "@shared/modules/ledger/hooks/useCollectSubmit";
 import { collectBlockerKey } from "@shared/modules/ledger/utils/allocationRows";
+import { usageBillRows } from "@shared/modules/ledger/utils/usageBillRows";
+import { usePlanUsage } from "@shared/modules/admin/plans/hooks/usePlanUsage";
 import { useRefusedSave } from "@shared/shared/hooks/useRefusedSave";
 import { groupKey, stillOwedAfter, type CurrencyPlan } from "@shared/modules/ledger/utils/currencyGroups";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { CurrencyInput } from "@/shared/components/CurrencyInput";
 import { DateField } from "@/shared/components/DateField";
 import { FormDialog } from "@/shared/components/FormDialog";
+import { InfoRows } from "@/shared/components/InfoRows";
 import { BillsTable } from "./BillsTable";
 import { CollectSummary } from "./CollectSummary";
 import { CurrencyAmountField } from "./CurrencyAmountField";
@@ -75,6 +78,8 @@ function SingleFields({ form }: { form: CollectForm }) {
   const { t } = useTranslation();
   const single = form.single!;
   const open = Boolean(single.item.openAmount);
+  const usage = single.item.usage ?? null;
+  const planUsage = usePlanUsage(usage ? single.item.planId : null);
   const overBy = single.plan.overpaying
     ? t("ledger.over_by_single", { max: single.money(single.plan.max) })
     : null;
@@ -99,6 +104,11 @@ function SingleFields({ form }: { form: CollectForm }) {
             </Box>
           )}
         </Stack>
+        {usage ? (
+          <Box sx={{ mt: 1.5 }}>
+            <InfoRows rows={usageBillRows(usage, single.item.amount, planUsage, single.money, t)} />
+          </Box>
+        ) : null}
       </Paper>
       {open ? (
         <CurrencyInput

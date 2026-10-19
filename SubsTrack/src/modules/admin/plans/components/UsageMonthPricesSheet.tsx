@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
@@ -11,7 +10,6 @@ import type { Plan } from "@shared/core/types";
 import { useUsageMonthPrices } from "@shared/modules/admin/plans/hooks/useUsageMonthPrices";
 import { priceStartOptionsWith } from "@shared/modules/customer/customer-plans/utils/priceStartOptions";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
-import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { UsagePriceCard } from "./UsagePriceCard";
 
 interface Props {
@@ -22,13 +20,7 @@ interface Props {
 export function UsageMonthPricesSheet({ plans, onDismiss }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const clearPlanError = usePlanSlice((s) => s.clearError);
   const prices = useUsageMonthPrices(plans);
-
-  useEffect(() => {
-    clearPlanError();
-    return clearPlanError;
-  }, [clearPlanError]);
 
   async function handleSave() {
     if (await prices.save()) onDismiss();

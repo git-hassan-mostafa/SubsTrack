@@ -106,6 +106,7 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
       payLimit: lastBillableMonth(customer, selectedLine),
       uncoveredMonths,
       paidMonths,
+      usageLine: !!selectedLine?.plan?.usage,
     }),
     [customer, selectedLine, uncoveredMonths, paidMonths],
   );

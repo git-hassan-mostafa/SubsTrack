@@ -23,7 +23,13 @@ export interface ReadingDraft {
   meterChange: MeterChangeDraft | null;
 }
 
-export type ReadingWarning = "below_previous" | "high_usage";
+export type ReadingWarning = "high_usage";
+
+export type ReadingProblem =
+  | "below_previous"
+  | "old_meter_below_previous"
+  | "below_new_meter_start"
+  | "above_next";
 
 export interface ReadingPreview {
   previousReading: number | null;
@@ -31,6 +37,8 @@ export interface ReadingPreview {
   month: UsageMonth | null;
   usualUnits: number | null;
   warnings: ReadingWarning[];
+  problems: ReadingProblem[];
+  nextReading: number | null;
 }
 
 export interface ReadingInput {
@@ -126,9 +134,18 @@ export function readingPreview(
   const previousReading =
     usage.entry === "reading" ? previousReadingOf(usage, billingMonth) : null;
   const usualUnits = usualUnitsOf(usage, billingMonth);
+  const nextReading = usage.entry === "reading" ? nextReadingOf(usage, billingMonth) : null;
   const input = readingInputOf(draft, usage.entry);
   if (!input) {
-    return { previousReading, units: null, month: null, usualUnits, warnings: [] };
+    return {
+      previousReading,
+      units: null,
+      month: null,
+      usualUnits,
+      warnings: [],
+      problems: [],
+      nextReading,
+    };
   }
   const readings = new Map(usage.readings);
   readings.set(billingMonth, {
@@ -141,12 +158,46 @@ export function readingPreview(
   const trial: LineUsage = { ...usage, readings };
   const month = usageMonthOf(trial, billingMonth);
   const units = usageUnitsOf(trial, billingMonth);
-  const warnings: ReadingWarning[] = [];
-  if (month.kind === "waiting" && month.waitingFor === "reading_below_previous") {
-    warnings.push("below_previous");
+  const warnings: ReadingWarning[] =
+    units !== null && isHighUsage(units, usualUnits, highUsagePercent) ? ["high_usage"] : [];
+  return {
+    previousReading,
+    units,
+    month,
+    usualUnits,
+    warnings,
+    problems: readingProblemsOf(usage, billingMonth, input),
+    nextReading,
+  };
+}
+
+// What next month's units count from: the old meter's last reading if it was replaced.
+export function nextReadingOf(usage: LineUsage, billingMonth: string): number | null {
+  const next = usage.readings.get(shiftBillingMonth(billingMonth, 1));
+  return next?.meterChange?.oldMeterFinal ?? next?.reading ?? null;
+}
+
+// A meter only counts up; going down is allowed only as a meter replaced this month.
+export function readingProblemsOf(
+  usage: LineUsage,
+  billingMonth: string,
+  input: ReadingInput,
+): ReadingProblem[] {
+  if (usage.entry !== "reading") return [];
+  const problems: ReadingProblem[] = [];
+  const previous = previousReadingOf(usage, billingMonth);
+  const change = input.meterChange;
+  if (change) {
+    if (previous !== null && change.oldMeterFinal < previous) {
+      problems.push("old_meter_below_previous");
+    }
+    if (input.value < change.newMeterStart) problems.push("below_new_meter_start");
+  } else if (previous !== null && input.value < previous) {
+    problems.push("below_previous");
   }
-  if (units !== null && isHighUsage(units, usualUnits, highUsagePercent)) {
-    warnings.push("high_usage");
-  }
-  return { previousReading, units, month, usualUnits, warnings };
+  const next = nextReadingOf(usage, billingMonth);
+  const saved = usage.readings.get(billingMonth)?.reading ?? null;
+  const nextAlreadyBelow = saved !== null && next !== null && saved > next;
+  if (next !== null && input.value > next && !nextAlreadyBelow) problems.push("above_next");
+  return problems;
 }

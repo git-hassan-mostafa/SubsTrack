@@ -17,7 +17,9 @@ import {
 } from "@shared/modules/customer/customer-payments/utils/meterReadingForm";
 import {
   monthMenuItems,
+  monthSelectionGroups,
   monthTap,
+  quickPayLinkAction,
   type LineGates,
 } from "@shared/modules/customer/customer-payments/utils/monthActions";
 import { lineUsageOf, usageByLineOf } from "@shared/modules/customer/customer-payments/utils/usageBill";
@@ -61,6 +63,8 @@ const JUNE = "2026-06-01";
 const JULY = "2026-07-01";
 const AUG = "2026-08-01";
 const SEP = "2026-09-01";
+const OCT = "2026-10-01";
+const NOV = "2026-11-01";
 const NOW = "2026-10-15T09:00:00.000Z";
 
 function reading(billingMonth: string, value: number): StatusReading & { customerPlanId: string } {
@@ -126,11 +130,38 @@ describe("the reading preview", () => {
     expect(preview.month).toEqual({ kind: "waiting", waitingFor: "price" });
   });
 
-  it("TC-MR-03 a reading below last month's warns and makes no bill", () => {
+  it("TC-MR-03 a reading below last month's is refused and makes no bill", () => {
     const usage = usageOf([reading(JUNE, 1120)], [price(JULY, 40000, 685000)]);
     const preview = readingPreview(usage, JULY, draft(1100), NOW, null);
-    expect(preview.warnings).toEqual(["below_previous"]);
+    expect(preview.problems).toEqual(["below_previous"]);
+    expect(preview.warnings).toEqual([]);
     expect(preview.month).toEqual({ kind: "waiting", waitingFor: "reading_below_previous" });
+  });
+
+  it("TC-MR-21 a lower reading is fine once the meter was replaced, but each meter still counts up", () => {
+    const usage = usageOf([reading(JUNE, 1120)]);
+    const replaced = (oldMeterFinal: number, newMeterStart: number, value: number) =>
+      readingPreview(
+        usage,
+        JULY,
+        draft(value, { meterChange: { oldMeterFinal, newMeterStart, newMeterNumber: "" } }),
+        NOW,
+        null,
+      ).problems;
+    expect(replaced(1200, 0, 50)).toEqual([]);
+    expect(replaced(1100, 0, 50)).toEqual(["old_meter_below_previous"]);
+    expect(replaced(1200, 60, 50)).toEqual(["below_new_meter_start"]);
+  });
+
+  it("TC-MR-22 a fixed reading can't go above next month's, unless next month was already lower", () => {
+    const usage = usageOf([reading(JUNE, 1120), reading(JULY, 1250)]);
+    expect(readingPreview(usage, JUNE, draft(1200), NOW, null).problems).toEqual([]);
+    expect(readingPreview(usage, JUNE, draft(1300), NOW, null)).toMatchObject({
+      problems: ["above_next"],
+      nextReading: 1250,
+    });
+    const alreadyLower = usageOf([reading(JUNE, 1300), reading(JULY, 1250)]);
+    expect(readingPreview(alreadyLower, JUNE, draft(1310), NOW, null).problems).toEqual([]);
   });
 
   it("TC-MR-04 a meter replaced this month counts the old meter's tail plus the new one's head", () => {
@@ -215,6 +246,25 @@ describe("the reading lock in the service", () => {
     );
     expect(await usageReadingService.getForLines(["line-1"])).toHaveLength(1);
   });
+
+  it("TC-MR-23 the service refuses a meter going down unless it was replaced", async () => {
+    await save(meterLine, JUNE, 1120);
+    await expect(save(meterLine, JULY, 1100)).rejects.toThrow(
+      i18n.t("errors.usage_reading_out_of_order"),
+    );
+    await expect(
+      usageReadingService.save({
+        line: meterLine,
+        billingMonth: JULY,
+        value: 50,
+        meterChange: { oldMeterFinal: 1200, newMeterStart: 0, newMeterNumber: null },
+        recordedByUserId: "user-1",
+      }),
+    ).resolves.toMatchObject({ reading: 50 });
+    await expect(save(meterLine, JUNE, 990)).rejects.toThrow(
+      i18n.t("errors.usage_reading_out_of_order"),
+    );
+  });
 });
 
 describe("the month grid door", () => {
@@ -232,6 +282,7 @@ describe("the month grid door", () => {
       payLimit: null,
       uncoveredMonths: derived.uncoveredMonths["line-1"],
       paidMonths: derived.paidMonths["line-1"],
+      usageLine: true,
     };
     const month = (billingMonth: string) =>
       derived.grids["line-1"].find((e) => e.billingMonth === billingMonth) as MonthEntry;
@@ -266,8 +317,32 @@ describe("the month grid door", () => {
 
   it("TC-MR-15 the reading row is greyed once next month has money", () => {
     const { month } = gridOf([reading(JULY, 1250)]);
-    const gates: LineGates = { payLimit: null, uncoveredMonths: [], paidMonths: [AUG] };
+    const gates: LineGates = { payLimit: null, uncoveredMonths: [], paidMonths: [AUG], usageLine: true };
     expect(greyed(monthMenuItems(month(JULY), gates, viewer)).reading).toBe("why_disabled.reading_locked");
+  });
+
+  it("TC-MR-17 a future usage month cannot be prepaid by any door", () => {
+    const { month, gates } = gridOf(
+      [reading(JUNE, 1120), reading(JULY, 1250), reading(AUG, 1300), reading(SEP, 1400), reading(OCT, 1500)],
+      [price(JULY, 40000, 685000), price(AUG, 40000, 685000), price(SEP, 40000, 685000), price(OCT, 40000, 685000)],
+    );
+    expect(month(NOV).status).toBe("future");
+    expect(monthTap(month(NOV), gates)).toEqual({ kind: "no_bill" });
+    expect(monthMenuItems(month(NOV), gates, viewer).some((i) => i.key === "quick-pay")).toBe(false);
+    expect(monthSelectionGroups([month(OCT), month(NOV)], gates).payable.map((e) => e.billingMonth)).toEqual([OCT]);
+  });
+
+  it("TC-MR-18 the quick-pay link refuses a month still waiting for its reading", () => {
+    const { month, gates } = gridOf([]);
+    expect(month(OCT).status).toBe("waiting");
+    expect(quickPayLinkAction(month(OCT), gates)).toEqual({ kind: "no_bill" });
+    expect(monthSelectionGroups([month(OCT)], gates).payable).toEqual([]);
+  });
+
+  it("TC-MR-19 a fixed line keeps prepaying future months", () => {
+    const { month, gates } = gridOf([]);
+    const fixed = { ...gates, usageLine: false };
+    expect(monthTap(month(NOV), fixed)).not.toEqual({ kind: "no_bill" });
   });
 });
 
@@ -311,6 +386,24 @@ describe("the payment slice", () => {
     payments().buildGrids([meterLine], 2026);
     expect(july().status).toBe("unpaid");
     expect(july().usage).toMatchObject({ kind: "bill", bill: { units: 130, amount: 685000 + 130 * 40000 } });
+    payments().reset();
+  });
+
+  it("TC-MR-20 saving or removing a reading announces that what is owed changed", async () => {
+    const payments = () => getStore().getState().payments;
+    const owedVersion = () => getStore().getState().ledger.owedVersion;
+    const v0 = owedVersion();
+    await payments().saveReading({
+      line: meterLine,
+      billingMonth: JULY,
+      value: 1250,
+      meterChange: null,
+      recordedByUserId: "user-1",
+    });
+    expect(owedVersion()).toBe(v0 + 1);
+    const [saved] = payments().readings;
+    expect(await payments().removeReading(saved, "admin")).toBe(true);
+    expect(owedVersion()).toBe(v0 + 2);
     payments().reset();
   });
 });

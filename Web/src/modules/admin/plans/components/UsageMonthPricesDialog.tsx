@@ -6,7 +6,8 @@ import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import type { Currency } from "@shared/core/types";
+import type { TFunction } from "i18next";
+import type { Currency, PlanUsage } from "@shared/core/types";
 import { billingMonthLabel } from "@shared/core/utils/billingMonth";
 import { useUsageMonthPrices } from "@shared/modules/admin/plans/hooks/useUsageMonthPrices";
 import { usageMonthPriceLabel } from "@shared/modules/admin/plans/utils/planLabels";
@@ -29,15 +30,13 @@ interface UsageMonthPricesDialogProps {
 export function UsageMonthPricesDialog({ onClose }: UsageMonthPricesDialogProps) {
   const { t } = useTranslation();
   const plans = usePlanSlice((s) => s.items);
-  const fetchPlans = usePlanSlice((s) => s.fetchPlans);
-  const clearPlanError = usePlanSlice((s) => s.clearError);
+  const getPlans = usePlanSlice((s) => s.getPlans);
   const currencies = useCurrencySlice((s) => s.items);
   const prices = useUsageMonthPrices(plans, markCustomersTableStale);
 
   useEffect(() => {
-    fetchPlans();
-    return clearPlanError;
-  }, [fetchPlans, clearPlanError]);
+    getPlans();
+  }, [getPlans]);
 
   const submit = async () => {
     if (await prices.save()) onClose();
@@ -100,20 +99,11 @@ interface UsagePriceRowProps {
 
 function UsagePriceRow({ draft, currencies, onChange }: UsagePriceRowProps) {
   const { t } = useTranslation();
-  const { plan, saved, last } = draft;
+  const { plan } = draft;
   const usage = plan.usage;
   if (!usage) return null;
   const invalid = usagePriceDraftState(draft) === "invalid";
-  const note = invalid
-    ? t("plans.month_prices_invalid")
-    : saved
-      ? null
-      : last
-        ? `${t("plans.month_prices_none")} ${t("plans.month_prices_last", {
-            month: billingMonthLabel(last.month, true),
-            price: usageMonthPriceLabel(last.price, usage, currencies, t),
-          })}`
-        : t("plans.month_prices_none");
+  const note = invalid ? t("plans.month_prices_invalid") : priceNote(draft, usage, currencies, t);
 
   return (
     <Box sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2 }}>
@@ -150,4 +140,23 @@ function UsagePriceRow({ draft, currencies, onChange }: UsagePriceRowProps) {
       ) : null}
     </Box>
   );
+}
+
+function priceNote(
+  { saved, savedInOldCurrency, last }: UsagePriceDraft,
+  usage: PlanUsage,
+  currencies: Currency[],
+  t: TFunction,
+): string | null {
+  if (saved) return null;
+  if (savedInOldCurrency) {
+    return t("plans.month_prices_old_currency", {
+      price: usageMonthPriceLabel(savedInOldCurrency, usage, currencies, t),
+    });
+  }
+  if (!last) return t("plans.month_prices_none");
+  return `${t("plans.month_prices_none")} ${t("plans.month_prices_last", {
+    month: billingMonthLabel(last.month, true),
+    price: usageMonthPriceLabel(last.price, usage, currencies, t),
+  })}`;
 }

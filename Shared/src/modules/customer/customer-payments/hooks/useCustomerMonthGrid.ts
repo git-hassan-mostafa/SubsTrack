@@ -244,6 +244,9 @@ export function useCustomerMonthGrid({
       case "pay_order":
         showPayOrderBlocked(action.month);
         return;
+      case "no_bill":
+        notAvailable(t("payments.reading.no_bill_yet"));
+        return;
       case "collect":
         openCollectFor([entry]);
     }
@@ -478,6 +481,10 @@ export function useCustomerMonthGrid({
     const action = quickPayLinkAction(currentEntry, gates);
     if (action.kind === "skipped") {
       notAvailable(t("payments.skip.pay_blocked"));
+      return;
+    }
+    if (action.kind === "no_bill") {
+      notAvailable(t("payments.reading.no_bill_yet"));
       return;
     }
     if (action.kind === "pay_order") {

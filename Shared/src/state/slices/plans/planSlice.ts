@@ -16,6 +16,8 @@ export interface PlanSlice {
   loaded: boolean;
   loading: boolean;
   error: string | null;
+  pricesSaving: boolean;
+  pricesError: string | null;
   getPlans: () => Promise<void>;
   fetchPlans: () => Promise<void>;
   createPlan: (data: PlanInput, tenantId: string) => Promise<Plan | null>;
@@ -36,6 +38,7 @@ export interface PlanSlice {
   deletePlan: (id: string) => Promise<boolean>;
   bulkDeletePlans: (ids: string[]) => Promise<boolean>;
   clearError: () => void;
+  clearPricesError: () => void;
   reset: () => void;
 }
 
@@ -49,6 +52,8 @@ export const createPlanSlice: StateCreator<
   loaded: false,
   loading: false,
   error: null,
+  pricesSaving: false,
+  pricesError: null,
 
   getPlans: async () => {
     const { loaded, loading } = get().plans;
@@ -142,20 +147,20 @@ export const createPlanSlice: StateCreator<
 
   setUsageMonthPrices: async (month, prices) => {
     set((state) => {
-      state.plans.loading = true;
-      state.plans.error = null;
+      state.plans.pricesSaving = true;
+      state.plans.pricesError = null;
     });
     try {
       const saved = await priceHistoryService.setUsageMonthPrices(month, prices);
       set((state) => {
-        state.plans.loading = false;
+        state.plans.pricesSaving = false;
       });
       get().ledger.markOwedChanged();
       return saved;
     } catch (e) {
       set((state) => {
-        state.plans.error = (e as Error).message;
-        state.plans.loading = false;
+        state.plans.pricesError = (e as Error).message;
+        state.plans.pricesSaving = false;
       });
       return null;
     }
@@ -209,11 +214,17 @@ export const createPlanSlice: StateCreator<
     set((state) => {
       state.plans.error = null;
     }),
+  clearPricesError: () =>
+    set((state) => {
+      state.plans.pricesError = null;
+    }),
   reset: () =>
     set((state) => {
       state.plans.items = [];
       state.plans.loaded = false;
       state.plans.loading = false;
       state.plans.error = null;
+      state.plans.pricesSaving = false;
+      state.plans.pricesError = null;
     }),
 });

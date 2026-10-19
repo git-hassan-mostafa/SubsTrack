@@ -21,6 +21,7 @@ export interface UsagePriceDraft {
   fixedFee: number | null;
   unitPrice: number | null;
   saved: UsageMonthPrice | null;
+  savedInOldCurrency: UsageMonthPrice | null;
   last: UsageMonthPriceRow | null;
 }
 
@@ -39,7 +40,7 @@ export function usageMonthPriceRows(changes: PlanPriceChange[]): UsageMonthPrice
   });
 }
 
-// What is typed wins over the month's saved price; switching month starts from saved again.
+// Typed wins over saved; a price saved in the plan's old currency is never prefilled.
 export function usagePriceDraftsOf(
   plans: Plan[],
   changes: PlanPriceChange[],
@@ -51,13 +52,16 @@ export function usagePriceDraftsOf(
     .filter((plan) => plan.usage)
     .map((plan) => {
       const planChanges = byPlan.get(plan.id) ?? [];
-      const saved = usagePriceAt(planChanges, month);
+      const monthPrice = usagePriceAt(planChanges, month);
+      const sameCurrency = monthPrice?.currencyId === plan.currencyId;
+      const saved = sameCurrency ? monthPrice : null;
       const edit = edits[plan.id] ?? {};
       return {
         plan,
         fixedFee: edit.fixedFee !== undefined ? edit.fixedFee : (saved?.fixedFee ?? null),
         unitPrice: edit.unitPrice !== undefined ? edit.unitPrice : (saved?.unitPrice ?? null),
         saved,
+        savedInOldCurrency: sameCurrency ? null : monthPrice,
         last: usageMonthPriceRows(planChanges).find((row) => row.month < month) ?? null,
       };
     });
@@ -69,11 +73,7 @@ export function usagePriceDraftState(draft: UsagePriceDraft): UsagePriceDraftSta
   if (fixedFee === null && unitPrice === null) return saved ? "invalid" : "empty";
   if (fixedFee === null || unitPrice === null) return "invalid";
   if (!(unitPrice > 0) || fixedFee < 0) return "invalid";
-  const same =
-    saved !== null &&
-    saved.fixedFee === fixedFee &&
-    saved.unitPrice === unitPrice &&
-    saved.currencyId === draft.plan.currencyId;
+  const same = saved !== null && saved.fixedFee === fixedFee && saved.unitPrice === unitPrice;
   return same ? "unchanged" : "ready";
 }
 

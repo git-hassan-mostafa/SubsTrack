@@ -16,6 +16,7 @@ import type {
 import { balanceUsd, isDebtItem } from "@shared/modules/ledger/utils/debtRule";
 import type { RateCurrency } from "@shared/modules/ledger/utils/mergeOwed";
 import { priceHistoryOf } from "@shared/modules/customer/customer-plans/utils/priceHistory";
+import { numberOrNull } from "@shared/core/utils/numberOrNull";
 import { usageOf } from "@shared/modules/admin/plans/utils/mapper";
 import { usageByLineOf } from "@shared/modules/customer/customer-payments/utils/usageBill";
 
@@ -185,7 +186,7 @@ function readPlans(wire: WirePlan[]): Plan[] {
     ]) => ({
       id,
       name,
-      price: price === null ? null : Number(price),
+      price: numberOrNull(price),
       isCustomPrice,
       durationMonths,
       currencyId,
@@ -210,11 +211,11 @@ function readPrices(wire: CustomerStatusFactsWire): PriceHistory {
         id,
         planId,
         fromMonth,
-        price: price === null ? null : Number(price),
+        price: numberOrNull(price),
         currencyId,
         durationMonths,
         isCustomPrice,
-        fixedFee: fixedFee == null ? null : Number(fixedFee),
+        fixedFee: numberOrNull(fixedFee),
         createdAt,
       }),
     ),
@@ -224,15 +225,13 @@ function readPrices(wire: CustomerStatusFactsWire): PriceHistory {
         customerId,
         customerPlanId,
         fromMonth,
-        customPrice: customPrice === null ? null : Number(customPrice),
+        customPrice: numberOrNull(customPrice),
         customCurrencyId,
         createdAt,
       }),
     ),
   });
 }
-
-const toNumber = (value: number | null) => (value === null ? null : Number(value));
 
 function readReadings(
   wire: WireReading[],
@@ -241,8 +240,8 @@ function readReadings(
     ([customerPlanId, billingMonth, reading, units, oldMeterFinal, newMeterStart, newMeterNumber, recordedAt]) => ({
       customerPlanId,
       billingMonth,
-      reading: toNumber(reading),
-      units: toNumber(units),
+      reading: numberOrNull(reading),
+      units: numberOrNull(units),
       meterChange:
         oldMeterFinal === null || newMeterStart === null
           ? null
@@ -309,9 +308,9 @@ export function readCustomerStatusFacts(
       startDate,
       active,
       planId,
-      customPrice: toNumber(customPrice),
+      customPrice: numberOrNull(customPrice),
       customCurrencyId,
-      startReading: toNumber(startReading),
+      startReading: numberOrNull(startReading),
       plan: planId ? (planById.get(planId) ?? null) : null,
     });
     for (const [

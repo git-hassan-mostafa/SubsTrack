@@ -13,6 +13,7 @@ interface PlanUsageFieldsProps {
   usage: PlanUsage;
   currencyId: string | null;
   currencies: Currency[];
+  entryLocked: boolean;
   onChange: (patch: Partial<PlanUsage>) => void;
   onCurrencyChange: (currencyId: string | null) => void;
 }
@@ -23,6 +24,7 @@ export function PlanUsageFields({
   usage,
   currencyId,
   currencies,
+  entryLocked,
   onChange,
   onCurrencyChange,
 }: PlanUsageFieldsProps) {
@@ -35,6 +37,7 @@ export function PlanUsageFields({
           exclusive
           color="primary"
           value={usage.entry}
+          disabled={entryLocked}
           onChange={(_event, entry: UsageEntry | null) => {
             if (entry) onChange({ entry });
           }}
@@ -47,9 +50,11 @@ export function PlanUsageFields({
           ))}
         </ToggleButtonGroup>
         <FormHelperText>
-          {usage.entry === "reading"
-            ? t("plans.usage_entry_reading_hint")
-            : t("plans.usage_entry_direct_hint")}
+          {entryLocked
+            ? t("plans.usage_entry_locked_hint")
+            : usage.entry === "reading"
+              ? t("plans.usage_entry_reading_hint")
+              : t("plans.usage_entry_direct_hint")}
         </FormHelperText>
       </Stack>
       <TextField

@@ -12,6 +12,7 @@ export interface ReadingText {
   bill: string | null;
   note: string | null;
   warnings: string[];
+  problems: string[];
   locked: string;
 }
 
@@ -76,14 +77,16 @@ export function readingText(
 ): ReadingText {
   const meter = usage.entry === "reading";
   const month = billingMonthLabel(billingMonth);
-  const warnings = preview.warnings.map((warning) =>
-    warning === "below_previous"
-      ? t("payments.reading.warn_below_previous", {
-          previous: unitNumber.format(preview.previousReading ?? 0),
-        })
-      : t("payments.reading.warn_high_usage", {
-          usual: formatUnits(Math.round(preview.usualUnits ?? 0), usage.unitName),
-        }),
+  const warnings = preview.warnings.map(() =>
+    t("payments.reading.warn_high_usage", {
+      usual: formatUnits(Math.round(preview.usualUnits ?? 0), usage.unitName),
+    }),
+  );
+  const problems = preview.problems.map((problem) =>
+    t(`payments.reading.problem_${problem}`, {
+      previous: unitNumber.format(preview.previousReading ?? 0),
+      next: unitNumber.format(preview.nextReading ?? 0),
+    }),
   );
   return {
     title: t(meter ? "payments.reading.title_reading" : "payments.reading.title_units", { month }),
@@ -110,6 +113,7 @@ export function readingText(
         ? waitNote(preview.month.waitingFor, billingMonth, isStartMonth, t)
         : null,
     warnings,
+    problems,
     locked: t(meter ? "payments.reading.locked_reading" : "payments.reading.locked_units"),
   };
 }

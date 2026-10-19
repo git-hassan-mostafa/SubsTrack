@@ -1,3 +1,4 @@
+import { numberOrNull } from "@shared/core/utils/numberOrNull";
 import { Plan, PlanUsage } from "@shared/core/types";
 import { DbPlan } from "@shared/core/types/db";
 
@@ -12,8 +13,7 @@ export function usageOf(
     entry: db.usage_entry === "direct" ? "direct" : "reading",
     unitName: db.unit_name ?? "",
     feeName: db.fee_name ?? "",
-    highUsagePercent:
-      db.high_usage_percent != null ? Number(db.high_usage_percent) : null,
+    highUsagePercent: numberOrNull(db.high_usage_percent),
   };
 }
 
@@ -21,7 +21,7 @@ export function mapDbPlanToPlan(db: DbPlan): Plan {
   return {
     id: db.id,
     name: db.name,
-    price: db.price != null ? Number(db.price) : null,
+    price: numberOrNull(db.price),
     isCustomPrice: db.is_custom_price,
     durationMonths: db.duration_months,
     currencyId: db.currency_id,

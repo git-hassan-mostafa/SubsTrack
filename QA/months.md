@@ -70,7 +70,7 @@ What a month shows after money moves. A month is Paid as soon as **any** money r
 39. Money on the line's first month → the start reading can no longer be changed (field locked, save refused). Money only on later months → it can still be fixed.
 40. Customer months, tap a "Waiting" meter month → reading form opens; type the reading → it shows the units used and the bill (fixed fee + units × unit price) before saving; save → the month turns Unpaid with no reload.
 41. Reading form on a month whose price is not set → it says the price is not set yet; after saving, the month stays "Waiting".
-42. Reading form, reading lower than last month's → warning shown, save still allowed, month stays "Waiting". Tick "Meter replaced this month" and type both meter readings → units = old meter's tail + new meter's head.
+42. Reading form, reading lower than last month's → red message, Save greyed (the server refuses it too). Reading higher than next month's saved reading → same. Tick "Meter replaced this month" and type both meter readings → units = old meter's tail + new meter's head.
 43. Reading form on a month that has money, or (meter plans) whose next month has money → read only, no Save, no Remove; the menu row "Change reading" is greyed with the reason.
 44. Remove a reading → the month goes back to "Waiting".
 45. Collect an unpaid meter month (tap, Pay now, or To collect) → the amount is the worked-out bill in the plan's currency, not a typed amount; the saved bill shows the readings and "fee + units × unit price = total".
@@ -81,6 +81,11 @@ What a month shows after money moves. A month is Paid as soon as **any** money r
 50. Meter customer whose months only wait for a reading or a price → the customer list (phone and web) does not show them as unpaid or overdue, and the dashboard "Unpaid this month" does not count them.
 51. Enter this month's reading and price for a meter customer → the dashboard "Unpaid this month" counts them until money reaches the month.
 52. Meter month with a worked-out bill left unpaid for more than one month after the reading and price were saved → the customer shows "Overdue" on the phone list, the web list and the customer portal.
+53. Meter line, a future month or a "Waiting" month → tap, Pay now, select-and-collect and the quick-pay link all refuse it with "This month has no bill yet"; nothing is collected.
+54. Change bill amount on a meter month, then remove its reading → the month still owes the typed amount; once its month ended more than a month ago, the customer shows "Overdue".
+55. Edit a saved meter plan → "Meter reading / Typed usage" cannot be changed; the save is refused if forced.
+56. Change a meter plan's currency, then open Month prices on a month already priced in the old currency → the fields are empty with a note showing the old price; Save does not re-save it in the new currency unless both prices are typed.
+57. Save or remove a reading → To collect, the dashboard and the web customers list show the new amount owed without a manual refresh.
 
 ## Customer portal
 
