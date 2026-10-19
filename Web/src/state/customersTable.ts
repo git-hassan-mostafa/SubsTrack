@@ -1,5 +1,6 @@
 import type { Customer, PageWindow, SkippedMonth } from "@shared/core/types";
 import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
+import { usageReadingService } from "@shared/modules/customer/customer-payments/services/UsageReadingService";
 import { getCustomerStatuses } from "@shared/modules/customer/customer-payments/utils/monthStatus";
 import customerService from "@shared/modules/customer/customers/services/CustomerService";
 import {
@@ -94,15 +95,17 @@ async function toCollectUsdOf(customer: Customer, skips: SkippedMonth[], debtUsd
 async function readCustomerRow(customerId: string, debtUsd: number): Promise<CustomerRow> {
   const customer = await customerService.getCustomer(customerId);
   const lines = customer.customerPlans ?? [];
-  const [billsByLine, skips] = await Promise.all([
+  const [billsByLine, skips, usageByLine] = await Promise.all([
     chargeService.getMonthBillsForLines(lines.map((line) => line.id)),
     skippedMonthService.getSkipsForCustomer(customerId),
+    usageReadingService.getUsageByLine(lines),
   ]);
   const statuses = getCustomerStatuses(
     [customer],
     [...billsByLine.values()].flat(),
     skips,
     getUnpaidRule(getStore().getState),
+    usageByLine,
   );
   const toCollectUsd = await toCollectUsdOf(customer, skips, debtUsd);
   return toCustomerRow({ customer, status: statuses.get(customerId) ?? null, debtUsd, toCollectUsd });

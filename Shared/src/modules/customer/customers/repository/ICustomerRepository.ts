@@ -1,20 +1,8 @@
 import type { BranchFilter } from "@shared/core/constants";
-import type { UnpaidStartRule } from "@shared/core/types";
 import type { DbCustomer } from "@shared/core/types/db";
 
 // A customer row with its service lines (each carrying its joined plan).
 export type CustomerWithLines = DbCustomer;
-
-/**
- * This month's collection population. `due` = customers the month actually asks
- * money from; `unpaid` = the subset that hasn't paid. Both come from one pass, so
- * the dashboard's progress bar can't mix two different populations — `due`
- * already excludes non-regular, not-yet-started, skipped and not-yet-due lines.
- */
-export interface UnpaidMonthCount {
-  unpaid: number;
-  due: number;
-}
 
 export type CreateCustomerPayload = Pick<
   DbCustomer,
@@ -70,11 +58,6 @@ export interface ICustomerRepository {
   customersWithPayments(ids: string[]): Promise<Set<string>>;
   countAll(branchFilter?: BranchFilter): Promise<number>;
   countActive(branchFilter?: BranchFilter): Promise<number>;
-  countUnpaidForMonth(
-    billingMonth: string,
-    branchFilter?: BranchFilter,
-    unpaidRule?: UnpaidStartRule,
-  ): Promise<UnpaidMonthCount>;
   countCreatedInRange(
     start: string,
     endExclusive: string,

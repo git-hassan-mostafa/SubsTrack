@@ -1,8 +1,6 @@
 import type { BranchFilter } from "@shared/core/constants";
 import { OFFLINE_PAGE_SIZE } from "@shared/core/constants";
-import type { UnpaidStartRule } from "@shared/core/types";
 import type { DbCustomer, DbCustomerPlan, DbPlan } from "@shared/core/types/db";
-import { isNotDueYet } from "@shared/modules/customer/customer-payments/utils/monthDueRules";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
 import {
   insertDirty,
@@ -14,7 +12,6 @@ import type {
   CreateCustomerPayload,
   CustomerWithLines,
   ICustomerRepository,
-  UnpaidMonthCount,
 } from "@shared/modules/customer/customers/repository/ICustomerRepository";
 
 /** SQLite-backed customers repository. Reproduces `'*, customer_plans(*, plans(*))'`. */
@@ -327,84 +324,5 @@ export class OfflineCustomerRepository
       this.branchWhere(branchFilter, this.BRANCH_SCOPES.customers, "customers"),
     ]);
     return this.count(`SELECT COUNT(*) AS n FROM customers ${sql}`, params);
-  }
-
-  async countUnpaidForMonth(
-    billingMonth: string,
-    branchFilter: BranchFilter = null,
-    unpaidRule: UnpaidStartRule = "month_start",
-  ): Promise<UnpaidMonthCount> {
-    const [year, monthStr] = billingMonth.split("-").map(Number);
-    const cutoffDate = new Date(year, monthStr - 1 - 12, 1);
-    const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, "0")}-01`;
-    const target = new Date(billingMonth);
-
-    const pBranch = this.branchWhere(
-      branchFilter,
-      this.BRANCH_SCOPES.charges,
-      "ch",
-    );
-    const covered = await this.all<{
-      customer_plan_id: string;
-      billing_month: string;
-      duration_months: number;
-    }>(
-      `SELECT DISTINCT ch.customer_plan_id, ch.billing_month, ch.duration_months
-       FROM collection_items ci
-       JOIN charges ch ON ci.charge_id = ch.id
-       JOIN collections co ON ci.collection_id = co.id
-       JOIN customers c ON ch.customer_id = c.id
-       WHERE ch.kind = 'month' AND ch.billing_month <= ? AND ch.billing_month >= ?
-         AND ch.voided_at IS NULL AND co.voided_at IS NULL
-         ${pBranch.clause ? `AND ${pBranch.clause}` : ""}`,
-      [billingMonth, cutoff, ...pBranch.params],
-    );
-
-    const coveredLineIds = new Set(
-      covered
-        .filter((r) => {
-          const start = new Date(r.billing_month);
-          const end = new Date(start);
-          end.setMonth(end.getMonth() + r.duration_months - 1);
-          return end >= target;
-        })
-        .map((r) => r.customer_plan_id),
-    );
-
-    const skipRows = await this.all<{ customer_plan_id: string }>(
-      "SELECT customer_plan_id FROM skipped_months WHERE billing_month = ? AND skipped = 1",
-      [billingMonth],
-    );
-    const skippedLineIds = new Set(skipRows.map((r) => r.customer_plan_id));
-
-    const lBranch = this.branchWhere(
-      branchFilter,
-      this.BRANCH_SCOPES.customer_plans,
-      "c",
-    );
-    const lines = await this.all<{
-      id: string;
-      customer_id: string;
-      start_date: string;
-    }>(
-      `SELECT cp.id, cp.customer_id, cp.start_date
-       FROM customer_plans cp JOIN customers c ON cp.customer_id = c.id
-       WHERE cp.active = 1 AND c.active = 1 AND c.is_regular = 1
-         ${lBranch.clause ? `AND ${lBranch.clause}` : ""}`,
-      lBranch.params,
-    );
-
-    const unpaidCustomers = new Set<string>();
-    const dueCustomers = new Set<string>();
-    for (const l of lines) {
-      const [sy, sm] = l.start_date.split("-").map(Number);
-      if (new Date(`${sy}-${String(sm).padStart(2, "0")}-01`) > target)
-        continue;
-      if (skippedLineIds.has(l.id)) continue;
-      if (isNotDueYet(unpaidRule, year, monthStr, l.start_date)) continue;
-      dueCustomers.add(l.customer_id);
-      if (!coveredLineIds.has(l.id)) unpaidCustomers.add(l.customer_id);
-    }
-    return { unpaid: unpaidCustomers.size, due: dueCustomers.size };
   }
 }

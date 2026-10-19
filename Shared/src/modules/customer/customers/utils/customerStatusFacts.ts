@@ -8,13 +8,16 @@ import type {
   StatusBill,
   StatusCustomer,
   StatusLine,
+  StatusReading,
   StatusSkip,
+  LineUsage,
   UnpaidStartRule,
 } from "@shared/core/types";
 import { balanceUsd, isDebtItem } from "@shared/modules/ledger/utils/debtRule";
 import type { RateCurrency } from "@shared/modules/ledger/utils/mergeOwed";
 import { priceHistoryOf } from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import { usageOf } from "@shared/modules/admin/plans/utils/mapper";
+import { usageByLineOf } from "@shared/modules/customer/customer-payments/utils/usageBill";
 
 export type WireCustomer = [
   id: string,
@@ -35,6 +38,7 @@ export type WireBill = [
   amount: number,
   paid: number,
   writtenOffAt?: string | null,
+  computedAmount?: number | null,
 ];
 
 export type WireLine = [
@@ -47,6 +51,18 @@ export type WireLine = [
   planId?: string | null,
   customPrice?: number | null,
   customCurrencyId?: string | null,
+  startReading?: number | null,
+];
+
+export type WireReading = [
+  customerPlanId: string,
+  billingMonth: string,
+  reading: number | null,
+  units: number | null,
+  oldMeterFinal: number | null,
+  newMeterStart: number | null,
+  newMeterNumber: string | null,
+  recordedAt: string,
 ];
 
 export type WireDebt = [
@@ -109,10 +125,11 @@ export interface CustomerStatusFactsWire {
   currencies?: WireCurrency[];
   planChanges?: WirePlanChange[];
   specialPriceChanges?: WireLineChange[];
+  readings?: WireReading[];
 }
 
 export type StatusListLine = StatusLine &
-  Pick<CustomerPlan, "planId" | "customPrice" | "customCurrencyId"> & {
+  Pick<CustomerPlan, "planId" | "customPrice" | "customCurrencyId" | "startReading"> & {
     plan: Plan | null;
   };
 
@@ -143,6 +160,7 @@ export interface CustomerStatusFacts {
   open: OpenBillFact[];
   debtUsd: Map<string, number>;
   prices: PriceHistory;
+  usageByLine: Map<string, LineUsage>;
   currencies: RateCurrency[];
   unpaidRule: UnpaidStartRule;
 }
@@ -214,6 +232,30 @@ function readPrices(wire: CustomerStatusFactsWire): PriceHistory {
   });
 }
 
+const toNumber = (value: number | null) => (value === null ? null : Number(value));
+
+function readReadings(
+  wire: WireReading[],
+): (StatusReading & { customerPlanId: string })[] {
+  return wire.map(
+    ([customerPlanId, billingMonth, reading, units, oldMeterFinal, newMeterStart, newMeterNumber, recordedAt]) => ({
+      customerPlanId,
+      billingMonth,
+      reading: toNumber(reading),
+      units: toNumber(units),
+      meterChange:
+        oldMeterFinal === null || newMeterStart === null
+          ? null
+          : {
+              oldMeterFinal: Number(oldMeterFinal),
+              newMeterStart: Number(newMeterStart),
+              newMeterNumber,
+            },
+      recordedAt,
+    }),
+  );
+}
+
 export function readCustomerStatusFacts(
   wire: CustomerStatusFactsWire,
   unpaidRule: UnpaidStartRule,
@@ -260,14 +302,16 @@ export function readCustomerStatusFacts(
     planId = null,
     customPrice = null,
     customCurrencyId = null,
+    startReading = null,
   ] of wire.lines) {
     customers.get(customerId)?.customerPlans.push({
       id,
       startDate,
       active,
       planId,
-      customPrice: customPrice === null ? null : Number(customPrice),
+      customPrice: toNumber(customPrice),
       customCurrencyId,
+      startReading: toNumber(startReading),
       plan: planId ? (planById.get(planId) ?? null) : null,
     });
     for (const [
@@ -276,6 +320,7 @@ export function readCustomerStatusFacts(
       amount,
       paid,
       writtenOffAt = null,
+      computedAmount = null,
     ] of lineBills) {
       bills.push({
         charge: {
@@ -286,6 +331,10 @@ export function readCustomerStatusFacts(
           amount: Number(amount),
           voidedAt: null,
           writtenOffAt,
+          usage:
+            computedAmount === null
+              ? null
+              : { computedAmount: Number(computedAmount) },
         },
         collected: Number(paid),
       });
@@ -326,13 +375,20 @@ export function readCustomerStatusFacts(
     debtUsd.set(customerId, (debtUsd.get(customerId) ?? 0) + usd);
   }
 
+  const prices = readPrices(wire);
+  const customerList = [...customers.values()];
   return {
-    customers: [...customers.values()],
+    customers: customerList,
     bills,
     skips,
     open,
     debtUsd,
-    prices: readPrices(wire),
+    prices,
+    usageByLine: usageByLineOf(
+      customerList.flatMap((c) => c.customerPlans),
+      readReadings(wire.readings ?? []),
+      prices,
+    ),
     currencies: (wire.currencies ?? []).map(([id, ratePerUsd]) => ({
       id,
       ratePerUsd: Number(ratePerUsd),

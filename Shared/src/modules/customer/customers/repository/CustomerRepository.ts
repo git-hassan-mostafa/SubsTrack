@@ -1,14 +1,11 @@
 import { BaseRepository } from "@shared/core/utils/BaseRepository";
 import { PAGE_SIZE, type BranchFilter } from "@shared/core/constants";
-import type { UnpaidStartRule } from "@shared/core/types";
 import type { DbCustomer } from "@shared/core/types/db";
 import { sanitizeSearchTerm } from "@shared/core/utils/searchTerm";
-import { isNotDueYet } from "@shared/modules/customer/customer-payments/utils/monthDueRules";
 import type {
   CreateCustomerPayload,
   CustomerWithLines,
   ICustomerRepository,
-  UnpaidMonthCount,
 } from "@shared/modules/customer/customers/repository/ICustomerRepository";
 import { CUSTOMER_WITH_LINES_SELECT } from "@shared/modules/customer/customers/repository/customerSelect";
 
@@ -299,95 +296,5 @@ export class CustomerRepository
     const { count, error } = await query;
     if (error) this.handleError(error);
     return count ?? 0;
-  }
-
-  async countUnpaidForMonth(
-    billingMonth: string,
-    branchFilter: BranchFilter = null,
-    unpaidRule: UnpaidStartRule = "month_start",
-  ): Promise<UnpaidMonthCount> {
-    const [year, monthStr] = billingMonth.split("-").map(Number);
-    const cutoffDate = new Date(year, monthStr - 1 - 12, 1);
-    const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, "0")}-01`;
-    const target = new Date(billingMonth);
-
-    let coverQuery = this.db
-      .from("collection_items")
-      .select(
-        "charges!inner(customer_plan_id, billing_month, duration_months, kind, voided_at, branch_id), collections!inner(voided_at)",
-      )
-      .eq("charges.kind", "month")
-      .lte("charges.billing_month", billingMonth)
-      .gte("charges.billing_month", cutoff)
-      .is("charges.voided_at", null)
-      .is("collections.voided_at", null);
-    coverQuery = this.applyBranchFilter(coverQuery, branchFilter, {
-      ...this.BRANCH_SCOPES.charges,
-      kind: "inherited",
-      joinedTable: "charges",
-    });
-    const { data: coverRows, error: pErr } = await coverQuery;
-    if (pErr) this.handleError(pErr);
-
-    type CoverRow = {
-      charges: {
-        customer_plan_id: string;
-        billing_month: string;
-        duration_months: number;
-      };
-    };
-    const coveredLineIds = new Set(
-      ((coverRows as unknown as CoverRow[] | null) ?? [])
-        .map((r) => r.charges)
-        .filter((c) => {
-          const start = new Date(c.billing_month);
-          const end = new Date(start);
-          end.setMonth(end.getMonth() + c.duration_months - 1);
-          return end >= target;
-        })
-        .map((c) => c.customer_plan_id),
-    );
-
-    const { data: skipRows, error: sErr } = await this.db
-      .from("skipped_months")
-      .select("customer_plan_id")
-      .eq("billing_month", billingMonth)
-      .eq("skipped", true);
-    if (sErr) this.handleError(sErr);
-    const skippedLineIds = new Set(
-      ((skipRows as { customer_plan_id: string }[] | null) ?? []).map(
-        (r) => r.customer_plan_id,
-      ),
-    );
-
-    let linesQuery = this.db
-      .from("customer_plans")
-      .select(
-        "id, customer_id, start_date, customers!inner(active, is_regular, branch_id)",
-      )
-      .eq("active", true)
-      .eq("customers.active", true)
-      .eq("customers.is_regular", true);
-    linesQuery = this.applyBranchFilter(
-      linesQuery,
-      branchFilter,
-      this.BRANCH_SCOPES.customer_plans,
-    );
-    const { data: lines, error: lErr } = await linesQuery;
-    if (lErr) this.handleError(lErr);
-
-    const unpaidCustomers = new Set<string>();
-    const dueCustomers = new Set<string>();
-    for (const l of (lines as
-      { id: string; customer_id: string; start_date: string }[] | null) ?? []) {
-      const [sy, sm] = l.start_date.split("-").map(Number);
-      if (new Date(`${sy}-${String(sm).padStart(2, "0")}-01`) > target)
-        continue;
-      if (skippedLineIds.has(l.id)) continue;
-      if (isNotDueYet(unpaidRule, year, monthStr, l.start_date)) continue;
-      dueCustomers.add(l.customer_id);
-      if (!coveredLineIds.has(l.id)) unpaidCustomers.add(l.customer_id);
-    }
-    return { unpaid: unpaidCustomers.size, due: dueCustomers.size };
   }
 }

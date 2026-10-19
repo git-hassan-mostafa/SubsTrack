@@ -12,6 +12,7 @@ import { collectionService } from "@shared/modules/ledger/services/CollectionSer
 import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
 import { balanceUsd } from "@shared/modules/ledger/utils/debtRule";
 import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
+import { usageReadingService } from "@shared/modules/customer/customer-payments/services/UsageReadingService";
 import expenseService from "@shared/modules/transaction/expenses/services/ExpenseService";
 import saleService from "@shared/modules/transaction/sales/services/SaleService";
 import { sumByKey, sumUsdOf, topN } from "@shared/modules/reports/utils/aggregate";
@@ -85,10 +86,8 @@ class ReportsService {
       mapDbCustomerToCustomer,
     );
 
-    const lineIds = customers.flatMap((c) =>
-      (c.customerPlans ?? []).map((l) => l.id),
-    );
-    const [view, cash, prevCash, writtenOffUsd, billsByLine, skips] =
+    const lines = customers.flatMap((c) => c.customerPlans ?? []);
+    const [view, cash, prevCash, writtenOffUsd, billsByLine, skips, usageByLine] =
       await Promise.all([
         ledgerService.getDebtsView(branchFilter),
         this.getCashRows(range.startIso, range.endExclusiveIso, branchFilter),
@@ -98,8 +97,9 @@ class ReportsService {
           range.endExclusiveIso,
           branchFilter,
         ),
-        chargeService.getMonthBillsForLines(lineIds),
+        chargeService.getMonthBillsForLines(lines.map((l) => l.id)),
         skippedMonthService.getActiveSkips(),
+        usageReadingService.getUsageByLine(lines),
       ]);
 
     const collected = cash.filter((r) => r.stream !== "month");
@@ -110,6 +110,7 @@ class ReportsService {
       [...billsByLine.values()].flat(),
       skips,
       unpaidRule,
+      usageByLine,
     );
 
     const byId = new Map(customers.map((c) => [c.id, c]));

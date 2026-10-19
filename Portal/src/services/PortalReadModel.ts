@@ -5,6 +5,7 @@ import type {
   Customer,
   CustomerPlan,
   CustomerStatus,
+  LineUsage,
   MonthBill,
   MonthEntry,
   OpenItem,
@@ -24,7 +25,11 @@ import {
   mapDbCollectionToCollection,
 } from "@shared/modules/ledger/utils/mapper";
 import { mapDbSaleToSale } from "@shared/modules/transaction/sales/utils/mapper";
-import { mapDbSkippedMonthToSkippedMonth } from "@shared/modules/customer/customer-payments/utils/mapper";
+import {
+  mapDbSkippedMonthToSkippedMonth,
+  mapDbUsageReading,
+} from "@shared/modules/customer/customer-payments/utils/mapper";
+import { usageByLineOf } from "@shared/modules/customer/customer-payments/utils/usageBill";
 import { mapDbCurrencyToCurrency } from "@shared/modules/admin/currencies/utils/mapper";
 import { DEFAULT_UNPAID_START_RULE } from "@shared/modules/admin/tenant-settings/utils/constants";
 import {
@@ -53,6 +58,7 @@ export interface PortalModel {
   collectorNames: Map<string, string>;
   status: CustomerStatus;
   unpaidRule: UnpaidStartRule;
+  usageByLine: Map<string, LineUsage>;
   displayCurrencyId: string | null;
 }
 
@@ -104,6 +110,13 @@ export function buildPortalModel(payload: PortalPayload): PortalModel {
       ),
     );
 
+  const prices = priceHistoryOf({
+    planChanges: (payload.planChanges ?? []).map(mapDbPlanPriceChange),
+    lineChanges: (payload.lineChanges ?? []).map(mapDbLinePriceChange),
+  });
+  const readings = (payload.readings ?? []).map(mapDbUsageReading);
+  const usageByLine = usageByLineOf(lines, readings, prices);
+
   const owed = mergeOwed({
     customer,
     lines,
@@ -112,10 +125,8 @@ export function buildPortalModel(payload: PortalPayload): PortalModel {
     currencies,
     stored,
     billsByLine,
-    prices: priceHistoryOf({
-      planChanges: (payload.planChanges ?? []).map(mapDbPlanPriceChange),
-      lineChanges: (payload.lineChanges ?? []).map(mapDbLinePriceChange),
-    }),
+    prices,
+    usageByLine,
     withOpenMonths: true,
   });
 
@@ -137,8 +148,9 @@ export function buildPortalModel(payload: PortalPayload): PortalModel {
     collectorNames: new Map(
       payload.collectors.map((u) => [u.id, u.full_name]),
     ),
-    status: buildCustomerStatus(lines, bills, skips, unpaidRule),
+    status: buildCustomerStatus(lines, bills, skips, unpaidRule, usageByLine),
     unpaidRule,
+    usageByLine,
     displayCurrencyId: payload.settings.DisplayCurrencyId || null,
   };
 }
@@ -159,6 +171,7 @@ export function buildGrids(
         model.skips.filter((s) => s.customerPlanId === line.id),
         year,
         model.unpaidRule,
+        model.usageByLine.get(line.id) ?? null,
       ),
     }));
 }

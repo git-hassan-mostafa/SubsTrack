@@ -241,10 +241,13 @@ async function recordFailure(db, customerId: string, lock, now: Date) {
 
 // Explicit, because `*` would ship notes, void reasons and the recorder's id.
 const CHARGE_COLUMNS =
-  "id, tenant_id, branch_id, customer_id, kind, customer_plan_id, billing_month, duration_months, plan_id, sale_id, description, amount, currency_id, rate_per_usd_snapshot, issued_at, due_date, created_at, updated_at, written_off_at";
+  "id, tenant_id, branch_id, customer_id, kind, customer_plan_id, billing_month, duration_months, plan_id, sale_id, description, amount, currency_id, rate_per_usd_snapshot, issued_at, due_date, created_at, updated_at, written_off_at, usage_previous_reading, usage_reading, usage_units, unit_price, fixed_fee, computed_amount";
 
 const COLLECTION_COLUMNS =
   "id, tenant_id, branch_id, customer_id, amount, currency_id, rate_per_usd_snapshot, received_at, received_by_user_id, kind, created_at, updated_at, collection_items(id, tenant_id, collection_id, charge_id, amount, created_at, updated_at)";
+
+const READING_COLUMNS =
+  "id, tenant_id, customer_id, customer_plan_id, billing_month, reading, units, old_meter_final, new_meter_start, new_meter_number, recorded_at, created_at, updated_at";
 
 const SALE_COLUMNS =
   "id, tenant_id, branch_id, items_summary, customer_id, total_amount, currency_id, rate_per_usd_snapshot, sold_at, created_at, updated_at, sale_items(id, sale_id, tenant_id, line_type, product_id, service_id, item_name_snapshot, quantity, unit_amount, voided_at, created_at, updated_at)";
@@ -321,8 +324,9 @@ async function data(reqId: string, db, body: Record<string, unknown>) {
   const planIds = [
     ...new Set((lines.data ?? []).map((row) => row.plan_id).filter(Boolean)),
   ];
+  const lineIds = (lines.data ?? []).map((row) => row.id);
 
-  const [balances, sales, collectors, planChanges] = await Promise.all([
+  const [balances, sales, collectors, planChanges, readings] = await Promise.all([
     chargeIds.length
       ? db.from("charge_balances").select("id, paid").in("id", chargeIds)
       : Promise.resolve({ data: [] }),
@@ -341,6 +345,14 @@ async function data(reqId: string, db, body: Record<string, unknown>) {
           .select("*")
           .in("plan_id", planIds)
           .eq("tenant_id", tenantId)
+      : Promise.resolve({ data: [] }),
+    lineIds.length
+      ? db
+          .from("usage_readings")
+          .select(READING_COLUMNS)
+          .in("customer_plan_id", lineIds)
+          .eq("tenant_id", tenantId)
+          .is("voided_at", null)
       : Promise.resolve({ data: [] }),
   ]);
 
@@ -376,6 +388,12 @@ async function data(reqId: string, db, body: Record<string, unknown>) {
     collectors,
     planChanges: planChanges.data ?? [],
     lineChanges: lineChanges.data ?? [],
+    readings: (readings.data ?? []).map((row) => ({
+      ...row,
+      recorded_by_user_id: null,
+      voided_at: null,
+      voided_by: null,
+    })),
     settings: Object.fromEntries(
       (settings.data ?? []).map((row) => [row.key, row.value]),
     ),

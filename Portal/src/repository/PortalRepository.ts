@@ -8,6 +8,7 @@ import type {
   DbPlanPriceChange,
   DbSale,
   DbSkippedMonth,
+  DbUsageReading,
 } from "@shared/core/types/db";
 
 // The raw response of the customer-portal edge function: snake_case Db* rows,
@@ -28,6 +29,7 @@ export interface PortalPayload {
   settings: Record<string, string | null>;
   planChanges?: DbPlanPriceChange[];
   lineChanges?: DbLinePriceChange[];
+  readings?: DbUsageReading[];
 }
 
 // Mirrors the function's own `code` values so the UI can pick a message without

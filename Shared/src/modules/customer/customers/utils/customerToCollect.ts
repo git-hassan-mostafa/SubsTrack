@@ -22,6 +22,7 @@ export function toCollectByCustomer(facts: CustomerStatusFacts): Map<string, num
             stored,
             billsByLine,
             prices: facts.prices,
+            usageByLine: facts.usageByLine,
           })
         : stored.filter((bill) => isDebtItem(bill.kind, bill.paid));
     const usd = owed.reduce(

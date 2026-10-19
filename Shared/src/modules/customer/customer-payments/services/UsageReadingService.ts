@@ -2,7 +2,9 @@ import i18n from "@shared/core/i18n";
 import { repositories } from "@shared/core/runtime/repositories";
 import type {
   CustomerPlan,
+  LineUsage,
   MeterChange,
+  PriceHistory,
   UsageEntry,
   UsageReading,
 } from "@shared/core/types";
@@ -10,7 +12,12 @@ import { inChunks } from "@shared/core/utils/chunk";
 import { nowIso } from "@shared/core/utils/ids";
 import { mapDbUsageReading } from "@shared/modules/customer/customer-payments/utils/mapper";
 import { paidBillingMonths } from "@shared/modules/customer/customer-payments/utils/monthStatus";
-import { isReadingLocked } from "@shared/modules/customer/customer-payments/utils/usageBill";
+import {
+  isReadingLocked,
+  usageByLineOf,
+  type UsageSourceLine,
+} from "@shared/modules/customer/customer-payments/utils/usageBill";
+import { priceHistoryService } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
 import { currentBillingMonth } from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 
@@ -36,6 +43,20 @@ class UsageReadingService {
       )
     ).flat();
     return rows.map(mapDbUsageReading);
+  }
+
+  // What the month rules need for usage lines; fixed lines are left out.
+  async getUsageByLine(
+    lines: UsageSourceLine[],
+    prices?: PriceHistory,
+  ): Promise<Map<string, LineUsage>> {
+    const usageLines = lines.filter((l) => l.plan?.usage);
+    if (usageLines.length === 0) return new Map();
+    const [readings, history] = await Promise.all([
+      this.getForLines(usageLines.map((l) => l.id)),
+      prices ?? priceHistoryService.getForLines(usageLines),
+    ]);
+    return usageByLineOf(usageLines, readings, history);
   }
 
   // A fix keeps the first save's time and author — the bill's day counts from it.

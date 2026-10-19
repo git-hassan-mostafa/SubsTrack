@@ -288,6 +288,45 @@ export function getCustomerStatuses(
   return statuses;
 }
 
+export interface ThisMonthCount {
+  due: number;
+  unpaid: number;
+}
+
+// Dashboard's this-month bar: due = a line owes now, unpaid = one has no money.
+export function countThisMonth(
+  customers: StatusCustomer[],
+  billsByLine: ReadonlyMap<string, StatusBill[]>,
+  skips: StatusSkip[],
+  unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+  usageByLine: ReadonlyMap<string, LineUsage> = NO_USAGE,
+): ThisMonthCount {
+  const { year, month } = getCurrentYearMonth();
+  const skipsByLine = groupBy(skips, (s) => s.customerPlanId);
+  const count: ThisMonthCount = { due: 0, unpaid: 0 };
+  for (const customer of customers) {
+    if (!customer.active || !customer.isRegular) continue;
+    const owing = (customer.customerPlans ?? [])
+      .filter((line) => line.active)
+      .map(
+        (line) =>
+          monthCells(
+            line,
+            billsByLine.get(line.id) ?? [],
+            skipsByLine.get(line.id) ?? [],
+            year,
+            unpaidRule,
+            usageByLine.get(line.id) ?? null,
+          )[month - 1].status,
+      )
+      .filter((status) => status === "unpaid" || isSettledStatus(status));
+    if (owing.length === 0) continue;
+    count.due++;
+    if (owing.includes("unpaid")) count.unpaid++;
+  }
+  return count;
+}
+
 // Reports' aging counts the same months the list's "unpaid months" filter reads.
 export function getOverdueMonthCounts(
   customers: (Omit<StatusCustomer, "customerPlans"> & {

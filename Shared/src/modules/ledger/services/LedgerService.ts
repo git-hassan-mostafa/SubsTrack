@@ -4,10 +4,8 @@ import type {
   Customer,
   CustomerPlan,
   DebtsView,
-  LineUsage,
   MonthBill,
   OpenItem,
-  PriceHistory,
   SkippedMonth,
   UnpaidStartRule,
 } from "@shared/core/types";
@@ -17,7 +15,6 @@ import skippedMonthService from "@shared/modules/customer/customer-payments/serv
 import currencyService from "@shared/modules/admin/currencies/services/CurrencyService";
 import { priceHistoryService } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
 import { usageReadingService } from "@shared/modules/customer/customer-payments/services/UsageReadingService";
-import { usageByLineOf } from "@shared/modules/customer/customer-payments/utils/usageBill";
 import { chargeService } from "./ChargeService";
 import { mergeOwed } from "../utils/mergeOwed";
 import {
@@ -29,6 +26,10 @@ import {
 import { buildOwedView } from "../utils/owedView";
 import { keyOf } from "@shared/modules/ledger/utils/waterfall";
 import { groupBy } from "@shared/core/utils/groupBy";
+import {
+  countThisMonth,
+  type ThisMonthCount,
+} from "@shared/modules/customer/customer-payments/utils/monthStatus";
 import { inChunks } from "@shared/core/utils/chunk";
 
 const OWED_BATCH_SIZE = 100;
@@ -52,7 +53,7 @@ class LedgerService {
         : Promise.resolve(new Map<string, MonthBill[]>()),
       priceHistoryService.getForLines(active),
     ]);
-    const usageByLine = await this.usageFor(active, prices);
+    const usageByLine = await usageReadingService.getUsageByLine(active, prices);
     return mergeOwed({ ...args, stored: open, billsByLine, prices, usageByLine });
   }
 
@@ -95,7 +96,7 @@ class LedgerService {
           : Promise.resolve(new Map<string, MonthBill[]>()),
         priceHistoryService.getForLines(lines),
       ]);
-      const usageByLine = await this.usageFor(lines, prices);
+      const usageByLine = await usageReadingService.getUsageByLine(lines, prices);
       const openByCustomer = groupBy(open, (item) => item.customerId);
       for (const customer of chunk) {
         owed.set(
@@ -131,15 +132,22 @@ class LedgerService {
     return buildOwedView(owedItems(await this.readOwed(branchFilter, unpaidRule)));
   }
 
-  // Debts and Total to collect from one read of the open bills — gotcha #184.
+  // Debts, Total to collect and this month's bar from one read — gotcha #184.
   async getOwedTotals(
     branchFilter: BranchFilter,
     unpaidRule: UnpaidStartRule,
-  ): Promise<{ debts: DebtsView; toCollect: CollectTotal }> {
+  ): Promise<{ debts: DebtsView; toCollect: CollectTotal; thisMonth: ThisMonthCount }> {
     const owed = await this.readOwed(branchFilter, unpaidRule);
     return {
       debts: chargeService.buildDebtsView(owed.stored),
       toCollect: collectTotal(owed),
+      thisMonth: countThisMonth(
+        owed.customers,
+        owed.billsByLine,
+        owed.skips,
+        unpaidRule,
+        owed.usageByLine,
+      ),
     };
   }
 
@@ -161,7 +169,7 @@ class LedgerService {
       this.getMonthBillsForLines(lines.map((l) => l.id)),
       priceHistoryService.getForLines(lines),
     ]);
-    const usageByLine = await this.usageFor(lines, prices);
+    const usageByLine = await usageReadingService.getUsageByLine(lines, prices);
     return {
       customers,
       stored,
@@ -174,15 +182,6 @@ class LedgerService {
     };
   }
 
-  private async usageFor(
-    lines: CustomerPlan[],
-    prices: PriceHistory,
-  ): Promise<Map<string, LineUsage>> {
-    const usageLines = lines.filter((l) => l.plan?.usage);
-    if (usageLines.length === 0) return new Map();
-    const readings = await usageReadingService.getForLines(usageLines.map((l) => l.id));
-    return usageByLineOf(usageLines, readings, prices);
-  }
 
   getMonthBillsForLines(
     customerPlanIds: string[],

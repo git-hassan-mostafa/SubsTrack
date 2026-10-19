@@ -78,7 +78,11 @@ What a month shows after money moves. A month is Paid as soon as **any** money r
 47. Month with money on it, or written off → no Change bill amount; the save is refused.
 48. Payment on a meter month voided, then the reading changed → the month owes the new worked-out amount; reading removed → the month is "Waiting" and owes nothing.
 49. Write off an unpaid meter month → the written-off bill keeps its readings and worked-out sum.
+50. Meter customer whose months only wait for a reading or a price → the customer list (phone and web) does not show them as unpaid or overdue, and the dashboard "Unpaid this month" does not count them.
+51. Enter this month's reading and price for a meter customer → the dashboard "Unpaid this month" counts them until money reaches the month.
+52. Meter month with a worked-out bill left unpaid for more than one month after the reading and price were saved → the customer shows "Overdue" on the phone list, the web list and the customer portal.
 
 ## Customer portal
 
 27. Open the customer portal link → the months, bills, payments and amount owed match what the app shows for that customer.
+28. Portal of a meter customer → months waiting for a reading show "Waiting" and the amount owed is the worked-out bills, same as the app.

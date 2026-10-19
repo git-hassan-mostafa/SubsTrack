@@ -6,7 +6,7 @@ import type {
 import type { BranchFilter } from "@shared/core/constants";
 import { repositories } from "@shared/core/runtime/repositories";
 import { sumUsd } from "@shared/core/utils/currency";
-import { getCurrentYearMonth, toBillingMonth } from "@shared/core/utils/date";
+import { getCurrentYearMonth } from "@shared/core/utils/date";
 import { collectionService } from "@shared/modules/ledger/services/CollectionService";
 import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
 import { owedUsd } from "@shared/modules/ledger/utils/debtRule";
@@ -54,7 +54,6 @@ class DashboardService {
     unpaidRule: UnpaidStartRule = "month_start",
   ): Promise<DashboardMetrics> {
     const { year, month } = getCurrentYearMonth();
-    const billingMonth = toBillingMonth(year, month);
     const monthStart = new Date(year, month - 1, 1).toISOString();
     const monthEndExclusive = new Date(year, month, 1).toISOString();
 
@@ -62,7 +61,6 @@ class DashboardService {
       totalCustomers,
       activeCustomers,
       collected,
-      monthCounts,
       totalUsers,
       totalPlans,
       owed,
@@ -75,7 +73,6 @@ class DashboardService {
       repositories().customer.countAll(branchFilter),
       repositories().customer.countActive(branchFilter),
       this.getMonthCollections(year, month, branchFilter),
-      repositories().customer.countUnpaidForMonth(billingMonth, branchFilter, unpaidRule),
       repositories().user.countAll(branchFilter),
       repositories().plan.countAll(branchFilter),
       ledgerService.getOwedTotals(branchFilter, unpaidRule),
@@ -123,8 +120,8 @@ class DashboardService {
       stockExpenses: expenses.stockUsd,
       customExpenses: expenses.customUsd,
       netIncome: collected.total - expenses.totalUsd,
-      unpaidThisMonth: monthCounts.unpaid,
-      dueThisMonth: monthCounts.due,
+      unpaidThisMonth: owed.thisMonth.unpaid,
+      dueThisMonth: owed.thisMonth.due,
       totalUsers,
       totalPlans,
       totalDebt: owed.debts.summary.totalUsd,

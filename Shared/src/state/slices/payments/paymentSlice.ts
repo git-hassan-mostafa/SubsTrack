@@ -97,12 +97,11 @@ export const createPaymentSlice: StateCreator<
   fetchCustomerStatuses: async (customers) => {
     if (customers.length === 0) return;
     const epoch = currentDataEpoch();
-    const lineIds = customers.flatMap((c) =>
-      (c.customerPlans ?? []).map((l) => l.id),
-    );
-    const [billsByLine, skips] = await Promise.all([
-      chargeService.getMonthBillsForLines(lineIds),
+    const lines = customers.flatMap((c) => c.customerPlans ?? []);
+    const [billsByLine, skips, usageByLine] = await Promise.all([
+      chargeService.getMonthBillsForLines(lines.map((l) => l.id)),
       skippedMonthService.getActiveSkips(),
+      usageReadingService.getUsageByLine(lines),
     ]);
     if (isStaleEpoch(epoch)) return;
     const bills = [...billsByLine.values()].flat();
@@ -112,6 +111,7 @@ export const createPaymentSlice: StateCreator<
         bills,
         skips,
         getUnpaidRule(get),
+        usageByLine,
       );
     });
   },
@@ -176,9 +176,10 @@ export const createPaymentSlice: StateCreator<
   },
 
   syncCustomerStatus: async (customerId, lines) => {
-    const [billsByLine, skips] = await Promise.all([
+    const [billsByLine, skips, usageByLine] = await Promise.all([
       chargeService.getMonthBillsForLines(lines.map((l) => l.id)),
       skippedMonthService.getSkipsForCustomer(customerId),
+      usageReadingService.getUsageByLine(lines),
     ]);
     const bills = [...billsByLine.values()].flat();
     const status = buildCustomerStatus(
@@ -186,6 +187,7 @@ export const createPaymentSlice: StateCreator<
       bills,
       skips,
       getUnpaidRule(get),
+      usageByLine,
     );
     set((state) => {
       state.payments.customerStatuses.set(customerId, status);

@@ -2413,14 +2413,15 @@ AS $$
     ),
     lines AS (
         SELECT cp.id, cp.customer_id, cp.start_date, cp.active, cp.plan_id,
-               cp.custom_price, cp.custom_currency_id
+               cp.custom_price, cp.custom_currency_id, cp.start_reading
           FROM customer_plans cp
           JOIN scoped s ON s.id = cp.customer_id
     ),
     line_bills AS (
         SELECT ch.customer_plan_id,
                json_agg(json_build_array(ch.billing_month, ch.duration_months,
-                                         ch.amount, b.paid, ch.written_off_at)
+                                         ch.amount, b.paid, ch.written_off_at,
+                                         ch.computed_amount)
                         ORDER BY ch.billing_month) AS bills
           FROM charges ch
           JOIN charge_balances b ON b.id = ch.id
@@ -2459,7 +2460,8 @@ AS $$
                                              COALESCE(lb.bills, '[]'::json),
                                              COALESCE(ls.months, '[]'::json),
                                              l.plan_id, l.custom_price,
-                                             l.custom_currency_id))
+                                             l.custom_currency_id,
+                                             l.start_reading))
               FROM lines l
               LEFT JOIN line_bills lb ON lb.customer_plan_id = l.id
               LEFT JOIN line_skips ls ON ls.customer_plan_id = l.id), '[]'::json),
@@ -2472,7 +2474,10 @@ AS $$
             SELECT json_agg(json_build_array(p.id, p.name, p.price,
                                              p.is_custom_price, p.duration_months,
                                              p.currency_id, p.branch_id,
-                                             p.tenant_id, p.created_at))
+                                             p.tenant_id, p.created_at,
+                                             p.billing_type, p.usage_entry,
+                                             p.unit_name, p.fee_name,
+                                             p.high_usage_percent))
               FROM plans p), '[]'::json),
         'currencies', COALESCE((
             SELECT json_agg(json_build_array(cu.id, cu.rate_per_usd))
@@ -2481,7 +2486,8 @@ AS $$
             SELECT json_agg(json_build_array(pc.id, pc.plan_id, pc.from_month,
                                              pc.price, pc.currency_id,
                                              pc.duration_months,
-                                             pc.is_custom_price, pc.created_at))
+                                             pc.is_custom_price, pc.created_at,
+                                             pc.fixed_fee))
               FROM plan_price_changes pc), '[]'::json),
         'specialPriceChanges', COALESCE((
             SELECT json_agg(json_build_array(lc.id, lc.customer_id,
@@ -2489,7 +2495,17 @@ AS $$
                                              lc.custom_price,
                                              lc.custom_currency_id, lc.created_at))
               FROM line_price_changes lc
-              JOIN lines l ON l.id = lc.customer_plan_id), '[]'::json)
+              JOIN lines l ON l.id = lc.customer_plan_id), '[]'::json),
+        'readings', COALESCE((
+            SELECT json_agg(json_build_array(ur.customer_plan_id,
+                                             ur.billing_month, ur.reading,
+                                             ur.units, ur.old_meter_final,
+                                             ur.new_meter_start,
+                                             ur.new_meter_number,
+                                             ur.recorded_at))
+              FROM usage_readings ur
+              JOIN lines l ON l.id = ur.customer_plan_id
+             WHERE ur.voided_at IS NULL), '[]'::json)
     );
 $$;
 

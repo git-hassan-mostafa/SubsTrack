@@ -272,8 +272,7 @@ export type StatusCharge = Pick<
   | "amount"
   | "voidedAt"
   | "writtenOffAt"
-> &
-  Partial<Pick<Charge, "usage">>;
+> & { usage?: Pick<ChargeUsage, "computedAmount"> | null };
 
 export interface StatusBill<C extends StatusCharge = StatusCharge> {
   charge: C;

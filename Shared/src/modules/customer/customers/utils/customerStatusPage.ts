@@ -83,6 +83,7 @@ export function pageCustomerStatuses(
     facts.bills,
     facts.skips,
     facts.unpaidRule,
+    facts.usageByLine,
   );
   const toCollect = toCollectByCustomer(facts);
   const term = sanitizeSearchTerm(query.search).toLowerCase();
