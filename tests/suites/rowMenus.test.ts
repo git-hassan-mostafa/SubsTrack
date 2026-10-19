@@ -227,24 +227,32 @@ describe("owingCustomerActions", () => {
   it("TC-RM-17 billed debts collect and write off together", () => {
     expect(keysOf(owingCustomerActions([openItem({ kind: "manual", isDebt: true })]))).toEqual([
       "collect_all",
-      "write_off_all",
+      "write_off_everything",
     ]);
   });
 
-  it("TC-RM-18b an unpaid month is owed, not a debt, so the debtor write-off never reaches it (#186)", () => {
+  it("TC-RM-18b a customer owing only unpaid months can still be written off (#186)", () => {
     const items = owingCustomerActions([openItem({ paid: 0, isDebt: false })]);
-    expect(enabledKeys(items)).toEqual(["collect_all"]);
-    expect(greyed(items)).toEqual({ write_off_all: "why_disabled.no_debts" });
+    expect(enabledKeys(items)).toEqual(["collect_all", "write_off_everything"]);
   });
 
-  it("TC-RM-18 a virtual month has no bill, so it collects but never writes off", () => {
-    expect(enabledKeys(owingCustomerActions([openItem({ chargeId: null })]))).toEqual(["collect_all"]);
+  it("TC-RM-18 a priced virtual month has no bill yet but still writes off", () => {
+    expect(enabledKeys(owingCustomerActions([openItem({ chargeId: null })]))).toEqual([
+      "collect_all",
+      "write_off_everything",
+    ]);
+  });
+
+  it("TC-RM-18c a month with no set price collects but never writes off", () => {
+    const items = owingCustomerActions([openItem({ chargeId: null, openAmount: true })]);
+    expect(enabledKeys(items)).toEqual(["collect_all"]);
+    expect(greyed(items)).toEqual({ write_off_everything: "why_disabled.nothing_to_write_off" });
   });
 
   it("TC-RM-19 nothing owed: both rows greyed", () => {
     expect(greyed(owingCustomerActions([]))).toEqual({
       collect_all: "why_disabled.nothing_owed",
-      write_off_all: "why_disabled.no_debts",
+      write_off_everything: "why_disabled.nothing_to_write_off",
     });
   });
 });

@@ -35,7 +35,7 @@ export function filterOwingCustomers(
   return debtors.filter((d) => d.customerName.toLowerCase().includes(term));
 }
 
-export type OwingCustomerActionKey = "collect_all" | "write_off_all";
+export type OwingCustomerActionKey = "collect_all" | "write_off_everything";
 
 export type OwingCustomerMenuItem = MenuItem<OwingCustomerActionKey>;
 
@@ -45,18 +45,19 @@ const MENU: MenuTable<OwingCustomerActionKey> = {
     labelKey: "ledger.collect_all",
     captionKey: "ledger.collect_all_caption",
   },
-  write_off_all: {
+  write_off_everything: {
     group: "danger",
-    labelKey: "ledger.write_off_all",
-    captionKey: "ledger.write_off_all_caption",
+    labelKey: "ledger.write_off_everything",
+    captionKey: "ledger.write_off_everything_caption",
     destructive: true,
   },
 };
 
-// Writing off a debtor gives up DEBTS only; an unpaid month is not one (#186).
+// Gives up everything the row shows — debts and unpaid months alike (#186).
 export function owingCustomerActions(items: readonly OpenItem[]): OwingCustomerMenuItem[] {
-  return pickMenu(MENU, ["collect_all", "write_off_all"], {
+  return pickMenu(MENU, ["collect_all", "write_off_everything"], {
     collect_all: items.length === 0 && "why_disabled.nothing_owed",
-    write_off_all: writeOffItems([...items], "debts").length === 0 && "why_disabled.no_debts",
+    write_off_everything:
+      writeOffItems([...items]).length === 0 && "why_disabled.nothing_to_write_off",
   });
 }

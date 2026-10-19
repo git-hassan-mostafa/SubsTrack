@@ -32,7 +32,7 @@ interface Props {
   onVoidItem?: (item: OpenItem) => void;
   onWriteOff?: (item: OpenItem) => void;
   onRevertWriteOff?: (item: OpenItem) => void;
-  onWriteOffAll?: (debtor: CustomerDebts) => void;
+  onWriteOffEverything?: (debtor: CustomerDebts) => void;
   onOpenItem?: (item: OpenItem) => void;
   openingItemKey?: string | null;
 }
@@ -47,7 +47,7 @@ export function OwingCustomerSheet({
   onVoidItem,
   onWriteOff,
   onRevertWriteOff,
-  onWriteOffAll,
+  onWriteOffEverything,
   onOpenItem,
   openingItemKey,
 }: Props) {
@@ -86,7 +86,7 @@ export function OwingCustomerSheet({
                   onPress={() => setCustomDebtOpen(true)}
                   accessibilityLabel={t("debts.add_custom_debt")}
                 />
-                {onWriteOffAll && owed.length > 0 ? (
+                {onWriteOffEverything && owed.length > 0 ? (
                   <IconButton
                     icon="ellipsis-vertical"
                     size={20}
@@ -167,7 +167,7 @@ export function OwingCustomerSheet({
         actions={toActionMenuItems(owingCustomerActions(owed), t, {
           icons: OWING_CUSTOMER_ACTION_ICONS,
           run: {
-            write_off_all: onWriteOffAll ? () => onWriteOffAll(debtor) : undefined,
+            write_off_everything: onWriteOffEverything ? () => onWriteOffEverything(debtor) : undefined,
           },
         })}
       />

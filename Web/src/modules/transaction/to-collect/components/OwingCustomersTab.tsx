@@ -52,7 +52,7 @@ export function OwingCustomersTab({ debtors, loaded, doors, add, loading, onRelo
     [debtors, search],
   );
 
-  const { collectAll, writeOffAll } = doors;
+  const { collectAll, writeOffEverything } = doors;
   const columns = useMemo<GridColDef<OwingCustomerRow>[]>(() => [
     {
       field: "customerName",
@@ -108,10 +108,10 @@ export function OwingCustomersTab({ debtors, loaded, doors, add, loading, onRelo
       icons: OWING_CUSTOMER_ACTION_ICONS,
       run: {
         collect_all: () => collectAll(row.customerId, row.customerName, customerOwedItems(row)),
-        write_off_all: () => writeOffAll(row.customerName, customerOwedItems(row)),
+        write_off_everything: () => writeOffEverything(row.customerName, customerOwedItems(row)),
       },
     }),
-  ], [t, navigate, collectAll, writeOffAll]);
+  ], [t, navigate, collectAll, writeOffEverything]);
 
   return (
     <Stack spacing={2}>

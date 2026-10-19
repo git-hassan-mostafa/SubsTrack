@@ -12,13 +12,13 @@ export function useOwedRowActions() {
   const {
     writeOff: writeOffItem,
     revert: revertWriteOffItem,
-    writeOffAll,
+    writeOffEverything,
   } = useWriteOffActions();
 
   const writeOffDebtor = useCallback(
     (debtor: CustomerDebts) =>
-      writeOffAll(debtor.customerName, customerOwedItems(debtor)),
-    [writeOffAll],
+      writeOffEverything(debtor.customerName, customerOwedItems(debtor)),
+    [writeOffEverything],
   );
 
   const [editing, setEditing] = useState<OpenItem | null>(null);
@@ -36,7 +36,7 @@ export function useOwedRowActions() {
     voidItem,
     writeOffItem,
     revertWriteOffItem,
-    writeOffAll,
+    writeOffEverything,
     writeOffDebtor,
     editItem,
     editSheet,

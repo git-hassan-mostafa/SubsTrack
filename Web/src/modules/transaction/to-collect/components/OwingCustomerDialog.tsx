@@ -68,7 +68,7 @@ export function OwingCustomerDialog({
     },
     ...toTableActions(owingCustomerActions(owed), t, {
       icons: OWING_CUSTOMER_ACTION_ICONS,
-      run: { write_off_all: () => doors.writeOffAll(debtor.customerName, owed) },
+      run: { write_off_everything: () => doors.writeOffEverything(debtor.customerName, owed) },
     }),
   ];
 

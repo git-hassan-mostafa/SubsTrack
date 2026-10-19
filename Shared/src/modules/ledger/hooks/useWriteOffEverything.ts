@@ -16,7 +16,7 @@ export function useWriteOffEverything(): (
     async (customer: Customer) => {
       const owed = await loadOwed(customer);
       if (!owed) return "failed";
-      if (writeOffItems(owed, "everything").length === 0) return "nothing";
+      if (writeOffItems(owed).length === 0) return "nothing";
       return (await writeOffEverything(customer.name, owed))
         ? "written"
         : "kept";

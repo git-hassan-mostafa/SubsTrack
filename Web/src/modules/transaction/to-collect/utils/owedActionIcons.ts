@@ -17,5 +17,5 @@ export const OWED_ACTION_ICONS: Record<OwedItemActionKey, SvgIconComponent> = {
 
 export const OWING_CUSTOMER_ACTION_ICONS: Record<OwingCustomerActionKey, SvgIconComponent> = {
   collect_all: PaymentsOutlined,
-  write_off_all: RemoveCircleOutlineOutlined,
+  write_off_everything: RemoveCircleOutlineOutlined,
 };

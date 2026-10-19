@@ -8,22 +8,14 @@ import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
 import { useLedgerSlice } from "@shared/state/hooks/useLedgerSlice";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { owedUsd } from "@shared/modules/ledger/utils/debtRule";
-import {
-  writeOffItems,
-  type WriteOffReach,
-} from "@shared/modules/ledger/utils/writeOffItems";
+import { writeOffItems } from "@shared/modules/ledger/utils/writeOffItems";
 
-type WriteOffWording = WriteOffReach | "months";
+type WriteOffWording = "everything" | "months";
 
 const WORDING: Record<
   WriteOffWording,
   { title: string; message: string; confirm: string }
 > = {
-  debts: {
-    title: "ledger.write_off_all_title",
-    message: "ledger.write_off_all_message",
-    confirm: "ledger.write_off_all",
-  },
   everything: {
     title: "ledger.write_off_everything_title",
     message: "ledger.write_off_everything_message",
@@ -110,10 +102,7 @@ export function useWriteOffActions() {
       wording: WriteOffWording,
     ): Promise<boolean> => {
       if (!user) return false;
-      const picked = writeOffItems(
-        items,
-        wording === "debts" ? "debts" : "everything",
-      );
+      const picked = writeOffItems(items);
       if (picked.length === 0) return false;
       const text = WORDING[wording];
       let wrote = false;
@@ -139,12 +128,6 @@ export function useWriteOffActions() {
     [user, target, t, writeOffOwed],
   );
 
-  const writeOffAll = useCallback(
-    (customerName: string, items: OpenItem[]) =>
-      confirmWriteOff(customerName, items, "debts"),
-    [confirmWriteOff],
-  );
-
   const writeOffEverything = useCallback(
     (customerName: string, items: OpenItem[]) =>
       confirmWriteOff(customerName, items, "everything"),
@@ -157,5 +140,5 @@ export function useWriteOffActions() {
     [confirmWriteOff],
   );
 
-  return { writeOff, revert, writeOffAll, writeOffEverything, writeOffMonths };
+  return { writeOff, revert, writeOffEverything, writeOffMonths };
 }

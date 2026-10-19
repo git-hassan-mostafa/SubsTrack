@@ -206,7 +206,7 @@ describe("writing off months nobody paid", () => {
       unpaidRule: "month_start",
       currencies: [LBP],
     });
-    expect(writeOffItems(owed, "everything")).toEqual([]);
+    expect(writeOffItems(owed)).toEqual([]);
     expect(await writeOff(owed)).toEqual([]);
     expect(store.charges).toEqual([]);
   });
@@ -231,7 +231,7 @@ describe("writing off months nobody paid", () => {
 });
 
 describe("which doors reach which items", () => {
-  it("TC-WO-12 'debts' never reaches an unpaid month; 'everything' does", async () => {
+  it("TC-WO-12 the write-off reaches debts and unpaid months alike", async () => {
     const sale = store.seedCharge({
       kind: "sale",
       sale_id: "s1",
@@ -241,13 +241,13 @@ describe("which doors reach which items", () => {
       amount: 15,
     });
     const owed = await owedFor();
-    expect(writeOffItems(owed, "debts").map((i) => i.chargeId)).toEqual([sale.id]);
-    expect(writeOffItems(owed, "everything")).toHaveLength(5);
+    expect(writeOffItems(owed).map((i) => i.chargeId)).toContain(sale.id);
+    expect(writeOffItems(owed)).toHaveLength(5);
   });
 
   it("TC-WO-13 a repeated month in the list is written off once", async () => {
     const owed = await owedFor();
-    expect(writeOffItems([...owed, ...owed], "everything")).toHaveLength(4);
+    expect(writeOffItems([...owed, ...owed])).toHaveLength(4);
   });
 });
 

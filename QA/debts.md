@@ -31,8 +31,9 @@
 12. Write off a $50 bill with $20 collected → it leaves "Owed now" and shows under "Written off"; debts total drops by 30; Reports counts 30 as lost; the $20 stays in revenue and in the wallet.
 13. Undo that write-off → back under "Owed now" at 30; totals rise by 30; the $20 is untouched.
 14. A written-off bill → only Undo write-off is offered (no Collect, no Edit, no Remove).
-15. Write off all for a customer with 2 bills → both written off; the customer leaves the "Debts" filter; collected money stays.
-16. Debtor sheet → Write off all, for a customer who owes a $15 sale and 3 unpaid months → only the $15 sale is written off; the 3 months stay unpaid.
+15. Write off everything for a customer with 2 bills → both written off; the customer leaves the "Debts" filter; collected money stays.
+16. To collect (filter "All") → customer ⋮ → Write off everything, for a customer who owes a $15 sale and 3 unpaid months → the sale and the 3 months are all written off; the customer leaves the list.
+16b. To collect → customer who owes only unpaid months → Write off everything is enabled and writes off every month.
 16a. Customer list (or customer page) → Write off everything, for a customer who left owing 4 months and paid nothing → all 4 months are written off, each at its own month's price; the customer reads Paid, not Overdue; Reports counts the 4 months as lost.
 16b. Write off everything for a customer who owes nothing that can be written off → a message says there is nothing to write off.
 

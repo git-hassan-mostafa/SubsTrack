@@ -64,7 +64,7 @@ export function CustomerToCollectPanel({ customer }: { customer: Customer }) {
             rowLabel={t("customers.to_collect")}
             actions={toTableActions(owingCustomerActions(owed), t, {
               icons: OWING_CUSTOMER_ACTION_ICONS,
-              run: { write_off_all: () => doors.writeOffAll(customer.name, owed) },
+              run: { write_off_everything: () => doors.writeOffEverything(customer.name, owed) },
             })}
           />
         </>

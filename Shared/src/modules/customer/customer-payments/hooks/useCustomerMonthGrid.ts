@@ -336,7 +336,7 @@ export function useCustomerMonthGrid({
 
   const writeOffEntries = async (entries: MonthEntry[]) => {
     const items = itemsFor(entries);
-    if (writeOffItems(items, "everything").length === 0) {
+    if (writeOffItems(items).length === 0) {
       notAvailable(t("ledger.nothing_to_write_off"));
       return;
     }

@@ -29,7 +29,7 @@ export interface OwedDoors {
   openBill: (item: OpenItem) => void;
   loadingItemId: string | null;
   collectAll: (customerId: string, customerName: string, items: OpenItem[]) => void;
-  writeOffAll: (customerName: string, items: OpenItem[]) => void;
+  writeOffEverything: (customerName: string, items: OpenItem[]) => void;
   addCustomDebt: (customer?: CustomDebtCustomer | null) => void;
   banners: ReactNode;
   dialogs: ReactNode;
@@ -39,7 +39,7 @@ export interface OwedDoors {
 export function useOwedDoors({ recipientOf }: DebtDoorsOptions = {}): OwedDoors {
   const { t } = useTranslation();
   const writeOffActions = useWriteOffActions();
-  const { writeOff, revert, writeOffAll } = writeOffActions;
+  const { writeOff, revert, writeOffEverything } = writeOffActions;
   const removeCustomDebt = useRemoveCustomDebt();
   const collect = useCollectDialog();
   const { open: collectAll, openOne } = collect;
@@ -91,7 +91,7 @@ export function useOwedDoors({ recipientOf }: DebtDoorsOptions = {}): OwedDoors 
     openBill,
     loadingItemId: bill.loadingItemId,
     collectAll,
-    writeOffAll: (customerName, items) => void writeOffAll(customerName, items),
+    writeOffEverything: (customerName, items) => void writeOffEverything(customerName, items),
     addCustomDebt: (customer = null) => setForm({ item: null, customer }),
     banners: (
       <>

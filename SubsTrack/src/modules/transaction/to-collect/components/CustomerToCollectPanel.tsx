@@ -47,7 +47,7 @@ export function CustomerToCollectPanel({ customer, onOpenSale }: Props) {
     voidItem,
     writeOffItem,
     revertWriteOffItem,
-    writeOffAll,
+    writeOffEverything,
     editItem,
     editSheet,
   } = useOwedRowActions();
@@ -142,7 +142,7 @@ export function CustomerToCollectPanel({ customer, onOpenSale }: Props) {
           icons: OWING_CUSTOMER_ACTION_ICONS,
           run: {
             collect_all: () => collectSheet.open(customer.id, customer.name, items),
-            write_off_all: () => void writeOffAll(customer.name, items),
+            write_off_everything: () => void writeOffEverything(customer.name, items),
           },
         })}
       />

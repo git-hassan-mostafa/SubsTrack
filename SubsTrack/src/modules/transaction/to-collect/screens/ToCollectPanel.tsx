@@ -119,7 +119,7 @@ export function ToCollectPanel({ header, onOpenSale }: Props) {
       run: {
         collect_all: () =>
           collectSheet.open(debtor.customerId, debtor.customerName, owed),
-        write_off_all: () => void writeOffDebtor(debtor),
+        write_off_everything: () => void writeOffDebtor(debtor),
       },
     });
   }
@@ -252,7 +252,7 @@ export function ToCollectPanel({ header, onOpenSale }: Props) {
           onVoidItem={voidItem}
           onWriteOff={writeOffItem}
           onRevertWriteOff={revertWriteOffItem}
-          onWriteOffAll={writeOffDebtor}
+          onWriteOffEverything={writeOffDebtor}
           onOpenItem={openBill.openOwed}
           openingItemKey={openBill.loadingId}
         />
