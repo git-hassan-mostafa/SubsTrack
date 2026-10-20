@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useRef, useState } from "react";
 import {
   Platform,
   StyleSheet,
@@ -7,14 +7,12 @@ import {
   type TextInputProps,
   type TextStyle,
 } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { COLORS } from "@/src/shared/constants";
+import { PressableOpacity } from "./PressableOpacity";
 
 interface AppTextInputProps extends TextInputProps {
   containerClassName?: string;
 }
-
-const TAP_SLOP = 8;
 
 const BASE_TEXT_STYLE: TextStyle = {
   fontFamily: "Cairo",
@@ -42,26 +40,17 @@ export function AppTextInput({
   style,
   ...props
 }: AppTextInputProps) {
-  const [field, setField] = useState<TextInput | null>(null);
+  const fieldRef = useRef<TextInput>(null);
   const [focused, setFocused] = useState(false);
 
   const shielded =
     Platform.OS !== "web" && !focused && props.editable !== false;
 
-  const shieldTap = useMemo(
-    () =>
-      Gesture.Tap()
-        .maxDistance(TAP_SLOP)
-        .onEnd(() => field?.focus())
-        .runOnJS(true),
-    [field],
-  );
-
   return (
     <View className={containerClassName}>
       <TextInput
         {...props}
-        ref={setField}
+        ref={fieldRef}
         style={[BASE_TEXT_STYLE, style]}
         onFocus={(event) => {
           setFocused(true);
@@ -73,13 +62,13 @@ export function AppTextInput({
         }}
       />
       {shielded ? (
-        <GestureDetector gesture={shieldTap}>
-          <View
-            style={StyleSheet.absoluteFill}
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-          />
-        </GestureDetector>
+        <PressableOpacity
+          ripple="none"
+          onPress={() => fieldRef.current?.focus()}
+          style={StyleSheet.absoluteFill}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        />
       ) : null}
     </View>
   );

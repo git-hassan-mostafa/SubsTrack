@@ -4,7 +4,7 @@ Read before touching a bottom sheet, list card, `PageHeader`, `ActionMenu`, text
 
 ## Text fields
 
-The field owns the typed text. `Input`/`SearchTextBox`/`CurrencyInput` route it through `useTextField`; a controlled `TextInput` wired straight to form/store state is banned — a `value` one render late loses letters and throws the caret to the end (gotcha #134). The COMPONENT is always `AppTextInput`, never RN `TextInput` (it grabs the Android touch lock → page won't scroll under a finger on a field). Layout (`flex-1`, `w-10`) on `containerClassName`; border/padding/text on `className`. Its unfocused tap shield is a gesture-handler `Gesture.Tap()`; works in sheets only because `AppBottomSheet` wraps every body in its own `GestureHandlerRootView` (sheet = separate native window, gotchas #45, #78).
+The field owns the typed text. `Input`/`SearchTextBox`/`CurrencyInput` route it through `useTextField`; a controlled `TextInput` wired straight to form/store state is banned — a `value` one render late loses letters and throws the caret to the end (gotcha #134). The COMPONENT is always `AppTextInput`, never RN `TextInput` (it grabs the Android touch lock → page won't scroll under a finger on a field). Layout (`flex-1`, `w-10`) on `containerClassName`; border/padding/text on `className`. Its unfocused tap shield is a `PressableOpacity ripple="none"` (never a gesture-handler gesture — gotcha #78); still needed: a focused Arabic or overflowing single-line field keeps the touch lock.
 
 ## Styling
 
