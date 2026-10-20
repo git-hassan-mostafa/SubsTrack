@@ -19,6 +19,7 @@ export const NO_AUDIT_FILTER: AuditFilterChoice = {
 
 export const AUDIT_ACTIONS: AuditAction[] = [
   "create",
+  "import",
   "update",
   "delete",
   "void",

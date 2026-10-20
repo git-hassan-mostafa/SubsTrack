@@ -1377,6 +1377,7 @@
       "delete": "{{actor}} deleted {{record}}",
       "void": "{{actor}} voided {{record}}",
       "restore": "{{actor}} restored {{record}}",
+      "import": "{{actor}} imported {{record}} from a file",
       "update_one": "{{actor}} changed {{field}} on {{record}} from {{before}} to {{after}}",
       "update_many": "{{actor}} updated {{fields}} on {{record}}",
       "for_subject": "{{sentence}} for {{subject}}",
@@ -1400,6 +1401,7 @@
         "renamed": "{{actor}} renamed the {{type}} {{before}} to {{after}}",
         "setting": "{{actor}} set {{field}} to {{after}}",
         "subscribed": "{{actor}} added the plan {{detail}}",
+        "imported_plan": "{{actor}} added the plan {{detail}} from a file",
         "unsubscribed": "{{actor}} removed the plan {{detail}}",
         "stock_edit": "{{actor}} changed {{field}} on a stock entry from {{before}} to {{after}}",
         "is_regular_on": "{{actor}} marked {{record}} as a regular customer",
@@ -1429,7 +1431,8 @@
       "update": "Edited",
       "delete": "Deleted",
       "void": "Voided",
-      "restore": "Restored"
+      "restore": "Restored",
+      "import": "Imported"
     },
     "table": {
       "charges": "Bill",
@@ -2199,5 +2202,71 @@
     "later_month_paid": "A later month is paid — collect this month instead",
     "reading_locked": "This month or the next one is paid",
     "usage_locked": "This month is paid"
+  },
+  "customer_import": {
+    "field": {
+      "name": "Name",
+      "phone": "Phone",
+      "area": "Area",
+      "address": "Address",
+      "notes": "Notes",
+      "branch": "Branch",
+      "plan": "Plan",
+      "start_date": "Start date",
+      "special_price": "Special price",
+      "currency": "Currency",
+      "regular": "Regular",
+      "map_link": "Map link",
+      "meter_number": "Meter number",
+      "start_reading": "Start reading"
+    },
+    "problem": {
+      "empty_file": "The file is empty.",
+      "no_name_column": "The file has no Name column. Use the template's first row as the column titles.",
+      "repeated_column": "Two columns are both \"{{name}}\". Keep only one.",
+      "no_rows": "The file has column titles but no customers under them.",
+      "too_many_rows": "The file has {{count}} rows. Import at most {{max}} rows at a time.",
+      "name_missing": "Name is missing.",
+      "bad_phone": "\"{{value}}\" is not a phone number.",
+      "phone_in_app": "This phone already belongs to {{name}} in the app.",
+      "conflict": "Same phone as row {{row}}, but a different {{field}}.",
+      "unknown_branch": "No branch named \"{{name}}\".",
+      "other_branch_not_allowed": "You can only add customers to your own branch, not \"{{name}}\".",
+      "unknown_plan": "No plan named \"{{name}}\".",
+      "plan_other_branch": "The plan \"{{name}}\" belongs to another branch.",
+      "plan_ambiguous": "Two plans are named \"{{name}}\". Rename one of them first.",
+      "bad_date": "\"{{value}}\" is not a date. Write it as DD/MM/YYYY, for example 01/10/2026.",
+      "bad_price": "\"{{value}}\" is not a price. Write only the number, for example 15 or 1500000.",
+      "usage_no_special_price": "\"{{name}}\" is priced by usage, so it can't have a special price.",
+      "unknown_currency": "No currency named \"{{name}}\".",
+      "bad_reading": "\"{{value}}\" is not a meter reading.",
+      "bad_yes_no": "Regular must be yes or no, not \"{{value}}\".",
+      "held_by_row": "Same customer as row {{rows}}: fix that row first.",
+      "bad_map_link": "\"{{value}}\" is not a map link."
+    },
+    "warning": {
+      "plan_missing_values": "No plan on this row, so its start date, price and meter were not used.",
+      "meter_not_used": "\"{{name}}\" is not billed by meter, so the meter columns were not used.",
+      "old_start_one": "Starts {{month}}: about 1 past month will show as unpaid.",
+      "old_start_other": "Starts {{month}}: about {{count}} past months will show as unpaid."
+    },
+    "too_big_customers": "This file adds {{adding}} customers, but you have room for {{room}} ({{count}} of {{allowance}} used). Nothing was imported. Remove some rows, or ask for a bigger limit.",
+    "too_big_plans": "This file adds {{adding}} plans, but you have room for {{room}} ({{count}} of {{allowance}} used). Nothing was imported. Remove some rows, or ask for a bigger limit.",
+    "reason": {
+      "stopped": "Not imported: the import stopped before this row.",
+      "unknown": "Not sure if imported: the connection dropped. Check the Customers list before importing it again."
+    },
+    "outcome": {
+      "imported": "Imported",
+      "skipped": "Skipped",
+      "failed": "Not imported",
+      "not_run": "Not imported",
+      "unknown": "Not sure"
+    },
+    "summary": {
+      "row": "Row",
+      "result": "Result",
+      "reason": "Reason"
+    }
   }
 }

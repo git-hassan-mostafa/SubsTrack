@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
+import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
+import UploadFileOutlined from "@mui/icons-material/UploadFileOutlined";
 import type { GridColDef } from "@mui/x-data-grid";
 import type { Collection, Customer } from "@shared/core/types";
 import { isolate } from "@shared/core/utils/bidi";
@@ -256,6 +258,17 @@ export function CustomersPage() {
           placeholder: t("web.customers.search"),
         }}
         add={{ label: t("web.customers.add"), onClick: () => setForm({ customer: null }) }}
+        toolbarActions={
+          isAdmin ? (
+            <Button
+              variant="outlined"
+              startIcon={<UploadFileOutlined />}
+              onClick={() => void navigate("/customers/import")}
+            >
+              {t("web.customer_import.open")}
+            </Button>
+          ) : undefined
+        }
         exportConfig={{
           nameKey: "customers.title",
           loadAll: () => readAllCustomers(query),

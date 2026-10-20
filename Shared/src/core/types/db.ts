@@ -407,7 +407,7 @@ export interface DbTenantSetting {
 
 // 'void' / 'restore' are updates too, kept distinct so the trail can be filtered
 // by what a staff member actually did.
-export type DbAuditAction = "create" | "update" | "delete" | "void" | "restore";
+export type DbAuditAction = "create" | "update" | "delete" | "void" | "restore" | "import";
 
 // One entry in the append-only audit trail. Built by the app next to each change
 // (never by a DB trigger — see sql scripts/script.sql → AUDIT LOGS). `before_data`

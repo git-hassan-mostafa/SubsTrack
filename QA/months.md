@@ -91,3 +91,10 @@ What a month shows after money moves. A month is Paid as soon as **any** money r
 
 27. Open the customer portal link → the months, bills, payments and amount owed match what the app shows for that customer.
 28. Portal of a meter customer → months waiting for a reading show "Waiting" and the amount owed is the worked-out bills, same as the app.
+
+## Imported customers (web)
+
+30. (web) Import a customer whose start date is 9 months ago → the preview warns that about 9 past months will show as unpaid; after the import the grid shows those months unpaid, exactly like the same customer added by hand.
+31. (web) Import a customer with a special price and no currency → the special price uses the plan's own currency; the grid shows that price for each month.
+32. (web) Import a file whose ready customers are more than the free customer room (or whose plans are more than the free plan room) → nothing at all is imported, and the message names how many the file adds and how much room is left.
+33. (web) Import a file where one row has a problem → only that customer is skipped; the customer count and the plan count go up by exactly the imported customers and plans.

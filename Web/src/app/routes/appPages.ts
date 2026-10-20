@@ -26,6 +26,7 @@ import { ProductsPage } from "@/modules/admin/products/screens/ProductsPage";
 import { ServicesPage } from "@/modules/admin/services/screens/ServicesPage";
 import { OrganizationPage } from "@/modules/admin/tenant-settings/screens/OrganizationPage";
 import { UsersPage } from "@/modules/admin/users/screens/UsersPage";
+import { CustomerImportPage } from "@/modules/customer/customer-import/screens/CustomerImportPage";
 import { CustomerDetailPage } from "@/modules/customer/customer-detail/screens/CustomerDetailPage";
 import { CustomersPage } from "@/modules/customer/customers/screens/CustomersPage";
 import { DashboardPage } from "@/modules/dashboard/screens/DashboardPage";
@@ -70,6 +71,13 @@ export const APP_PAGES: readonly AppPage[] = [
     icon: PeopleOutlined,
     nav: "main",
     component: CustomersPage,
+  },
+  {
+    path: "customers/import",
+    titleKey: "web.customer_import.title",
+    access: PAGE_ACCESS.customer_import,
+    icon: PeopleOutlined,
+    component: CustomerImportPage,
   },
   {
     path: "customers/:id",

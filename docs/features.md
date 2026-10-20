@@ -4,7 +4,7 @@
 
 ## Contents
 
-Multi-Tenancy · Branches · Authentication Flow · Multi-Month Plans · Multi-Currency · App Options · Tenant Settings · Allowances & Requests · Products & One-Off Sales (Services) · Reports · Expenses · WhatsApp Cloud API · WhatsApp Invoices · Transactions Hub · The Ledger · Regular Customer · Skipped Months · Customer Map Location · Multiple Plans per Customer · Pay Oldest Month First · Payment Scenarios · Multi-Select & Bulk Actions · Audit Trail · Developer Tools · Collector Wallet
+Multi-Tenancy · Branches · Authentication Flow · Multi-Month Plans · Multi-Currency · App Options · Tenant Settings · Allowances & Requests · Products & One-Off Sales (Services) · Reports · Expenses · WhatsApp Cloud API · WhatsApp Invoices · Transactions Hub · The Ledger · Regular Customer · Skipped Months · Customer Map Location · Customer Import (web) · Multiple Plans per Customer · Pay Oldest Month First · Payment Scenarios · Multi-Select & Bulk Actions · Audit Trail · Developer Tools · Collector Wallet
 
 ---
 
@@ -915,6 +915,19 @@ Optional `Customer.locationUrl` (`customers.location_url`) so a collector can na
 - **Use.** If set, `CustomerDetailsCard.tsx` **Open in Maps** row → `openLocation(url)` → `Linking.openURL` (Shared `locationHref()` in `core/utils/locationLink.ts` prepends `https://` if no scheme; web Details panel opens same href in new tab). Maps app resolves short links + directions. No map lib, no API key, no native rebuild — same pattern as `openWhatsApp` (`src/shared/lib/whatsapp.ts`).
 
 ---
+
+## Customer Import (web)
+
+Admin-only page `/customers/import` (`PAGE_ACCESS.customer_import`), opened from the Customers toolbar **Import**. Web only; phone gets only the online-only twin `CustomerImportRepository.offline.ts` (interface parity).
+
+- **File**: `.xlsx` (`read-excel-file/browser`, Web dep only) or CSV (Shared `parseCsv` in `shared/lib/csv.ts`; `,`/`;`/tab detected from header; UTF-8, else Windows-1256 = Excel plain "CSV" with Arabic). Reader = `Web/src/modules/customer/customer-import/utils/readImportFile.ts`; date cells → UTC day. Template = `importTemplate()` written as .xlsx by `downloadImportTemplate.ts` (`write-excel-file/browser`, Web dep only; cells text format `@` so phones/dates stay as typed; RTL sheet in Arabic UI), titles "English / Arabic"; a title matches on whole text or either half (`importColumns.ts` aliases). Max 5000 rows.
+- **One row per plan.** Rows with the same `phoneKey` (digits; `00`/`961`/leading `0` dropped; Arabic digits latinized) = ONE customer with several lines; no phone = own customer. First filled value per customer column wins; a disagreeing row → `conflict` problem. Any problem on any row holds the whole customer (its other rows say `held_by_row`).
+- **Problems** (block): name missing, bad phone, phone already in app (`findPhoneOwners`, every customer RLS shows), unknown branch / plan / currency, branch admin → other branch, plan of another branch, ambiguous plan name (a branch's own plan beats a shared one), bad date (day-first or ISO only), bad price / reading / yes-no / map link, special price on a usage plan. Then the SAME rules a hand-added customer passes: `customerService.assertValidInput` + `customerPlanService.assertNewLinesValid` (message shown as is). **Warnings** (import anyway): old start date ("about N past months will show as unpaid"), meter columns on a non-meter plan, values on a plan-less row. Blank start = today; blank branch = `newCustomerBranchId` (form's default); blank regular = yes; special price w/o currency = plan's currency (NULL = USD); portal off.
+- **Limits**: `customerImportService.assertFits` re-counts live active customers + lines, ONE `billingService.assertQuotas` for the whole file (#149) → `QuotaExceededError` → page message `customer_import.too_big_*` (adding / room / count / allowance); nothing written. Not the billing slice's `quotaError` dialog.
+- **Write**: groups of 100 (`IMPORT_GROUP_SIZE`) in order, each ONE `import_customers(p_customers, p_lines, p_audit)` RPC = one transaction (customers + lines + audit rows; `tenant_id` + actor from session; admin-only; SECURITY INVOKER). Ids made by the app first (`newId`); rows via shared `newCustomerPayload` / `lineRowOf`. A failed group stops the run (later groups = `not_run`); its ids are looked up (`findExistingIds`) → landed = imported and the run goes on, lookup failed = `unknown`. Billing `bumpActive` by what landed; Customers table marked stale.
+- **Audit**: action **`import`** (`chk_audit_logs_action_v2`), built app-side by `buildAuditRow`, sent inside the same RPC. Summary "X imported the customer Y from a file"; a line "X added the plan … from a file". Phone `AuditEntryCard` has its style (an installed app without the OTA has none → update before importing).
+- **Result**: per row Imported / Skipped (its problems) / Not imported (why the run stopped) / Not sure; download summary CSV (`importSummaryTable`) and rows-to-fix CSV (`rowsToFixTable`: template layout + `Problem` column, ignored on re-read).
+- Code: Shared `modules/customer/customer-import/` (`utils/importPreview.ts` pure, `services/CustomerImportService.ts`, `hooks/useCustomerImport.ts`, `repository/`); Web `screens/CustomerImportPage.tsx`. Tests `tests/suites/customerImport.test.ts` (TC-CI-*).
 
 ## Multiple Plans per Customer (service lines)
 

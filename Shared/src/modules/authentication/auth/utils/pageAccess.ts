@@ -12,6 +12,7 @@ export interface Viewer {
 export type PageKey =
   | "dashboard"
   | "customers"
+  | "customer_import"
   | "sales"
   | "debts"
   | "money_received"
@@ -37,6 +38,7 @@ const ANY_ROLE: PageAccess = {};
 export const PAGE_ACCESS: Record<PageKey, PageAccess> = {
   dashboard: ADMIN,
   customers: ANY_ROLE,
+  customer_import: ADMIN,
   sales: ANY_ROLE,
   debts: ANY_ROLE,
   money_received: ANY_ROLE,

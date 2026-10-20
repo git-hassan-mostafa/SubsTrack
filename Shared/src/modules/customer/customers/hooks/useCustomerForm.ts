@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { BRANCH_FILTER_UNASSIGNED } from "@shared/core/constants";
 import type { Customer } from "@shared/core/types";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
-import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
+import { newCustomerBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import {
   useLineDrafts,
@@ -90,10 +89,7 @@ export function useCustomerForm(
   const [form, setForm] = useState<CustomerFormFields>(() =>
     fieldsOf(
       customer,
-      customer
-        ? customer.branchId
-        : (defaultNewBranchId(user, activeBranches) ??
-            (currentBranchId === BRANCH_FILTER_UNASSIGNED ? null : currentBranchId)),
+      customer ? customer.branchId : newCustomerBranchId(user, activeBranches, currentBranchId),
     ),
   );
   const [submitting, setSubmitting] = useState(false);

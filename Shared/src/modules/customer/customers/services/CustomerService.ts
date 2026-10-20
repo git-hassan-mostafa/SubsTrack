@@ -5,6 +5,7 @@ import i18n from "@shared/core/i18n";
 import billingService from "@shared/modules/admin/billing/services/BillingService";
 import type { QuotaPair } from "@shared/modules/admin/billing/utils/types";
 import { getTodayDateString } from "@shared/core/utils/date";
+import type { CreateCustomerPayload } from "@shared/modules/customer/customers/repository/ICustomerRepository";
 import { mapDbCustomerToCustomer } from "@shared/modules/customer/customers/utils/mapper";
 import type {
   CustomerStatusList,
@@ -84,8 +85,7 @@ class CustomerService {
     return repositories().customer.countActive(branchFilter);
   }
 
-  // The service lines drafted alongside the customer are counted BEFORE the
-  // first write, or a refused line would leave an empty customer holding a seat.
+  // Drafted lines count BEFORE the first write, or a refused line strands a seat.
   async createCustomer(
     data: CustomerInput,
     tenantId: string,
@@ -93,31 +93,17 @@ class CustomerService {
     active: QuotaPair,
     addingLines: number,
   ): Promise<Customer> {
-    this.validateInput(data);
+    this.assertValidInput(data);
     billingService.assertQuotas(limits, active, {
       customers: active.customers + 1,
       plans: active.plans + addingLines,
     });
-    const row = await repositories().customer.create({
-      name: data.name.trim(),
-      phone_number: data.phoneNumber?.trim() || null,
-      address: data.address?.trim() || null,
-      area: data.area?.trim() || null,
-      notes: data.notes?.trim() || null,
-      location_url: data.locationUrl?.trim() || null,
-      branch_id: data.branchId,
-      tenant_id: tenantId,
-      active: true,
-      is_regular: data.isRegular,
-      cancelled_at: null,
-      portal_password: portalPasswordOf(data),
-      portal_enabled: data.portalEnabled,
-    });
+    const row = await repositories().customer.create(newCustomerPayload(data, tenantId));
     return mapDbCustomerToCustomer(row);
   }
 
   async updateCustomer(id: string, data: CustomerInput): Promise<Customer> {
-    this.validateInput(data);
+    this.assertValidInput(data);
     const row = await repositories().customer.update(id, {
       name: data.name.trim(),
       phone_number: data.phoneNumber?.trim() || null,
@@ -169,7 +155,7 @@ class CustomerService {
     return { hard, soft };
   }
 
-  private validateInput(data: CustomerInput): void {
+  assertValidInput(data: CustomerInput): void {
     if (!data.name.trim())
       throw new Error(i18n.t("errors.customer_name_required"));
     if (!data.branchId) {
@@ -192,6 +178,25 @@ class CustomerService {
 function portalPasswordOf(data: CustomerInput): string | null {
   if (!data.portalEnabled) return null;
   return data.portalPassword?.trim() || null;
+}
+
+// The one shape a new customer row takes; the form and the import both write it.
+export function newCustomerPayload(data: CustomerInput, tenantId: string): CreateCustomerPayload {
+  return {
+    name: data.name.trim(),
+    phone_number: data.phoneNumber?.trim() || null,
+    address: data.address?.trim() || null,
+    area: data.area?.trim() || null,
+    notes: data.notes?.trim() || null,
+    location_url: data.locationUrl?.trim() || null,
+    branch_id: data.branchId,
+    tenant_id: tenantId,
+    active: true,
+    is_regular: data.isRegular,
+    cancelled_at: null,
+    portal_password: portalPasswordOf(data),
+    portal_enabled: data.portalEnabled,
+  };
 }
 
 export default new CustomerService();

@@ -27,6 +27,11 @@ const ACTION_STYLE: Record<
     color: COLORS.warning,
     tile: "bg-amber-50",
   },
+  import: {
+    icon: "cloud-upload-outline",
+    color: COLORS.success,
+    tile: "bg-green-50",
+  },
 };
 
 interface AuditEntryCardProps {

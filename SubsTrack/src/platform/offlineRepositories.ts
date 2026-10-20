@@ -13,6 +13,7 @@ import { OfflineAuthRepository } from "@/src/modules/authentication/auth/reposit
 import { OfflineSignupRepository } from "@/src/modules/authentication/signup/repository/SignupRepository.offline";
 import { OfflineSkippedMonthRepository } from "@/src/modules/customer/customer-payments/repository/SkippedMonthRepository.offline";
 import { OfflineUsageReadingRepository } from "@/src/modules/customer/customer-payments/repository/UsageReadingRepository.offline";
+import { OfflineCustomerImportRepository } from "@/src/modules/customer/customer-import/repository/CustomerImportRepository.offline";
 import { OfflineCustomerPlanRepository } from "@/src/modules/customer/customer-plans/repository/CustomerPlanRepository.offline";
 import { OfflinePriceHistoryRepository } from "@/src/modules/customer/customer-plans/repository/PriceHistoryRepository.offline";
 import { OfflineCustomerRepository } from "@/src/modules/customer/customers/repository/CustomerRepository.offline";
@@ -44,6 +45,7 @@ export function createOfflineRepositories(): Repositories {
     priceHistory: new OfflinePriceHistoryRepository(),
     customer: new OfflineCustomerRepository(),
     customerStatus: new OfflineCustomerStatusRepository(),
+    customerImport: new OfflineCustomerImportRepository(),
     charge: new OfflineChargeRepository(),
     collection: new OfflineCollectionRepository(),
     option: new OfflineOptionRepository(),

@@ -56,7 +56,7 @@ function sameLineFields(prev: CustomerPlan, line: LineDraft): boolean {
   return (Object.keys(next) as (keyof LineFields)[]).every((key) => prev[key] === next[key]);
 }
 
-function lineRowOf(data: LineFields) {
+export function lineRowOf(data: LineFields) {
   return {
     plan_id: data.planId,
     start_date: data.startDate,
@@ -111,8 +111,7 @@ class CustomerPlanService {
     return repositories().customerPlan.countActive();
   }
 
-  // `lines` is the final list, so removals and reactivations net out against
-  // this customer's own share of the tenant-wide count.
+  // `lines` is the final list, so removals and reactivations net out in the count.
   async syncLines(
     customerId: string,
     lines: LineDraft[],
@@ -130,8 +129,7 @@ class CustomerPlanService {
       plans: activeCounts.plans - existingLines.length + lines.length,
     });
     await this.assertPaidLinesKept(customerId, lines, existingById);
-    this.assertCustomPricesAllowed(lines);
-    this.assertStartReadingsAllowed(lines);
+    this.assertNewLinesValid(lines);
     await this.assertStartReadingsKept(lines, existingById);
     await this.assertCancelDatesAllowed(removed, existingById);
 
@@ -163,6 +161,13 @@ class CustomerPlanService {
       (r): r is CustomerPlan => r !== null,
     );
     return { active, cancelled };
+  }
+
+  // The checks a line passes before any row exists; the form and the import share them.
+  assertNewLinesValid(lines: LineFields[]): void {
+    for (const line of lines) this.validateDate(line.startDate);
+    this.assertCustomPricesAllowed(lines);
+    this.assertStartReadingsAllowed(lines);
   }
 
   async hasPayments(id: string): Promise<boolean> {

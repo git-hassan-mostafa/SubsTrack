@@ -72,6 +72,7 @@ const GENERIC: Record<AuditAction, string> = {
   delete: "audit.summary.delete",
   void: "audit.summary.void",
   restore: "audit.summary.restore",
+  import: "audit.summary.import",
 };
 
 interface Phrases {
@@ -200,6 +201,12 @@ function specialSentence(
       entry.action === "delete" || (cancelled && !isBlank(cancelled.after));
     if (removed) {
       return t("audit.summary.special.unsubscribed", {
+        actor,
+        detail: bold(detail.text),
+      });
+    }
+    if (entry.action === "import") {
+      return t("audit.summary.special.imported_plan", {
         actor,
         detail: bold(detail.text),
       });

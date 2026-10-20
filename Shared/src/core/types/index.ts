@@ -866,7 +866,7 @@ export interface TenantSetting {
 
 // 'void' / 'restore' are updates too, kept distinct so the trail can be filtered
 // by what a staff member actually did.
-export type AuditAction = "create" | "update" | "delete" | "void" | "restore";
+export type AuditAction = "create" | "update" | "delete" | "void" | "restore" | "import";
 
 // Tables the app records a trail for. sale_items is covered by its parent sale,
 // and collection_items have no life apart from their hand-over — a collection's

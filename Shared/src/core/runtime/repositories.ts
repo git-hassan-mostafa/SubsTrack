@@ -12,6 +12,7 @@ import type { IAuthRepository } from "@shared/modules/authentication/auth/reposi
 import type { ISignupRepository } from "@shared/modules/authentication/signup/repository/ISignupRepository";
 import type { ISkippedMonthRepository } from "@shared/modules/customer/customer-payments/repository/ISkippedMonthRepository";
 import type { IUsageReadingRepository } from "@shared/modules/customer/customer-payments/repository/IUsageReadingRepository";
+import type { ICustomerImportRepository } from "@shared/modules/customer/customer-import/repository/ICustomerImportRepository";
 import type { ICustomerPlanRepository } from "@shared/modules/customer/customer-plans/repository/ICustomerPlanRepository";
 import type { IPriceHistoryRepository } from "@shared/modules/customer/customer-plans/repository/IPriceHistoryRepository";
 import type { ICustomerRepository } from "@shared/modules/customer/customers/repository/ICustomerRepository";
@@ -44,6 +45,7 @@ export interface Repositories {
   priceHistory: IPriceHistoryRepository;
   customer: ICustomerRepository;
   customerStatus: ICustomerStatusRepository;
+  customerImport: ICustomerImportRepository;
   charge: IChargeRepository;
   collection: ICollectionRepository;
   option: IOptionRepository;

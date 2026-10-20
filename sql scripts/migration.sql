@@ -127,3 +127,13 @@ ALTER TABLE line_price_changes DROP COLUMN IF EXISTS plan_id;
 --
 -- A fresh database never needs this — script.sql no longer declares the old check.
 ALTER TABLE plans DROP CONSTRAINT IF EXISTS chk_plan_price_consistency;
+
+-- ---------------------------------------------------------------------------
+-- 2026-10-20 — audit_logs.action learns 'import'
+-- ---------------------------------------------------------------------------
+-- Customers imported from a file are logged as 'import', so the trail shows
+-- who imported them. script.sql declares the replacement chk_audit_logs_action_v2;
+-- the old check goes here. Safe to run repeatedly.
+--
+-- A fresh database never needs this — script.sql no longer declares the old check.
+ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS chk_audit_logs_action;

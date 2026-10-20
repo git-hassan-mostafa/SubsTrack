@@ -1405,6 +1405,7 @@
       "delete": "{{actor}} حذف {{record}}",
       "void": "{{actor}} ألغى {{record}}",
       "restore": "{{actor}} استعاد {{record}}",
+      "import": "{{actor}} استورد {{record}} من ملف",
       "update_one": "{{actor}} غيّر {{field}} في {{record}} من {{before}} إلى {{after}}",
       "update_many": "{{actor}} عدّل {{fields}} في {{record}}",
       "for_subject": "{{sentence}} للعميل {{subject}}",
@@ -1432,6 +1433,7 @@
         "renamed": "{{actor}} غيّر اسم {{type}} من {{before}} إلى {{after}}",
         "setting": "{{actor}} ضبط {{field}} على {{after}}",
         "subscribed": "{{actor}} أضاف خطة {{detail}}",
+        "imported_plan": "{{actor}} أضاف خطة {{detail}} من ملف",
         "unsubscribed": "{{actor}} أزال خطة {{detail}}",
         "stock_edit": "{{actor}} غيّر {{field}} في حركة مخزون من {{before}} إلى {{after}}",
         "is_regular_on": "{{actor}} عيّن {{record}} كعميل دائم",
@@ -1461,7 +1463,8 @@
       "update": "تعديل",
       "delete": "حذف",
       "void": "إلغاء",
-      "restore": "استعادة"
+      "restore": "استعادة",
+      "import": "استيراد"
     },
     "table": {
       "charges": "فاتورة",
@@ -2343,5 +2346,75 @@
     "later_month_paid": "شهر لاحق مدفوع — حصّل هذا الشهر بدلاً من ذلك",
     "reading_locked": "هذا الشهر أو التالي مدفوع",
     "usage_locked": "هذا الشهر مدفوع"
+  },
+  "customer_import": {
+    "field": {
+      "name": "الاسم",
+      "phone": "الهاتف",
+      "area": "المنطقة",
+      "address": "العنوان",
+      "notes": "ملاحظات",
+      "branch": "الفرع",
+      "plan": "الخطة",
+      "start_date": "تاريخ البداية",
+      "special_price": "السعر الخاص",
+      "currency": "العملة",
+      "regular": "عميل منتظم",
+      "map_link": "الموقع على الخريطة",
+      "meter_number": "رقم العداد",
+      "start_reading": "قراءة البداية"
+    },
+    "problem": {
+      "empty_file": "الملف فارغ.",
+      "no_name_column": "لا يوجد عمود للاسم في الملف. استعمل السطر الأول من النموذج كعناوين للأعمدة.",
+      "repeated_column": "يوجد عمودان باسم \"{{name}}\". أبقِ واحدًا فقط.",
+      "no_rows": "في الملف عناوين أعمدة لكن لا يوجد عملاء تحتها.",
+      "too_many_rows": "في الملف {{count}} سطرًا. استورد {{max}} سطر كحد أقصى في كل مرة.",
+      "name_missing": "الاسم غير موجود.",
+      "bad_phone": "\"{{value}}\" ليس رقم هاتف.",
+      "phone_in_app": "هذا الرقم مسجّل للعميل {{name}} في التطبيق.",
+      "conflict": "نفس رقم الهاتف في السطر {{row}}، لكن {{field}} مختلف.",
+      "unknown_branch": "لا يوجد فرع باسم \"{{name}}\".",
+      "other_branch_not_allowed": "يمكنك إضافة عملاء إلى فرعك فقط، وليس إلى \"{{name}}\".",
+      "unknown_plan": "لا توجد خطة باسم \"{{name}}\".",
+      "plan_other_branch": "الخطة \"{{name}}\" تابعة لفرع آخر.",
+      "plan_ambiguous": "توجد خطتان باسم \"{{name}}\". غيّر اسم إحداهما أولًا.",
+      "bad_date": "\"{{value}}\" ليس تاريخًا. اكتبه هكذا: يوم/شهر/سنة، مثلًا 01/10/2026.",
+      "bad_price": "\"{{value}}\" ليس سعرًا. اكتب الرقم فقط، مثلًا 15 أو 1500000.",
+      "usage_no_special_price": "\"{{name}}\" تُسعّر حسب الاستهلاك، لذلك لا يمكن أن يكون لها سعر خاص.",
+      "unknown_currency": "لا توجد عملة باسم \"{{name}}\".",
+      "bad_reading": "\"{{value}}\" ليس قراءة عداد.",
+      "bad_yes_no": "عمود العميل المنتظم يجب أن يكون نعم أو لا، وليس \"{{value}}\".",
+      "held_by_row": "نفس العميل في السطر {{rows}}: صحّح ذلك السطر أولًا.",
+      "bad_map_link": "\"{{value}}\" ليس رابط خريطة."
+    },
+    "warning": {
+      "plan_missing_values": "لا توجد خطة في هذا السطر، لذلك لم يُستعمل تاريخ البداية والسعر والعداد.",
+      "meter_not_used": "\"{{name}}\" لا تُحسب بالعداد، لذلك لم تُستعمل أعمدة العداد.",
+      "old_start_zero": "تبدأ في {{month}}.",
+      "old_start_one": "تبدأ في {{month}}: سيظهر حوالي شهر سابق واحد غير مدفوع.",
+      "old_start_two": "تبدأ في {{month}}: سيظهر حوالي شهرين سابقين غير مدفوعين.",
+      "old_start_few": "تبدأ في {{month}}: سيظهر حوالي {{count}} أشهر سابقة غير مدفوعة.",
+      "old_start_many": "تبدأ في {{month}}: سيظهر حوالي {{count}} شهرًا سابقًا غير مدفوع.",
+      "old_start_other": "تبدأ في {{month}}: سيظهر حوالي {{count}} شهر سابق غير مدفوع."
+    },
+    "too_big_customers": "هذا الملف يضيف {{adding}} عميل، لكن لديك مكان لـ {{room}} فقط (مستعمل {{count}} من أصل {{allowance}}). لم يُستورد شيء. احذف بعض الأسطر أو اطلب حدًّا أكبر.",
+    "too_big_plans": "هذا الملف يضيف {{adding}} خطة، لكن لديك مكان لـ {{room}} فقط (مستعمل {{count}} من أصل {{allowance}}). لم يُستورد شيء. احذف بعض الأسطر أو اطلب حدًّا أكبر.",
+    "reason": {
+      "stopped": "لم يُستورد: توقف الاستيراد قبل هذا السطر.",
+      "unknown": "غير مؤكد إن استُورد: انقطع الاتصال. راجع قائمة العملاء قبل استيراده مرة أخرى."
+    },
+    "outcome": {
+      "imported": "تم الاستيراد",
+      "skipped": "تم التخطي",
+      "failed": "لم يُستورد",
+      "not_run": "لم يُستورد",
+      "unknown": "غير مؤكد"
+    },
+    "summary": {
+      "row": "السطر",
+      "result": "النتيجة",
+      "reason": "السبب"
+    }
   }
 }

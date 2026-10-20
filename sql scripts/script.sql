@@ -2028,8 +2028,22 @@ ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS branch_id UUID;
 ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS table_name TEXT NOT NULL;
 ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS record_id UUID NOT NULL;
 ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS action TEXT NOT NULL
-    CONSTRAINT chk_audit_logs_action
-    CHECK (action IN ('create', 'update', 'delete', 'void', 'restore'));
+    CONSTRAINT chk_audit_logs_action_v2
+    CHECK (action IN ('create', 'update', 'delete', 'void', 'restore', 'import'));
+
+-- A live database already holds the column, so the line above never re-runs
+-- there; the old check is dropped in migration.sql (2026-10-20) and this adds
+-- the new one in its place.
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'audit_logs'::regclass
+          AND conname = 'chk_audit_logs_action_v2'
+    ) THEN
+        ALTER TABLE audit_logs ADD CONSTRAINT chk_audit_logs_action_v2
+            CHECK (action IN ('create', 'update', 'delete', 'void', 'restore', 'import'));
+    END IF;
+END $$;
 
 -- update/void/restore: ONLY the changed columns. delete: the whole row. create: NULL.
 ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS before_data JSONB;
@@ -2372,6 +2386,86 @@ REVOKE EXECUTE ON FUNCTION update_plan_with_price_history(
     UUID, NUMERIC, UUID, INT, BOOLEAN, TIMESTAMPTZ,
     UUID, DATE, TIMESTAMPTZ
 ) FROM anon;
+
+-- ============================================================
+-- IMPORT CUSTOMERS (web import from a file, one group of rows per call)
+-- One transaction per group: its customers, their service lines and their
+-- audit rows land together or not at all, so a failed group leaves nothing
+-- half-made and the app can say exactly which rows went in.
+-- SECURITY INVOKER: RLS still decides tenant + branch. tenant_id and the
+-- actor come from the session, never from the payload. Limits are checked by
+-- the app before the first group (billingService.assertQuotas, #149).
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION import_customers(
+    p_customers JSONB,
+    p_lines JSONB,
+    p_audit JSONB
+)
+RETURNS INT
+LANGUAGE plpgsql
+SECURITY INVOKER
+AS $$
+DECLARE
+    v_tenant_id UUID := current_tenant_id();
+    v_count INT;
+BEGIN
+    IF v_tenant_id IS NULL THEN
+        RAISE EXCEPTION 'No tenant on this session';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM public.users u
+        WHERE u.id = auth.uid()
+          AND u.role IN ('admin', 'superadmin')
+          AND u.active = true
+    ) THEN
+        RAISE EXCEPTION 'Only an admin may import customers';
+    END IF;
+
+    INSERT INTO customers (
+        id, name, phone_number, address, area, notes, location_url, branch_id,
+        tenant_id, active, is_regular, cancelled_at, portal_password, portal_enabled
+    )
+    SELECT c.id, c.name, c.phone_number, c.address, c.area, c.notes, c.location_url,
+           c.branch_id, v_tenant_id, TRUE, c.is_regular, NULL, NULL, FALSE
+    FROM jsonb_to_recordset(p_customers) AS c(
+        id UUID, name TEXT, phone_number TEXT, address TEXT, area TEXT, notes TEXT,
+        location_url TEXT, branch_id UUID, is_regular BOOLEAN
+    );
+    GET DIAGNOSTICS v_count = ROW_COUNT;
+
+    INSERT INTO customer_plans (
+        id, customer_id, plan_id, start_date, tenant_id, custom_price,
+        custom_currency_id, meter_number, start_reading
+    )
+    SELECT l.id, l.customer_id, l.plan_id, l.start_date, v_tenant_id, l.custom_price,
+           l.custom_currency_id, l.meter_number, l.start_reading
+    FROM jsonb_to_recordset(p_lines) AS l(
+        id UUID, customer_id UUID, plan_id UUID, start_date DATE, custom_price NUMERIC,
+        custom_currency_id UUID, meter_number TEXT, start_reading NUMERIC
+    );
+
+    INSERT INTO audit_logs (
+        id, tenant_id, branch_id, table_name, record_id, action, before_data,
+        after_data, changed, label, subject, subject_id, actor_user_id,
+        actor_username, occurred_at
+    )
+    SELECT a.id, v_tenant_id, a.branch_id, a.table_name, a.record_id, 'import', NULL,
+           a.after_data, NULL, a.label, a.subject, a.subject_id, auth.uid(),
+           a.actor_username, a.occurred_at
+    FROM jsonb_to_recordset(p_audit) AS a(
+        id UUID, branch_id UUID, table_name TEXT, record_id UUID, after_data JSONB,
+        label TEXT, subject TEXT, subject_id UUID, actor_username TEXT,
+        occurred_at TIMESTAMPTZ
+    );
+
+    RETURN v_count;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION import_customers(JSONB, JSONB, JSONB) TO authenticated;
+REVOKE EXECUTE ON FUNCTION import_customers(JSONB, JSONB, JSONB) FROM anon;
 
 -- Each customer's newest live hand-over (any kind) — the list's "last paid" fact.
 CREATE OR REPLACE FUNCTION customer_last_paid()
