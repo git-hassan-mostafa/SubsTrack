@@ -6,7 +6,17 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { ScrollView } from "react-native";
+import {
+  ScrollView,
+  Text,
+  View,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  type TextStyle,
+  type ViewStyle,
+} from "react-native";
 import { useTranslation } from "react-i18next";
 import { AppBottomSheet } from "./AppBottomSheet";
 import { ResponsiveContainer } from "./ResponsiveContainer";
@@ -100,6 +110,8 @@ function FormSheetBody({
     setMenuOpen(true);
   }
 
+  const probe = useScrollProbe();
+
   const bodyRef = useRef<ScrollView>(null);
   const scrollTo = useCallback<SheetScrollTo>((y) => {
     bodyRef.current?.scrollTo({ y, animated: true });
@@ -142,9 +154,20 @@ function FormSheetBody({
           paddingTop: fullBleed ? 0 : 24,
           paddingBottom: 48,
         }}
+        {...probe.scrollProps}
       >
         {bodyReady ? children : null}
       </SheetScrollView>
+
+      <View
+        pointerEvents="none"
+        style={hostProbeStyle}
+        onLayout={probe.onHostLayout}
+      />
+
+      <Text pointerEvents="none" style={probeStyle}>
+        {probe.label}
+      </Text>
 
       {openActions.length > 0 ? (
         <ActionMenu
@@ -156,4 +179,48 @@ function FormSheetBody({
       ) : null}
     </ResponsiveContainer>
   );
+}
+
+const hostProbeStyle: ViewStyle = {
+  position: "absolute",
+  top: 0,
+  bottom: 0,
+  left: 0,
+  width: 0,
+};
+
+const probeStyle: TextStyle = {
+  position: "absolute",
+  top: 0,
+  left: 4,
+  paddingHorizontal: 6,
+  backgroundColor: "#FDE047",
+  color: "#000",
+  fontSize: 12,
+};
+
+// TEMP debug for the random no-scroll form (gotcha #78) — remove after
+function useScrollProbe() {
+  const { height: windowHeight } = useWindowDimensions();
+  const [host, setHost] = useState(0);
+  const [box, setBox] = useState(0);
+  const [content, setContent] = useState(0);
+  const [touches, setTouches] = useState(0);
+  const [drags, setDrags] = useState(0);
+  const [offset, setOffset] = useState(0);
+
+  return {
+    label: `win ${Math.round(windowHeight)} · host ${Math.round(host)} · box ${Math.round(box)} · content ${Math.round(content)} · touch ${touches} · drag ${drags} · y ${Math.round(offset)}`,
+    onHostLayout: (e: LayoutChangeEvent) =>
+      setHost(e.nativeEvent.layout.height),
+    scrollProps: {
+      onLayout: (e: LayoutChangeEvent) =>
+        setBox(e.nativeEvent.layout.height),
+      onContentSizeChange: (_w: number, h: number) => setContent(h),
+      onTouchStart: () => setTouches((n) => n + 1),
+      onScrollBeginDrag: () => setDrags((n) => n + 1),
+      onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) =>
+        setOffset(e.nativeEvent.contentOffset.y),
+    },
+  };
 }
