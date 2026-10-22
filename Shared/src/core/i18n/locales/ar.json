@@ -528,6 +528,8 @@
     "no_service_badge": "بدون خدمة",
     "paid_until": "مدفوع حتى {{date}}",
     "no_payment_yet": "لا دفعات بعد",
+    "pay_until": "الدفع حتى",
+    "pay_until_title": "الدفع حتى أي شهر؟",
     "expires_today": "ينتهي اليوم",
     "expires_in_zero": "ينتهي خلال {{count}} يوم",
     "expires_in_one": "ينتهي خلال يوم واحد",

@@ -520,6 +520,8 @@
     "no_service_badge": "No service",
     "paid_until": "Paid until {{date}}",
     "no_payment_yet": "No payment yet",
+    "pay_until": "Pay until",
+    "pay_until_title": "Pay until which month?",
     "expires_today": "Expires today",
     "expires_in_one": "Expires in 1 day",
     "expires_in_other": "Expires in {{count}} days",

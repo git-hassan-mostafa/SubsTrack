@@ -151,6 +151,16 @@ export function CustomerPaymentPanel({
       })
     : [];
 
+  const payUntilActions: ActionMenuItem[] = grid.payUntil.options.map(
+    (option) => ({
+      key: option.key,
+      label: `${option.label} · ${option.total}`,
+      caption: option.paidUntil,
+      icon: "calendar-outline",
+      onPress: () => grid.payUntil.pick(option.key),
+    }),
+  );
+
   const selectionActions: SelectionAction[] = toSelectionActions(
     selection.items,
     t,
@@ -247,14 +257,35 @@ export function CustomerPaymentPanel({
                   ) : null}
                 </View>
               ) : null}
-              {grid.paidUntilLabel ? (
-                <Text
-                  fontWeight="SemiBold"
-                  className="mb-1 text-xs text-gray-600"
-                  numberOfLines={1}
-                >
-                  {grid.paidUntilLabel}
-                </Text>
+              {grid.paidUntilLabel || grid.payUntil.available ? (
+                <View className="mb-1 flex-row items-center justify-between gap-2">
+                  <Text
+                    fontWeight="SemiBold"
+                    className="text-xs text-gray-600 shrink"
+                    numberOfLines={1}
+                  >
+                    {grid.paidUntilLabel}
+                  </Text>
+                  {grid.payUntil.available ? (
+                    <PressableOpacity
+                      onPress={grid.payUntil.start}
+                      containerClassName="rounded-full bg-primary-container"
+                      className="min-h-10 px-3 py-2 flex-row items-center"
+                    >
+                      <Ionicons
+                        name="calendar-outline"
+                        size={16}
+                        color={COLORS.primary}
+                      />
+                      <Text
+                        fontWeight="SemiBold"
+                        className="text-sm text-primary ms-1.5"
+                      >
+                        {t("payments.pay_until")}
+                      </Text>
+                    </PressableOpacity>
+                  ) : null}
+                </View>
               ) : null}
 
               <View className="flex-row items-center justify-between">
@@ -329,6 +360,7 @@ export function CustomerPaymentPanel({
             <MonthGrid
               months={grid.grid}
               block={grid.block}
+              links={grid.links}
               onCellPress={grid.tap}
               onCellMenu={setMenuEntry}
               loadingBillingMonth={grid.busyMonth}
@@ -438,6 +470,13 @@ export function CustomerPaymentPanel({
           onDismiss={grid.closeSkip}
         />
       )}
+
+      <ActionMenu
+        visible={grid.payUntil.open}
+        title={t("payments.pay_until_title")}
+        actions={payUntilActions}
+        onDismiss={grid.payUntil.close}
+      />
 
       <ActionMenu
         visible={menuEntry !== null}

@@ -10,7 +10,7 @@ import type {
 } from "@shared/core/types";
 import { billingMonthLabel } from "@shared/core/utils/billingMonth";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { toBillingMonth } from "@shared/core/utils/date";
+import { formatDate, toBillingMonth } from "@shared/core/utils/date";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useLineGrid } from "@shared/modules/customer/customer-payments/hooks/useLineGrid";
 import { getBlockRangeLabel } from "@shared/modules/customer/customer-payments/utils/blockRangeLabel";
@@ -75,6 +75,13 @@ export interface MonthHistoryRequest {
   subtitle: string;
 }
 
+export interface PayUntilOption {
+  key: string;
+  label: string;
+  total: string;
+  paidUntil: string;
+}
+
 export interface SkipRequest {
   entries: MonthEntry[];
   mode: SkipMode;
@@ -112,6 +119,7 @@ export function useCustomerMonthGrid({
   const [retypeEntry, setRetypeEntry] = useState<MonthEntry | null>(null);
   const [history, setHistory] = useState<MonthHistoryRequest | null>(null);
   const [skipRequest, setSkipRequest] = useState<SkipRequest | null>(null);
+  const [payUntilOpen, setPayUntilOpen] = useState(false);
   const sendAfterCollect = useRef(false);
   const quickPayHandled = useRef(false);
   const cancelQuickPay = useRef<(() => void) | null>(null);
@@ -208,6 +216,34 @@ export function useCustomerMonthGrid({
     clearSelection();
     if (!sendAfterCollect.current) return;
     for (const collection of collections) await sendReceipt(collection);
+  };
+
+  const totalOf = (items: OpenItem[]): string =>
+    [...groupBy(items, (i) => i.currencyId ?? "").values()]
+      .map((group) => {
+        const currency = findCurrency(currencies, group[0].currencyId);
+        const sum = group.reduce((total, i) => total + i.balance, 0);
+        return formatMoney(sum, currency, currency);
+      })
+      .join(" + ");
+
+  const payUntilOptions: PayUntilOption[] = line.payUntilChoices.map((choice) => ({
+    key: choice.lastMonth,
+    label: billingMonthLabel(choice.lastMonth, true),
+    total: totalOf(itemsFor(choice.months)),
+    paidUntil: t("payments.paid_until", { date: formatDate(choice.paidUntil) }),
+  }));
+
+  const pickPayUntil = (key: string) => {
+    const choice = line.payUntilChoices.find((c) => c.lastMonth === key);
+    setPayUntilOpen(false);
+    if (!choice) return;
+    const blocker = payOrderBlocker(
+      gates,
+      choice.months.map((e) => e.billingMonth),
+    );
+    if (blocker) showPayOrderBlocked(blocker);
+    else openCollectFor(choice.months);
   };
 
   const payLimitLabel = gates.payLimit
@@ -520,6 +556,14 @@ export function useCustomerMonthGrid({
       currentEntry?.status === "unpaid"
         ? currentEntry
         : null,
+    payUntil: {
+      available: payUntilOptions.length > 0,
+      open: payUntilOpen,
+      options: payUntilOptions,
+      start: () => setPayUntilOpen(true),
+      close: () => setPayUntilOpen(false),
+      pick: pickPayUntil,
+    },
     selection: {
       active: selection.active,
       count: selection.count,

@@ -598,16 +598,11 @@ export interface CollectionItem {
   charge?: Charge | null;
 }
 
-// One month's bill and the money that has reached it. The ONLY shape
-// buildMonthGrid accepts, so the grid never learns that collections exist and
-// stays the pure function it has always been.
-//
-// `collected` is 0 both when the bill has no money and when there is no bill at
-// all — which is exactly why nothing in the app asks "does a charge row exist?".
-// An untouched January and one whose collection was voided must read the same.
+// The grid reads money only; `collectionIds` comes from the one-customer read.
 export interface MonthBill {
   charge: Charge;
   collected: number;
+  collectionIds?: string[];
 }
 
 // A live bill plus what has been collected against it. Comes from the

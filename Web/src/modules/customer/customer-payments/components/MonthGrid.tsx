@@ -9,6 +9,7 @@ import { MonthCell } from "./MonthCell";
 interface MonthGridProps {
   months: MonthEntry[];
   block: MonthBlock | null;
+  links: ReadonlyMap<string, string>;
   isRegular: boolean;
   busyMonth: string | null;
   isSelected: (billingMonth: string) => boolean;
@@ -21,6 +22,7 @@ interface MonthGridProps {
 export function MonthGrid({
   months,
   block,
+  links,
   isRegular,
   busyMonth,
   isSelected,
@@ -30,7 +32,7 @@ export function MonthGrid({
 }: MonthGridProps) {
   const wide = useMediaQuery(useTheme().breakpoints.up("md"));
   const columns = wide ? 6 : 4;
-  const joins = cellJoins(months, columns, block);
+  const joins = cellJoins(months, columns, block, links);
 
   return (
     <Box

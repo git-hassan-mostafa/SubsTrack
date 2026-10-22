@@ -10,6 +10,7 @@ import type {
   CreateChargePayload,
   DbChargeHistoryRow,
   DbChargeWithPaid,
+  DbMonthChargeRow,
   FindChargesOptions,
   UpdateChargePayload,
   WriteOffMark,
@@ -169,6 +170,13 @@ function paidOn(chargeId: string): number {
     .reduce((s, i) => s + i.amount, 0);
 }
 
+function payersOf(chargeId: string): string[] {
+  return items
+    .filter((i) => i.charge_id === chargeId)
+    .filter((i) => collections.find((c) => c.id === i.collection_id)?.voided_at === null)
+    .map((i) => i.collection_id);
+}
+
 function hydrateCharge(row: DbCharge): DbCharge {
   return { ...row };
 }
@@ -201,7 +209,7 @@ export const fakeChargeRepository = {
   },
   async findMonthChargesForCustomer(
     customerId: string,
-  ): Promise<DbChargeWithPaid[]> {
+  ): Promise<DbMonthChargeRow[]> {
     return charges
       .filter(
         (c) =>
@@ -215,6 +223,7 @@ export const fakeChargeRepository = {
       .map((charge) => ({
         charge: hydrateCharge(charge),
         paid: paidOn(charge.id),
+        collectionIds: payersOf(charge.id),
       }));
   },
   async findBySaleId(saleId: string) {

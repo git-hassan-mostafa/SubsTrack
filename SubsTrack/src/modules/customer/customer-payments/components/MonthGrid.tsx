@@ -6,6 +6,7 @@ import { MonthCell } from "./MonthCell";
 interface Props {
   months: MonthEntry[];
   block: MonthBlock | null;
+  links?: ReadonlyMap<string, string>;
   onCellPress: (entry: MonthEntry) => void;
   onCellMenu?: (entry: MonthEntry) => void;
   loadingBillingMonth?: string | null;
@@ -21,6 +22,7 @@ const COLUMNS = 4;
 export function MonthGrid({
   months,
   block,
+  links,
   onCellPress,
   onCellMenu,
   loadingBillingMonth,
@@ -30,7 +32,7 @@ export function MonthGrid({
   onCellToggle,
   onCellLongPress,
 }: Props) {
-  const joins = cellJoins(months, COLUMNS, block);
+  const joins = cellJoins(months, COLUMNS, block, links);
   return (
     <View className="flex-row flex-wrap px-1 pb-2">
       {months.map((entry, i) => (

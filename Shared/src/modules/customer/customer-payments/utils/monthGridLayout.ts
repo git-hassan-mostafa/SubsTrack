@@ -1,4 +1,4 @@
-import type { Charge, MonthEntry } from "@shared/core/types";
+import type { Charge, MonthBill, MonthEntry } from "@shared/core/types";
 import { getCurrentYearMonth } from "@shared/core/utils/date";
 import {
   blockStartMonth,
@@ -43,9 +43,34 @@ function payableBlockStart(entry: MonthEntry, block: MonthBlock | null): string 
   return blockStartMonth(entry.billingMonth, block.startDate, block.durationMonths);
 }
 
-// The bill id once money reached the month, else its unpaid block — one pill each.
-function groupIdOf(entry: MonthEntry, block: MonthBlock | null): string | null {
-  if (entry.status === "paid" && entry.charge) return entry.charge.id;
+const NO_LINKS: ReadonlyMap<string, string> = new Map();
+
+// Bills paid whole by their only hand-over, which paid 2+ bills: charge → payer.
+export function paymentLinks(bills: readonly MonthBill[]): ReadonlyMap<string, string> {
+  const billsPaid = new Map<string, number>();
+  for (const bill of bills) {
+    for (const id of bill.collectionIds ?? []) billsPaid.set(id, (billsPaid.get(id) ?? 0) + 1);
+  }
+  const links = new Map<string, string>();
+  for (const { charge, collected, collectionIds } of bills) {
+    const only = collectionIds?.length === 1 ? collectionIds[0] : null;
+    if (only && collected >= charge.amount && (billsPaid.get(only) ?? 0) > 1) {
+      links.set(charge.id, only);
+    }
+  }
+  return links;
+}
+
+// Shared payment, else the bill once money reached it, else its unpaid block.
+function groupIdOf(
+  entry: MonthEntry,
+  block: MonthBlock | null,
+  links: ReadonlyMap<string, string>,
+): string | null {
+  if (entry.status === "paid" && entry.charge) {
+    const payer = links.get(entry.charge.id);
+    return payer ? `pay:${payer}` : entry.charge.id;
+  }
   const blockStart = payableBlockStart(entry, block);
   return blockStart ? `block:${blockStart}` : null;
 }
@@ -77,8 +102,9 @@ export function cellJoins(
   months: MonthEntry[],
   columns: number,
   block: MonthBlock | null = null,
+  links: ReadonlyMap<string, string> = NO_LINKS,
 ): CellJoin[] {
-  const groups = months.map((entry) => groupIdOf(entry, block));
+  const groups = months.map((entry) => groupIdOf(entry, block, links));
   return months.map((entry, i) => {
     const group = groups[i];
     const prev = i > 0 ? months[i - 1] : null;

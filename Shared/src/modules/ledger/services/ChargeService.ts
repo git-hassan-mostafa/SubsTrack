@@ -104,9 +104,10 @@ class ChargeService {
 
   async getMonthBillsForCustomer(customerId: string): Promise<MonthBill[]> {
     const rows = await repositories().charge.findMonthChargesForCustomer(customerId);
-    return rows.map(({ charge, paid }) => ({
+    return rows.map(({ charge, paid, collectionIds }) => ({
       charge: mapDbChargeToCharge(charge),
       collected: paid,
+      collectionIds,
     }));
   }
 

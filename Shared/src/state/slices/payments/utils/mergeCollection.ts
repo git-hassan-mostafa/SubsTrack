@@ -1,24 +1,6 @@
 import type { Collection, MonthBill } from "@shared/core/types";
 
-/**
- * Move one hand-over's money in or out of the bills in the store.
- *
- * A month bill is either already held (add what reached it) or was just
- * materialized by this very collect (the item carries the new charge, so add the
- * whole bill). Non-month items — a sale, a custom fee — are not the grid's
- * business and are skipped. `collection.items` is always loaded here: both
- * repositories return the created row through `findById`.
- *
- * Money on a DEAD bill (voided / written off) is dropped rather than painted
- * green. The write revives such a bill before the cash lands on it (#115), so
- * this cannot normally happen — and that is the point: if it ever does again,
- * the cell stays red immediately instead of turning green until the next
- * refresh, which is what hid the bug the first time.
- *
- * `sign` is -1 when that hand-over was VOIDED: the money comes back off every
- * bill it had settled, and an emptied bill is kept rather than dropped — a bill
- * with nothing collected already reads exactly like a month never billed (#106).
- */
+// One hand-over's money in (or, voided, out of) the held bills — #115, #116e.
 export function mergeCollection(
   bills: MonthBill[],
   collection: Collection,
@@ -36,6 +18,10 @@ export function mergeCollection(
     if (sign === 1 && charge?.kind === "month")
       raised.set(charge.id, { charge, collected: 0 });
   }
+  const payersAfter = (bill: MonthBill): string[] => {
+    const others = (bill.collectionIds ?? []).filter((id) => id !== collection.id);
+    return sign === 1 ? [...others, collection.id] : others;
+  };
   const merged = bills.map((b) => {
     const extra = paid.get(b.charge.id);
     const written = raised.get(b.charge.id)?.charge;
@@ -45,10 +31,15 @@ export function mergeCollection(
       ...b,
       charge: written ?? b.charge,
       collected: Math.max(0, b.collected + extra),
+      collectionIds: payersAfter(b),
     };
   });
   for (const bill of raised.values()) {
-    merged.push({ ...bill, collected: paid.get(bill.charge.id) ?? 0 });
+    merged.push({
+      ...bill,
+      collected: paid.get(bill.charge.id) ?? 0,
+      collectionIds: [collection.id],
+    });
   }
   return merged;
 }

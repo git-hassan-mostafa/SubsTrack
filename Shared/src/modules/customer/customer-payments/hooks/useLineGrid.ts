@@ -9,9 +9,10 @@ import {
   yearSummary,
 } from "@shared/modules/customer/customer-payments/utils/gridSummary";
 import type { LineGates } from "@shared/modules/customer/customer-payments/utils/monthActions";
-import type { MonthBlock } from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
+import { paymentLinks, type MonthBlock } from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
 import { paidUntil, prepaidExpiry } from "@shared/modules/customer/customer-payments/utils/paidUntil";
 import { prepaidLabel, prepaidTextParts } from "@shared/modules/customer/customer-payments/utils/prepaidText";
+import { payUntilChoices } from "@shared/modules/customer/customer-payments/utils/payUntil";
 import { lastBillableMonth } from "@shared/modules/customer/customer-payments/utils/payWindow";
 import { monthPriceOf } from "@shared/modules/customer/customer-payments/utils/usageBill";
 import { resolveLinePrice, type LinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
@@ -23,6 +24,7 @@ import {
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { usePaymentSlice } from "@shared/state/hooks/usePaymentSlice";
 import { useDisplayCurrency } from "@shared/state/hooks/useDisplayCurrency";
+import { useUnpaidStartRule } from "@shared/state/hooks/useTenantSettingSlice";
 
 const EMPTY_GRID: MonthEntry[] = [];
 const EMPTY_MONTHS: string[] = [];
@@ -46,6 +48,7 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
   const resetPayments = usePaymentSlice((s) => s.reset);
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrency = useDisplayCurrency();
+  const unpaidRule = useUnpaidStartRule();
 
   const lines = useMemo(
     () => customer.customerPlans ?? [],
@@ -142,6 +145,20 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
     return prepaidLabel(t, prepaidTextParts(expiry));
   })();
 
+  const links = useMemo(() => paymentLinks(bills), [bills]);
+
+  const untilChoices =
+    selectedLine?.prepaid && billsReady && linePrice.isFixed
+      ? payUntilChoices({
+          line: selectedLine,
+          bills: bills.filter((b) => b.charge.customerPlanId === selectedLine.id),
+          skips: skips.filter((s) => s.customerPlanId === selectedLine.id),
+          unpaidRule,
+          gates,
+          durationMonths: linePrice.durationMonths,
+        })
+      : [];
+
   const summary = yearSummary(grid, bills, selectedLine?.id ?? null, year);
 
   return {
@@ -163,6 +180,8 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
     priceAt,
     priceLabel,
     paidUntilLabel,
+    payUntilChoices: untilChoices,
+    links,
     summary,
     collectedLabel: formatMoney(summary.collectedUsd, null, displayCurrency),
     reloadBills,

@@ -7,6 +7,7 @@ import type {
   CreateChargePayload,
   DbChargeHistoryRow,
   DbChargeWithPaid,
+  DbMonthChargeRow,
   FindChargeHistoryOptions,
   FindChargesOptions,
   IChargeRepository,
@@ -90,8 +91,8 @@ export class ChargeRepository
 
   async findMonthChargesForCustomer(
     customerId: string,
-  ): Promise<DbChargeWithPaid[]> {
-    const [{ data, error }, paid] = await Promise.all([
+  ): Promise<DbMonthChargeRow[]> {
+    const [{ data, error }, paid, payers] = await Promise.all([
       this.db
         .from("charges")
         .select("*")
@@ -100,9 +101,32 @@ export class ChargeRepository
         .is("voided_at", null)
         .order("billing_month", { ascending: true }),
       this.monthPaid("customer_id", [customerId]),
+      this.monthPayers(customerId),
     ]);
     if (error) this.handleError(error);
-    return attachPaid((data ?? []) as DbCharge[], paid);
+    return attachPaid((data ?? []) as DbCharge[], paid).map((row) => ({
+      ...row,
+      collectionIds: payers.get(row.charge.id) ?? [],
+    }));
+  }
+
+  private async monthPayers(customerId: string): Promise<Map<string, string[]>> {
+    const { data, error } = await this.db
+      .from("collection_items")
+      .select(
+        "charge_id, collection_id, charges!inner(customer_id, kind), collections!inner(voided_at)",
+      )
+      .eq("charges.customer_id", customerId)
+      .eq("charges.kind", "month")
+      .is("collections.voided_at", null);
+    if (error) this.handleError(error);
+    const payers = new Map<string, string[]>();
+    for (const row of (data ?? []) as { charge_id: string; collection_id: string }[]) {
+      const ids = payers.get(row.charge_id);
+      if (ids) ids.push(row.collection_id);
+      else payers.set(row.charge_id, [row.collection_id]);
+    }
+    return payers;
   }
 
   async findBySaleIds(saleIds: string[]): Promise<DbCharge[]> {

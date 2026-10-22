@@ -84,6 +84,11 @@ export interface DbChargeHistoryRow extends DbChargeWithPaid {
   downPaid: number;
 }
 
+// Live hand-overs on the bill, so the grid can link one payment's months.
+export interface DbMonthChargeRow extends DbChargeWithPaid {
+  collectionIds: string[];
+}
+
 // A page of PAST bills, whatever became of them — the debts read without its
 // `balance > 0` gate. Dates are bare YYYY-MM-DD because `due_date` is a DATE.
 export interface FindChargeHistoryOptions extends FindChargesOptions {
@@ -105,7 +110,7 @@ export interface IChargeRepository {
   findMonthChargesForLines(
     customerPlanIds: string[],
   ): Promise<DbChargeWithPaid[]>;
-  findMonthChargesForCustomer(customerId: string): Promise<DbChargeWithPaid[]>;
+  findMonthChargesForCustomer(customerId: string): Promise<DbMonthChargeRow[]>;
   findBySaleId(saleId: string): Promise<DbCharge | null>;
   findBySaleIds(saleIds: string[]): Promise<DbCharge[]>;
   findOpenWithPaid(opts: FindChargesOptions): Promise<DbChargeWithPaid[]>;

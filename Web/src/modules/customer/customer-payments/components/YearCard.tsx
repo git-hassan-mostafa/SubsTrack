@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
@@ -10,6 +11,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import ChevronLeft from "@mui/icons-material/ChevronLeft";
+import CalendarMonthOutlined from "@mui/icons-material/CalendarMonthOutlined";
 import ChevronRight from "@mui/icons-material/ChevronRight";
 import GridViewOutlined from "@mui/icons-material/GridViewOutlined";
 import ViewListOutlined from "@mui/icons-material/ViewListOutlined";
@@ -22,6 +24,7 @@ import { flipInRtl } from "@/app/theme/flipInRtl";
 import { MonthGrid } from "./MonthGrid";
 import { MONTH_SELECTION_ICONS } from "../utils/monthGridIcons";
 import { MonthsTable } from "./MonthsTable";
+import { PayUntilDialog } from "./PayUntilDialog";
 
 type MonthsView = "list" | "grid";
 
@@ -92,6 +95,16 @@ export function YearCard({ grid, menuActions }: YearCardProps) {
               ) : null}
             </Stack>
           ) : null}
+          {grid.payUntil.available ? (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<CalendarMonthOutlined />}
+              onClick={grid.payUntil.start}
+            >
+              {t("payments.pay_until")}
+            </Button>
+          ) : null}
           <Stack direction="row" spacing={3} component="dl" sx={{ m: 0 }}>
             <SummaryFigure label={t("customers.year_paid")} value={String(summary.paid)} />
             <SummaryFigure label={t("customers.year_unpaid")} value={String(summary.unpaid)} />
@@ -133,6 +146,7 @@ export function YearCard({ grid, menuActions }: YearCardProps) {
         <MonthGrid
           months={grid.grid}
           block={grid.block}
+          links={grid.links}
           isRegular={grid.isRegular}
           busyMonth={grid.busyMonth}
           isSelected={selection.isSelected}
@@ -141,6 +155,13 @@ export function YearCard({ grid, menuActions }: YearCardProps) {
           onToggle={selection.toggle}
         />
       )}
+      {grid.payUntil.open ? (
+        <PayUntilDialog
+          options={grid.payUntil.options}
+          onPick={grid.payUntil.pick}
+          onClose={grid.payUntil.close}
+        />
+      ) : null}
     </Stack>
   );
 }

@@ -16,6 +16,7 @@ import type {
   CreateChargePayload,
   DbChargeHistoryRow,
   DbChargeWithPaid,
+  DbMonthChargeRow,
   FindChargeHistoryOptions,
   FindChargesOptions,
   IChargeRepository,
@@ -33,6 +34,7 @@ const PAID_SUM = `COALESCE(SUM(CASE WHEN co.id IS NOT NULL AND co.voided_at IS N
                      THEN CAST(i.amount AS REAL) ELSE 0 END), 0)`;
 const PAID_JOIN = `LEFT JOIN collection_items i ON i.charge_id = c.id
    LEFT JOIN collections co ON co.id = i.collection_id`;
+const PAYER_IDS = `GROUP_CONCAT(CASE WHEN co.voided_at IS NULL THEN co.id END)`;
 
 // The mirror's twin of the view's `down_paid` — what the bill took on the day it
 // was raised. Correlated rather than joined so it survives the outer GROUP BY.
@@ -129,23 +131,26 @@ export class OfflineChargeRepository
 
   async findMonthChargesForCustomer(
     customerId: string,
-  ): Promise<DbChargeWithPaid[]> {
+  ): Promise<DbMonthChargeRow[]> {
     return this.monthChargesWithPaid("c.customer_id = ?", [customerId]);
   }
 
   private async monthChargesWithPaid(
     scope: string,
     params: unknown[],
-  ): Promise<DbChargeWithPaid[]> {
+  ): Promise<DbMonthChargeRow[]> {
     const rows = await this.all<Record<string, unknown>>(
-      `SELECT c.*, ${PAID_SUM} AS __paid
+      `SELECT c.*, ${PAID_SUM} AS __paid, ${PAYER_IDS} AS __payers
          FROM charges c ${PAID_JOIN}
         WHERE c.kind = 'month' AND c.voided_at IS NULL AND ${scope}
         GROUP BY c.id
         ORDER BY c.billing_month ASC`,
       params,
     );
-    return this.withPaid(rows);
+    return this.withPaid(rows).map((row, i) => ({
+      ...row,
+      collectionIds: rows[i].__payers ? String(rows[i].__payers).split(",") : [],
+    }));
   }
 
   async findBySaleIds(saleIds: string[]): Promise<DbCharge[]> {
