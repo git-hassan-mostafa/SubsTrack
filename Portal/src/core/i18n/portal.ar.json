@@ -40,6 +40,8 @@
   "written_off": "مشطوب",
   "not_paid": "غير مدفوع",
   "no_service": "بدون خدمة",
+  "paid_until": "مدفوع حتى {{date}}",
+  "no_payment_yet": "لا دفعات بعد",
   "not_due_yet": "غير مستحق بعد",
   "started": "بدأ",
   "total": "الإجمالي",

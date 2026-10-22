@@ -35,7 +35,9 @@ import { DEFAULT_UNPAID_START_RULE } from "@shared/modules/admin/tenant-settings
 import {
   buildMonthGrid,
   buildCustomerStatus,
+  paidBillingMonths,
 } from "@shared/modules/customer/customer-payments/utils/monthStatus";
+import { paidUntil } from "@shared/modules/customer/customer-payments/utils/paidUntil";
 import { mergeOwed } from "@shared/modules/ledger/utils/mergeOwed";
 import { openItemFromCharge, chargeLabel } from "@shared/modules/ledger/utils/openItems";
 import type { PortalPayload } from "../repository/PortalRepository";
@@ -59,6 +61,7 @@ export interface PortalModel {
   status: CustomerStatus;
   unpaidRule: UnpaidStartRule;
   usageByLine: Map<string, LineUsage>;
+  paidUntilByLine: Map<string, string | null>;
   displayCurrencyId: string | null;
 }
 
@@ -151,6 +154,14 @@ export function buildPortalModel(payload: PortalPayload): PortalModel {
     status: buildCustomerStatus(lines, bills, skips, unpaidRule, usageByLine),
     unpaidRule,
     usageByLine,
+    paidUntilByLine: new Map(
+      lines
+        .filter((line) => line.prepaid)
+        .map((line) => [
+          line.id,
+          paidUntil(paidBillingMonths(billsByLine.get(line.id) ?? [])),
+        ]),
+    ),
     displayCurrencyId: payload.settings.DisplayCurrencyId || null,
   };
 }

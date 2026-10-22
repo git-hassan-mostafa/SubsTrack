@@ -151,6 +151,7 @@ Domain types (camelCase) `Shared/src/core/types/index.ts`; DB rows (snake_case) 
 4b. usage line: bill not worked out yet    → "waiting" (owes nothing, never blocks)
 5. CURRENT month + 'customer_start_day' rule
    + today < line's start day-of-month     → "future" ("not due yet", still payable)
+5b. prepaid line                           → "no_service" (owes nothing, payable)
 6. otherwise                               → "unpaid"
 ```
 - Months **never stored**; **keys off MONEY, not row existence**. Partial → `"paid"`, **no `"partial"` MonthStatus**. **No grace period.**

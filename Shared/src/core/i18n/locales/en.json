@@ -516,6 +516,8 @@
     "partial_badge": "PARTIAL",
     "written_off_badge": "Written off",
     "no_service_badge": "No service",
+    "paid_until": "Paid until {{date}}",
+    "no_payment_yet": "No payment yet",
     "voided_badge": "VOIDED",
     "record_payment_action": "Record Payment",
     "edit_payment": "Edit Payment",

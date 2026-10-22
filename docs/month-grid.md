@@ -81,4 +81,6 @@ Five rules (breaking one = how the badge broke, gotcha #56):
 
 Slice field `customerStatuses`: refreshed by `fetchCustomerStatuses(customers)` (list mount/focus, after bulk pay/void, unpaid rule change) or patched per customer by `syncCustomerStatus` after local mutation — valid b/c `findByCustomer` not year-scoped (full history in slice).
 
+**Prepaid lines** (`line.prepaid`; start forced to the 1st, `customer-plans/utils/prepaidLine.ts`). Started month, no money → `"no_service"` (checked after not-due-yet): owes nothing, never unpaid/overdue/uncovered/blocking, still payable; empty stored bill dropped from owed (`mergeOwed.prepaidEmptyBills`). **Paid until** = `paidUntil(paidBillingMonths(lineBills))` (`customer-payments/utils/paidUntil.ts`) = last day of newest month money reached; partial counts, voided doesn't, gaps ignored; never saved. Shown in grid header (`useLineGrid.paidUntilLabel`, phone + web) and portal `ServiceLines` (`PortalModel.paidUntilByLine`); none yet → "No payment yet".
+
 ---

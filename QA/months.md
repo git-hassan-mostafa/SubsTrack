@@ -87,6 +87,10 @@ What a month shows after money moves. A month is Paid as soon as **any** money r
 56. Change a meter plan's currency, then open Month prices on a month already priced in the old currency → the fields are empty with a note showing the old price; Save does not re-save it in the new currency unless both prices are typed.
 57. Save or remove a reading → To collect, the dashboard and the web customers list show the new amount owed without a manual refresh.
 
+## Prepaid lines
+
+58. Prepaid line, pay August (or only part of August) → the grid header says "Paid until 31/08/<year>" on the phone and the web, and the portal shows the same date; void that payment → the date goes back to the month before, or "No payment yet".
+
 ## Customer portal
 
 27. Open the customer portal link → the months, bills, payments and amount owed match what the app shows for that customer.

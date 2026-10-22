@@ -85,6 +85,11 @@ export function YearCard({ grid, menuActions }: YearCardProps) {
                   · {grid.priceLabel}
                 </Typography>
               ) : null}
+              {grid.paidUntilLabel ? (
+                <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                  · {grid.paidUntilLabel}
+                </Typography>
+              ) : null}
             </Stack>
           ) : null}
           <Stack direction="row" spacing={3} component="dl" sx={{ m: 0 }}>

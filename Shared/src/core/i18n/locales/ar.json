@@ -524,6 +524,8 @@
     "partial_badge": "جزئي",
     "written_off_badge": "مشطوب",
     "no_service_badge": "بدون خدمة",
+    "paid_until": "مدفوع حتى {{date}}",
+    "no_payment_yet": "لا دفعات بعد",
     "voided_badge": "ملغية",
     "record_payment_action": "تسجيل الدفعة",
     "edit_payment": "تعديل الدفعة",

@@ -247,6 +247,15 @@ export function CustomerPaymentPanel({
                   ) : null}
                 </View>
               ) : null}
+              {grid.paidUntilLabel ? (
+                <Text
+                  fontWeight="SemiBold"
+                  className="mb-1 text-xs text-gray-600"
+                  numberOfLines={1}
+                >
+                  {grid.paidUntilLabel}
+                </Text>
+              ) : null}
 
               <View className="flex-row items-center justify-between">
                 <Text fontWeight="Bold" className="text-2xl text-gray-900">

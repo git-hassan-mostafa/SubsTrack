@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { resolveLinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
 import { lineLabel } from "@shared/modules/customer/customer-plans/utils/lineLabel";
@@ -33,6 +34,11 @@ export function ServiceLines({ model }: { model: PortalModel }) {
                 <span className="block text-sm text-gray-600">
                   {t("portal.started")} {formatDate(line.startDate)}
                 </span>
+                {model.paidUntilByLine.has(line.id) ? (
+                  <span className="block text-sm font-semibold text-gray-900">
+                    {paidUntilText(model.paidUntilByLine.get(line.id) ?? null, t)}
+                  </span>
+                ) : null}
               </span>
               {price.isFixed && price.amount !== null ? (
                 <Money
@@ -49,4 +55,10 @@ export function ServiceLines({ model }: { model: PortalModel }) {
       </ul>
     </section>
   );
+}
+
+function paidUntilText(until: string | null, t: TFunction): string {
+  return until
+    ? t("portal.paid_until", { date: formatDate(until) })
+    : t("portal.no_payment_yet");
 }

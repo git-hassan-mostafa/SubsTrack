@@ -40,6 +40,8 @@
   "written_off": "Written off",
   "not_paid": "Not paid",
   "no_service": "No service",
+  "paid_until": "Paid until {{date}}",
+  "no_payment_yet": "No payment yet",
   "not_due_yet": "Not due yet",
   "started": "Started",
   "total": "Total",
