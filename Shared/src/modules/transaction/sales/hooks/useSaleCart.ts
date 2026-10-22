@@ -27,6 +27,7 @@ import { useUiPrefStore } from "@shared/shared/lib/uiPrefStore";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useProductSlice } from "@shared/state/hooks/useProductSlice";
 import { useServiceSlice } from "@shared/state/hooks/useServiceSlice";
+import { useTracksStock } from "@shared/state/hooks/useTenantSettingSlice";
 
 export interface SaleCart {
   rows: CartRow[];
@@ -35,6 +36,7 @@ export interface SaleCart {
   currencies: Currency[];
   products: Product[];
   services: Service[];
+  tracksStock: boolean;
   poolOf: (product: Product) => number;
   availableFor: (key: string, productId: string | null) => number;
   draft: SaleCartDraft;
@@ -57,6 +59,7 @@ export function useSaleCart(initial: SaleEditorInitial | null): SaleCart {
   const currencies = useCurrencySlice((s) => s.items);
   const lastUsedCurrencyId = useUiPrefStore((s) => s.lastUsedCurrencyId);
   const rememberCurrency = useUiPrefStore((s) => s.setLastUsedCurrencyId);
+  const tracksStock = useTracksStock();
 
   const [rows, setRows] = useState<CartRow[]>(() => initialRows(initial));
   const rowKey = useRef(rows.length - 1);
@@ -84,7 +87,7 @@ export function useSaleCart(initial: SaleEditorInitial | null): SaleCart {
   const signature = cartSignature(rows, currencyId);
 
   const draft = useMemo<SaleCartDraft>(() => {
-    const resolved = resolveCart(rows, sellable, sellableJobs, credit);
+    const resolved = resolveCart(rows, sellable, sellableJobs, credit, tracksStock);
     return {
       ...resolved,
       currency,
@@ -92,7 +95,7 @@ export function useSaleCart(initial: SaleEditorInitial | null): SaleCart {
       dirty: signature !== baseline,
       signature,
     };
-  }, [rows, sellable, sellableJobs, credit, currency, currencyId, signature, baseline]);
+  }, [rows, sellable, sellableJobs, credit, tracksStock, currency, currencyId, signature, baseline]);
 
   const findProduct = (id: string | null) => sellable.find((p) => p.id === id);
 
@@ -110,7 +113,7 @@ export function useSaleCart(initial: SaleEditorInitial | null): SaleCart {
     const target = product ? adoptCurrency(key, product.currencyId) : currency;
     patchRow(key, (r, all) => {
       if (!product) return { ...r, productId: null };
-      const available = availableFor(all, key, product, credit);
+      const available = availableFor(all, key, product, credit, tracksStock);
       return {
         ...r,
         productId: product.id,
@@ -149,7 +152,13 @@ export function useSaleCart(initial: SaleEditorInitial | null): SaleCart {
   const setQuantity = (key: string, quantity: number) =>
     patchRow(key, (r, all) => {
       if (r.lineType !== "product") return r;
-      const available = availableFor(all, key, findProduct(r.productId), credit);
+      const available = availableFor(
+        all,
+        key,
+        findProduct(r.productId),
+        credit,
+        tracksStock,
+      );
       return { ...r, quantity: clampQuantity(quantity, available) };
     });
 
@@ -166,9 +175,10 @@ export function useSaleCart(initial: SaleEditorInitial | null): SaleCart {
     currencies,
     products: sellable,
     services: sellableJobs,
-    poolOf: (product) => poolOf(product, credit),
+    tracksStock,
+    poolOf: (product) => poolOf(product, credit, tracksStock),
     availableFor: (key, productId) =>
-      availableFor(rows, key, findProduct(productId), credit),
+      availableFor(rows, key, findProduct(productId), credit, tracksStock),
     draft,
     addRow,
     removeRow: (key) => setRows((prev) => prev.filter((r) => r.key !== key)),

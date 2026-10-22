@@ -8,4 +8,5 @@ export const TENANT_SETTING_KEYS = {
   unpaidStartRule: "UnpaidStartRule",
   displayCurrencyId: "DisplayCurrencyId",
   whatsAppLanguage: "WhatsAppLanguage",
+  trackStock: "TrackStock",
 } as const;

@@ -141,7 +141,13 @@ export function sellableServices(
   return services.filter((s) => s.active || used.has(s.id));
 }
 
-export function poolOf(product: Product, credit: Map<string, number>): number {
+// Untracked stock never runs out, so the pool is unlimited.
+export function poolOf(
+  product: Product,
+  credit: Map<string, number>,
+  tracksStock = true,
+): number {
+  if (!tracksStock) return Number.POSITIVE_INFINITY;
   return product.stockOnHand + (credit.get(product.id) ?? 0);
 }
 
@@ -151,12 +157,13 @@ export function availableFor(
   key: string,
   product: Product | undefined,
   credit: Map<string, number>,
+  tracksStock = true,
 ): number {
   if (!product) return 0;
   const takenElsewhere = rows
     .filter((r) => r.key !== key && r.productId === product.id)
     .reduce((sum, r) => sum + r.quantity, 0);
-  return poolOf(product, credit) - takenElsewhere;
+  return poolOf(product, credit, tracksStock) - takenElsewhere;
 }
 
 export function clampQuantity(quantity: number, available: number): number {
@@ -180,6 +187,7 @@ export function resolveCart(
   products: Product[],
   services: Service[],
   credit: Map<string, number>,
+  tracksStock = true,
 ): ResolvedCart {
   const lines: CreateSaleItemInput[] = [];
   let incomplete = false;
@@ -195,7 +203,7 @@ export function resolveCart(
   }
   const oversold = [...perProduct].some(([id, qty]) => {
     const product = products.find((p) => p.id === id);
-    return !product || poolOf(product, credit) < qty;
+    return !product || poolOf(product, credit, tracksStock) < qty;
   });
   const total = lines.reduce(
     (sum, l) => sum + l.unitAmount * lineQuantity(l),

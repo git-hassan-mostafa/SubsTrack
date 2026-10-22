@@ -6,6 +6,7 @@ import { cartUnits, savedUnits, stockDelta } from "@shared/modules/transaction/s
 import saleService from "@shared/modules/transaction/sales/services/SaleService";
 import type { CreateSaleInput, SaleVoidResult, UpdateSaleInput } from "@shared/modules/transaction/sales/utils/types";
 import { hasSaleFilter, saleFindOptions, type SaleFilterChoice, type SaleStatus } from "@shared/modules/transaction/sales/utils/saleFilters";
+import { tracksStock } from "@shared/modules/admin/tenant-settings/utils/trackStock";
 import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
 import { addMonthTotal } from "@shared/shared/lib/monthSections";
 import type { GlobalState } from "@shared/state/globalStore";
@@ -71,6 +72,11 @@ const isFiltered = (s: SaleSlice): boolean =>
 
 const filterOptions = (s: SaleSlice, branchFilter: BranchFilter) =>
   saleFindOptions(filterChoice(s), branchFilter, s.searchQuery);
+
+// Untracked, a sale writes no stock rows, so the shown count must not move either.
+const moveShownStock = (state: GlobalState, delta: Record<string, number>) => {
+  if (tracksStock(state.tenantSettings.items)) state.products.applyStockDelta(delta);
+};
 
 export const createSaleSlice: StateCreator<
   GlobalState,
@@ -251,15 +257,16 @@ export const createSaleSlice: StateCreator<
       state.sales.error = null;
     });
     try {
-      const sale = await saleService.createSale(input);
+      const sale = await saleService.createSale(
+        input,
+        tracksStock(get().tenantSettings.items),
+      );
       set((state) => {
         state.sales.items = addSale(state.sales.items, sale);
         addMonthTotal(state.sales.monthlyTotals, sale.soldAt, saleUsd(sale));
         state.sales.loading = false;
       });
-      get().products.applyStockDelta(
-        stockDelta(new Map(), cartUnits(input.items)),
-      );
+      moveShownStock(get(), stockDelta(new Map(), cartUnits(input.items)));
       get().ledger.markOwedChanged();
       if (isFiltered(get().sales)) void get().sales.fetchSales();
       return sale;
@@ -278,7 +285,11 @@ export const createSaleSlice: StateCreator<
       state.sales.error = null;
     });
     try {
-      const updated = await saleService.updateSale(sale, input);
+      const updated = await saleService.updateSale(
+        sale,
+        input,
+        tracksStock(get().tenantSettings.items),
+      );
       set((state) => {
         state.sales.items = replaceSale(state.sales.items, updated);
         addMonthTotal(
@@ -288,7 +299,8 @@ export const createSaleSlice: StateCreator<
         );
         state.sales.loading = false;
       });
-      get().products.applyStockDelta(
+      moveShownStock(
+        get(),
         stockDelta(savedUnits(sale.items), cartUnits(input.items)),
       );
       get().ledger.markOwedChanged();
@@ -323,9 +335,7 @@ export const createSaleSlice: StateCreator<
         );
         state.sales.loading = false;
       });
-      get().products.applyStockDelta(
-        stockDelta(savedUnits(voided.items), new Map()),
-      );
+      moveShownStock(get(), stockDelta(savedUnits(voided.items), new Map()));
       get().ledger.markOwedChanged();
       return voided;
     } catch (e) {
@@ -366,7 +376,7 @@ export const createSaleSlice: StateCreator<
         returned.set(id, (returned.get(id) ?? 0) + units);
       }
     }
-    get().products.applyStockDelta(stockDelta(returned, new Map()));
+    moveShownStock(get(), stockDelta(returned, new Map()));
     if (voided.length > 0) get().ledger.markOwedChanged();
     return { ok: voided.length, failed: failed.length, voided };
   },

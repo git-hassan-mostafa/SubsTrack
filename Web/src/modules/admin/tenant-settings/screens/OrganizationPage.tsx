@@ -8,6 +8,7 @@ import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LimitsSection } from "@/modules/admin/billing/components/LimitsSection";
 import { DisplayCurrencySection } from "../components/DisplayCurrencySection";
 import { UnpaidRuleSection } from "../components/UnpaidRuleSection";
+import { TrackStockSection } from "../components/TrackStockSection";
 
 // Opening the page re-reads the counts and the request; other admins move them.
 export function OrganizationPage() {
@@ -33,6 +34,7 @@ export function OrganizationPage() {
       <LimitsSection />
       <DisplayCurrencySection />
       <UnpaidRuleSection />
+      <TrackStockSection />
     </Stack>
   );
 }

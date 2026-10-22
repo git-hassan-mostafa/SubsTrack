@@ -110,16 +110,18 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
 
   const footer = hasProducts ? (
     <View className="pt-4">
-      <Dropdown<string>
-        label={t("products.delivery_currency_label")}
-        options={currencyPickOptions(
-          currencyChoices(currencies, form.currencyId),
-        )}
-        value={form.currencyId}
-        onChange={form.changeCurrency}
-        nullable
-        nullLabel="USD"
-      />
+      {form.showCost ? (
+        <Dropdown<string>
+          label={t("products.delivery_currency_label")}
+          options={currencyPickOptions(
+            currencyChoices(currencies, form.currencyId),
+          )}
+          value={form.currencyId}
+          onChange={form.changeCurrency}
+          nullable
+          nullLabel="USD"
+        />
+      ) : null}
 
       <DatePickerInput
         label={t("products.stock_date_label") + " *"}
@@ -217,6 +219,7 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
                 product={item}
                 quantity={form.quantities[item.id] ?? 0}
                 unitCost={form.costs[item.id] ?? ""}
+                showCost={form.showCost}
                 currency={deliveryCurrency}
                 onChange={(q) => setQuantity(item.id, q)}
                 onCostChange={(c) => form.setCost(item.id, c)}
@@ -237,6 +240,7 @@ interface RowProps {
   product: Product;
   quantity: number;
   unitCost: string;
+  showCost: boolean;
   currency: Currency | null;
   onChange: (quantity: number) => void;
   onCostChange: (unitCost: string) => void;
@@ -247,6 +251,7 @@ function RestockRow({
   product,
   quantity,
   unitCost,
+  showCost,
   currency,
   onChange,
   onCostChange,
@@ -334,7 +339,7 @@ function RestockRow({
         </View>
       </View>
 
-      {picked ? (
+      {picked && showCost ? (
         <View className="flex-row items-center justify-between mt-2 pt-2 border-t border-indigo-100">
           <Text className="text-xs text-gray-500">
             {t("products.cost_per_unit_label")}

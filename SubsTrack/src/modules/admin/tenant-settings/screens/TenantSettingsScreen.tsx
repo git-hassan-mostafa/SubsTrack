@@ -14,6 +14,7 @@ import { useTenantSettingSlice } from "@shared/state/hooks/useTenantSettingSlice
 import { CustomerAllowanceSection } from "@/src/modules/admin/billing";
 import { DisplayCurrencySection } from "../components/DisplayCurrencySection";
 import { UnpaidRuleSection } from "../components/UnpaidRuleSection";
+import { TrackStockSection } from "../components/TrackStockSection";
 
 export function TenantSettingsScreen() {
   const { t } = useTranslation();
@@ -77,6 +78,7 @@ export function TenantSettingsScreen() {
           <CustomerAllowanceSection />
           <DisplayCurrencySection />
           <UnpaidRuleSection />
+          <TrackStockSection />
         </ScrollView>
       </ResponsiveContainer>
     </Screen>

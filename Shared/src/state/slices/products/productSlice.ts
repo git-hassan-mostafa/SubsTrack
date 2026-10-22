@@ -2,6 +2,7 @@ import type { StateCreator } from "zustand";
 import type { Currency, Product } from "@shared/core/types";
 import productService from "@shared/modules/admin/products/services/ProductService";
 import type { ProductInput, RestockEntry } from "@shared/modules/admin/products/utils/types";
+import { tracksStock } from "@shared/modules/admin/tenant-settings/utils/trackStock";
 import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
 import type { GlobalState } from "@shared/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
@@ -135,6 +136,7 @@ export const createProductSlice: StateCreator<
           tenantId,
           userId ?? get().auth.user?.id ?? null,
           costCurrency,
+          tracksStock(get().tenantSettings.items),
         );
         set((state) => {
           state.products.items.unshift(product);
@@ -187,6 +189,7 @@ export const createProductSlice: StateCreator<
           userId,
           cost,
           occurredAt,
+          tracksStock(get().tenantSettings.items),
         );
         patchOnHand(id, onHand);
         return onHand;
@@ -244,6 +247,7 @@ export const createProductSlice: StateCreator<
           userId,
           currency,
           occurredAt,
+          tracksStock(get().tenantSettings.items),
         );
         set((state) => {
           for (const p of state.products.items) {

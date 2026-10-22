@@ -169,6 +169,37 @@ describe("createSale: stock", () => {
       reason: "sale",
     });
   });
+
+  it("TC-SL-14 untracked stock sells past an empty shelf and writes no movement", async () => {
+    stockOnHand["prod-1"] = 0;
+    const sale = await saleService.createSale(
+      input({ items: [productLine(5)], amountPaid: 0 }),
+      false,
+    );
+    expect(sale.totalAmount).toBe(150);
+    expect(saleStore.movements).toHaveLength(0);
+  });
+
+  it("TC-SL-15 an untracked edit skips the stock check and leaves the ledger alone", async () => {
+    const sale = await saleService.createSale(
+      input({ items: [productLine(2)], amountPaid: 0 }),
+    );
+    const before = saleStore.movements.length;
+    stockOnHand["prod-1"] = 0;
+    await saleService.updateSale(
+      sale,
+      {
+        items: [productLine(9)],
+        customerId: "cust-1",
+        branchId: null,
+        currency: null,
+        notes: null,
+        actorUserId: "user-1",
+      },
+      false,
+    );
+    expect(saleStore.movements).toHaveLength(before);
+  });
 });
 
 describe("createSale: the bill and the till", () => {

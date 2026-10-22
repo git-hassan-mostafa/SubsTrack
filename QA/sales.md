@@ -17,6 +17,7 @@
 10. Try to sell 6 of a product with stock 5 (also the same product on two lines) → refused "Only 5 left"; nothing is saved.
 11. Sale with only a service line → no stock change and no expense.
 12. Void a sale of 2 units → stock goes back up by 2, exactly once (also when voiding several sales at once).
+12b. Turn off "Track stock" in Organization settings, then sell 6 of a product with stock 0 → sale is saved; the product's stock stays 0; no "left" or "Out of stock" text in the sale form.
 
 ## Collect what a sale still owes
 

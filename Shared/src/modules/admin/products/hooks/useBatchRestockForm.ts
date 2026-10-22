@@ -8,9 +8,11 @@ import {
 import type { RestockEntry } from "@shared/modules/admin/products/utils/types";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { usePickedInstant } from "@shared/shared/hooks/usePickedInstant";
+import { useTracksStock } from "@shared/state/hooks/useTenantSettingSlice";
 
 // One delivery, one currency: every picked row's cost is typed in it.
 export function useBatchRestockForm(products: Product[], currencies: Currency[]) {
+  const showCost = useTracksStock();
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [costs, setCosts] = useState<Record<string, string>>({});
   const [currencyId, setCurrencyId] = useState<string | null>(null);
@@ -38,9 +40,9 @@ export function useBatchRestockForm(products: Product[], currencies: Currency[])
         .map(([productId, quantity]) => ({
           productId,
           quantity,
-          unitCost: parseRestockCost(costs[productId]),
+          unitCost: showCost ? parseRestockCost(costs[productId]) : null,
         })),
-    [quantities, costs],
+    [quantities, costs, showCost],
   );
   const totalUnits = entries.reduce((sum, e) => sum + e.quantity, 0);
   const totalCost = entries.reduce(
@@ -112,6 +114,7 @@ export function useBatchRestockForm(products: Product[], currencies: Currency[])
     activeProducts,
     visible,
     entries,
+    showCost,
     totalUnits,
     totalCost,
     dirty,

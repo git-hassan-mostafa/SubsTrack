@@ -19,6 +19,7 @@ export interface TenantSettingSlice {
   setUnpaidStartRule: (rule: UnpaidStartRule) => Promise<void>;
   setDisplayCurrencyId: (currencyId: string | null) => Promise<void>;
   setWhatsAppLanguage: (language: WhatsAppLanguage) => Promise<void>;
+  setTrackStock: (on: boolean) => Promise<void>;
   clearError: () => void;
   reset: () => void;
 }
@@ -114,6 +115,10 @@ export const createTenantSettingSlice: StateCreator<
       await save((tenantId) =>
         tenantSettingService.setWhatsAppLanguage(tenantId, language),
       );
+    },
+
+    setTrackStock: async (on) => {
+      await save((tenantId) => tenantSettingService.setTrackStock(tenantId, on));
     },
 
     clearError: () =>

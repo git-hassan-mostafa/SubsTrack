@@ -136,9 +136,10 @@ class SaleService {
     return charge.id;
   }
 
-  async createSale(input: CreateSaleInput): Promise<Sale> {
+  async createSale(input: CreateSaleInput, tracksStock = true): Promise<Sale> {
     this.validate(input);
-    await this.assertStockAvailable(productLines(input.items));
+    const stocked = tracksStock ? productLines(input.items) : [];
+    await this.assertStockAvailable(stocked);
     const ratePerUsdSnapshot = input.currency?.ratePerUsd ?? 1;
     if (!(ratePerUsdSnapshot > 0)) {
       throw new Error(i18n.t("errors.rate_snapshot_positive"));
@@ -182,7 +183,7 @@ class SaleService {
       notes: input.notes?.trim() || null,
       charge: chargePayload,
       items: input.items.map((it) => toItemPayload(it, input.tenantId)),
-      movements: productLines(input.items).map((it) =>
+      movements: stocked.map((it) =>
         productService.movement(
           input.tenantId,
           it.product.id,
@@ -226,15 +227,21 @@ class SaleService {
   }
 
   // `collectedTotal` is absolute, and lowering it rebuilds the cash — gotcha #111.
-  async updateSale(sale: Sale, input: UpdateSaleInput): Promise<Sale> {
+  async updateSale(
+    sale: Sale,
+    input: UpdateSaleInput,
+    tracksStock = true,
+  ): Promise<Sale> {
     if (sale.voidedAt !== null) {
       throw new Error(i18n.t("errors.sale_voided_not_editable"));
     }
     this.validate(input);
-    await this.assertStockAvailable(
-      productLines(input.items),
-      savedUnits(sale.items),
-    );
+    if (tracksStock) {
+      await this.assertStockAvailable(
+        productLines(input.items),
+        savedUnits(sale.items),
+      );
+    }
     const ratePerUsdSnapshot = input.currency?.ratePerUsd ?? 1;
     if (!(ratePerUsdSnapshot > 0)) {
       throw new Error(i18n.t("errors.rate_snapshot_positive"));
@@ -282,19 +289,20 @@ class SaleService {
         rate_per_usd_snapshot: ratePerUsdSnapshot,
       },
       items: input.items.map((it) => toItemPayload(it, sale.tenantId)),
-      movements: this.sameStockFootprint(sale.items, input.items)
-        ? null
-        : productLines(input.items).map((it) =>
-            productService.movement(
-              sale.tenantId,
-              it.product.id,
-              -it.quantity,
-              "sale",
-              {
-                userId: input.actorUserId,
-              },
+      movements:
+        !tracksStock || this.sameStockFootprint(sale.items, input.items)
+          ? null
+          : productLines(input.items).map((it) =>
+              productService.movement(
+                sale.tenantId,
+                it.product.id,
+                -it.quantity,
+                "sale",
+                {
+                  userId: input.actorUserId,
+                },
+              ),
             ),
-          ),
       actorUserId: input.actorUserId,
     });
 

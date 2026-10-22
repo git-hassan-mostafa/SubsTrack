@@ -60,6 +60,7 @@ const STOCK_ENTRY_ICONS: Record<StockEntryActionKey, SvgIconComponent> = {
 const LONGEST_PAGE = Math.max(...PAGE_SIZE_OPTIONS);
 
 const ENTRY_COLUMNS = "140px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr)";
+const UNCOSTED_COLUMNS = "140px minmax(0, 1.4fr) 210px";
 
 // A manual change only ADDS; a wrong entry is fixed on itself — see gotcha #94.
 export function ProductStockDialog({ product, onClose, onChanged }: ProductStockDialogProps) {
@@ -245,7 +246,11 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
             display: "grid",
             gridTemplateColumns: {
               xs: "1fr",
-              md: editing ? ENTRY_COLUMNS : `${ENTRY_COLUMNS} 210px`,
+              md: !form.showCost
+                ? UNCOSTED_COLUMNS
+                : editing
+                  ? ENTRY_COLUMNS
+                  : `${ENTRY_COLUMNS} 210px`,
             },
             gap: 2,
             alignItems: "start",
@@ -261,21 +266,25 @@ export function ProductStockDialog({ product, onClose, onChanged }: ProductStock
             fullWidth
             slotProps={{ htmlInput: { inputMode: "numeric" } }}
           />
-          <CurrencyInput
-            label={t("products.cost_per_unit_label")}
-            amount={form.unitCost}
-            currencyId={form.costCurrencyId}
-            onChange={form.changeUnitCost}
-            currencies={currencies}
-          />
-          <CurrencyInput
-            label={t("products.total_cost_label")}
-            amount={form.totalCost}
-            currencyId={form.costCurrencyId}
-            onChange={form.changeTotalCost}
-            currencies={currencies}
-            lockCurrency
-          />
+          {form.showCost ? (
+            <>
+              <CurrencyInput
+                label={t("products.cost_per_unit_label")}
+                amount={form.unitCost}
+                currencyId={form.costCurrencyId}
+                onChange={form.changeUnitCost}
+                currencies={currencies}
+              />
+              <CurrencyInput
+                label={t("products.total_cost_label")}
+                amount={form.totalCost}
+                currencyId={form.costCurrencyId}
+                onChange={form.changeTotalCost}
+                currencies={currencies}
+                lockCurrency
+              />
+            </>
+          ) : null}
           <TextField
             label={t("products.stock_note_label")}
             value={form.note}

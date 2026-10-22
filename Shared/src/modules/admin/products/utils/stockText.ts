@@ -13,6 +13,17 @@ export function stockLevelLabel(t: TFunction, onHand: number): string {
   return t("products.out_of_stock");
 }
 
+// An untracked product's pool is endless: the price alone, never a count.
+export function saleProductSublabel(
+  t: TFunction,
+  price: string,
+  pool: number,
+): string {
+  if (pool === Number.POSITIVE_INFINITY) return price;
+  if (pool > 0) return `${price} · ${t("sales.stock_left", { quantity: pool })}`;
+  return t("products.out_of_stock");
+}
+
 export function stockEntryLabel(
   t: TFunction,
   movement: Pick<StockMovement, "reason" | "quantityDelta">,

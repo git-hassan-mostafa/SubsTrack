@@ -42,6 +42,7 @@ class ProductService {
     tenantId: string,
     userId: string | null = null,
     costCurrency: Currency | null = null,
+    tracksStock = true,
   ): Promise<Product> {
     this.validate(data);
     try {
@@ -61,7 +62,9 @@ class ProductService {
         await repositories().product.addMovements([
           this.movement(tenantId, row.id, initial, "initial", {
             userId,
-            unitCost: data.initialStockUnitCost ?? data.costPrice ?? null,
+            unitCost: tracksStock
+              ? (data.initialStockUnitCost ?? data.costPrice ?? null)
+              : null,
             currency: costCurrency,
           }),
         ]);
@@ -129,6 +132,7 @@ class ProductService {
     userId: string | null = null,
     cost: { unitCost: number | null; currency: Currency | null } | null = null,
     occurredAt: string | null = null,
+    tracksStock = true,
   ): Promise<number> {
     if (!Number.isInteger(quantity) || quantity <= 0) {
       throw new Error(i18n.t("errors.stock_delta_invalid"));
@@ -137,7 +141,7 @@ class ProductService {
       this.movement(tenantId, productId, quantity, "restock", {
         note,
         userId,
-        unitCost: cost?.unitCost ?? null,
+        unitCost: tracksStock ? (cost?.unitCost ?? null) : null,
         currency: cost?.currency ?? null,
         occurredAt: occurredAt ?? undefined,
       }),
@@ -213,6 +217,7 @@ class ProductService {
     userId: string | null = null,
     currency: Currency | null = null,
     occurredAt: string | null = null,
+    tracksStock = true,
   ): Promise<Record<string, number>> {
     const valid = entries.filter(
       (e) => Number.isInteger(e.quantity) && e.quantity > 0,
@@ -224,7 +229,7 @@ class ProductService {
         this.movement(tenantId, e.productId, e.quantity, "restock", {
           note,
           userId,
-          unitCost: e.unitCost ?? null,
+          unitCost: tracksStock ? (e.unitCost ?? null) : null,
           currency,
           occurredAt: occurredAt ?? undefined,
         }),

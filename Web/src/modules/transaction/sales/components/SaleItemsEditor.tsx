@@ -15,6 +15,7 @@ import Inventory2Outlined from "@mui/icons-material/Inventory2Outlined";
 import type { Product, SaleLineType, Service } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
 import type { SaleCart } from "@shared/modules/transaction/sales/hooks/useSaleCart";
+import { saleProductSublabel } from "@shared/modules/admin/products/utils/stockText";
 import type { CartRow } from "@shared/modules/transaction/sales/utils/saleCart";
 import { ProductFormDialog } from "@/modules/admin/products/components/ProductFormDialog";
 import { ServiceFormDialog } from "@/modules/admin/services/components/ServiceFormDialog";
@@ -133,12 +134,9 @@ function SaleLineRow({ row, cart, onNewItem }: SaleLineRowProps) {
                 value={cart.products.find((p) => p.id === row.productId) ?? null}
                 options={cart.products}
                 onChange={(product) => cart.selectProduct(row.key, product)}
-                sublabel={(product) => {
-                  const pool = cart.poolOf(product);
-                  return pool > 0
-                    ? `${catalogPrice(product)} · ${t("sales.stock_left", { quantity: pool })}`
-                    : t("products.out_of_stock");
-                }}
+                sublabel={(product) =>
+                  saleProductSublabel(t, catalogPrice(product), cart.poolOf(product))
+                }
                 optionDisabled={(product) => cart.poolOf(product) <= 0 || !product.active}
                 placeholder={t("sales.product_placeholder")}
                 required
@@ -166,7 +164,7 @@ function SaleLineRow({ row, cart, onNewItem }: SaleLineRowProps) {
             value={row.quantity}
             onChange={(quantity) => cart.setQuantity(row.key, quantity)}
             helperText={
-              row.productId
+              cart.tracksStock && row.productId
                 ? t("sales.stock_left", { quantity: cart.availableFor(row.key, row.productId) })
                 : undefined
             }

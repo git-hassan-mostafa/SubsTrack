@@ -70,6 +70,15 @@ class TenantSettingService {
     return mapDbTenantSettingToTenantSetting(row);
   }
 
+  async setTrackStock(tenantId: string, on: boolean): Promise<TenantSetting> {
+    const row = await repositories().tenantSetting.upsert(
+      tenantId,
+      TENANT_SETTING_KEYS.trackStock,
+      String(on),
+    );
+    return mapDbTenantSettingToTenantSetting(row);
+  }
+
   parseWhatsAppLanguage(value: string | null | undefined): WhatsAppLanguage {
     const v = value?.trim() as WhatsAppLanguage | undefined;
     return v && WHATSAPP_LANGUAGES.includes(v) ? v : DEFAULT_WHATSAPP_LANGUAGE;

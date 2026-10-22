@@ -22,6 +22,7 @@
 9. Add an expense in LBP → its $ value stays fixed when the rate changes.
 10. Remove an expense → the totals go back. There is no edit (remove and add again).
 11. Restock 100 units at $0.35 → an Expenses "Stock" row of $35 in that month. Restock with no cost → no expense.
+11a. "Track stock" off → restock (single, batch, or starting stock on a new product) adds the quantity, shows no cost fields, and adds no Expenses "Stock" row. Old restock costs stay in their months.
 11b. Restock (single or batch) with the date set to last month → its Expenses "Stock" row and stock history entry show on that day and time, in last month, not today. Date left untouched → the time of saving.
 12. Sell or void a sale → Expenses do not change.
 13. Edit the cost of a restock entry → that entry's own month changes. Revert the entry → its cost leaves that month.

@@ -219,31 +219,33 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
         onFocus={clearError}
       />
 
-      <View className="flex-row items-end gap-3">
-        <View className="flex-1">
-          <CurrencyInput
-            label={t("products.cost_per_unit_label")}
-            amount={form.unitCost}
-            currencyId={form.costCurrencyId}
-            onChange={form.changeUnitCost}
-            currencies={currencies}
-            placeholder="0.00"
-            onFocus={clearError}
-          />
+      {form.showCost ? (
+        <View className="flex-row items-end gap-3">
+          <View className="flex-1">
+            <CurrencyInput
+              label={t("products.cost_per_unit_label")}
+              amount={form.unitCost}
+              currencyId={form.costCurrencyId}
+              onChange={form.changeUnitCost}
+              currencies={currencies}
+              placeholder="0.00"
+              onFocus={clearError}
+            />
+          </View>
+          <View className="flex-1">
+            <CurrencyInput
+              label={t("products.total_cost_label")}
+              amount={form.totalCost}
+              currencyId={form.costCurrencyId}
+              onChange={form.changeTotalCost}
+              currencies={currencies}
+              placeholder="0.00"
+              lockCurrency
+              onFocus={clearError}
+            />
+          </View>
         </View>
-        <View className="flex-1">
-          <CurrencyInput
-            label={t("products.total_cost_label")}
-            amount={form.totalCost}
-            currencyId={form.costCurrencyId}
-            onChange={form.changeTotalCost}
-            currencies={currencies}
-            placeholder="0.00"
-            lockCurrency
-            onFocus={clearError}
-          />
-        </View>
-      </View>
+      ) : null}
       {costEffect != null ? (
         <Text
           className={`-mt-2 mb-4 text-xs ${adding ? "text-amber-700" : "text-green-700"}`}

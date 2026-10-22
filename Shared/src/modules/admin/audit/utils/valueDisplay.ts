@@ -94,6 +94,10 @@ const SETTINGS: Record<string, { label: string; value: AuditValueFormatter }> =
       label: "audit.setting.DisplayCurrencyId",
       value: currency,
     },
+    [TENANT_SETTING_KEYS.trackStock]: {
+      label: "audit.setting.TrackStock",
+      value: enumLabel({ true: "common.yes", false: "common.no" }),
+    },
   };
 
 function setting(key: unknown) {

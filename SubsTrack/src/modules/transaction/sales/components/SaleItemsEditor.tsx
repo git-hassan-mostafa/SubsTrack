@@ -20,6 +20,7 @@ import {
   formatMoney,
 } from "@shared/core/utils/currency";
 import type { SaleCart } from "@shared/modules/transaction/sales/hooks/useSaleCart";
+import { saleProductSublabel } from "@shared/modules/admin/products/utils/stockText";
 import { ProductFormSheet } from "@/src/modules/admin/products";
 import { ServiceFormSheet } from "@/src/modules/admin/service-catalog";
 
@@ -43,10 +44,11 @@ export function SaleItemsEditor({ cart, onFocusClearError }: Props) {
     const pool = cart.poolOf(p);
     return {
       label: p.name,
-      sublabel:
-        pool > 0
-          ? `${formatMoney(p.price, findCurrency(currencies, p.currencyId), saleCurrency)} · ${t("sales.stock_left", { quantity: pool })}`
-          : t("products.out_of_stock"),
+      sublabel: saleProductSublabel(
+        t,
+        formatMoney(p.price, findCurrency(currencies, p.currencyId), saleCurrency),
+        pool,
+      ),
       value: p.id,
       disabled: pool <= 0 || !p.active,
     };
@@ -247,7 +249,7 @@ export function SaleItemsEditor({ cart, onFocusClearError }: Props) {
             </View>
           </View>
 
-          {row.lineType === "product" && row.productId ? (
+          {cart.tracksStock && row.lineType === "product" && row.productId ? (
             <View className="-mt-2 mb-2">
               <Text className="text-xs text-gray-400">
                 {t("sales.stock_left", {

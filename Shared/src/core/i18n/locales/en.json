@@ -661,6 +661,10 @@
     "unpaid_rule_month_start_hint": "Every customer becomes unpaid on day 1.",
     "unpaid_rule_customer_start_day": "On the customer's start day",
     "unpaid_rule_customer_start_day_hint": "Each customer becomes unpaid on their own start day, and is only marked overdue for last month once that day passes.",
+    "stock_section_title": "Stock",
+    "track_stock_label": "Track stock",
+    "track_stock_hint": "On: selling lowers the quantity, a product can't be sold past its stock, and restock costs go to expenses. Off: none of these happen.",
+    "track_stock_off_note": "Sales made while this is off don't lower the quantity. If you turn it back on, check your stock counts first.",
     "currencies_section_title": "Currencies",
     "currencies_hint": "Define non-USD currencies and their rate per USD.",
     "no_currencies": "No currencies yet",
@@ -1558,7 +1562,8 @@
     },
     "setting": {
       "UnpaidStartRule": "Unpaid months rule",
-      "DisplayCurrencyId": "Display currency"
+      "DisplayCurrencyId": "Display currency",
+      "TrackStock": "Track stock"
     },
     "request_status": {
       "pending": "Waiting for approval",

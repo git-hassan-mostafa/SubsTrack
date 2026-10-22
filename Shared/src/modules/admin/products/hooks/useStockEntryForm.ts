@@ -7,6 +7,7 @@ import {
 } from "@shared/modules/admin/products/utils/stockCost";
 import { useDirtyForm } from "@shared/shared/hooks/useDirtyForm";
 import { usePickedInstant } from "@shared/shared/hooks/usePickedInstant";
+import { useTracksStock } from "@shared/state/hooks/useTenantSettingSlice";
 
 type CostChange = { amount: number | null; currencyId: string | null };
 
@@ -15,6 +16,7 @@ export function useStockEntryForm(
   product: Pick<Product, "costPrice" | "costCurrencyId">,
   currencies: Currency[],
 ) {
+  const tracksStock = useTracksStock();
   const occurredAt = usePickedInstant();
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
@@ -37,8 +39,11 @@ export function useStockEntryForm(
   const validQuantity = Number.isInteger(parsed) && parsed > 0;
   const adding = editing ? editing.quantityDelta > 0 : true;
   const costCurrency = findCurrency(currencies, costCurrencyId);
+  const showCost = tracksStock || editing !== null;
   const costEffect =
-    validQuantity && totalCost != null && totalCost > 0 ? totalCost : null;
+    showCost && validQuantity && totalCost != null && totalCost > 0
+      ? totalCost
+      : null;
 
   const projectedStock = (onHand: number): number | null => {
     if (!validQuantity) return null;
@@ -109,6 +114,7 @@ export function useStockEntryForm(
     parsed,
     validQuantity,
     adding,
+    showCost,
     costEffect,
     dirty,
     projectedStock,

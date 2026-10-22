@@ -4,6 +4,7 @@ import type { UnpaidStartRule, WhatsAppLanguage } from "@shared/core/types";
 import tenantSettingService from "@shared/modules/admin/tenant-settings/services/TenantSettingService";
 import { parseUnpaidStartRule } from "@shared/modules/admin/tenant-settings/utils/unpaidStartRule";
 import { TENANT_SETTING_KEYS } from "@shared/modules/admin/tenant-settings/utils/constants";
+import { parseTrackStock } from "@shared/modules/admin/tenant-settings/utils/trackStock";
 
 export function useTenantSettingSlice(): TenantSettingSlice;
 export function useTenantSettingSlice<T>(
@@ -43,3 +44,6 @@ export const useDisplayCurrencyId = (): string | null =>
   tenantSettingService.parseDisplayCurrencyId(
     useTenantSettingValue(TENANT_SETTING_KEYS.displayCurrencyId),
   );
+
+export const useTracksStock = (): boolean =>
+  parseTrackStock(useTenantSettingValue(TENANT_SETTING_KEYS.trackStock));

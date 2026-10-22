@@ -122,18 +122,21 @@ export function BatchRestockDialog({ onClose, onSaved }: BatchRestockDialogProps
             products={visible}
             quantities={form.quantities}
             costs={form.costs}
+            showCost={form.showCost}
             currency={deliveryCurrency}
             onQuantity={setQuantity}
             onCost={form.setCost}
           />
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-            <CurrencySelect
-              label={t("products.delivery_currency_label")}
-              value={form.currencyId}
-              onChange={form.changeCurrency}
-              currencies={currencies}
-              sx={{ minWidth: 200 }}
-            />
+            {form.showCost ? (
+              <CurrencySelect
+                label={t("products.delivery_currency_label")}
+                value={form.currencyId}
+                onChange={form.changeCurrency}
+                currencies={currencies}
+                sx={{ minWidth: 200 }}
+              />
+            ) : null}
             <DateField
               label={t("products.stock_date_label")}
               value={form.occurredAt}
@@ -184,12 +187,13 @@ interface RestockTableProps {
   products: Product[];
   quantities: Record<string, number>;
   costs: Record<string, string>;
+  showCost: boolean;
   currency: Currency | null;
   onQuantity: (productId: string, quantity: number) => void;
   onCost: (productId: string, text: string) => void;
 }
 
-function RestockTable({ products, quantities, costs, currency, onQuantity, onCost }: RestockTableProps) {
+function RestockTable({ products, quantities, costs, showCost, currency, onQuantity, onCost }: RestockTableProps) {
   const { t } = useTranslation();
   if (products.length === 0) {
     return (
@@ -207,7 +211,9 @@ function RestockTable({ products, quantities, costs, currency, onQuantity, onCos
             <TableCell>{t("products.name_label")}</TableCell>
             <TableCell>{t("products.stock_on_hand")}</TableCell>
             <TableCell sx={{ width: 120 }}>{t("products.stock_quantity_label")}</TableCell>
-            <TableCell sx={{ width: 160 }}>{t("products.cost_per_unit_label")}</TableCell>
+            {showCost ? (
+              <TableCell sx={{ width: 160 }}>{t("products.cost_per_unit_label")}</TableCell>
+            ) : null}
             <TableCell>{t("web.products.new_stock")}</TableCell>
           </TableRow>
         </TableHead>
@@ -235,25 +241,27 @@ function RestockTable({ products, quantities, costs, currency, onQuantity, onCos
                     }}
                   />
                 </TableCell>
-                <TableCell>
-                  {picked ? (
-                    <TextField
-                      size="small"
-                      value={costs[product.id] ?? ""}
-                      onChange={(event) => onCost(product.id, decimalDigitsOnly(event.target.value))}
-                      placeholder="0.00"
-                      slotProps={{
-                        htmlInput: {
-                          inputMode: "decimal",
-                          "aria-label": `${t("products.cost_per_unit_label")} · ${product.name}`,
-                        },
-                        input: {
-                          endAdornment: <InputAdornment position="end">{currencyMark}</InputAdornment>,
-                        },
-                      }}
-                    />
-                  ) : null}
-                </TableCell>
+                {showCost ? (
+                  <TableCell>
+                    {picked ? (
+                      <TextField
+                        size="small"
+                        value={costs[product.id] ?? ""}
+                        onChange={(event) => onCost(product.id, decimalDigitsOnly(event.target.value))}
+                        placeholder="0.00"
+                        slotProps={{
+                          htmlInput: {
+                            inputMode: "decimal",
+                            "aria-label": `${t("products.cost_per_unit_label")} · ${product.name}`,
+                          },
+                          input: {
+                            endAdornment: <InputAdornment position="end">{currencyMark}</InputAdornment>,
+                          },
+                        }}
+                      />
+                    ) : null}
+                  </TableCell>
+                ) : null}
                 <TableCell
                   sx={{ fontWeight: picked ? 700 : undefined, color: picked ? "success.main" : "text.disabled" }}
                 >
