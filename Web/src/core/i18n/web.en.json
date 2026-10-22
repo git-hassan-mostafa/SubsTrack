@@ -190,6 +190,7 @@
     "status_before_start": "Before the plan started",
     "status_waiting": "Waiting for reading or price",
     "status_skipped": "Skipped",
+    "status_no_service": "No service",
     "table_label": "Months of {{year}}",
     "col_month": "Month",
     "col_status": "Status",

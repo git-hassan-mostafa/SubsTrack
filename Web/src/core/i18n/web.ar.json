@@ -194,6 +194,7 @@
     "status_before_start": "قبل بدء الخطة",
     "status_waiting": "بانتظار العداد أو السعر",
     "status_skipped": "متخطّى",
+    "status_no_service": "بدون خدمة",
     "table_label": "أشهر سنة {{year}}",
     "col_month": "الشهر",
     "col_status": "الحالة",

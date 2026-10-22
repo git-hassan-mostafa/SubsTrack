@@ -523,6 +523,7 @@
     "balance_to_debts": "{{amount}} أُضيف إلى الديون",
     "partial_badge": "جزئي",
     "written_off_badge": "مشطوب",
+    "no_service_badge": "بدون خدمة",
     "voided_badge": "ملغية",
     "record_payment_action": "تسجيل الدفعة",
     "edit_payment": "تعديل الدفعة",

@@ -5,6 +5,7 @@ import {
   blockingUnpaidMonths,
   coveredBillingMonths,
 } from "./payOrder";
+import { isPayableMonth } from "./monthSelection";
 import { isAfterMonth, type YearMonth } from "./payWindow";
 import { isReadingLocked } from "./usageBill";
 
@@ -52,11 +53,7 @@ export function isUnbilledUsage(entry: MonthEntry, gates: LineGates): boolean {
 
 export function isPayableStatus(entry: MonthEntry, gates: LineGates): boolean {
   if (isUnbilledUsage(entry, gates)) return false;
-  return (
-    entry.status === "unpaid" ||
-    entry.status === "future" ||
-    isLockedSkipped(entry, gates)
-  );
+  return isPayableMonth(entry) || isLockedSkipped(entry, gates);
 }
 
 export function hasViewableBill(entry: MonthEntry): boolean {

@@ -52,6 +52,7 @@ const TONE_LOOK: Record<
   skipped: { bg: "bg-gray-400", text: "text-white", icon: COLORS.white },
   written_off: { bg: "bg-gray-200", text: "text-orange-700", icon: COLORS.gray500 },
   waiting: { bg: "bg-indigo-50", text: "text-indigo-500", icon: COLORS.gray500 },
+  no_service: { bg: "bg-gray-200", text: "text-gray-500", icon: COLORS.gray500 },
 };
 
 export const MonthCell = memo(function MonthCell({

@@ -128,6 +128,8 @@ export function monthCells<C extends StatusCharge, S extends StatusSkip>(
       status = billed ? "unpaid" : "waiting";
     } else if (isNotDueYet(unpaidRule, year, month, line.startDate)) {
       status = "future";
+    } else if (line.prepaid) {
+      status = "no_service";
     } else {
       status = "unpaid";
     }
@@ -169,6 +171,11 @@ function usageBilledAt(entry: Pick<MonthCell, "billingMonth">, usage: UsageMonth
 // A written-off month owes nothing, so it settles a line exactly like money.
 function isSettledStatus(status: MonthStatus): boolean {
   return status === "paid" || status === "written_off";
+}
+
+// A month with no money that still owes nothing: not due, unbilled usage, or no service.
+function owesNothingYet(status: MonthStatus): boolean {
+  return status === "future" || status === "waiting" || status === "no_service";
 }
 
 // The only place a customer list badge is decided; "paid" means owes nothing.
@@ -239,7 +246,7 @@ export function buildCustomerStatus(
       notDueLineIds.push(line.id);
       continue;
     }
-    if (current.status === "future" || current.status === "waiting") continue;
+    if (owesNothingYet(current.status)) continue;
 
     dueThisMonth++;
     if (current.status === "written_off") writtenOffThisMonth++;

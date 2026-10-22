@@ -362,6 +362,7 @@ function monthCells(line, bills, skips, year, unpaidRule = DEFAULT_UNPAID_START_
 		else if (isFuture) status = "future";
 		else if (usageMonth) status = usageMonth.kind === "bill" || !!bill && isEditedUsageBill(bill.charge) ? "unpaid" : "waiting";
 		else if (isNotDueYet(unpaidRule, year, month, line.startDate)) status = "future";
+		else if (line.prepaid) status = "no_service";
 		else status = "unpaid";
 		const balance = isEffectivelyPaid ? bill.charge.amount - collected : 0;
 		return {
@@ -380,11 +381,18 @@ function monthCells(line, bills, skips, year, unpaidRule = DEFAULT_UNPAID_START_
 	});
 }
 function isLateMonth(entry, line, unpaidRule) {
-	if (entry.usage) return entry.usage.kind === "bill" && !isUsageNotLateYet(entry.usage.bill.billedAt);
+	if (entry.usage) return !isUsageNotLateYet(usageBilledAt(entry, entry.usage));
 	return !isNotLateYet(unpaidRule, entry.year, entry.month, line.startDate);
+}
+function usageBilledAt(entry, usage) {
+	if (usage.kind === "bill") return usage.bill.billedAt;
+	return `${shiftBillingMonth(entry.billingMonth, 1)}T00:00:00`;
 }
 function isSettledStatus(status) {
 	return status === "paid" || status === "written_off";
+}
+function owesNothingYet(status) {
+	return status === "future" || status === "waiting" || status === "no_service";
 }
 function buildCustomerStatus(lines, bills, skips, unpaidRule = DEFAULT_UNPAID_START_RULE, usageByLine = NO_USAGE$1) {
 	const { year: currentYear, month: currentMonth } = getCurrentYearMonth();
@@ -433,7 +441,7 @@ function buildCustomerStatus(lines, bills, skips, unpaidRule = DEFAULT_UNPAID_ST
 			notDueLineIds.push(line.id);
 			continue;
 		}
-		if (current.status === "future" || current.status === "waiting") continue;
+		if (owesNothingYet(current.status)) continue;
 		dueThisMonth++;
 		if (current.status === "written_off") writtenOffThisMonth++;
 		if (isSettledStatus(current.status)) notDueLineIds.push(line.id);
@@ -469,6 +477,11 @@ function balanceUsd(balance, ratePerUsdSnapshot) {
 	return balance / ratePerUsdSnapshot;
 }
 //#endregion
+//#region ../Shared/src/core/utils/numberOrNull.ts
+function numberOrNull(value) {
+	return value == null ? null : Number(value);
+}
+//#endregion
 //#region ../Shared/src/modules/admin/plans/utils/mapper.ts
 function usageOf(db) {
 	if (db.billing_type !== "usage") return null;
@@ -476,16 +489,16 @@ function usageOf(db) {
 		entry: db.usage_entry === "direct" ? "direct" : "reading",
 		unitName: db.unit_name ?? "",
 		feeName: db.fee_name ?? "",
-		highUsagePercent: db.high_usage_percent != null ? Number(db.high_usage_percent) : null
+		highUsagePercent: numberOrNull(db.high_usage_percent)
 	};
 }
 //#endregion
 //#region ../Shared/src/modules/customer/customers/utils/customerStatusFacts.ts
 function readPlans(wire) {
-	return wire.map(([id, name, price, isCustomPrice, durationMonths, currencyId, branchId, tenantId, createdAt, billingType, usageEntry, unitName, feeName, highUsagePercent]) => ({
+	return wire.map(([id, name, price, isCustomPrice, durationMonths, currencyId, branchId, tenantId, createdAt, billingType, usageEntry, unitName, feeName, highUsagePercent, prepaid]) => ({
 		id,
 		name,
-		price: price === null ? null : Number(price),
+		price: numberOrNull(price),
 		isCustomPrice,
 		durationMonths,
 		currencyId,
@@ -498,7 +511,8 @@ function readPlans(wire) {
 			unit_name: unitName ?? null,
 			fee_name: feeName ?? null,
 			high_usage_percent: highUsagePercent ?? null
-		})
+		}),
+		prepaid: prepaid === true
 	}));
 }
 function readPrices(wire) {
@@ -507,11 +521,11 @@ function readPrices(wire) {
 			id,
 			planId,
 			fromMonth,
-			price: price === null ? null : Number(price),
+			price: numberOrNull(price),
 			currencyId,
 			durationMonths,
 			isCustomPrice,
-			fixedFee: fixedFee == null ? null : Number(fixedFee),
+			fixedFee: numberOrNull(fixedFee),
 			createdAt
 		})),
 		lineChanges: (wire.specialPriceChanges ?? []).map(([id, customerId, customerPlanId, fromMonth, customPrice, customCurrencyId, createdAt]) => ({
@@ -519,19 +533,18 @@ function readPrices(wire) {
 			customerId,
 			customerPlanId,
 			fromMonth,
-			customPrice: customPrice === null ? null : Number(customPrice),
+			customPrice: numberOrNull(customPrice),
 			customCurrencyId,
 			createdAt
 		}))
 	});
 }
-var toNumber = (value) => value === null ? null : Number(value);
 function readReadings(wire) {
 	return wire.map(([customerPlanId, billingMonth, reading, units, oldMeterFinal, newMeterStart, newMeterNumber, recordedAt]) => ({
 		customerPlanId,
 		billingMonth,
-		reading: toNumber(reading),
-		units: toNumber(units),
+		reading: numberOrNull(reading),
+		units: numberOrNull(units),
 		meterChange: oldMeterFinal === null || newMeterStart === null ? null : {
 			oldMeterFinal: Number(oldMeterFinal),
 			newMeterStart: Number(newMeterStart),
@@ -559,15 +572,16 @@ function readCustomerStatusFacts(wire, unpaidRule) {
 	});
 	const bills = [];
 	const skips = [];
-	for (const [id, customerId, startDate, active, lineBills, skipped, planId = null, customPrice = null, customCurrencyId = null, startReading = null] of wire.lines) {
+	for (const [id, customerId, startDate, active, lineBills, skipped, planId = null, customPrice = null, customCurrencyId = null, startReading = null, prepaid = false] of wire.lines) {
 		customers.get(customerId)?.customerPlans.push({
 			id,
 			startDate,
 			active,
 			planId,
-			customPrice: toNumber(customPrice),
+			customPrice: numberOrNull(customPrice),
 			customCurrencyId,
-			startReading: toNumber(startReading),
+			startReading: numberOrNull(startReading),
+			prepaid: prepaid === true,
 			plan: planId ? planById.get(planId) ?? null : null
 		});
 		for (const [billingMonth, durationMonths, amount, paid, writtenOffAt = null, computedAmount = null] of lineBills) bills.push({
@@ -711,7 +725,11 @@ function owedOf(args) {
 		today: args.today ?? currentDate(),
 		withOpenMonths: args.withOpenMonths ?? false
 	});
-	const revalued = new Set([...virtual.map(monthKey), ...waitingUsageBills(args.lines, args.billsByLine, usageByLine)]);
+	const revalued = new Set([
+		...virtual.map(monthKey),
+		...waitingUsageBills(args.lines, args.billsByLine, usageByLine),
+		...prepaidEmptyBills(args.lines, args.stored)
+	]);
 	return [...args.stored.filter((i) => i.kind !== "month" || i.paid > 0 || !revalued.has(monthKey(i))), ...virtual];
 }
 function waitingUsageBills(lines, billsByLine, usageByLine) {
@@ -726,6 +744,10 @@ function waitingUsageBills(lines, billsByLine, usageByLine) {
 		}
 	}
 	return keys;
+}
+function prepaidEmptyBills(lines, stored) {
+	const prepaid = new Set(lines.filter((l) => l.prepaid).map((l) => l.id));
+	return stored.filter((i) => i.kind === "month" && i.paid === 0 && prepaid.has(i.customerPlanId ?? "")).map(monthKey);
 }
 var monthName = (key) => key.slice(7);
 function virtualUnpaidMonths(args) {

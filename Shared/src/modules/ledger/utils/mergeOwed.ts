@@ -79,6 +79,7 @@ export function owedOf<T extends StoredOwed>(args: OwedArgs<T>): (T | OpenItem)[
   const revalued = new Set([
     ...virtual.map(monthKey),
     ...waitingUsageBills(args.lines, args.billsByLine, usageByLine),
+    ...prepaidEmptyBills(args.lines, args.stored),
   ]);
   const kept = args.stored.filter(
     (i) => i.kind !== "month" || i.paid > 0 || !revalued.has(monthKey(i)),
@@ -112,6 +113,15 @@ function waitingUsageBills(
   }
   return keys;
 }
+
+// A prepaid month with no money is "No service", so its emptied bill owes nothing.
+function prepaidEmptyBills(lines: OwedLine[], stored: StoredOwed[]): string[] {
+  const prepaid = new Set(lines.filter((l) => l.prepaid).map((l) => l.id));
+  return stored
+    .filter((i) => i.kind === "month" && i.paid === 0 && prepaid.has(i.customerPlanId ?? ""))
+    .map(monthKey);
+}
+
 const monthName = (key: string) => key.slice(MONTH_KEY_PREFIX.length);
 
 // One item per unpaid block (#194), priced then (#185); a retyped usage bill stays stored.

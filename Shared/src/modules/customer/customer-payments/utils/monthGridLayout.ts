@@ -1,6 +1,9 @@
 import type { Charge, MonthEntry } from "@shared/core/types";
 import { getCurrentYearMonth } from "@shared/core/utils/date";
-import { blockStartMonth } from "@shared/modules/customer/customer-payments/utils/monthSelection";
+import {
+  blockStartMonth,
+  isPayableMonth,
+} from "@shared/modules/customer/customer-payments/utils/monthSelection";
 
 // How a cell meets its neighbours: one multi-month bill reads as one pill.
 export interface CellJoin {
@@ -16,6 +19,7 @@ export type CellBadge =
   | "paid"
   | "skipped"
   | "written_off"
+  | "no_service"
   | "this_month";
 
 export const CELL_BADGE_KEYS: Record<CellBadge, string> = {
@@ -24,6 +28,7 @@ export const CELL_BADGE_KEYS: Record<CellBadge, string> = {
   paid: "common.paid",
   skipped: "payments.skip.skipped_label",
   written_off: "payments.written_off_badge",
+  no_service: "payments.no_service_badge",
   this_month: "payments.this_month",
 };
 
@@ -31,10 +36,6 @@ export const CELL_BADGE_KEYS: Record<CellBadge, string> = {
 export interface MonthBlock {
   startDate: string;
   durationMonths: number;
-}
-
-function isPayableMonth(entry: MonthEntry): boolean {
-  return entry.status === "unpaid" || entry.status === "future";
 }
 
 function payableBlockStart(entry: MonthEntry, block: MonthBlock | null): string | null {
@@ -124,6 +125,7 @@ export function cellBadge(entry: MonthEntry): CellBadge | null {
   if (isPartialMonth(entry)) return "partial";
   if (entry.status === "paid") return "paid";
   if (entry.status === "skipped") return "skipped";
+  if (entry.status === "no_service") return "no_service";
   if (isCurrentMonth(entry)) return "this_month";
   return null;
 }

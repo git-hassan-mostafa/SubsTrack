@@ -38,8 +38,13 @@ function hasMoney(entry: MonthEntry): boolean {
   return entry.status === "paid" && entry.collected > 0;
 }
 
-function isPayable(entry: MonthEntry): boolean {
-  return entry.status === "unpaid" || entry.status === "future";
+// No money yet and collectable: a "No service" month can still be paid.
+export function isPayableMonth(entry: Pick<MonthEntry, "status">): boolean {
+  return (
+    entry.status === "unpaid" ||
+    entry.status === "future" ||
+    entry.status === "no_service"
+  );
 }
 
 /**
@@ -67,7 +72,7 @@ export function expandSelectionUnit(
 
   if (entry.status === "skipped") return [entry.billingMonth];
 
-  if (!isPayable(entry)) return [];
+  if (!isPayableMonth(entry)) return [];
 
   const n = planDuration(line);
   if (n > 1) {
@@ -76,7 +81,7 @@ export function expandSelectionUnit(
     return monthGrid
       .filter((m) => {
         const abs = absOf(m.year, m.month);
-        return abs >= blockStart && abs <= blockEnd && isPayable(m);
+        return abs >= blockStart && abs <= blockEnd && isPayableMonth(m);
       })
       .map((m) => m.billingMonth);
   }

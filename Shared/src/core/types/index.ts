@@ -9,7 +9,8 @@ export type MonthStatus =
   | "before_start"
   | "skipped"
   | "written_off"
-  | "waiting";
+  | "waiting"
+  | "no_service";
 
 // The bill is planAllowance's unit, not customerAllowance's — see gotcha #149.
 export interface Tenant {

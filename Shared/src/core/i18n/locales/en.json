@@ -515,6 +515,7 @@
     "balance_to_debts": "{{amount}} added to debts",
     "partial_badge": "PARTIAL",
     "written_off_badge": "Written off",
+    "no_service_badge": "No service",
     "voided_badge": "VOIDED",
     "record_payment_action": "Record Payment",
     "edit_payment": "Edit Payment",

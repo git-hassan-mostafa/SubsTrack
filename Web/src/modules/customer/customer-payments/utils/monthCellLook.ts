@@ -20,6 +20,7 @@ const TONE_LOOK: Record<MonthCellTone, MonthCellLook> = {
   skipped: { bg: "#6b7280", fg: "#ffffff", ring: null },
   written_off: { bg: "#e5e7eb", fg: "#c2410c", ring: null },
   waiting: { bg: "#eef2ff", fg: "#4f46e5", ring: null },
+  no_service: { bg: "#e5e7eb", fg: "#4b5563", ring: null },
 };
 
 const PARTIAL_RING = "#f59e0b";
