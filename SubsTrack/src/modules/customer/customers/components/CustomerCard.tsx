@@ -14,6 +14,7 @@ import { EntityCard } from "@/src/shared/components/EntityCard";
 import { Chip, type ChipTone } from "@/src/shared/components/Chip";
 import { planSummary as linesSummary } from "@shared/modules/customer/customer-plans/utils/lineLabel";
 import { customerPills, type CustomerPill } from "@shared/modules/customer/customers/utils/customerPills";
+import { prepaidPillLabel } from "@shared/modules/customer/customer-payments/utils/prepaidText";
 
 interface Props {
   customer: Customer;
@@ -32,6 +33,10 @@ interface CardChip {
   key: string;
   text: string;
   tone: ChipTone;
+}
+
+function expiryLabel(t: TFunction, s: CustomerStatus | null): string {
+  return s?.prepaid ? prepaidPillLabel(t, s.prepaid) : "";
 }
 
 const PILL_STYLES: Record<
@@ -80,6 +85,18 @@ const PILL_STYLES: Record<
   overdue: {
     label: (t) => t("customers.overdue"),
     tone: "red",
+  },
+  paid_until: {
+    label: expiryLabel,
+    tone: "emerald",
+  },
+  expiring: {
+    label: expiryLabel,
+    tone: "amber",
+  },
+  expired: {
+    label: expiryLabel,
+    tone: "gray",
   },
 };
 

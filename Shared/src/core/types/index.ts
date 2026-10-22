@@ -339,6 +339,21 @@ export interface CustomerStatus {
   notDueLineIds: string[];
   uncoveredLineIds: string[];
   unpaidMonths: number;
+  prepaid: CustomerPrepaid | null;
+}
+
+export type PrepaidState = "paid_until" | "expiring" | "expired";
+
+// Worked out from money, never saved; `days` = days left, or since it ran out.
+export interface PrepaidExpiry {
+  state: PrepaidState;
+  paidUntil: string | null;
+  days: number;
+}
+
+// The customer's soonest-ending prepaid line; everyLine = no other kind of line.
+export interface CustomerPrepaid extends PrepaidExpiry {
+  everyLine: boolean;
 }
 
 export interface DashboardMetrics {

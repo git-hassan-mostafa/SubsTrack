@@ -109,6 +109,7 @@ describe("customer menus", () => {
     notDueLineIds: [],
     uncoveredLineIds: [],
     unpaidMonths: 1,
+    prepaid: null,
   };
   const paid: CustomerStatus = { ...unpaid, status: "paid", notDueLineIds: ["l-usd"], unpaidMonths: 0 };
   const admin = { isAdmin: true };

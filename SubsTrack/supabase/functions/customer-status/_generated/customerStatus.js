@@ -15,6 +15,11 @@ var MONTHS = [
 ];
 var BRANCH_FILTER_UNASSIGNED = "unassigned";
 //#endregion
+//#region ../Shared/src/core/utils/dateRange.ts
+function toDay(d) {
+	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+//#endregion
 //#region ../Shared/src/core/utils/date.ts
 var BARE_DAY = /^\d{4}-\d{2}-\d{2}$/;
 function toBillingMonth(year, month) {
@@ -48,6 +53,11 @@ function getCurrentYearMonth() {
 }
 function isValidDateString(s) {
 	return BARE_DAY.test(s) && !isNaN(Date.parse(s));
+}
+function daysBetween(from, to) {
+	const [fy, fm, fd] = from.split("-").map(Number);
+	const [ty, tm, td] = to.split("-").map(Number);
+	return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 864e5);
 }
 //#endregion
 //#region ../Shared/src/core/utils/searchTerm.ts
@@ -117,6 +127,37 @@ function isUsageNotLateYet(billedAt) {
 	const lateFrom = new Date(at.getFullYear(), at.getMonth() + 1, Math.min(at.getDate(), daysInNextMonth));
 	const today = currentDate();
 	return new Date(today.getFullYear(), today.getMonth(), today.getDate()) < lateFrom;
+}
+function paidUntil(paidMonths) {
+	const newest = paidMonths[paidMonths.length - 1];
+	if (!newest) return null;
+	const [year, month] = newest.split("-").map(Number);
+	return toDay(new Date(year, month, 0));
+}
+function prepaidExpiry(until, startDate) {
+	const today = toDay(currentDate());
+	if (until === null) {
+		const sinceStart = daysBetween(startDate.slice(0, 10), today);
+		return sinceStart < 0 ? null : {
+			state: "expired",
+			paidUntil: null,
+			days: sinceStart
+		};
+	}
+	const left = daysBetween(today, until);
+	if (left < 0) return {
+		state: "expired",
+		paidUntil: until,
+		days: -left - 1
+	};
+	return {
+		state: left <= 3 ? "expiring" : "paid_until",
+		paidUntil: until,
+		days: left
+	};
+}
+function soonerExpiry(a, b) {
+	return a !== null && (a.paidUntil ?? "") <= (b.paidUntil ?? "") ? a : b;
 }
 //#endregion
 //#region ../Shared/src/modules/customer/customer-plans/utils/linePrice.ts
@@ -405,10 +446,15 @@ function buildCustomerStatus(lines, bills, skips, unpaidRule = DEFAULT_UNPAID_ST
 	let writtenOffThisMonth = 0;
 	let inPlay = 0;
 	let settled = 0;
+	let prepaid = null;
+	let everyLinePrepaid = true;
 	for (const line of lines) {
 		if (!line.active) continue;
 		const lineBills = bills.filter((b) => b.charge.customerPlanId === line.id);
 		const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
+		if (!line.prepaid) everyLinePrepaid = false;
+		const expiry = line.prepaid ? prepaidExpiry(paidUntil(paidBillingMonths(lineBills)), line.startDate) : null;
+		if (expiry) prepaid = soonerExpiry(prepaid, expiry);
 		const startYear = new Date(line.startDate).getFullYear();
 		let current = null;
 		let lineOverdue = false;
@@ -455,7 +501,11 @@ function buildCustomerStatus(lines, bills, skips, unpaidRule = DEFAULT_UNPAID_ST
 		},
 		notDueLineIds,
 		uncoveredLineIds,
-		unpaidMonths: unpaidMonths.size
+		unpaidMonths: unpaidMonths.size,
+		prepaid: prepaid ? {
+			...prepaid,
+			everyLine: everyLinePrepaid
+		} : null
 	};
 }
 function getCustomerStatuses(customers, bills, skips, unpaidRule = DEFAULT_UNPAID_START_RULE, usageByLine = NO_USAGE$1) {
@@ -467,6 +517,21 @@ function getCustomerStatuses(customers, bills, skips, unpaidRule = DEFAULT_UNPAI
 		statuses.set(customer.id, buildCustomerStatus(customer.customerPlans ?? [], billsByCustomer.get(customer.id) ?? [], skipsByCustomer.get(customer.id) ?? [], unpaidRule, usageByLine));
 	}
 	return statuses;
+}
+function paidBillingMonths(lineBills) {
+	return [...buildCoverageSet(lineBills)].sort();
+}
+function buildCoverageSet(bills) {
+	const covered = new Set();
+	for (const { charge, collected } of bills) {
+		if (charge.voidedAt !== null || collected === 0 || !charge.billingMonth) continue;
+		const [pYear, pMonthNum] = charge.billingMonth.split("-").map(Number);
+		for (let d = 0; d < charge.durationMonths; d++) {
+			const date = new Date(pYear, pMonthNum - 1 + d, 1);
+			covered.add(toBillingMonth(date.getFullYear(), date.getMonth() + 1));
+		}
+	}
+	return covered;
 }
 //#endregion
 //#region ../Shared/src/modules/ledger/utils/debtRule.ts
@@ -827,12 +892,21 @@ function matchesActiveFilter(active, filter) {
 }
 //#endregion
 //#region ../Shared/src/modules/customer/customers/utils/customerFlags.ts
+var SAID_BY_EXPIRY = [
+	"paid",
+	"not_due_yet",
+	"skipped"
+];
 function customerFlags(status) {
 	if (!status) return [];
 	const flags = [];
-	if (!(status.status === "unpaid" && status.overdue)) flags.push(status.status);
+	if (!(status.status === "unpaid" && status.overdue) && !expiryReplacesStatus(status)) flags.push(status.status);
 	if (status.overdue) flags.push("overdue");
+	if (status.prepaid) flags.push(status.prepaid.state);
 	return flags;
+}
+function expiryReplacesStatus(status) {
+	return !!status.prepaid?.everyLine && SAID_BY_EXPIRY.includes(status.status);
 }
 function owesMoney(usd) {
 	return (usd ?? 0) > 0;
@@ -850,7 +924,9 @@ var PAYMENT_FILTER_LABEL_KEYS = {
 	unpaid: "dashboard.unpaid",
 	overdue: "customers.overdue",
 	mixed: "customers.partly_paid",
-	not_due_yet: "payments.not_due_yet_label"
+	not_due_yet: "payments.not_due_yet_label",
+	expiring: "customers.expiring_soon",
+	expired: "customers.expired"
 };
 var OWES_FILTER_LABEL_KEYS = {
 	anything: "customers.filters.owes_anything",
@@ -894,12 +970,18 @@ function matchesOwes(choice, facts) {
 	return owesMoney(facts.toCollectUsd) === (choice === "anything");
 }
 var PAYMENT_FILTER_FLAGS = {
-	paid: ["paid"],
+	paid: [
+		"paid",
+		"paid_until",
+		"expiring"
+	],
 	written_off: ["written_off"],
 	unpaid: ["unpaid", "overdue"],
 	overdue: ["overdue"],
 	mixed: ["mixed"],
-	not_due_yet: ["not_due_yet"]
+	not_due_yet: ["not_due_yet"],
+	expiring: ["expiring"],
+	expired: ["expired"]
 };
 function matchesPayment(customer, status, payment) {
 	if (payment.length === 0) return true;

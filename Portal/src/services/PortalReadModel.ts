@@ -9,6 +9,7 @@ import type {
   MonthBill,
   MonthEntry,
   OpenItem,
+  PrepaidExpiry,
   Sale,
   SkippedMonth,
   UnpaidStartRule,
@@ -37,7 +38,7 @@ import {
   buildCustomerStatus,
   paidBillingMonths,
 } from "@shared/modules/customer/customer-payments/utils/monthStatus";
-import { paidUntil } from "@shared/modules/customer/customer-payments/utils/paidUntil";
+import { paidUntil, prepaidExpiry } from "@shared/modules/customer/customer-payments/utils/paidUntil";
 import { mergeOwed } from "@shared/modules/ledger/utils/mergeOwed";
 import { openItemFromCharge, chargeLabel } from "@shared/modules/ledger/utils/openItems";
 import type { PortalPayload } from "../repository/PortalRepository";
@@ -61,7 +62,7 @@ export interface PortalModel {
   status: CustomerStatus;
   unpaidRule: UnpaidStartRule;
   usageByLine: Map<string, LineUsage>;
-  paidUntilByLine: Map<string, string | null>;
+  expiryByLine: Map<string, PrepaidExpiry | null>;
   displayCurrencyId: string | null;
 }
 
@@ -154,12 +155,15 @@ export function buildPortalModel(payload: PortalPayload): PortalModel {
     status: buildCustomerStatus(lines, bills, skips, unpaidRule, usageByLine),
     unpaidRule,
     usageByLine,
-    paidUntilByLine: new Map(
+    expiryByLine: new Map(
       lines
         .filter((line) => line.prepaid)
         .map((line) => [
           line.id,
-          paidUntil(paidBillingMonths(billsByLine.get(line.id) ?? [])),
+          prepaidExpiry(
+            paidUntil(paidBillingMonths(billsByLine.get(line.id) ?? [])),
+            line.startDate,
+          ),
         ]),
     ),
     displayCurrencyId: payload.settings.DisplayCurrencyId || null,

@@ -6,6 +6,7 @@ import {
   customerPills,
   type CustomerPill,
 } from "@shared/modules/customer/customers/utils/customerPills";
+import { prepaidPillLabel } from "@shared/modules/customer/customer-payments/utils/prepaidText";
 import type { ChipTone } from "@/shared/components/chipTones";
 import { StatusChip } from "@/shared/components/StatusChip";
 
@@ -31,7 +32,14 @@ const PILL_STYLES: Record<
   skipped: { label: (t) => t("payments.skip.skipped_label"), tone: "gray" },
   not_due_yet: { label: (t) => t("payments.not_due_yet_label"), tone: "sky" },
   overdue: { label: (t) => t("customers.overdue"), tone: "red" },
+  paid_until: { label: expiryLabel, tone: "emerald" },
+  expiring: { label: expiryLabel, tone: "amber" },
+  expired: { label: expiryLabel, tone: "gray" },
 };
+
+function expiryLabel(t: TFunction, status: CustomerStatus | null): string {
+  return status?.prepaid ? prepaidPillLabel(t, status.prepaid) : "";
+}
 
 interface CustomerPillsProps {
   customer: Customer;

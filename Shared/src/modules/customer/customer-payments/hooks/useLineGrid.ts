@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Customer, MonthEntry } from "@shared/core/types";
 import { findCurrency, formatMoney } from "@shared/core/utils/currency";
-import { formatDate, getCurrentYearMonth } from "@shared/core/utils/date";
+import { getCurrentYearMonth } from "@shared/core/utils/date";
 import {
   lineIndicator,
   minGridYear,
@@ -10,7 +10,8 @@ import {
 } from "@shared/modules/customer/customer-payments/utils/gridSummary";
 import type { LineGates } from "@shared/modules/customer/customer-payments/utils/monthActions";
 import type { MonthBlock } from "@shared/modules/customer/customer-payments/utils/monthGridLayout";
-import { paidUntil } from "@shared/modules/customer/customer-payments/utils/paidUntil";
+import { paidUntil, prepaidExpiry } from "@shared/modules/customer/customer-payments/utils/paidUntil";
+import { prepaidLabel, prepaidTextParts } from "@shared/modules/customer/customer-payments/utils/prepaidText";
 import { lastBillableMonth } from "@shared/modules/customer/customer-payments/utils/payWindow";
 import { monthPriceOf } from "@shared/modules/customer/customer-payments/utils/usageBill";
 import { resolveLinePrice, type LinePrice } from "@shared/modules/customer/customer-plans/utils/linePrice";
@@ -137,10 +138,8 @@ export function useLineGrid(customer: Customer, refreshToken = 0) {
 
   const paidUntilLabel = (() => {
     if (!selectedLine?.prepaid || !billsReady || grid.length === 0) return null;
-    const until = paidUntil(paidMonths);
-    return until
-      ? t("payments.paid_until", { date: formatDate(until) })
-      : t("payments.no_payment_yet");
+    const expiry = prepaidExpiry(paidUntil(paidMonths), selectedLine.startDate);
+    return prepaidLabel(t, prepaidTextParts(expiry));
   })();
 
   const summary = yearSummary(grid, bills, selectedLine?.id ?? null, year);

@@ -40,6 +40,7 @@ function status(over: Partial<CustomerStatus> = {}): CustomerStatus {
     notDueLineIds: [],
     uncoveredLineIds: [],
     unpaidMonths: 0,
+    prepaid: null,
     ...over,
   };
 }

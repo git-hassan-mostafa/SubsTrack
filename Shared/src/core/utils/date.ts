@@ -142,3 +142,10 @@ export function daysLate(dueDate: string, today: Date = new Date()): number {
   const diff = today.getTime() - new Date(`${dueDate}T00:00:00`).getTime();
   return diff <= 0 ? 0 : Math.floor(diff / 86_400_000);
 }
+
+// Calendar days from one "YYYY-MM-DD" to another; UTC so a DST change is no day.
+export function daysBetween(from: string, to: string): number {
+  const [fy, fm, fd] = from.split("-").map(Number);
+  const [ty, tm, td] = to.split("-").map(Number);
+  return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000);
+}

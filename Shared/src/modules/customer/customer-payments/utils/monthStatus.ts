@@ -6,6 +6,7 @@ import type {
   MonthCell,
   MonthEntry,
   MonthStatus,
+  PrepaidExpiry,
   SkippedMonth,
   StatusBill,
   StatusCharge,
@@ -28,6 +29,11 @@ import {
   isNotLateYet,
   isUsageNotLateYet,
 } from "@shared/modules/customer/customer-payments/utils/monthDueRules";
+import {
+  paidUntil,
+  prepaidExpiry,
+  soonerExpiry,
+} from "@shared/modules/customer/customer-payments/utils/paidUntil";
 import {
   isEditedUsageBill,
   usageMonthOf,
@@ -196,11 +202,18 @@ export function buildCustomerStatus(
   let writtenOffThisMonth = 0;
   let inPlay = 0;
   let settled = 0;
+  let prepaid: PrepaidExpiry | null = null;
+  let everyLinePrepaid = true;
 
   for (const line of lines) {
     if (!line.active) continue;
     const lineBills = bills.filter((b) => b.charge.customerPlanId === line.id);
     const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
+    if (!line.prepaid) everyLinePrepaid = false;
+    const expiry = line.prepaid
+      ? prepaidExpiry(paidUntil(paidBillingMonths(lineBills)), line.startDate)
+      : null;
+    if (expiry) prepaid = soonerExpiry(prepaid, expiry);
     const startYear = new Date(line.startDate).getFullYear();
 
     let current: MonthCell<StatusCharge, StatusSkip> | null = null;
@@ -273,6 +286,7 @@ export function buildCustomerStatus(
     notDueLineIds,
     uncoveredLineIds,
     unpaidMonths: unpaidMonths.size,
+    prepaid: prepaid ? { ...prepaid, everyLine: everyLinePrepaid } : null,
   };
 }
 

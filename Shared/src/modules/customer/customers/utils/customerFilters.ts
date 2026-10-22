@@ -13,7 +13,7 @@ import {
   type CustomerFlag,
 } from "@shared/modules/customer/customers/utils/customerFlags";
 
-export type PaymentFilter = Exclude<CustomerFlag, "skipped">;
+export type PaymentFilter = Exclude<CustomerFlag, "skipped" | "paid_until">;
 export type YesNoFilter = "yes" | "no";
 export type OwesFilter = "anything" | "debts" | "nothing";
 export type CustomerTypeFilter = "regular" | "occasional";
@@ -73,6 +73,8 @@ export const PAYMENT_FILTER_LABEL_KEYS: Record<PaymentFilter, string> = {
   overdue: "customers.overdue",
   mixed: "customers.partly_paid",
   not_due_yet: "payments.not_due_yet_label",
+  expiring: "customers.expiring_soon",
+  expired: "customers.expired",
 };
 
 export const OWES_FILTER_LABEL_KEYS: Record<OwesFilter, string> = {
@@ -169,14 +171,16 @@ function matchesOwes(choice: OwesFilter | null, facts: CustomerListFacts): boole
   return owesMoney(facts.toCollectUsd) === (choice === "anything");
 }
 
-// Unpaid also takes Overdue cards, whose Unpaid pill is folded into Overdue.
+// Unpaid takes Overdue cards, Paid takes prepaid ones: their pill holds it.
 const PAYMENT_FILTER_FLAGS: Record<PaymentFilter, readonly CustomerFlag[]> = {
-  paid: ["paid"],
+  paid: ["paid", "paid_until", "expiring"],
   written_off: ["written_off"],
   unpaid: ["unpaid", "overdue"],
   overdue: ["overdue"],
   mixed: ["mixed"],
   not_due_yet: ["not_due_yet"],
+  expiring: ["expiring"],
+  expired: ["expired"],
 };
 
 // A payment pick shows only cards carrying one of its pills — gotcha #56.

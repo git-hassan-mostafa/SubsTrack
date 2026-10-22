@@ -228,6 +228,7 @@ describe("customerFlags / owesMoney", () => {
         notDueLineIds: [],
         uncoveredLineIds: [],
         unpaidMonths: 0,
+        prepaid: null,
       }),
     ).toEqual(["overdue"]);
   });
@@ -241,6 +242,7 @@ describe("customerFlags / owesMoney", () => {
         notDueLineIds: [],
         uncoveredLineIds: [],
         unpaidMonths: 0,
+        prepaid: null,
       }),
     ).toEqual(["unpaid"]);
   });

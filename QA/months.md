@@ -90,6 +90,7 @@ What a month shows after money moves. A month is Paid as soon as **any** money r
 ## Prepaid lines
 
 58. Prepaid line, pay August (or only part of August) → the grid header says "Paid until 31/08/<year>" on the phone and the web, and the portal shows the same date; void that payment → the date goes back to the month before, or "No payment yet".
+59. Prepaid customer paid through this month, 3 days or less before its end → the customer list shows "Expires in X days" and appears under Expiring soon and Paid; after the month ends → "Expired X days ago" (gray), under Expired, never Overdue or Unpaid, and To collect stays empty.
 
 ## Customer portal
 

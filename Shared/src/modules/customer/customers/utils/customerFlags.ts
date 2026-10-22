@@ -1,32 +1,28 @@
-import type { CustomerMonthStatus, CustomerStatus } from "@shared/core/types";
+import type {
+  CustomerMonthStatus,
+  CustomerStatus,
+  PrepaidState,
+} from "@shared/core/types";
 
-/**
- * A payment pill on a customer card: the customer's settle status, plus the
- * separate "an earlier month is still unpaid" fact.
- */
-export type CustomerFlag = CustomerMonthStatus | "overdue";
+// Settle status, "an earlier month is unpaid", and the soonest prepaid expiry.
+export type CustomerFlag = CustomerMonthStatus | "overdue" | PrepaidState;
 
-/**
- * The payment pills one customer's card shows, in display order — and the ONLY
- * place that is decided. The list's filter tabs read the same helper, so a tab
- * can never disagree with the badge on the card inside it (gotcha #56).
- *
- * `status` and `overdue` stay two independent facts, so "N/M plans paid +
- * Overdue" displays both. Nothing here has to suppress "✓ Paid": a customer is
- * only `paid` when they owe nothing at all, which rules `overdue` out at the
- * source. The one suppression left: months are settled oldest-first, so
- * "Overdue" already means the customer owes this month — the plain "Unpaid"
- * pill would only repeat it.
- *
- * A `null` status means "not computed yet" — no flags, never a guessed "Unpaid".
- */
+const SAID_BY_EXPIRY: readonly CustomerMonthStatus[] = ["paid", "not_due_yet", "skipped"];
+
+// The ONLY place a card's payment pills are decided — month-grid.md rule 5, #56.
 export function customerFlags(status: CustomerStatus | null): CustomerFlag[] {
   if (!status) return [];
   const flags: CustomerFlag[] = [];
-  if (!(status.status === "unpaid" && status.overdue))
+  if (!(status.status === "unpaid" && status.overdue) && !expiryReplacesStatus(status))
     flags.push(status.status);
   if (status.overdue) flags.push("overdue");
+  if (status.prepaid) flags.push(status.prepaid.state);
   return flags;
+}
+
+// An all-prepaid customer's expiry pill already says paid or not due.
+function expiryReplacesStatus(status: CustomerStatus): boolean {
+  return !!status.prepaid?.everyLine && SAID_BY_EXPIRY.includes(status.status);
 }
 
 // The money pill and the "Owes" filter both ask this, so they never disagree (#56).
