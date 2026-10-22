@@ -1,4 +1,5 @@
-export type ColType = "text" | "int" | "num" | "bool" | "json";
+// "flag" = a NOT NULL boolean: old rows read 0, so a push never sends null.
+export type ColType = "text" | "int" | "num" | "bool" | "flag" | "json";
 
 export interface TableSpec {
   name: string;
@@ -91,6 +92,7 @@ export const TABLES: TableSpec[] = [
       unit_name: "text",
       fee_name: "text",
       high_usage_percent: "num",
+      prepaid: "flag",
       created_at: "text",
       updated_at: "text",
     },
@@ -132,6 +134,7 @@ export const TABLES: TableSpec[] = [
       tenant_id: "text",
       meter_number: "text",
       start_reading: "num",
+      prepaid: "flag",
       created_at: "text",
       updated_at: "text",
     },

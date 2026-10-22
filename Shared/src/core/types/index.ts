@@ -115,6 +115,7 @@ export interface Plan {
   tenantId: string;
   createdAt: string;
   usage: PlanUsage | null;
+  prepaid: boolean;
 }
 
 export interface Customer {
@@ -149,6 +150,7 @@ export interface CustomerPlan {
   customCurrencyId: string | null;
   meterNumber: string | null;
   startReading: number | null;
+  prepaid: boolean;
   tenantId: string;
   createdAt: string;
   updatedAt: string;
@@ -261,7 +263,7 @@ export interface PriceHistory {
 }
 
 // The fields the month rules read, so a server can feed them compact facts.
-export type StatusLine = Pick<CustomerPlan, "id" | "startDate" | "active">;
+export type StatusLine = Pick<CustomerPlan, "id" | "startDate" | "active" | "prepaid">;
 
 export type StatusCharge = Pick<
   Charge,

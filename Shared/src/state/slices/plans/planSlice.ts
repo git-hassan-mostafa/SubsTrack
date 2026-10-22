@@ -5,6 +5,7 @@ import {
   priceHistoryService,
   type UsageMonthPriceInput,
 } from "@shared/modules/customer/customer-plans/services/PriceHistoryService";
+import { withPlanPrepaid } from "@shared/modules/customer/customer-plans/utils/prepaidLine";
 import { planPriceChanged } from "@shared/modules/customer/customer-plans/utils/priceHistory";
 import type { PlanInput } from "@shared/modules/admin/plans/utils/types";
 import { resolveBranchFilter } from "@shared/shared/lib/branchFilter";
@@ -122,7 +123,18 @@ export const createPlanSlice: StateCreator<
         if (i !== -1) state.plans.items[i] = updated;
         state.plans.loading = false;
       });
-      if (planPriceChanged(previous, data)) {
+      const prepaidChanged = previous.prepaid !== updated.prepaid;
+      if (prepaidChanged) {
+        for (const customer of get().customers.items) {
+          const lines = customer.customerPlans ?? [];
+          if (!lines.some((l) => l.planId === previous.id)) continue;
+          get().customers.setCustomerLines(
+            customer.id,
+            withPlanPrepaid(lines, previous.id, updated.prepaid),
+          );
+        }
+      }
+      if (planPriceChanged(previous, data) || prepaidChanged) {
         get().ledger.markOwedChanged();
       }
       return updated;

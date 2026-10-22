@@ -6,6 +6,7 @@ import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -57,12 +58,13 @@ export function ServiceLinesEditor({ drafts, branchId }: ServiceLinesEditorProps
         </Typography>
       ) : null}
       <TableContainer component={Paper} variant="outlined">
-        <Table size="small" aria-label={t("subscriptions.section_title")} sx={{ minWidth: 720 }}>
+        <Table size="small" aria-label={t("subscriptions.section_title")} sx={{ minWidth: 830 }}>
           <TableHead>
             <TableRow>
               <TableCell>{t("customers.plan_label")}</TableCell>
               <TableCell sx={{ width: 180 }}>{t("subscriptions.start_label")}</TableCell>
               <TableCell sx={{ width: 340 }}>{t("plans.price_label")}</TableCell>
+              <TableCell sx={{ width: 110 }}>{t("subscriptions.prepaid_label")}</TableCell>
               <TableCell sx={{ width: 56 }} />
             </TableRow>
           </TableHead>
@@ -184,6 +186,22 @@ function ServiceLineRow({ row, drafts, branchId, onAddPlan }: ServiceLineRowProp
             ) : null}
           </>
         )}
+      </TableCell>
+      <TableCell>
+        {drafts.canBePrepaid(row) ? (
+          <Tooltip
+            title={locked ? t("subscriptions.prepaid_locked") : t("subscriptions.prepaid_hint")}
+          >
+            <Box component="span">
+              <Switch
+                checked={row.prepaid}
+                onChange={(event) => drafts.setPrepaid(row.key, event.target.checked)}
+                disabled={cancelled || locked}
+                slotProps={{ input: { "aria-label": t("subscriptions.prepaid_label") } }}
+              />
+            </Box>
+          </Tooltip>
+        ) : null}
       </TableCell>
       <TableCell align="right">
         {cancelled ? (

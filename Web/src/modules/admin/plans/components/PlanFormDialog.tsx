@@ -14,6 +14,7 @@ import type { Plan } from "@shared/core/types";
 import { useActiveBranches } from "@shared/modules/admin/branches/hooks/useActiveBranches";
 import { defaultNewBranchId } from "@shared/modules/admin/branches/utils/defaultBranch";
 import { usePlanPriceHistory } from "@shared/modules/admin/plans/hooks/usePlanPriceHistory";
+import { usePlanPrepaidLock } from "@shared/modules/admin/plans/hooks/usePlanPrepaidLock";
 import {
   canSavePlan,
   isMultiMonthPlan,
@@ -66,6 +67,7 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
   const activeBranches = useActiveBranches();
 
   const historyState = usePlanPriceHistory(plan?.id, markCustomersTableStale);
+  const prepaidLocked = usePlanPrepaidLock(plan?.id);
 
   const [form, setForm] = useState(() =>
     planDraftOf(plan, defaultNewBranchId(user, activeBranches)),
@@ -213,6 +215,25 @@ export function PlanFormDialog({ plan, onClose, onSaved }: PlanFormDialogProps) 
               onChange={(month) => setCustomPriceFrom(month)}
             />
           ) : null}
+          <FormControlLabel
+            disabled={prepaidLocked}
+            control={
+              <Switch
+                checked={form.prepaid}
+                onChange={(event) => change({ prepaid: event.target.checked })}
+              />
+            }
+            label={
+              <>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {t("plans.prepaid_label")}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {prepaidLocked ? t("plans.prepaid_locked_hint") : t("plans.prepaid_hint")}
+                </Typography>
+              </>
+            }
+          />
         </>
       )}
       {plan?.usage ? (

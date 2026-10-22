@@ -18,6 +18,11 @@ import {
 import { paidBillingMonths } from "@shared/modules/customer/customer-payments/utils/monthStatus";
 import { isStartReadingLocked } from "@shared/modules/customer/customer-payments/utils/usageBill";
 import { chargeService } from "@shared/modules/ledger/services/ChargeService";
+import { usageOf } from "@shared/modules/admin/plans/utils/mapper";
+import {
+  canBePrepaid,
+  withPrepaidStart,
+} from "@shared/modules/customer/customer-plans/utils/prepaidLine";
 import {
   currentBillingMonth,
   linePriceChanged,
@@ -31,6 +36,7 @@ export type LineFields = {
   customCurrencyId: string | null;
   meterNumber: string | null;
   startReading: number | null;
+  prepaid: boolean;
 };
 
 export type CustomerPlanInput = LineFields & { customerId: string };
@@ -48,6 +54,7 @@ function fieldsOf(line: LineDraft): LineFields {
     customCurrencyId: line.customCurrencyId,
     meterNumber: line.meterNumber?.trim() || null,
     startReading: line.startReading,
+    prepaid: line.prepaid,
   };
 }
 
@@ -64,6 +71,7 @@ export function lineRowOf(data: LineFields) {
     custom_currency_id: data.customCurrencyId,
     meter_number: data.meterNumber,
     start_reading: data.startReading,
+    prepaid: data.prepaid,
   };
 }
 
@@ -114,7 +122,7 @@ class CustomerPlanService {
   // `lines` is the final list, so removals and reactivations net out in the count.
   async syncLines(
     customerId: string,
-    lines: LineDraft[],
+    drafts: LineDraft[],
     removed: RemovedLine[],
     reactivated: string[],
     tenantId: string,
@@ -122,6 +130,7 @@ class CustomerPlanService {
     limits: QuotaPair,
     activeCounts: QuotaPair,
   ): Promise<{ active: CustomerPlan[]; cancelled: CustomerPlan[] }> {
+    const lines = drafts.map(withPrepaidStart);
     const existingById = new Map(existingLines.map((l) => [l.id, l]));
     const reactivatedSet = new Set(reactivated);
     billingService.assertQuotas(limits, activeCounts, {
@@ -130,6 +139,7 @@ class CustomerPlanService {
     });
     await this.assertPaidLinesKept(customerId, lines, existingById);
     this.assertNewLinesValid(lines);
+    await this.assertPrepaidPlansAllowed(lines);
     await this.assertStartReadingsKept(lines, existingById);
     await this.assertCancelDatesAllowed(removed, existingById);
 
@@ -194,7 +204,7 @@ class CustomerPlanService {
       .map((l) => l.id);
   }
 
-  // A line money reached keeps its plan and start date; switch = a new line.
+  // A paid line keeps its plan, start date and prepaid switch; change = a new line.
   private async assertPaidLinesKept(
     customerId: string,
     lines: LineDraft[],
@@ -204,8 +214,9 @@ class CustomerPlanService {
       const prev = line.id ? existingById.get(line.id) : undefined;
       if (!prev) return [];
       const planMoved = prev.planId !== line.planId;
-      return planMoved || prev.startDate !== line.startDate
-        ? [{ id: prev.id, planMoved }]
+      const prepaidMoved = prev.prepaid !== line.prepaid;
+      return planMoved || prepaidMoved || prev.startDate !== line.startDate
+        ? [{ id: prev.id, planMoved, prepaidMoved }]
         : [];
     });
     if (moved.length === 0) return;
@@ -213,6 +224,9 @@ class CustomerPlanService {
     const paid = moved.filter((m) => locked.has(m.id));
     if (paid.some((m) => m.planMoved)) {
       throw new Error(i18n.t("errors.plan_locked_paid"));
+    }
+    if (paid.some((m) => m.prepaidMoved)) {
+      throw new Error(i18n.t("errors.prepaid_locked_paid"));
     }
     if (paid.length > 0) {
       throw new Error(i18n.t("errors.start_date_locked_paid"));
@@ -247,6 +261,15 @@ class CustomerPlanService {
     });
     if ((await this.getStartPaidLineIds(changed)).length > 0) {
       throw new Error(i18n.t("errors.start_reading_locked_paid"));
+    }
+  }
+
+  private async assertPrepaidPlansAllowed(lines: LineDraft[]): Promise<void> {
+    const planIds = new Set(lines.flatMap((l) => (l.prepaid && l.planId ? [l.planId] : [])));
+    if (planIds.size === 0) return;
+    const plans = (await repositories().plan.findAll()).filter((p) => planIds.has(p.id));
+    if (plans.some((p) => !canBePrepaid(usageOf(p)))) {
+      throw new Error(i18n.t("errors.prepaid_usage_plan"));
     }
   }
 

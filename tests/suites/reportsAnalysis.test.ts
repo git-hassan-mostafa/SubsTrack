@@ -346,6 +346,7 @@ const PLAN: Plan = {
   tenantId: "t1",
   createdAt: "2025-01-01T00:00:00.000Z",
   usage: null,
+  prepaid: false,
 };
 
 function line(over: Partial<CustomerPlan> = {}): CustomerPlan {
@@ -360,6 +361,7 @@ function line(over: Partial<CustomerPlan> = {}): CustomerPlan {
     customCurrencyId: null,
     meterNumber: null,
     startReading: null,
+    prepaid: false,
     tenantId: "t1",
     createdAt: "2025-01-01T00:00:00.000Z",
     updatedAt: "2025-01-01T00:00:00.000Z",

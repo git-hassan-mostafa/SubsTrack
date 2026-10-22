@@ -27,6 +27,7 @@ const usageInput = (over: Partial<PlanUsage> = {}) => ({
   currencyId: "cur-lbp",
   branchId: null,
   usage: { ...METER, ...over },
+  prepaid: false,
 });
 
 const usagePlan = plan({ id: "p-10a", name: "10A", price: null, currencyId: "cur-lbp", usage: METER });
@@ -110,6 +111,7 @@ describe("saving a usage plan", () => {
       unit_name: null,
       fee_name: null,
       high_usage_percent: null,
+      prepaid: false,
     });
     expect(old.usage).toBeNull();
   });

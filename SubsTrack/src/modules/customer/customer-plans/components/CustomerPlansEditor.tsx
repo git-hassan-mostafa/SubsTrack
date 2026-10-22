@@ -58,6 +58,8 @@ export function CustomerPlansEditor({ drafts, branchId }: Props) {
           onPriceFromChange={(month) => drafts.setPriceFrom(row.key, month)}
           onPlanChange={(v) => drafts.setPlan(row.key, v)}
           onStartDateChange={(v) => drafts.setStartDate(row.key, v)}
+          canBePrepaid={drafts.canBePrepaid(row)}
+          onPrepaidChange={(v) => drafts.setPrepaid(row.key, v)}
           onPriceChange={(amount, currencyId) =>
             drafts.setPrice(row.key, amount, currencyId)
           }

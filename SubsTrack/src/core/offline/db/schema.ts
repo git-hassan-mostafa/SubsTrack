@@ -5,6 +5,7 @@ const SQL_TYPE: Record<ColType, string> = {
   int: "INTEGER",
   num: "TEXT",
   bool: "INTEGER",
+  flag: "INTEGER NOT NULL DEFAULT 0",
   json: "TEXT",
 };
 

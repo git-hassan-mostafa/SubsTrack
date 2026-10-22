@@ -3,6 +3,7 @@ import { TABLE_BY_NAME, type ColType } from "./tables";
 type RawRow = Record<string, unknown>;
 
 function decodeValue(v: unknown, type: ColType): unknown {
+  if (type === "flag") return v === 1 || v === "1" || v === true;
   if (v === null || v === undefined) return null;
   switch (type) {
     case "bool":
@@ -23,6 +24,7 @@ function decodeValue(v: unknown, type: ColType): unknown {
 }
 
 function encodeValue(v: unknown, type: ColType): unknown {
+  if (type === "flag") return v ? 1 : 0;
   if (v === null || v === undefined) return null;
   switch (type) {
     case "bool":

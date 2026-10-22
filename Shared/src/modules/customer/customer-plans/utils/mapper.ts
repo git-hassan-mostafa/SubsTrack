@@ -25,6 +25,7 @@ export function mapDbCustomerPlanToCustomerPlan(
     customCurrencyId: db.custom_currency_id,
     meterNumber: db.meter_number ?? null,
     startReading: numberOrNull(db.start_reading),
+    prepaid: db.prepaid === true,
     tenantId: db.tenant_id,
     createdAt: db.created_at,
     updatedAt: db.updated_at,

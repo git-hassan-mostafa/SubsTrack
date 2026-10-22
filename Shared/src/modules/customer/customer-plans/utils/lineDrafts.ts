@@ -4,6 +4,11 @@ import {
   linePriceChanged,
   type LinePriceFields,
 } from "@shared/modules/customer/customer-plans/utils/priceHistory";
+import {
+  canBePrepaid,
+  prepaidStartDate,
+  withPrepaidStart,
+} from "@shared/modules/customer/customer-plans/utils/prepaidLine";
 
 // `id` = a saved line; "cancelled" rows stay read-only until reactivated.
 export interface LineRow {
@@ -15,12 +20,13 @@ export interface LineRow {
   customCurrencyId: string | null;
   meterNumber: string;
   startReading: number | null;
+  prepaid: boolean;
   status: "active" | "cancelled";
   priceFrom?: string;
   savedPlan?: LinePlan | null;
 }
 
-type LinePlan = Pick<Plan, "id" | "usage">;
+type LinePlan = Pick<Plan, "id" | "usage" | "prepaid">;
 
 export function newLineRow(suffix: number, startDate: string): LineRow {
   return {
@@ -31,6 +37,7 @@ export function newLineRow(suffix: number, startDate: string): LineRow {
     customCurrencyId: null,
     meterNumber: "",
     startReading: null,
+    prepaid: false,
     status: "active",
   };
 }
@@ -51,14 +58,43 @@ export function rowsFromCustomer(
     customCurrencyId: line.customCurrencyId,
     meterNumber: line.meterNumber ?? "",
     startReading: line.startReading,
+    prepaid: line.prepaid,
     status: line.active ? "active" : "cancelled",
-    savedPlan: line.plan ? { id: line.plan.id, usage: line.plan.usage } : null,
+    savedPlan: line.plan
+      ? { id: line.plan.id, usage: line.plan.usage, prepaid: line.plan.prepaid }
+      : null,
   }));
 }
 
 // The common case is a second service beginning alongside the first.
 export function nextLineStartDate(rows: LineRow[], today: string): string {
   return rows[rows.length - 1]?.startDate ?? today;
+}
+
+// Picking a plan brings its prepaid default; a prepaid row starts on the 1st.
+export function withRowPlan(
+  row: LineRow,
+  planId: string | null,
+  plans: readonly LinePlan[],
+): LineRow {
+  const plan = plans.find((p) => p.id === planId);
+  const prepaid = plan ? canBePrepaid(plan.usage) && plan.prepaid : row.prepaid;
+  return withRowPrepaid({ ...row, planId }, prepaid);
+}
+
+export function withRowPrepaid(row: LineRow, prepaid: boolean): LineRow {
+  return prepaid
+    ? { ...row, prepaid, startDate: prepaidStartDate(row.startDate) }
+    : { ...row, prepaid };
+}
+
+export function withRowStartDate(row: LineRow, startDate: string): LineRow {
+  return { ...row, startDate: row.prepaid ? prepaidStartDate(startDate) : startDate };
+}
+
+// The switch shows only where a line can be prepaid (never a meter line).
+export function canRowBePrepaid(row: LineRow, plans: readonly LinePlan[]): boolean {
+  return canBePrepaid(planUsageOf(row, plans));
 }
 
 // A plan-price row keeps no currency; a zero special price means "none".
@@ -85,15 +121,16 @@ export function toLineDrafts(rows: LineRow[], plans: readonly LinePlan[]): LineD
       const usagePlan = planUsageOf(row, plans);
       const meter = usagePlan?.entry === "reading";
       const usage = usagePlan !== null;
-      return {
+      return withPrepaidStart({
         id: row.id,
         planId: row.planId,
         startDate: row.startDate,
+        prepaid: canBePrepaid(usagePlan) && row.prepaid,
         ...(usage ? { customPrice: null, customCurrencyId: null } : specialPriceOf(row)),
         meterNumber: meter ? row.meterNumber.trim() || null : null,
         startReading: meter ? row.startReading : null,
         priceFrom: row.priceFrom,
-      };
+      });
     });
 }
 
@@ -137,6 +174,7 @@ export function lineRowsChanged(
       base.customPrice !== row.customPrice ||
       base.meterNumber !== row.meterNumber ||
       base.startReading !== row.startReading ||
+      base.prepaid !== row.prepaid ||
       (row.customPrice !== null && base.customCurrencyId !== row.customCurrencyId) ||
       base.status !== row.status
     );

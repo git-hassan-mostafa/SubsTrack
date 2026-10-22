@@ -407,6 +407,9 @@ ALTER TABLE plans ADD COLUMN IF NOT EXISTS fee_name TEXT;
 ALTER TABLE plans ADD COLUMN IF NOT EXISTS high_usage_percent NUMERIC(10,2)
     CONSTRAINT chk_plans_high_usage_percent CHECK (high_usage_percent IS NULL OR high_usage_percent > 0);
 
+-- Default for NEW lines on this plan; set_plan_prepaid() is the only later change.
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS prepaid BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
 
 DO $$ BEGIN
@@ -610,6 +613,9 @@ ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS custom_currency_id UUID
 ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS meter_number TEXT;
 ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS start_reading NUMERIC(20,4)
     CONSTRAINT chk_customer_plans_start_reading CHECK (start_reading IS NULL OR start_reading >= 0);
+
+-- A prepaid line's month with no money owes nothing ("No service", month-grid.md).
+ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS prepaid BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
 
@@ -2388,6 +2394,66 @@ REVOKE EXECUTE ON FUNCTION update_plan_with_price_history(
 ) FROM anon;
 
 -- ============================================================
+-- SET PLAN PREPAID
+-- A plan's prepaid switch and all its lines change together, and only while
+-- no line on the plan holds money (a live collection item). Prepaid lines
+-- start on the 1st. The app writes the audit row (no trigger, by design).
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION set_plan_prepaid(
+    p_plan_id UUID,
+    p_prepaid BOOLEAN
+)
+RETURNS plans
+LANGUAGE plpgsql
+SECURITY INVOKER
+AS $$
+DECLARE
+    v_tenant_id UUID := current_tenant_id();
+    v_plan plans;
+BEGIN
+    IF v_tenant_id IS NULL THEN
+        RAISE EXCEPTION 'No tenant on this session';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+          FROM collection_items ci
+          JOIN collections co ON co.id = ci.collection_id AND co.voided_at IS NULL
+          JOIN charges ch ON ch.id = ci.charge_id
+          JOIN customer_plans cp ON cp.id = ch.customer_plan_id
+         WHERE cp.plan_id = p_plan_id
+    ) THEN
+        RAISE EXCEPTION 'prepaid_locked_paid';
+    END IF;
+
+    UPDATE plans
+       SET prepaid = p_prepaid
+     WHERE id = p_plan_id
+       AND tenant_id = v_tenant_id
+       AND billing_type = 'fixed'
+    RETURNING * INTO v_plan;
+
+    IF v_plan.id IS NULL THEN
+        RAISE EXCEPTION 'Plan not found';
+    END IF;
+
+    UPDATE customer_plans
+       SET prepaid = p_prepaid,
+           start_date = CASE WHEN p_prepaid
+                             THEN date_trunc('month', start_date)::date
+                             ELSE start_date END
+     WHERE plan_id = p_plan_id
+       AND tenant_id = v_tenant_id;
+
+    RETURN v_plan;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION set_plan_prepaid(UUID, BOOLEAN) TO authenticated;
+REVOKE EXECUTE ON FUNCTION set_plan_prepaid(UUID, BOOLEAN) FROM anon;
+
+-- ============================================================
 -- IMPORT CUSTOMERS (web import from a file, one group of rows per call)
 -- One transaction per group: its customers, their service lines and their
 -- audit rows land together or not at all, so a failed group leaves nothing
@@ -2437,13 +2503,14 @@ BEGIN
 
     INSERT INTO customer_plans (
         id, customer_id, plan_id, start_date, tenant_id, custom_price,
-        custom_currency_id, meter_number, start_reading
+        custom_currency_id, meter_number, start_reading, prepaid
     )
     SELECT l.id, l.customer_id, l.plan_id, l.start_date, v_tenant_id, l.custom_price,
-           l.custom_currency_id, l.meter_number, l.start_reading
+           l.custom_currency_id, l.meter_number, l.start_reading,
+           COALESCE(l.prepaid, FALSE)
     FROM jsonb_to_recordset(p_lines) AS l(
         id UUID, customer_id UUID, plan_id UUID, start_date DATE, custom_price NUMERIC,
-        custom_currency_id UUID, meter_number TEXT, start_reading NUMERIC
+        custom_currency_id UUID, meter_number TEXT, start_reading NUMERIC, prepaid BOOLEAN
     );
 
     INSERT INTO audit_logs (
@@ -2507,7 +2574,8 @@ AS $$
     ),
     lines AS (
         SELECT cp.id, cp.customer_id, cp.start_date, cp.active, cp.plan_id,
-               cp.custom_price, cp.custom_currency_id, cp.start_reading
+               cp.custom_price, cp.custom_currency_id, cp.start_reading,
+               cp.prepaid
           FROM customer_plans cp
           JOIN scoped s ON s.id = cp.customer_id
     ),
@@ -2555,7 +2623,7 @@ AS $$
                                              COALESCE(ls.months, '[]'::json),
                                              l.plan_id, l.custom_price,
                                              l.custom_currency_id,
-                                             l.start_reading))
+                                             l.start_reading, l.prepaid))
               FROM lines l
               LEFT JOIN line_bills lb ON lb.customer_plan_id = l.id
               LEFT JOIN line_skips ls ON ls.customer_plan_id = l.id), '[]'::json),
@@ -2571,7 +2639,7 @@ AS $$
                                              p.tenant_id, p.created_at,
                                              p.billing_type, p.usage_entry,
                                              p.unit_name, p.fee_name,
-                                             p.high_usage_percent))
+                                             p.high_usage_percent, p.prepaid))
               FROM plans p), '[]'::json),
         'currencies', COALESCE((
             SELECT json_agg(json_build_array(cu.id, cu.rate_per_usd))

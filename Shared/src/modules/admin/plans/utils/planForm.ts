@@ -25,6 +25,7 @@ export function planDraftOf(plan: Plan | null, newBranchId: string | null): Plan
     branchId: plan ? plan.branchId : newBranchId,
     durationMonths: plan?.durationMonths ?? 1,
     usage: plan?.usage ?? null,
+    prepaid: plan?.prepaid ?? false,
   };
 }
 
@@ -52,6 +53,7 @@ export function withBillingType(draft: PlanDraft, type: PlanBillingType): PlanDr
   return {
     ...draft,
     usage: draft.usage ?? EMPTY_PLAN_USAGE,
+    prepaid: false,
     isCustomPrice: false,
     durationMonths: 1,
   };
@@ -79,6 +81,7 @@ export function planInput(draft: PlanDraft): PlanInput {
       price: null,
       isCustomPrice: false,
       durationMonths: 1,
+      prepaid: false,
     };
   }
   return {

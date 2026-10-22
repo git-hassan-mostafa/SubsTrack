@@ -10,6 +10,7 @@ export type PlanInput = Pick<
   | "currencyId"
   | "branchId"
   | "usage"
+  | "prepaid"
 >;
 
 export interface PlanPageQuery extends PageWindow {

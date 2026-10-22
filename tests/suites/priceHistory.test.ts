@@ -281,6 +281,7 @@ describe("recording a price edit", () => {
     currencyId: null,
     branchId: null,
     usage: null,
+    prepaid: false,
   });
 
   it("TC-PH-11 a plan price edit keeps the old price, then adds the new one from the chosen month", async () => {
@@ -407,6 +408,7 @@ describe("switching a line's plan", () => {
     custom_currency_id: l.customCurrencyId,
     meter_number: l.meterNumber,
     start_reading: l.startReading,
+    prepaid: l.prepaid,
     tenant_id: "t1",
     created_at: l.createdAt,
     updated_at: l.updatedAt,
@@ -415,7 +417,7 @@ describe("switching a line's plan", () => {
   const sync = (prev: CustomerPlan, next: Partial<LineDraft>) =>
     customerPlanService.syncLines(
       "cust-1",
-      [{ id: prev.id, planId: prev.planId, startDate: prev.startDate, customPrice: prev.customPrice, customCurrencyId: prev.customCurrencyId, meterNumber: prev.meterNumber, startReading: prev.startReading, ...next }],
+      [{ id: prev.id, planId: prev.planId, startDate: prev.startDate, customPrice: prev.customPrice, customCurrencyId: prev.customCurrencyId, meterNumber: prev.meterNumber, startReading: prev.startReading, prepaid: prev.prepaid, ...next }],
       [],
       [],
       "t1",
@@ -480,6 +482,7 @@ describe("the price-start picker", () => {
     customPrice: null,
     meterNumber: "",
     startReading: null,
+    prepaid: false,
     customCurrencyId: null,
     status: "active",
     ...over,
@@ -524,6 +527,7 @@ describe("the price-start picker", () => {
       currencyId: null,
       branchId: null,
       usage: null,
+      prepaid: false,
     });
 
     it("TC-PH-26 getForPlan returns the plan's stored changes", async () => {

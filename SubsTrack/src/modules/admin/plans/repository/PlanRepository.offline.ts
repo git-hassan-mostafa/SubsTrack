@@ -3,7 +3,10 @@ import type { Page } from "@shared/core/types";
 import type { DbPlan } from "@shared/core/types/db";
 import type { PlanPageQuery } from "@shared/modules/admin/plans/utils/types";
 import { OfflineBaseRepository } from "@/src/core/offline/OfflineBaseRepository";
-import { insertDirty, updateDirty } from "@/src/core/offline/db/dml";
+import { insertDirty, updateDirty, upsertFromServer } from "@/src/core/offline/db/dml";
+import { isOnline } from "@/src/core/offline/net/connectivity";
+import { RequiresConnectionError } from "@shared/core/errors/offlineErrors";
+import { PlanRepository } from "@shared/modules/admin/plans/repository/PlanRepository";
 import { newId, nowIso } from "@shared/core/utils/ids";
 import type {
   IPlanRepository,
@@ -115,6 +118,37 @@ export class OfflinePlanRepository
       return updated;
     });
     if (!row) this.handleError(new Error("Plan not found"));
+    return row;
+  }
+
+  async hasPaidLine(id: string): Promise<boolean> {
+    const n = await this.count(
+      `SELECT COUNT(*) AS n
+         FROM collection_items i
+         JOIN collections p ON p.id = i.collection_id AND p.voided_at IS NULL
+         JOIN charges c ON c.id = i.charge_id
+         JOIN customer_plans l ON l.id = c.customer_plan_id
+        WHERE l.plan_id = ?`,
+      [id],
+    );
+    return n > 0;
+  }
+
+  // Online-only: the paid-line lock must see every phone's money.
+  async setPrepaid(id: string, prepaid: boolean): Promise<DbPlan> {
+    if (!(await isOnline())) throw new RequiresConnectionError();
+    const row = await new PlanRepository().setPrepaid(id, prepaid);
+    const flag = prepaid ? 1 : 0;
+    await this.write(async (db) => {
+      await upsertFromServer(db, "plans", row);
+      await db.runAsync(
+        `UPDATE customer_plans
+            SET prepaid = ?,
+                start_date = CASE WHEN ? = 1 THEN substr(start_date, 1, 7) || '-01' ELSE start_date END
+          WHERE plan_id = ? AND _dirty = 0`,
+        [flag, flag, id] as never[],
+      );
+    });
     return row;
   }
 

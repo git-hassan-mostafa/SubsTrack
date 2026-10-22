@@ -13,6 +13,10 @@ import {
   type ImportColumn,
 } from "./importColumns";
 import { isMapLink, matchKey, parseDay, parseNumber, parseYesNo, phoneKey } from "./importText";
+import {
+  canBePrepaid,
+  withPrepaidStart,
+} from "@shared/modules/customer/customer-plans/utils/prepaidLine";
 import type { ImportCustomer, ImportLookups, ImportPreview, ImportRow } from "./types";
 
 export const MAX_IMPORT_ROWS = 5000;
@@ -194,14 +198,15 @@ function lineOf(row: ImportRow, branchId: string | null, lookups: ImportLookups)
     }
   }
 
-  return {
+  return withPrepaidStart({
     planId: plan.value.id,
     startDate: startDate ?? "",
     customPrice,
     customCurrencyId,
     meterNumber,
     startReading,
-  };
+    prepaid: canBePrepaid(usage) && plan.value.prepaid,
+  });
 }
 
 function firstProblemOf(rule: () => void): string | null {

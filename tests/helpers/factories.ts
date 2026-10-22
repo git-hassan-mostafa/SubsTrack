@@ -41,6 +41,7 @@ export const FIXED_PLAN_COLUMNS = {
   unit_name: null,
   fee_name: null,
   high_usage_percent: null,
+  prepaid: false,
 } as const;
 
 export function plan(over: Partial<Plan> = {}): Plan {
@@ -55,6 +56,7 @@ export function plan(over: Partial<Plan> = {}): Plan {
     tenantId: "t1",
     createdAt: "2024-01-01T00:00:00.000Z",
     usage: null,
+    prepaid: false,
     ...over,
   };
 }
@@ -90,6 +92,7 @@ export function line(over: Partial<CustomerPlan> = {}): CustomerPlan {
     customCurrencyId: null,
     meterNumber: null,
     startReading: null,
+    prepaid: false,
     tenantId: "t1",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",

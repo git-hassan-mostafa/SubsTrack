@@ -53,6 +53,7 @@ export type WireLine = [
   customPrice?: number | null,
   customCurrencyId?: string | null,
   startReading?: number | null,
+  prepaid?: boolean | null,
 ];
 
 export type WireReading = [
@@ -91,6 +92,7 @@ export type WirePlan = [
   unitName?: string | null,
   feeName?: string | null,
   highUsagePercent?: number | null,
+  prepaid?: boolean | null,
 ];
 
 export type WireCurrency = [id: string, ratePerUsd: number];
@@ -183,6 +185,7 @@ function readPlans(wire: WirePlan[]): Plan[] {
       unitName,
       feeName,
       highUsagePercent,
+      prepaid,
     ]) => ({
       id,
       name,
@@ -200,6 +203,7 @@ function readPlans(wire: WirePlan[]): Plan[] {
         fee_name: feeName ?? null,
         high_usage_percent: highUsagePercent ?? null,
       }),
+      prepaid: prepaid === true,
     }),
   );
 }
@@ -302,6 +306,7 @@ export function readCustomerStatusFacts(
     customPrice = null,
     customCurrencyId = null,
     startReading = null,
+    prepaid = false,
   ] of wire.lines) {
     customers.get(customerId)?.customerPlans.push({
       id,
@@ -311,6 +316,7 @@ export function readCustomerStatusFacts(
       customPrice: numberOrNull(customPrice),
       customCurrencyId,
       startReading: numberOrNull(startReading),
+      prepaid: prepaid === true,
       plan: planId ? (planById.get(planId) ?? null) : null,
     });
     for (const [

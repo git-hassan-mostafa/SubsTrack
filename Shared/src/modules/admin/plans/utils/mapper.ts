@@ -29,6 +29,7 @@ export function mapDbPlanToPlan(db: DbPlan): Plan {
     tenantId: db.tenant_id,
     createdAt: db.created_at,
     usage: usageOf(db),
+    prepaid: db.prepaid === true,
   };
 }
 

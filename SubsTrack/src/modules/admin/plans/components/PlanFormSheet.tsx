@@ -14,6 +14,7 @@ import { PriceStartPicker } from "@/src/shared/components/PriceStartPicker";
 import type { Plan } from "@shared/core/types";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { usePlanPriceHistory } from "@shared/modules/admin/plans/hooks/usePlanPriceHistory";
+import { usePlanPrepaidLock } from "@shared/modules/admin/plans/hooks/usePlanPrepaidLock";
 import { usePlanSlice } from "@shared/state/hooks/usePlanSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { planDurationLabel } from "@shared/modules/admin/plans/utils/planLabels";
@@ -62,6 +63,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
   const activeBranches = useActiveBranches();
 
   const historyState = usePlanPriceHistory(plan?.id);
+  const prepaidLocked = usePlanPrepaidLock(plan?.id);
 
   const [form, setForm] = useState(() =>
     planDraftOf(plan ?? null, defaultNewBranchId(user, activeBranches)),
@@ -268,6 +270,23 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
           ) : (
             <View className="mb-4" />
           )}
+
+          <View className="flex-row items-center justify-between py-4 border border-gray-100 rounded-xl px-4 mb-4">
+            <View className="flex-1 me-3">
+              <Text fontWeight="SemiBold" className="text-sm text-gray-900">
+                {t("plans.prepaid_label")}
+              </Text>
+              <Text className="text-xs text-gray-400 mt-0.5">
+                {prepaidLocked ? t("plans.prepaid_locked_hint") : t("plans.prepaid_hint")}
+              </Text>
+            </View>
+            <Switch
+              value={form.prepaid}
+              disabled={prepaidLocked}
+              onValueChange={(v) => setForm((prev) => ({ ...prev, prepaid: v }))}
+              trackColor={{ true: COLORS.primary }}
+            />
+          </View>
         </>
       )}
 

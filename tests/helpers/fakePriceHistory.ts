@@ -19,10 +19,12 @@ export const priceStore = {
   plans: [] as DbPlanPriceChange[],
   lines: [] as DbLinePriceChange[],
   catalog: [] as DbPlan[],
+  paidPlanIds: [] as string[],
   reset() {
     this.plans = [];
     this.lines = [];
     this.catalog = [];
+    this.paidPlanIds = [];
   },
 };
 
@@ -91,6 +93,24 @@ export const fakeCustomerPlanRepository = {
 } as unknown as ICustomerPlanRepository;
 
 export const fakePlanRepository = {
+  async findAll() {
+    return priceStore.catalog;
+  },
+  async hasPaidLine(id: string) {
+    return priceStore.paidPlanIds.includes(id);
+  },
+  async setPrepaid(id: string, prepaid: boolean) {
+    if (priceStore.paidPlanIds.includes(id)) throw new Error("prepaid_locked_paid");
+    const i = priceStore.catalog.findIndex((p) => p.id === id);
+    if (i === -1) throw new Error("Plan not found");
+    priceStore.catalog[i] = { ...priceStore.catalog[i], prepaid };
+    lineStore.rows = lineStore.rows.map((r) =>
+      r.plan_id === id
+        ? { ...r, prepaid, start_date: prepaid ? `${r.start_date.slice(0, 7)}-01` : r.start_date }
+        : r,
+    );
+    return priceStore.catalog[i];
+  },
   async create(payload: Omit<DbPlan, "id" | "created_at">) {
     const row: DbPlan = {
       ...payload,

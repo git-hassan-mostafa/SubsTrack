@@ -103,6 +103,7 @@ describe("writing off months nobody paid", () => {
         currencyId: null,
         branchId: null,
         usage: null,
+        prepaid: false,
       },
       "2026-03-01",
     );

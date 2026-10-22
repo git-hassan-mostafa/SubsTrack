@@ -17,6 +17,7 @@ import type {
   PlanInput,
   PlanPageQuery,
 } from "@shared/modules/admin/plans/utils/types";
+import { canBePrepaid } from "@shared/modules/customer/customer-plans/utils/prepaidLine";
 
 class PlanService {
   async getPlans(branchFilter: BranchFilter = null): Promise<Plan[]> {
@@ -34,6 +35,7 @@ class PlanService {
     try {
       const row = await repositories().plan.create({
         ...this.columns(data),
+        prepaid: canBePrepaid(data.usage) && data.prepaid,
         tenant_id: tenantId,
       });
       return mapDbPlanToPlan(row);
@@ -58,6 +60,9 @@ class PlanService {
     this.validate(data, priceFrom, priceChanged);
     const payload = this.columns(data);
     try {
+      if (previous.prepaid !== data.prepaid) {
+        await repositories().plan.setPrepaid(previous.id, data.prepaid);
+      }
       if (priceChanged) {
         const { first, change } = await priceHistoryService.planChangePayloads(
           previous,
@@ -81,6 +86,11 @@ class PlanService {
     } catch (err) {
       return this.rethrow(err);
     }
+  }
+
+  // A plan whose line holds money keeps its prepaid switch (set_plan_prepaid).
+  async hasPaidLine(id: string): Promise<boolean> {
+    return repositories().plan.hasPaidLine(id);
   }
 
   async deletePlan(id: string): Promise<void> {
@@ -132,6 +142,9 @@ class PlanService {
 
   private validate(data: PlanInput, priceFrom?: string, priceChanged = false): void {
     if (!data.name.trim()) throw new Error(i18n.t("errors.plan_name_required"));
+    if (data.prepaid && !canBePrepaid(data.usage)) {
+      throw new Error(i18n.t("errors.prepaid_usage_plan"));
+    }
     if (data.usage) {
       this.validateUsage(data.usage);
       return;
@@ -157,6 +170,9 @@ class PlanService {
 
   private rethrow(err: unknown): never {
     const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("prepaid_locked_paid")) {
+      throw new Error(i18n.t("errors.plan_prepaid_locked_paid"));
+    }
     if (
       msg.includes("uq_plans_name_tenant") ||
       msg.includes("uq_plans_name_tenant_branch") ||

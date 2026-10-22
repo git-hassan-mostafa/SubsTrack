@@ -12,6 +12,7 @@ import {
   type RemoveLineChoice,
 } from "@shared/modules/customer/customer-plans/utils/cancelDate";
 import {
+  canRowBePrepaid,
   clearOtherBranchPlans,
   lineRowsChanged,
   newLineRow,
@@ -19,6 +20,9 @@ import {
   rowPriceChanged,
   rowsFromCustomer,
   toLineDrafts,
+  withRowPlan,
+  withRowPrepaid,
+  withRowStartDate,
   type LineRow,
 } from "@shared/modules/customer/customer-plans/utils/lineDrafts";
 import { confirm } from "@shared/shared/lib/confirm";
@@ -52,6 +56,8 @@ export interface LineDrafts {
   setMeterNumber: (key: string, meterNumber: string) => void;
   setStartReading: (key: string, startReading: number | null) => void;
   setPlan: (key: string, planId: string | null) => void;
+  canBePrepaid: (row: LineRow) => boolean;
+  setPrepaid: (key: string, prepaid: boolean) => void;
   setPrice: (key: string, amount: number | null, currencyId: string | null) => void;
   setStartDate: (key: string, date: string) => void;
   priceChanged: (row: LineRow) => boolean;
@@ -127,8 +133,10 @@ export function useLineDrafts({
     }
   }
 
+  const updateRow = (key: string, update: (row: LineRow) => LineRow) =>
+    setRows((prev) => prev.map((row) => (row.key === key ? update(row) : row)));
   const patchRow = (key: string, patch: Partial<LineRow>) =>
-    setRows((prev) => prev.map((row) => (row.key === key ? { ...row, ...patch } : row)));
+    updateRow(key, (row) => ({ ...row, ...patch }));
 
   const activeCount = rows.filter((row) => row.status === "active").length;
 
@@ -199,12 +207,14 @@ export function useLineDrafts({
     setMeterNumber: (key, meterNumber) => patchRow(key, { meterNumber }),
     setStartReading: (key, startReading) => patchRow(key, { startReading }),
     setPlan: (key, planId) => {
-      patchRow(key, { planId });
+      updateRow(key, (row) => withRowPlan(row, planId, plans));
       setAutoCleared((prev) => prev.filter((k) => k !== key));
     },
     setPrice: (key, customPrice, customCurrencyId) =>
       patchRow(key, { customPrice, customCurrencyId }),
-    setStartDate: (key, startDate) => patchRow(key, { startDate }),
+    canBePrepaid: (row) => canRowBePrepaid(row, plans),
+    setPrepaid: (key, prepaid) => updateRow(key, (row) => withRowPrepaid(row, prepaid)),
+    setStartDate: (key, startDate) => updateRow(key, (row) => withRowStartDate(row, startDate)),
     priceChanged: (row) => rowPriceChanged(initialRows, row),
     setPriceFrom: (key, priceFrom) => patchRow(key, { priceFrom }),
     addRow: () => {

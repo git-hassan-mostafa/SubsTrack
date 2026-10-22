@@ -1,4 +1,4 @@
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Switch, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
@@ -28,6 +28,8 @@ interface Props {
   onPriceFromChange: (month: string) => void;
   onPlanChange: (planId: string | null) => void;
   onStartDateChange: (date: string) => void;
+  canBePrepaid: boolean;
+  onPrepaidChange: (prepaid: boolean) => void;
   onPriceChange: (amount: number | null, currencyId: string | null) => void;
   onMeterNumberChange: (meterNumber: string) => void;
   onStartReadingChange: (startReading: number | null) => void;
@@ -52,6 +54,8 @@ export function PlanLineCard({
   onPriceFromChange,
   onPlanChange,
   onStartDateChange,
+  canBePrepaid,
+  onPrepaidChange,
   onPriceChange,
   onMeterNumberChange,
   onStartReadingChange,
@@ -191,6 +195,27 @@ export function PlanLineCard({
           ) : null}
         </>
       )}
+
+      {canBePrepaid ? (
+        <View className="flex-row items-center justify-between mt-3">
+          <View className="flex-1 me-3">
+            <Text fontWeight="SemiBold" className="text-sm text-gray-900">
+              {t("subscriptions.prepaid_label")}
+            </Text>
+            <Text className="text-xs text-gray-400 mt-0.5">
+              {locked && !cancelled
+                ? t("subscriptions.prepaid_locked")
+                : t("subscriptions.prepaid_hint")}
+            </Text>
+          </View>
+          <Switch
+            value={row.prepaid}
+            disabled={cancelled || locked}
+            onValueChange={onPrepaidChange}
+            trackColor={{ true: COLORS.primary }}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }

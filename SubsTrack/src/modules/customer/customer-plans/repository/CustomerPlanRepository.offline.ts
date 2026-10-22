@@ -44,6 +44,7 @@ export class OfflineCustomerPlanRepository
       custom_currency_id: payload.custom_currency_id,
       meter_number: payload.meter_number,
       start_reading: payload.start_reading,
+      prepaid: payload.prepaid,
       tenant_id: payload.tenant_id,
       created_at: now,
       updated_at: now,

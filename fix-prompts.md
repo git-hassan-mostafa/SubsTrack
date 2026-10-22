@@ -26,7 +26,7 @@ and how the app should behave — Claude finds the code itself.
 |     | **Tier 2 — blocks the two markets**      |                                                          |      |        |
 | 4   | Generator meter billing                  | Generator owners must bill by meter by law               | XL   | (2)    |
 | 5   | Import customers from Excel              | Nobody will type 300–1,000 customers by hand             | M    | —      |
-| 6   | Prepaid "paid until" for ISPs            | ISPs are prepaid: no pay = cut = nothing owed            | XL   | —      |
+| 6   | Prepaid "paid until" for ISPs            | ISPs are prepaid: no pay = cut = nothing owed            | L    | —      |
 | 7   | Disconnect / reconnect + "who to cut"    | Both businesses cut non-payers every month               | L    | —      |
 | 8   | Printed receipts and bills               | Paper receipts are the norm; inspectors check them       | L    | (4)    |
 |     | **Tier 3 — important**                   |                                                          |      |        |
@@ -148,20 +148,27 @@ Check with me before adding any new library. Plan first and wait for my OK.
 ### 6. Prepaid "paid until" for ISPs
 
 ```text
-Background: Lebanese neighborhood internet distributors mostly sell PREPAID access. The customer pays and gets 30 days (or one month) from that day. When the time ends, the router cuts them. No payment = no internet = nothing owed. (A survey of local ISPs by Splynx: "our client base is almost 95% prepaid".)
+Background: Lebanese neighborhood internet distributors mostly sell PREPAID access. The customer pays for the month ahead. When the time ends, the router cuts them. No payment = no internet = nothing owed. (A survey of local ISPs by Splynx: "our client base is almost 95% prepaid".)
 
-The problem: the app only knows calendar months that keep piling up as unpaid. After a cut, a prepaid customer looks like they owe months they never used, and staff must skip each month by hand.
+The problem: the app treats every month with no payment as unpaid. After a cut, a prepaid customer looks like they owe months they never used, "pay the oldest month first" makes staff collect those months before the current one, and staff must skip each month by hand.
 
-How it should work: a second way to bill, chosen per plan — "prepaid / paid until".
-- Each subscription has a "paid until" date. A payment for one or more periods moves it forward. Whether it moves forward from the old end date or from the payment day (when it had already expired) is a setting for the organization.
-- A period is 30 days or one calendar month, chosen per plan.
-- The customer is: active, "expires in X days", or "expired X days ago". Time after expiry is NOT owed and never becomes a debt.
-- Lists for the collector and for WhatsApp reminders: expiring in the next 3 days, expired today, expired.
-- Payments, receipts, the collector's wallet and the reports keep working for these customers.
-- Customers on calendar months keep working exactly as today.
-- The customer list badges and tabs, the customer page, the customer portal and the web show the prepaid status clearly.
+How it should work — keep the month grid, do NOT build a second billing system:
+1. A "prepaid" switch. Ask me first where it lives: one setting for the whole organization (simplest, no per-customer work), or a switch on each service line in the customer form (more flexible: then the plan gives the default and staff can change it per customer). Customers that are not prepaid keep working exactly as today.
+2. On a prepaid line, a month that has started and got no money shows as "No service" (gray). It owes nothing: never overdue, never a debt, not in "Total to collect", debts, reminders or reports as owed. It does not block paying a newer month. It is NOT a skip — nothing is saved; it is worked out like every other month status. If the ISP did not cut the customer, staff can still tap it and collect it; once money reaches it, it is a normal month again (part paid = the rest is owed, as today).
+3. "Paid until": each prepaid line shows "Paid until <date>" = the end of the newest month that got money. Example: the line starts on the 5th, so each month runs from the 5th to the 4th; August is the newest paid month → "Paid until Sept 4". Worked out, never saved.
+4. The customer is "Paid until Sept 4", "Expires in X days" or "Expired X days ago". Expired is NOT "Overdue" and owes nothing. The customer list badges and tabs (for example "Expiring soon", "Expired"), the customer page, the web and the customer portal show it clearly.
+5. A "Pay until" button in the month grid header of a prepaid line — not in the customer form, which never takes money. Staff pick the last month to pay; the app takes every month from the next unpaid one up to it, shows the total and the new "paid until" date, and saves ONE payment. Each month stays its own bill at its own price; only the payment is shared, and the grid shows those months linked as one payment. Voiding that payment voids all its months together, as today.
+6. Lists for the collector and for WhatsApp reminders: expiring in the next 3 days, expired today, expired.
 
-This is a big change. Plan first, wait for my OK, then build it in steps.
+Be careful about:
+- Months follow the line's start day (5th to 4th). There is NO "30 days from the payment day": a customer who comes back late pays whole months. I accept this.
+- The new month status must live in the one place month status is decided today, so the phone, the web, the server (customer status, reminders) and the portal all agree.
+- Check how it works with the other month rules: pay the oldest month first, void the newest first, the locked start date, skip and unskip, write-off, the organization's "when does a month become unpaid" setting, and usage plans.
+- Payments, receipts, the collector's wallet and the reports keep working for these customers. It must work offline, on the phone and on the web.
+
+Also ask me whether an expired prepaid line still counts toward the organization's plan limit.
+
+Plan first, wait for my OK, then build it in steps.
 ```
 
 ### 7. Disconnect / reconnect + "who to cut"

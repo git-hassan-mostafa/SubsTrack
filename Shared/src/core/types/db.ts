@@ -75,6 +75,7 @@ export interface DbPlan {
   unit_name: string | null;
   fee_name: string | null;
   high_usage_percent: number | null;
+  prepaid: boolean;
 }
 
 export interface DbCustomer {
@@ -110,6 +111,7 @@ export interface DbCustomerPlan {
   custom_currency_id: string | null;
   meter_number: string | null;
   start_reading: number | null;
+  prepaid: boolean;
   tenant_id: string;
   created_at: string;
   updated_at: string;

@@ -106,6 +106,42 @@ export class PlanRepository extends BaseRepository implements IPlanRepository {
     return updated;
   }
 
+  async hasPaidLine(id: string): Promise<boolean> {
+    const { count, error } = await this.db
+      .from("collection_items")
+      .select("id, charges!inner(customer_plans!inner(plan_id)), collections!inner(voided_at)", {
+        count: "exact",
+        head: true,
+      })
+      .eq("charges.customer_plans.plan_id", id)
+      .is("collections.voided_at", null);
+    if (error) this.handleError(error);
+    return (count ?? 0) > 0;
+  }
+
+  async setPrepaid(id: string, prepaid: boolean): Promise<DbPlan> {
+    const { data: prior } = await this.db
+      .from("plans")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    const { data, error } = await this.db.rpc("set_plan_prepaid", {
+      p_plan_id: id,
+      p_prepaid: prepaid,
+    });
+    if (error) this.handleError(error);
+    const updated = data as unknown as DbPlan;
+    this.audit({
+      table: "plans",
+      recordId: id,
+      action: "update",
+      before: prior,
+      after: updated,
+      branchId: updated.branch_id,
+    });
+    return updated;
+  }
+
   async delete(id: string): Promise<void> {
     await this.deleteMany([id]);
   }

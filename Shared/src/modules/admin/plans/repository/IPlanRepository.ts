@@ -31,6 +31,8 @@ export interface IPlanRepository {
     firstChange: PlanPriceChangePayload,
     nextChange: Pick<PlanPriceChangePayload, "id" | "from_month" | "created_at">,
   ): Promise<DbPlan>;
+  hasPaidLine(id: string): Promise<boolean>;
+  setPrepaid(id: string, prepaid: boolean): Promise<DbPlan>;
   delete(id: string): Promise<void>;
   deleteMany(ids: string[]): Promise<void>;
   countAll(branchFilter?: BranchFilter): Promise<number>;

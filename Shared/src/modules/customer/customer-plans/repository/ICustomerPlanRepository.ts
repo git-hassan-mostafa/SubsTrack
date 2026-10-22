@@ -10,6 +10,7 @@ export type CreateCustomerPlanPayload = Pick<
   | "custom_currency_id"
   | "meter_number"
   | "start_reading"
+  | "prepaid"
 >;
 
 export type UpdateCustomerPlanPayload = Partial<
@@ -23,6 +24,7 @@ export type UpdateCustomerPlanPayload = Partial<
     | "custom_currency_id"
     | "meter_number"
     | "start_reading"
+    | "prepaid"
   >
 >;
 
