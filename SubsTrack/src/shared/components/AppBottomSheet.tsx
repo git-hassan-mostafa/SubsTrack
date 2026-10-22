@@ -40,7 +40,7 @@ export function AppBottomSheet({
   dirty = false,
   dismissOnBackdropPress = true,
 }: AppBottomSheetProps) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const sheetWidth = Math.min(width, MATERIAL_SHEET_MAX_WIDTH);
   const sheetRef = useRef<ModalBottomSheetRef>(null);
   const visibleRef = useRef(visible);
@@ -147,7 +147,7 @@ export function AppBottomSheet({
           </RNHostView>
         ) : (
           <RNHostView modifiers={[fillMaxHeight(ratio)]}>
-            <GestureHandlerRootView style={styles.fill}>
+            <GestureHandlerRootView style={{ flex: 1, maxHeight: height }}>
               {body}
             </GestureHandlerRootView>
           </RNHostView>
@@ -156,7 +156,3 @@ export function AppBottomSheet({
     </Host>
   );
 }
-
-const styles = {
-  fill: { flex: 1 },
-} as const;
