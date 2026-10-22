@@ -2,6 +2,7 @@ import { repositories } from "@shared/core/runtime/repositories";
 import type {
   Currency,
   Customer,
+  MonthBill,
   Page,
   UnpaidStartRule,
   WhatsAppAccount,
@@ -18,6 +19,8 @@ import { inChunks } from "@shared/core/utils/chunk";
 import { newId } from "@shared/core/utils/ids";
 import { canSendWhatsApp } from "@shared/core/utils/whatsappLink";
 import skippedMonthService from "@shared/modules/customer/customer-payments/services/SkippedMonthService";
+import { customerPrepaid } from "@shared/modules/customer/customer-payments/utils/monthStatus";
+import { chargeService } from "@shared/modules/ledger/services/ChargeService";
 import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
 import {
   RECIPIENTS_PER_REQUEST,
@@ -38,10 +41,14 @@ import {
   mapDbWhatsAppOptOut,
   mapDbWhatsAppTemplate,
 } from "@shared/modules/whatsapp/utils/mapper";
-import { reminderFacts } from "@shared/modules/whatsapp/utils/reminderFacts";
+import {
+  messageDateText,
+  reminderFacts,
+} from "@shared/modules/whatsapp/utils/reminderFacts";
 import {
   defaultChoices,
   needsOwedFacts,
+  needsPaidUntil,
   resolveValues,
   type PlaceholderChoices,
 } from "@shared/modules/whatsapp/utils/templateValues";
@@ -53,6 +60,11 @@ export interface WhatsAppOverview {
   templates: WhatsAppTemplate[];
   optOuts: WhatsAppOptOut[];
 }
+
+export type ReminderPurpose = Extract<
+  SijilTemplatePurpose,
+  "payment_reminder" | "renewal_reminder"
+>;
 
 export interface RecipientBuild {
   recipients: WhatsAppRecipient[];
@@ -185,6 +197,11 @@ class WhatsAppService {
         })
       : null;
 
+    const wantsPaidUntil = needsPaidUntil(args.choices);
+    const paidUntilTexts = wantsPaidUntil
+      ? await this.paidUntilTexts(reachable, args.t)
+      : null;
+
     const recipients: WhatsAppRecipient[] = [];
     for (const customer of reachable) {
       const facts = owed
@@ -194,10 +211,16 @@ class WhatsAppService {
         skipped.push({ customerId: customer.id, reason: "nothing_owed" });
         continue;
       }
+      const paidUntil = paidUntilTexts?.get(customer.id) ?? null;
+      if (wantsPaidUntil && !paidUntil) {
+        skipped.push({ customerId: customer.id, reason: "no_paid_until" });
+        continue;
+      }
       const values = resolveValues(args.choices, {
         customerName: customer.name,
         businessName: args.businessName,
         facts,
+        paidUntil,
       });
       if (!values) {
         skipped.push({ customerId: customer.id, reason: "missing_values" });
@@ -206,6 +229,28 @@ class WhatsAppService {
       recipients.push({ customerId: customer.id, values });
     }
     return { recipients, skipped };
+  }
+
+  // The badge's own soonest-ending prepaid line, so message and list agree.
+  private async paidUntilTexts(
+    customers: Customer[],
+    t: TFn,
+  ): Promise<Map<string, string | null>> {
+    const lines = customers.flatMap((c) =>
+      (c.customerPlans ?? []).filter((l) => l.active && l.prepaid),
+    );
+    const billsByLine =
+      lines.length > 0
+        ? await chargeService.getMonthBillsForLines(lines.map((l) => l.id))
+        : new Map<string, MonthBill[]>();
+    const texts = new Map<string, string | null>();
+    for (const customer of customers) {
+      const customerLines = customer.customerPlans ?? [];
+      const bills = customerLines.flatMap((l) => billsByLine.get(l.id) ?? []);
+      const until = customerPrepaid(customerLines, bills)?.paidUntil ?? null;
+      texts.set(customer.id, until ? messageDateText(until, t) : null);
+    }
+    return texts;
   }
 
   // One request id per send, so a retried chunk never queues a customer twice.
@@ -232,8 +277,9 @@ class WhatsAppService {
   async reminderFallbackText(
     args: Omit<RecipientBuildArgs, "choices">,
     language: WhatsAppLanguage,
+    purpose: ReminderPurpose,
   ): Promise<{ text: string | null; reason: WhatsAppSkipReason | null }> {
-    const spec = sijilTemplateByPurpose("payment_reminder");
+    const spec = sijilTemplateByPurpose(purpose);
     const { recipients, skipped } = await this.buildRecipients({
       ...args,
       choices: defaultChoices({ params: spec.params }),
@@ -241,7 +287,7 @@ class WhatsAppService {
     const first = recipients[0];
     if (!first) return { text: null, reason: skipped[0]?.reason ?? "missing_values" };
     return {
-      text: this.fallbackText("payment_reminder", language, first.values),
+      text: this.fallbackText(purpose, language, first.values),
       reason: null,
     };
   }

@@ -63,7 +63,7 @@ function periodText(items: OpenItem[], t: TFn): string {
 }
 
 // Parsed by hand: new Date() would shift the day west of UTC.
-function dueDateText(isoDate: string, t: TFn): string {
+export function messageDateText(isoDate: string, t: TFn): string {
   const [year, month, day] = isoDate.slice(0, 10).split("-").map(Number);
   return t("whatsapp.due_date_value", {
     day,
@@ -83,6 +83,6 @@ export function reminderFacts(
   return {
     amount: owedAmountText(due, currencies),
     period: periodText(due, t),
-    dueDate: dueDateText(due[0].dueDate, t),
+    dueDate: messageDateText(due[0].dueDate, t),
   };
 }

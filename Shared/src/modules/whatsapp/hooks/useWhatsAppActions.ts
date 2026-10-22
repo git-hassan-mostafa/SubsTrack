@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 import type { Customer, WhatsAppTemplatePurpose } from "@shared/core/types";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import type { OpenWhatsAppChat } from "@shared/modules/invoicing/hooks/useSalesInvoiceSend";
+import type { ReminderPurpose } from "@shared/modules/whatsapp/services/WhatsAppService";
 import {
+  selectionSendPurpose,
   whatsAppCustomerItems,
   whatsAppSelectionItems,
   type WhatsAppActionKey,
@@ -37,6 +39,7 @@ export function useWhatsAppActions(openChat: OpenWhatsAppChat) {
   const connected = useWhatsAppReady();
   const ready = cloudEnabled && connected;
   const reminderTemplate = useTemplateForPurpose("payment_reminder");
+  const renewalTemplate = useTemplateForPurpose("renewal_reminder");
   const optedOut = useOptedOutCustomerIds();
   const ensureLoaded = useWhatsAppSlice((s) => s.ensureLoaded);
   const setOptOut = useWhatsAppSlice((s) => s.setOptOut);
@@ -55,6 +58,7 @@ export function useWhatsAppActions(openChat: OpenWhatsAppChat) {
     isAdmin,
     ready,
     reminderReady: !!reminderTemplate,
+    renewalReady: !!renewalTemplate,
     optedOutIds: optedOut,
   };
 
@@ -73,7 +77,7 @@ export function useWhatsAppActions(openChat: OpenWhatsAppChat) {
     await showProblem(message);
   }
 
-  async function sendReminderFallback(customer: Customer) {
+  async function sendReminderFallback(customer: Customer, purpose: ReminderPurpose) {
     const result = await reminderFallbackText(
       {
         customers: [customer],
@@ -84,6 +88,7 @@ export function useWhatsAppActions(openChat: OpenWhatsAppChat) {
         t: i18n.getFixedT(language),
       },
       language,
+      purpose,
     );
     if (!result) {
       await showSliceError();
@@ -111,14 +116,16 @@ export function useWhatsAppActions(openChat: OpenWhatsAppChat) {
 
   function runFor(customers: Customer[]): Record<WhatsAppActionKey, () => void> {
     const [first] = customers;
+    const remind = (purpose: ReminderPurpose) =>
+      ready
+        ? setSendTarget({ customers, purpose })
+        : void (first && sendReminderFallback(first, purpose));
     return {
-      whatsapp_reminder: () =>
-        ready
-          ? setSendTarget({ customers, purpose: "payment_reminder" })
-          : void (first && sendReminderFallback(first)),
+      whatsapp_reminder: () => remind("payment_reminder"),
+      whatsapp_renewal: () => remind("renewal_reminder"),
       whatsapp_message: () => setSendTarget({ customers, purpose: null }),
       whatsapp_send: () =>
-        setSendTarget({ customers, purpose: reminderTemplate ? "payment_reminder" : null }),
+        setSendTarget({ customers, purpose: selectionSendPurpose(customers, facts) }),
       whatsapp_stop: () => void (first && toggleOptOut(first, true)),
       whatsapp_allow: () => void (first && toggleOptOut(first, false)),
     };

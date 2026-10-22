@@ -2,6 +2,7 @@ export type WhatsAppLanguage = "en" | "ar";
 
 export type SijilTemplatePurpose =
   | "payment_reminder"
+  | "renewal_reminder"
   | "service_outage"
   | "service_restored"
   | "service_notice";
@@ -45,6 +46,21 @@ export const SIJIL_TEMPLATES: SijilTemplateSpec[] = [
     examples: {
       en: { ...NAME_EXAMPLES.en, amount: "$20.00", period: "September 2026", due_date: "Sep 1, 2026" },
       ar: { ...NAME_EXAMPLES.ar, amount: "20.00$", period: "أيلول 2026", due_date: "1 أيلول 2026" },
+    },
+  },
+  {
+    purpose: "renewal_reminder",
+    name: "sijil_renewal_reminder_v1",
+    params: ["customer_name", "business_name", "paid_until"],
+    maxLength: { customer_name: 60, business_name: 60, paid_until: 40 },
+    body: {
+      en: "Hello {{customer_name}}, this is a reminder from {{business_name}}. Your service is paid until {{paid_until}}. To continue your service, please renew your subscription. If you have already renewed, please ignore this message. Thank you.",
+      ar: "مرحباً {{customer_name}}، هذا تذكير من {{business_name}}. خدمتك مدفوعة حتى {{paid_until}}. لمتابعة الخدمة، يرجى تجديد اشتراكك. إذا كنت قد جدّدت بالفعل، يرجى تجاهل هذه الرسالة. شكراً لك.",
+    },
+    footer: FOOTER,
+    examples: {
+      en: { ...NAME_EXAMPLES.en, paid_until: "October 31, 2026" },
+      ar: { ...NAME_EXAMPLES.ar, paid_until: "31 تشرين الأول 2026" },
     },
   },
   {

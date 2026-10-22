@@ -92,6 +92,7 @@ What a month shows after money moves. A month is Paid as soon as **any** money r
 58. Prepaid line, pay August (or only part of August) → the grid header says "Paid until 31/08/<year>" on the phone and the web, and the portal shows the same date; void that payment → the date goes back to the month before, or "No payment yet".
 59. Prepaid customer paid through this month, 3 days or less before its end → the customer list shows "Expires in X days" and appears under Expiring soon and Paid; after the month ends → "Expired X days ago" (gray), under Expired, never Overdue or Unpaid, and To collect stays empty.
 60. Prepaid line, tap "Pay until" in the grid header and pick a month 3 months ahead → each choice shows the total and the new "Paid until" date; the collect form takes those 3 months as ONE payment (each month its own bill at its own price), the grid shows them joined as one pill; an expired customer starts from this month (the missed months stay "No service"); void that payment → all 3 months go back together.
+61. Prepaid customer paid until yesterday → the customer list shows them under Expired today and under Expired (not under Expiring soon); select them → Send on WhatsApp starts on the Renewal reminder and the message says "paid until <yesterday's date>"; a prepaid customer who never paid is skipped ("no prepaid payment yet"), never sent a blank date.
 
 ## Customer portal
 

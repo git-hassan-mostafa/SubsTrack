@@ -263,6 +263,7 @@
     "overdue": "Overdue",
     "partly_paid": "Partly paid",
     "expiring_soon": "Expiring soon",
+    "expired_today": "Expired today",
     "expired": "Expired",
     "to_collect": "To collect",
     "has_debts": "Has debts",
@@ -1981,6 +1982,7 @@
     "due_date_value": "{{month}} {{day}}, {{year}}",
     "purpose": {
       "payment_reminder": "Payment reminder",
+      "renewal_reminder": "Renewal reminder",
       "service_outage": "Service outage",
       "service_restored": "Service is back",
       "service_notice": "General notice"
@@ -1992,6 +1994,7 @@
       "amount": "Amount owed",
       "period": "Months owed",
       "due_date": "Due since",
+      "paid_until": "Paid until",
       "custom": "Type the text"
     },
     "param": {
@@ -2030,10 +2033,13 @@
       "missing_values": "{{count}} skipped: a value is missing",
       "missing_values_other": "{{count}} skipped: a value is missing",
       "nothing_owed": "{{count}} skipped: nothing is due",
-      "nothing_owed_other": "{{count}} skipped: nothing is due"
+      "nothing_owed_other": "{{count}} skipped: nothing is due",
+      "no_paid_until": "{{count}} skipped: no prepaid payment yet",
+      "no_paid_until_other": "{{count}} skipped: no prepaid payment yet"
     },
     "problem_title": "WhatsApp",
     "send_reminder": "Send payment reminder",
+    "send_renewal": "Send renewal reminder",
     "send_message": "Send WhatsApp message",
     "send_on_whatsapp": "Send on WhatsApp",
     "opens_whatsapp": "Opens WhatsApp with the message ready",

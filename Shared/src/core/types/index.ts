@@ -1021,6 +1021,7 @@ export interface WhatsAppAccount {
 
 export type WhatsAppTemplatePurpose =
   | "payment_reminder"
+  | "renewal_reminder"
   | "service_outage"
   | "service_restored"
   | "service_notice";
@@ -1085,7 +1086,8 @@ export type WhatsAppSkipReason =
   | "opted_out"
   | "recently_sent"
   | "missing_values"
-  | "nothing_owed";
+  | "nothing_owed"
+  | "no_paid_until";
 
 export interface WhatsAppRecipient {
   customerId: string;

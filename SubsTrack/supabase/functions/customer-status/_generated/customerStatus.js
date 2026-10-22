@@ -435,6 +435,19 @@ function isSettledStatus(status) {
 function owesNothingYet(status) {
 	return status === "future" || status === "waiting" || status === "no_service";
 }
+function customerPrepaid(lines, bills) {
+	const active = lines.filter((line) => line.active);
+	let soonest = null;
+	for (const line of active) {
+		if (!line.prepaid) continue;
+		const expiry = prepaidExpiry(paidUntil(paidBillingMonths(bills.filter((b) => b.charge.customerPlanId === line.id))), line.startDate);
+		if (expiry) soonest = soonerExpiry(soonest, expiry);
+	}
+	return soonest ? {
+		...soonest,
+		everyLine: active.every((line) => line.prepaid)
+	} : null;
+}
 function buildCustomerStatus(lines, bills, skips, unpaidRule = DEFAULT_UNPAID_START_RULE, usageByLine = NO_USAGE$1) {
 	const { year: currentYear, month: currentMonth } = getCurrentYearMonth();
 	const notDueLineIds = [];
@@ -446,15 +459,10 @@ function buildCustomerStatus(lines, bills, skips, unpaidRule = DEFAULT_UNPAID_ST
 	let writtenOffThisMonth = 0;
 	let inPlay = 0;
 	let settled = 0;
-	let prepaid = null;
-	let everyLinePrepaid = true;
 	for (const line of lines) {
 		if (!line.active) continue;
 		const lineBills = bills.filter((b) => b.charge.customerPlanId === line.id);
 		const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
-		if (!line.prepaid) everyLinePrepaid = false;
-		const expiry = line.prepaid ? prepaidExpiry(paidUntil(paidBillingMonths(lineBills)), line.startDate) : null;
-		if (expiry) prepaid = soonerExpiry(prepaid, expiry);
 		const startYear = new Date(line.startDate).getFullYear();
 		let current = null;
 		let lineOverdue = false;
@@ -502,10 +510,7 @@ function buildCustomerStatus(lines, bills, skips, unpaidRule = DEFAULT_UNPAID_ST
 		notDueLineIds,
 		uncoveredLineIds,
 		unpaidMonths: unpaidMonths.size,
-		prepaid: prepaid ? {
-			...prepaid,
-			everyLine: everyLinePrepaid
-		} : null
+		prepaid: customerPrepaid(lines, bills)
 	};
 }
 function getCustomerStatuses(customers, bills, skips, unpaidRule = DEFAULT_UNPAID_START_RULE, usageByLine = NO_USAGE$1) {
@@ -926,6 +931,7 @@ var PAYMENT_FILTER_LABEL_KEYS = {
 	mixed: "customers.partly_paid",
 	not_due_yet: "payments.not_due_yet_label",
 	expiring: "customers.expiring_soon",
+	expired_today: "customers.expired_today",
 	expired: "customers.expired"
 };
 var OWES_FILTER_LABEL_KEYS = {
@@ -987,7 +993,10 @@ function matchesPayment(customer, status, payment) {
 	if (payment.length === 0) return true;
 	if (!customer.active || !customer.isRegular) return false;
 	const flags = customerFlags(status);
-	return payment.some((p) => PAYMENT_FILTER_FLAGS[p].some((flag) => flags.includes(flag)));
+	return payment.some((p) => p === "expired_today" ? isExpiredToday(status) : PAYMENT_FILTER_FLAGS[p].some((flag) => flags.includes(flag)));
+}
+function isExpiredToday(status) {
+	return status?.prepaid?.state === "expired" && status.prepaid.days === 0;
 }
 function matchesPlan(customer, planId) {
 	if (planId.length === 0) return true;

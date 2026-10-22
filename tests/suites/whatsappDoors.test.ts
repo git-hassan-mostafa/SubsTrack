@@ -5,6 +5,8 @@ import {
   readSignupEvent,
 } from "@shared/modules/whatsapp/utils/embeddedSignup";
 import {
+  headerReminderKey,
+  selectionSendPurpose,
   whatsAppCustomerItems,
   whatsAppMessageItems,
   whatsAppSelectionItems,
@@ -16,7 +18,7 @@ import {
   skipReasonCounts,
 } from "@shared/modules/whatsapp/utils/whatsappView";
 import { ADMIN_ONLY, type MenuItem } from "@shared/shared/lib/menuItem";
-import { customer } from "../helpers/factories";
+import { customer, line } from "../helpers/factories";
 
 // TC-WA-D-* — the WhatsApp doors both apps draw, and the signup page's trust rules.
 const keysOf = <K extends string>(items: MenuItem<K>[]) => items.map((item) => item.key);
@@ -26,8 +28,14 @@ const CONNECTED: WhatsAppMenuFacts = {
   isAdmin: true,
   ready: true,
   reminderReady: true,
+  renewalReady: true,
   optedOutIds: new Set(),
 };
+
+const PREPAID_LINE = line({ id: "line-pre", prepaid: true });
+const POSTPAID_LINE = line({ id: "line-post" });
+const prepaidCustomer = (over: Parameters<typeof customer>[0] = {}) =>
+  customer({ customerPlans: [PREPAID_LINE], ...over });
 
 function message(over: Partial<WhatsAppMessage> = {}): WhatsAppMessage {
   return {
@@ -98,6 +106,44 @@ describe("WhatsApp customer menu", () => {
   it("TC-WA-D-07 a selection sends only when connected and not empty", () => {
     expect(keysOf(whatsAppSelectionItems([customer()], CONNECTED))).toEqual(["whatsapp_send"]);
     expect(whatsAppSelectionItems([], CONNECTED)).toEqual([]);
+  });
+
+  it("TC-WA-D-16 only a customer with an active prepaid line gets the renewal reminder", () => {
+    expect(keysOf(whatsAppCustomerItems(prepaidCustomer(), CONNECTED))).toEqual([
+      "whatsapp_reminder",
+      "whatsapp_renewal",
+      "whatsapp_message",
+      "whatsapp_stop",
+    ]);
+    expect(keysOf(whatsAppCustomerItems(customer({ customerPlans: [POSTPAID_LINE] }), CONNECTED))).not.toContain(
+      "whatsapp_renewal",
+    );
+    const stopped = prepaidCustomer({ customerPlans: [{ ...PREPAID_LINE, active: false }] });
+    expect(keysOf(whatsAppCustomerItems(stopped, CONNECTED))).not.toContain("whatsapp_renewal");
+  });
+
+  it("TC-WA-D-17 the renewal reminder waits for its own template and opens wa.me when not connected", () => {
+    const pending = whatsAppCustomerItems(prepaidCustomer(), { ...CONNECTED, renewalReady: false });
+    expect(pending[1]).toMatchObject({ key: "whatsapp_renewal", disabled: true, captionKey: "whatsapp.template_pending" });
+    expect(pending[0].disabled).toBeFalsy();
+    const offline = whatsAppCustomerItems(prepaidCustomer(), { ...CONNECTED, ready: false });
+    expect(keysOf(offline)).toEqual(["whatsapp_reminder", "whatsapp_renewal"]);
+    expect(offline.every((item) => item.captionKey === "whatsapp.opens_whatsapp" && !item.disabled)).toBe(true);
+  });
+
+  it("TC-WA-D-18 an all-prepaid selection starts on the renewal reminder; any other on the payment one", () => {
+    const mixed = customer({ id: "cust-2", customerPlans: [PREPAID_LINE, POSTPAID_LINE] });
+    expect(selectionSendPurpose([prepaidCustomer()], CONNECTED)).toBe("renewal_reminder");
+    expect(selectionSendPurpose([prepaidCustomer(), mixed], CONNECTED)).toBe("payment_reminder");
+    expect(selectionSendPurpose([prepaidCustomer()], { ...CONNECTED, renewalReady: false })).toBe("payment_reminder");
+    expect(selectionSendPurpose([mixed], { ...CONNECTED, reminderReady: false })).toBeNull();
+    expect(selectionSendPurpose([], CONNECTED)).toBe("payment_reminder");
+  });
+
+  it("TC-WA-D-19 the customer page header offers the renewal reminder only to an all-prepaid customer", () => {
+    expect(headerReminderKey(prepaidCustomer())).toBe("whatsapp_renewal");
+    expect(headerReminderKey(customer({ customerPlans: [PREPAID_LINE, POSTPAID_LINE] }))).toBe("whatsapp_reminder");
+    expect(headerReminderKey(customer())).toBe("whatsapp_reminder");
   });
 });
 

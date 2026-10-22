@@ -267,6 +267,7 @@
     "overdue": "متأخر",
     "partly_paid": "مدفوع جزئياً",
     "expiring_soon": "ينتهي قريباً",
+    "expired_today": "انتهى اليوم",
     "expired": "منتهي",
     "to_collect": "للتحصيل",
     "has_debts": "عليه ديون",
@@ -2077,6 +2078,7 @@
     "due_date_value": "{{day}} {{month}} {{year}}",
     "purpose": {
       "payment_reminder": "تذكير بالدفع",
+      "renewal_reminder": "تذكير بالتجديد",
       "service_outage": "انقطاع الخدمة",
       "service_restored": "عودة الخدمة",
       "service_notice": "إشعار عام"
@@ -2088,6 +2090,7 @@
       "amount": "المبلغ المستحق",
       "period": "الأشهر المستحقة",
       "due_date": "مستحق منذ",
+      "paid_until": "مدفوع حتى",
       "custom": "اكتب النص"
     },
     "param": {
@@ -2178,10 +2181,17 @@
       "nothing_owed_zero": "{{count}} لم يُرسل: لا يوجد مبلغ مستحق",
       "nothing_owed_two": "{{count}} لم يُرسل: لا يوجد مبلغ مستحق",
       "nothing_owed_few": "{{count}} لم يُرسل: لا يوجد مبلغ مستحق",
-      "nothing_owed_many": "{{count}} لم يُرسل: لا يوجد مبلغ مستحق"
+      "nothing_owed_many": "{{count}} لم يُرسل: لا يوجد مبلغ مستحق",
+      "no_paid_until": "{{count}} لم يُرسل: لا دفعة مسبقة بعد",
+      "no_paid_until_other": "{{count}} لم يُرسل: لا دفعة مسبقة بعد",
+      "no_paid_until_zero": "{{count}} لم يُرسل: لا دفعة مسبقة بعد",
+      "no_paid_until_two": "{{count}} لم يُرسل: لا دفعة مسبقة بعد",
+      "no_paid_until_few": "{{count}} لم يُرسل: لا دفعة مسبقة بعد",
+      "no_paid_until_many": "{{count}} لم يُرسل: لا دفعة مسبقة بعد"
     },
     "problem_title": "واتساب",
     "send_reminder": "إرسال تذكير بالدفع",
+    "send_renewal": "إرسال تذكير بالتجديد",
     "send_message": "إرسال رسالة واتساب",
     "send_on_whatsapp": "إرسال عبر واتساب",
     "opens_whatsapp": "يفتح واتساب والرسالة جاهزة",

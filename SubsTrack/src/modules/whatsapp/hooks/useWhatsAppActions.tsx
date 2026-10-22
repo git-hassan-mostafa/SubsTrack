@@ -11,6 +11,7 @@ import { SendWhatsAppSheet } from "../components/SendWhatsAppSheet";
 
 const WHATSAPP_ACTION_ICONS: Record<WhatsAppActionKey, Glyph> = {
   whatsapp_reminder: "logo-whatsapp",
+  whatsapp_renewal: "refresh-circle-outline",
   whatsapp_message: "chatbubbles-outline",
   whatsapp_send: "logo-whatsapp",
   whatsapp_stop: "notifications-off-outline",

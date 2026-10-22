@@ -13,7 +13,8 @@ import {
   type CustomerFlag,
 } from "@shared/modules/customer/customers/utils/customerFlags";
 
-export type PaymentFilter = Exclude<CustomerFlag, "skipped" | "paid_until">;
+type FlagFilter = Exclude<CustomerFlag, "skipped" | "paid_until">;
+export type PaymentFilter = FlagFilter | "expired_today";
 export type YesNoFilter = "yes" | "no";
 export type OwesFilter = "anything" | "debts" | "nothing";
 export type CustomerTypeFilter = "regular" | "occasional";
@@ -74,6 +75,7 @@ export const PAYMENT_FILTER_LABEL_KEYS: Record<PaymentFilter, string> = {
   mixed: "customers.partly_paid",
   not_due_yet: "payments.not_due_yet_label",
   expiring: "customers.expiring_soon",
+  expired_today: "customers.expired_today",
   expired: "customers.expired",
 };
 
@@ -172,7 +174,7 @@ function matchesOwes(choice: OwesFilter | null, facts: CustomerListFacts): boole
 }
 
 // Unpaid takes Overdue cards, Paid takes prepaid ones: their pill holds it.
-const PAYMENT_FILTER_FLAGS: Record<PaymentFilter, readonly CustomerFlag[]> = {
+const PAYMENT_FILTER_FLAGS: Record<FlagFilter, readonly CustomerFlag[]> = {
   paid: ["paid", "paid_until", "expiring"],
   written_off: ["written_off"],
   unpaid: ["unpaid", "overdue"],
@@ -192,7 +194,16 @@ function matchesPayment(
   if (payment.length === 0) return true;
   if (!customer.active || !customer.isRegular) return false;
   const flags = customerFlags(status);
-  return payment.some((p) => PAYMENT_FILTER_FLAGS[p].some((flag) => flags.includes(flag)));
+  return payment.some((p) =>
+    p === "expired_today"
+      ? isExpiredToday(status)
+      : PAYMENT_FILTER_FLAGS[p].some((flag) => flags.includes(flag)),
+  );
+}
+
+// The "Expired today" pill: the Expired one on its first day.
+function isExpiredToday(status: CustomerStatus | null): boolean {
+  return status?.prepaid?.state === "expired" && status.prepaid.days === 0;
 }
 
 // No plan = no active line on any plan; a line with only its own price counts as none.

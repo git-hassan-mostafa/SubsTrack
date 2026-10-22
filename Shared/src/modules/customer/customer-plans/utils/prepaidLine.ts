@@ -14,6 +14,16 @@ export function canBePrepaid(usage: PlanUsage | null | undefined): boolean {
   return !usage;
 }
 
+export function hasPrepaidLine(lines: readonly Pick<CustomerPlan, "active" | "prepaid">[]): boolean {
+  return lines.some((line) => line.active && line.prepaid);
+}
+
+// Every active line prepaid: such a customer never owes an unpaid month.
+export function isAllPrepaid(lines: readonly Pick<CustomerPlan, "active" | "prepaid">[]): boolean {
+  const active = lines.filter((line) => line.active);
+  return active.length > 0 && active.every((line) => line.prepaid);
+}
+
 // set_plan_prepaid() applied to the lines already loaded.
 export function withPlanPrepaid(
   lines: CustomerPlan[],

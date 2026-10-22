@@ -24,6 +24,7 @@ import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
 import { useCustomerSlice } from "@shared/state/hooks/useCustomerSlice";
 import { useWhatsAppActions } from "@/src/modules/whatsapp/hooks/useWhatsAppActions";
+import { headerReminderKey } from "@shared/modules/whatsapp/utils/whatsappMenu";
 
 export function CustomerDetailScreen() {
   const { t } = useTranslation();
@@ -47,7 +48,7 @@ export function CustomerDetailScreen() {
   const whatsappReminder = customer
     ? whatsappActions
         .rowItems(customer)
-        .find((item) => item.key === "whatsapp_reminder" && !item.disabled)
+        .find((item) => item.key === headerReminderKey(customer) && !item.disabled)
     : undefined;
 
   useEffect(() => {

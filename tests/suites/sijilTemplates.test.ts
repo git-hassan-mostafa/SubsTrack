@@ -43,7 +43,7 @@ describe("Sijil message templates", () => {
   );
 
   it("TC-WA-T-04 every purpose the app offers has exactly one template", () => {
-    for (const purpose of ["payment_reminder", "service_outage", "service_restored", "service_notice"] as const) {
+    for (const purpose of ["payment_reminder", "renewal_reminder", "service_outage", "service_restored", "service_notice"] as const) {
       expect(sijilTemplateByPurpose(purpose).purpose).toBe(purpose);
     }
     expect(sijilTemplateByName("not_a_template")).toBeNull();

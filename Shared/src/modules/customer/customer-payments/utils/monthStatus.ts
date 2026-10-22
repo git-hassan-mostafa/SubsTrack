@@ -1,5 +1,6 @@
 import type {
   CustomerMonthStatus,
+  CustomerPrepaid,
   CustomerStatus,
   LineUsage,
   MonthBill,
@@ -184,6 +185,24 @@ function owesNothingYet(status: MonthStatus): boolean {
   return status === "future" || status === "waiting" || status === "no_service";
 }
 
+// The soonest-ending active prepaid line; null = no started prepaid line.
+export function customerPrepaid(
+  lines: StatusLine[],
+  bills: StatusBill[],
+): CustomerPrepaid | null {
+  const active = lines.filter((line) => line.active);
+  let soonest: PrepaidExpiry | null = null;
+  for (const line of active) {
+    if (!line.prepaid) continue;
+    const lineBills = bills.filter((b) => b.charge.customerPlanId === line.id);
+    const expiry = prepaidExpiry(paidUntil(paidBillingMonths(lineBills)), line.startDate);
+    if (expiry) soonest = soonerExpiry(soonest, expiry);
+  }
+  return soonest
+    ? { ...soonest, everyLine: active.every((line) => line.prepaid) }
+    : null;
+}
+
 // The only place a customer list badge is decided; "paid" means owes nothing.
 export function buildCustomerStatus(
   lines: StatusLine[],
@@ -202,18 +221,11 @@ export function buildCustomerStatus(
   let writtenOffThisMonth = 0;
   let inPlay = 0;
   let settled = 0;
-  let prepaid: PrepaidExpiry | null = null;
-  let everyLinePrepaid = true;
 
   for (const line of lines) {
     if (!line.active) continue;
     const lineBills = bills.filter((b) => b.charge.customerPlanId === line.id);
     const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
-    if (!line.prepaid) everyLinePrepaid = false;
-    const expiry = line.prepaid
-      ? prepaidExpiry(paidUntil(paidBillingMonths(lineBills)), line.startDate)
-      : null;
-    if (expiry) prepaid = soonerExpiry(prepaid, expiry);
     const startYear = new Date(line.startDate).getFullYear();
 
     let current: MonthCell<StatusCharge, StatusSkip> | null = null;
@@ -286,7 +298,7 @@ export function buildCustomerStatus(
     notDueLineIds,
     uncoveredLineIds,
     unpaidMonths: unpaidMonths.size,
-    prepaid: prepaid ? { ...prepaid, everyLine: everyLinePrepaid } : null,
+    prepaid: customerPrepaid(lines, bills),
   };
 }
 

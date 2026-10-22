@@ -5,7 +5,7 @@ jest.mock("@shared/modules/customer/customer-payments/services/SkippedMonthServi
 
 import { ledgerService } from "@shared/modules/ledger/services/LedgerService";
 import { whatsAppService } from "@shared/modules/whatsapp/services/WhatsAppService";
-import { reminderFacts } from "@shared/modules/whatsapp/utils/reminderFacts";
+import { messageDateText, reminderFacts } from "@shared/modules/whatsapp/utils/reminderFacts";
 import {
   defaultChoices,
   messageLanguage,
@@ -142,6 +142,7 @@ describe("placeholder values", () => {
       customerName: "Rami",
       businessName: "City Net",
       facts: { amount: "$20.00", period: "Jan 2026", dueDate: "Jan 1 2026" },
+      paidUntil: null,
     });
     expect(values).toEqual({
       customer_name: "Rami",
@@ -154,7 +155,7 @@ describe("placeholder values", () => {
 
   it("TC-WA-M-08 a reminder is refused when there is no amount to put in it", () => {
     const choices = defaultChoices({ params: reminder.params });
-    expect(resolveValues(choices, { customerName: "Rami", businessName: "X", facts: null })).toBeNull();
+    expect(resolveValues(choices, { customerName: "Rami", businessName: "X", facts: null, paidUntil: null })).toBeNull();
   });
 
   it("TC-WA-M-09 an unknown placeholder must be typed before sending", () => {
@@ -248,5 +249,71 @@ describe("owed for many customers at once", () => {
     });
     expect(recipients).toEqual([]);
     expect(skipped).toEqual([{ customerId: "cust-d", reason: "nothing_owed" }]);
+  });
+});
+
+describe("renewal reminder", () => {
+  const renewal = sijilTemplateByPurpose("renewal_reminder");
+  const P = plan({ id: "p1", price: 20, currencyId: null, durationMonths: 1, prepaid: true });
+  const prepaidLine = (id: string, customerId: string) =>
+    line({ id, customerId, startDate: "2026-01-01", planId: "p1", plan: P, prepaid: true });
+  const baseArgs = (customers: ReturnType<typeof customer>[]) => ({
+    customers,
+    businessName: "City Net",
+    optedOutCustomerIds: new Set<string>(),
+    currencies: [LBP],
+    unpaidRule: "month_start" as const,
+    t,
+  });
+  const args = (customers: ReturnType<typeof customer>[]) => ({
+    ...baseArgs(customers),
+    choices: defaultChoices({ params: renewal.params }),
+  });
+  const paidMonth = (lineId: string, customerId: string, month: string) => {
+    const id = `chg-${lineId}-${month}`;
+    store.seedCharge({ id, customer_id: customerId, customer_plan_id: lineId, billing_month: month, due_date: month, amount: 20 });
+    store.seedCollection(id, 20, { customer_id: customerId });
+  };
+
+  it("TC-WA-M-19 the renewal reminder fills the paid-until date by itself, in the message language", async () => {
+    const A = customer({ id: "cust-a", customerPlans: [prepaidLine("line-a", "cust-a")] });
+    paidMonth("line-a", "cust-a", "2026-02-01");
+    paidMonth("line-a", "cust-a", "2026-03-01");
+    const choices = defaultChoices({ params: renewal.params });
+    expect(needsOwedFacts(choices)).toBe(false);
+    const { recipients, skipped } = await whatsAppService.buildRecipients(args([A]));
+    expect(skipped).toEqual([]);
+    expect(recipients).toEqual([
+      {
+        customerId: "cust-a",
+        values: { customer_name: A.name, business_name: "City Net", paid_until: messageDateText("2026-03-31", t) },
+      },
+    ]);
+  });
+
+  it("TC-WA-M-20 the date is the soonest-ending prepaid line's, as on the customer's pill", async () => {
+    const A = customer({ id: "cust-a", customerPlans: [prepaidLine("line-a", "cust-a"), prepaidLine("line-b", "cust-a")] });
+    paidMonth("line-a", "cust-a", "2026-05-01");
+    paidMonth("line-b", "cust-a", "2026-03-01");
+    const { recipients } = await whatsAppService.buildRecipients(args([A]));
+    expect(recipients[0].values.paid_until).toBe(messageDateText("2026-03-31", t));
+  });
+
+  it("TC-WA-M-21 a prepaid customer who never paid, or a postpaid one, is skipped, not sent a blank date", async () => {
+    const neverPaid = customer({ id: "cust-n", customerPlans: [prepaidLine("line-n", "cust-n")] });
+    const postpaid = customer({ id: "cust-p", customerPlans: [line({ id: "line-p", customerId: "cust-p", startDate: "2026-01-01" })] });
+    const { recipients, skipped } = await whatsAppService.buildRecipients(args([neverPaid, postpaid]));
+    expect(recipients).toEqual([]);
+    expect(skipped).toEqual([
+      { customerId: "cust-n", reason: "no_paid_until" },
+      { customerId: "cust-p", reason: "no_paid_until" },
+    ]);
+  });
+
+  it("TC-WA-M-22 the not-connected fallback uses the renewal wording", async () => {
+    const A = customer({ id: "cust-a", customerPlans: [prepaidLine("line-a", "cust-a")] });
+    paidMonth("line-a", "cust-a", "2026-03-01");
+    const { text } = await whatsAppService.reminderFallbackText(baseArgs([A]), "en", "renewal_reminder");
+    expect(text).toContain(`paid until ${messageDateText("2026-03-31", t)}`);
   });
 });

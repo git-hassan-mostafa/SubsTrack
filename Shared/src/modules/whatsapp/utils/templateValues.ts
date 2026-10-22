@@ -16,6 +16,7 @@ export type PlaceholderSource =
   | "amount"
   | "period"
   | "due_date"
+  | "paid_until"
   | "custom";
 
 export interface PlaceholderChoice {
@@ -31,6 +32,7 @@ export const PLACEHOLDER_SOURCES: PlaceholderSource[] = [
   "amount",
   "period",
   "due_date",
+  "paid_until",
   "custom",
 ];
 
@@ -40,6 +42,7 @@ export interface RecipientContext {
   customerName: string;
   businessName: string;
   facts: ReminderFacts | null;
+  paidUntil: string | null;
 }
 
 // A placeholder named like a Sijil field fills itself; others start as text.
@@ -95,6 +98,10 @@ export function needsOwedFacts(choices: PlaceholderChoices): boolean {
   return Object.values(choices).some((c) => OWED_SOURCES.includes(c.source));
 }
 
+export function needsPaidUntil(choices: PlaceholderChoices): boolean {
+  return Object.values(choices).some((c) => c.source === "paid_until");
+}
+
 export function missingCustomText(choices: PlaceholderChoices): string[] {
   return Object.entries(choices)
     .filter(([, c]) => c.source === "custom" && !c.text.trim())
@@ -127,6 +134,8 @@ function valueFor(choice: PlaceholderChoice, context: RecipientContext): string 
       return context.facts?.period ?? "";
     case "due_date":
       return context.facts?.dueDate ?? "";
+    case "paid_until":
+      return context.paidUntil ?? "";
     case "custom":
       return choice.text.trim();
   }

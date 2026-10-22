@@ -146,6 +146,33 @@ describe("prepaid pills and filters", () => {
     expect(shownUnder(expired, "unpaid")).toBe(false);
     expect(shownUnder(expired, "overdue")).toBe(false);
   });
+
+  it("TC-PE-23 Expired today lists only the first day after paid-until, under its own pill", () => {
+    freezeToday(2026, 6, 30);
+    const lastDay = statusOf(["2026-06-01", 20]);
+    expect(shownUnder(lastDay, "expiring")).toBe(true);
+    expect(shownUnder(lastDay, "expired_today")).toBe(false);
+
+    freezeToday(2026, 7, 1);
+    const firstDay = statusOf(["2026-06-01", 20]);
+    expect(shownUnder(firstDay, "expired_today")).toBe(true);
+    expect(shownUnder(firstDay, "expired")).toBe(true);
+    expect(shownUnder(firstDay, "expiring")).toBe(false);
+    expect(prepaidPillLabel(t, firstDay.prepaid!)).toBe("payments.expired_today");
+
+    freezeToday(2026, 7, 2);
+    const secondDay = statusOf(["2026-06-01", 20]);
+    expect(shownUnder(secondDay, "expired_today")).toBe(false);
+    expect(shownUnder(secondDay, "expired")).toBe(true);
+  });
+
+  it("TC-PE-24 a postpaid-only customer is never in an expiry list", () => {
+    freezeToday(2026, 7, 1);
+    const status = buildCustomerStatus([POSTPAID], [], [], "month_start");
+    for (const payment of ["expiring", "expired_today", "expired"] as const) {
+      expect(shownUnder(status, payment)).toBe(false);
+    }
+  });
 });
 
 describe("prepaid text", () => {

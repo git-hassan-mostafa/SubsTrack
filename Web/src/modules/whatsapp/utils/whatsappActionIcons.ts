@@ -1,4 +1,5 @@
 import type { SvgIconComponent } from "@mui/icons-material";
+import AutorenewOutlined from "@mui/icons-material/AutorenewOutlined";
 import CancelScheduleSendOutlined from "@mui/icons-material/CancelScheduleSendOutlined";
 import ChatOutlined from "@mui/icons-material/ChatOutlined";
 import NotificationsOffOutlined from "@mui/icons-material/NotificationsOffOutlined";
@@ -11,6 +12,7 @@ import type {
 
 export const WHATSAPP_ACTION_ICONS: Record<WhatsAppActionKey, SvgIconComponent> = {
   whatsapp_reminder: WhatsApp,
+  whatsapp_renewal: AutorenewOutlined,
   whatsapp_message: ChatOutlined,
   whatsapp_send: WhatsApp,
   whatsapp_stop: NotificationsOffOutlined,

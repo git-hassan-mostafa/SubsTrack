@@ -10,6 +10,7 @@ import type {
 import {
   whatsAppService,
   type RecipientBuildArgs,
+  type ReminderPurpose,
 } from "@shared/modules/whatsapp/services/WhatsAppService";
 import type { GlobalState } from "@shared/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
@@ -43,6 +44,7 @@ export interface WhatsAppSlice {
   reminderFallbackText: (
     build: Omit<RecipientBuildArgs, "choices">,
     language: WhatsAppLanguage,
+    purpose: ReminderPurpose,
   ) => Promise<{ text: string | null; reason: WhatsAppSkipReason | null } | null>;
   clearError: () => void;
   reset: () => void;
@@ -186,9 +188,9 @@ export const createWhatsAppSlice: StateCreator<
         return { result, localSkipped: skipped };
       }),
 
-    reminderFallbackText: (build, language) =>
+    reminderFallbackText: (build, language, purpose) =>
       run("sending", () =>
-        whatsAppService.reminderFallbackText(build, language),
+        whatsAppService.reminderFallbackText(build, language, purpose),
       ),
 
     clearError: () =>
