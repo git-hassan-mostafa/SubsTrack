@@ -47,7 +47,8 @@
       "expo-localization",
       "expo-sqlite",
       "expo-sharing",
-      ["expo-status-bar", { "style": "dark" }]
+      ["expo-status-bar", { "style": "dark" }],
+      "./plugins/withAndroidLightStatusBar"
     ],
     "experiments": {
       "typedRoutes": true,
