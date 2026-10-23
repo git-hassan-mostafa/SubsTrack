@@ -7,7 +7,7 @@ import { mergeCollection } from "@shared/state/slices/payments/utils/mergeCollec
 import { bill, collection, collectionItem, line, plan, skip } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
 
-// TC-PU-* — "Pay until": every month from the next unpaid one up to the pick, as ONE payment.
+// TC-PY-* — "Pay until": every month from the next unpaid one up to the pick, as ONE payment.
 const P = plan({ id: "p1", price: 20, prepaid: true });
 const PREPAID = line({ id: "line-1", startDate: "2026-01-01", planId: "p1", plan: P, prepaid: true });
 
@@ -35,7 +35,7 @@ const monthsOf = (choice: { months: { billingMonth: string }[] }) => choice.mont
 afterEach(unfreeze);
 
 describe("pay until", () => {
-  it("TC-PU-01 paid ahead → starts the month after the newest paid one", () => {
+  it("TC-PY-01 paid ahead → starts the month after the newest paid one", () => {
     freezeToday(2026, 6, 15);
     const choices = choicesOf([bill("2026-08-01", 20, { amount: 20 })]);
     expect(choices[0]).toMatchObject({ lastMonth: "2026-09-01", paidUntil: "2026-09-30" });
@@ -43,7 +43,7 @@ describe("pay until", () => {
     expect(choices).toHaveLength(12);
   });
 
-  it("TC-PU-02 expired → starts this month; the no-service months stay unpaid", () => {
+  it("TC-PY-02 expired → starts this month; the no-service months stay unpaid", () => {
     freezeToday(2026, 6, 15);
     const choices = choicesOf([bill("2026-03-01", 20, { amount: 20 })]);
     expect(monthsOf(choices[0])).toEqual(["2026-06-01"]);
@@ -51,32 +51,32 @@ describe("pay until", () => {
     expect(choices[11].lastMonth).toBe("2027-05-01");
   });
 
-  it("TC-PU-03 never paid, line starts later → starts at the line's first month", () => {
+  it("TC-PY-03 never paid, line starts later → starts at the line's first month", () => {
     freezeToday(2026, 6, 15);
     expect(choicesOf([], { startDate: "2026-08-01" })[0].lastMonth).toBe("2026-08-01");
   });
 
-  it("TC-PU-04 a skipped month is left out and blocks nothing", () => {
+  it("TC-PY-04 a skipped month is left out and blocks nothing", () => {
     freezeToday(2026, 6, 15);
     const choices = choicesOf([bill("2026-05-01", 20, { amount: 20 })], { skips: [skip("2026-07-01")] });
     expect(choices.map((c) => c.lastMonth).slice(0, 2)).toEqual(["2026-06-01", "2026-08-01"]);
     expect(monthsOf(choices[1])).toEqual(["2026-06-01", "2026-08-01"]);
   });
 
-  it("TC-PU-05 the rest of a part-paid newest month rides along first", () => {
+  it("TC-PY-05 the rest of a part-paid newest month rides along first", () => {
     freezeToday(2026, 6, 15);
     const choices = choicesOf([bill("2026-06-01", 5, { amount: 20 })]);
     expect(monthsOf(choices[0])).toEqual(["2026-06-01", "2026-07-01"]);
     expect(choices[0].paidUntil).toBe("2026-07-31");
   });
 
-  it("TC-PU-06 a stopped line offers nothing past the month it stopped in", () => {
+  it("TC-PY-06 a stopped line offers nothing past the month it stopped in", () => {
     freezeToday(2026, 6, 15);
     const choices = choicesOf([], { payLimit: { year: 2026, month: 7 } });
     expect(choices.map((c) => c.lastMonth)).toEqual(["2026-06-01", "2026-07-01"]);
   });
 
-  it("TC-PU-07 an N-month plan picks whole blocks", () => {
+  it("TC-PY-07 an N-month plan picks whole blocks", () => {
     freezeToday(2026, 2, 15);
     const paid = [bill("2026-01-01", 60, { amount: 60, durationMonths: 3 })];
     const choices = choicesOf(paid, { durationMonths: 3 });
@@ -91,7 +91,7 @@ describe("months paid by one payment", () => {
     collectionIds: ids,
   });
 
-  it("TC-PU-08 bills settled whole by one shared hand-over are linked; others are not", () => {
+  it("TC-PY-08 bills settled whole by one shared hand-over are linked; others are not", () => {
     const links = paymentLinks([
       paidBy("2026-01-01", ["col-a"]),
       paidBy("2026-02-01", ["col-a"]),
@@ -105,7 +105,7 @@ describe("months paid by one payment", () => {
     ]);
   });
 
-  it("TC-PU-09 linked months join into one pill in the grid", () => {
+  it("TC-PY-09 linked months join into one pill in the grid", () => {
     freezeToday(2026, 6, 15);
     const bills = [paidBy("2026-01-01", ["col-a"]), paidBy("2026-02-01", ["col-a"]), paidBy("2026-03-01", ["col-b"])];
     const grid = buildMonthGrid(PREPAID, bills, [], 2026);
@@ -115,7 +115,7 @@ describe("months paid by one payment", () => {
     expect(joins[1].joinEnd).toBe(false);
   });
 
-  it("TC-PU-10 the store patch adds and drops the hand-over on each bill", () => {
+  it("TC-PY-10 the store patch adds and drops the hand-over on each bill", () => {
     const held = [paidBy("2026-01-01", ["col-old"])];
     const col = collection({ id: "col-new", items: [collectionItem({ chargeId: "chg-2026-01-01", amount: 5 })] });
     const added = mergeCollection(held, col);

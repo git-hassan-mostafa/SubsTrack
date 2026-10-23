@@ -10,7 +10,7 @@ import { readingStore } from "../helpers/fakeUsageReadings";
 import { charge, line, plan } from "../helpers/factories";
 import { freezeToday, unfreeze } from "../helpers/clock";
 
-// TC-UP-* — usage plans: saving the plan, its month prices and its readings.
+// TC-UPL-* — usage plans: saving the plan, its month prices and its readings.
 
 const METER: PlanUsage = {
   entry: "reading",
@@ -41,7 +41,7 @@ beforeEach(() => {
 afterEach(unfreeze);
 
 describe("saving a usage plan", () => {
-  it("TC-UP-01 a usage plan is stored with no plan price, one month, and its own names", async () => {
+  it("TC-UPL-01 a usage plan is stored with no plan price, one month, and its own names", async () => {
     const saved = await planService.createPlan(usageInput(), "t1");
     const row = priceStore.catalog[0];
     expect(row).toMatchObject({
@@ -58,7 +58,7 @@ describe("saving a usage plan", () => {
     expect(saved.usage).toEqual(METER);
   });
 
-  it("TC-UP-02 a usage plan needs a unit name and a fee name", async () => {
+  it("TC-UPL-02 a usage plan needs a unit name and a fee name", async () => {
     await expect(planService.createPlan(usageInput({ unitName: " " }), "t1")).rejects.toThrow(
       i18n.t("errors.plan_unit_name_required"),
     );
@@ -71,7 +71,7 @@ describe("saving a usage plan", () => {
     expect(priceStore.catalog).toEqual([]);
   });
 
-  it("TC-UP-03 a plan never switches between fixed price and usage", async () => {
+  it("TC-UPL-03 a plan never switches between fixed price and usage", async () => {
     const fixed = plan({ id: "p1", price: 20 });
     await expect(planService.updatePlan(fixed, usageInput())).rejects.toThrow(
       i18n.t("errors.plan_type_locked"),
@@ -81,21 +81,21 @@ describe("saving a usage plan", () => {
     ).rejects.toThrow(i18n.t("errors.plan_type_locked"));
   });
 
-  it("TC-UP-03b a saved usage plan never switches between meter reading and typed usage", async () => {
+  it("TC-UPL-03b a saved usage plan never switches between meter reading and typed usage", async () => {
     await expect(planService.updatePlan(usagePlan, usageInput({ entry: "direct" }))).rejects.toThrow(
       i18n.t("errors.plan_usage_entry_locked"),
     );
     expect(priceStore.catalog).toEqual([]);
   });
 
-  it("TC-UP-04 editing a usage plan writes no price history row", async () => {
+  it("TC-UPL-04 editing a usage plan writes no price history row", async () => {
     const before = await planService.createPlan(usageInput(), "t1");
     await planService.updatePlan(before, usageInput({ unitName: "kWh (day)" }));
     expect(priceStore.plans).toEqual([]);
     expect(priceStore.catalog[0].unit_name).toBe("kWh (day)");
   });
 
-  it("TC-UP-05 an old mirror row with no billing type reads as a fixed plan", () => {
+  it("TC-UPL-05 an old mirror row with no billing type reads as a fixed plan", () => {
     const old = mapDbPlanToPlan({
       id: "p1",
       name: "Internet",
@@ -120,7 +120,7 @@ describe("saving a usage plan", () => {
 describe("month prices", () => {
   const plan15 = plan({ id: "p-15a", name: "15A", price: null, currencyId: "cur-lbp", usage: METER });
 
-  it("TC-UP-06 one save prices the month on every picked plan, each with its own fee", async () => {
+  it("TC-UPL-06 one save prices the month on every picked plan, each with its own fee", async () => {
     const rows = await priceHistoryService.setUsageMonthPrices("2026-08-01", [
       { plan: usagePlan, unitPrice: 48241, fixedFee: 685000 },
       { plan: plan15, unitPrice: 48241, fixedFee: 985000 },
@@ -131,7 +131,7 @@ describe("month prices", () => {
     ]);
   });
 
-  it("TC-UP-07 a month price is never set for a future month, a fixed plan, or a bad number", async () => {
+  it("TC-UPL-07 a month price is never set for a future month, a fixed plan, or a bad number", async () => {
     await expect(
       priceHistoryService.setUsageMonthPrices("2026-10-01", [
         { plan: usagePlan, unitPrice: 40000, fixedFee: 685000 },
@@ -155,7 +155,7 @@ describe("month prices", () => {
     expect(priceStore.plans).toEqual([]);
   });
 
-  it("TC-UP-08 a refused plan in the batch saves none of them", async () => {
+  it("TC-UPL-08 a refused plan in the batch saves none of them", async () => {
     await expect(
       priceHistoryService.setUsageMonthPrices("2026-08-01", [
         { plan: usagePlan, unitPrice: 48241, fixedFee: 685000 },
@@ -176,12 +176,12 @@ describe("usage readings", () => {
       recordedByUserId: by,
     });
 
-  it("TC-UP-09 a meter plan stores the reading, never typed units", async () => {
+  it("TC-UPL-09 a meter plan stores the reading, never typed units", async () => {
     const saved = await save("2026-08-01", 1250);
     expect(saved).toMatchObject({ reading: 1250, units: null, billingMonth: "2026-08-01" });
   });
 
-  it("TC-UP-10 a typed-usage plan stores units, never a reading", async () => {
+  it("TC-UPL-10 a typed-usage plan stores units, never a reading", async () => {
     const gb = line({
       id: "line-2",
       plan: plan({ id: "p-gb", price: null, usage: { ...METER, entry: "direct", unitName: "GB" } }),
@@ -197,7 +197,7 @@ describe("usage readings", () => {
     expect(saved).toMatchObject({ reading: null, units: 40, meterChange: null });
   });
 
-  it("TC-UP-11 fixing a reading keeps ONE row, and the first save's time and author", async () => {
+  it("TC-UPL-11 fixing a reading keeps ONE row, and the first save's time and author", async () => {
     const first = await save("2026-08-01", 1250, "collector");
     jest.advanceTimersByTime(3 * 24 * 60 * 60 * 1000);
     const fixed = await save("2026-08-01", 1205, "admin");
@@ -207,7 +207,7 @@ describe("usage readings", () => {
     expect(fixed.recordedByUserId).toBe("collector");
   });
 
-  it("TC-UP-12 a removed reading is gone from reads; saving again brings the month back", async () => {
+  it("TC-UPL-12 a removed reading is gone from reads; saving again brings the month back", async () => {
     const first = await save("2026-08-01", 1250);
     await usageReadingService.remove(first, "admin");
     expect(await usageReadingService.getForLines(["line-1"])).toEqual([]);
@@ -217,7 +217,7 @@ describe("usage readings", () => {
     expect(readingStore.rows).toHaveLength(1);
   });
 
-  it("TC-UP-13 usage is never saved before the line starts, for a future month, or below 0", async () => {
+  it("TC-UPL-13 usage is never saved before the line starts, for a future month, or below 0", async () => {
     await expect(save("2026-02-01", 100)).rejects.toThrow(i18n.t("errors.usage_before_start"));
     await expect(save("2026-10-01", 100)).rejects.toThrow(i18n.t("errors.usage_future_month"));
     await expect(save("2026-08-01", -1)).rejects.toThrow(i18n.t("errors.usage_value_invalid"));
@@ -225,7 +225,7 @@ describe("usage readings", () => {
     expect(readingStore.rows).toEqual([]);
   });
 
-  it("TC-UP-14 a fixed-price line takes no usage", async () => {
+  it("TC-UPL-14 a fixed-price line takes no usage", async () => {
     await expect(
       usageReadingService.save({
         line: line({ plan: plan({ price: 20 }) }),
@@ -237,7 +237,7 @@ describe("usage readings", () => {
     ).rejects.toThrow(i18n.t("errors.usage_line_not_usage"));
   });
 
-  it("TC-UP-15 a meter change is kept with the month it happened in", async () => {
+  it("TC-UPL-15 a meter change is kept with the month it happened in", async () => {
     const saved = await usageReadingService.save({
       line: meterLine,
       billingMonth: "2026-08-01",
@@ -250,7 +250,7 @@ describe("usage readings", () => {
 });
 
 describe("bill parts on a charge", () => {
-  it("TC-UP-16 a usage bill keeps its parts; any other bill has none", () => {
+  it("TC-UPL-16 a usage bill keeps its parts; any other bill has none", () => {
     const usage = mapDbChargeToCharge({
       ...toDb(charge({ amount: 5_000_000 })),
       usage_previous_reading: 1130,
