@@ -38,7 +38,7 @@ One rules file for every AI agent (Claude Code loads it via `CLAUDE.md` = `@AGEN
 End every task with `## Changes Made`: **3–5 bullets**, one short sentence each, results only. No "I updated/changed/completed", process, reasoning, progress, intro, conclusion, filler, self-reference. No implementation detail unless asked.
 
 ### 1.5 Docs are agent-only
-`AGENTS.md` + `docs/*.md` (except `docs/whatsapp-setup-guide.md`) + `tests/README.md` + `Portal/README.md` are read only by AI agents: terse/telegraphic — no filler, history, link markup (`` `path` `` not `[x](../path)`), table padding or hard wrapping; keep every rule, reason, identifier, path, number, gotcha #. Human-facing, plain English: `QA/`, `fix-prompts.md`, `prerequisites.md`, `docs/whatsapp-setup-guide.md`. `CLAUDE.md` holds ONLY `@AGENTS.md`, never rules.
+`AGENTS.md` + `docs/*.md` (except `docs/whatsapp-setup-guide.md`) + `tests/README.md` + `Portal/README.md` are read only by AI agents: terse/telegraphic — no filler, history, link markup (`` `path` `` not `[x](../path)`), table padding or hard wrapping; keep every rule, reason, identifier, path, number, gotcha #. Human-facing, plain English: `QA/`, `fix-prompts.md`, `prerequisites.md`, `production-setup.md`, `docs/whatsapp-setup-guide.md`. `CLAUDE.md` holds ONLY `@AGENTS.md`, never rules.
 
 ### 1.6 Environment (laptop AV blocks spawned tools)
 - `npm install --ignore-scripts` (plain `npm i` dies at a postinstall, half-empty `node_modules`).
@@ -170,6 +170,7 @@ Domain types (camelCase) `Shared/src/core/types/index.ts`; DB rows (snake_case) 
 - Every table: `CREATE TABLE IF NOT EXISTS <t> ();` then one `ALTER TABLE <t> ADD COLUMN IF NOT EXISTS …;` per column — **no column list**. `NOT NULL` needs a `DEFAULT`. Multi-column constraint → guarded `DO $$` block; to change one, NEW name in `script.sql`, drop the old in `migration.sql`.
 - **Mirror every column change in `SubsTrack/src/core/offline/db/tables.ts`**. Non-additive is NOT reconciled on the device — say so, give the one-off statement.
 - Tell the user: run `migration.sql` **first**, then `script.sql`; nothing appended → `script.sql` alone.
+- Change older app code must not write through → bump `CLIENT_VERSION` + set `MinClientVersion` BEFORE the SQL (`docs/build-and-release.md` → Forced update).
 
 ## 9. Before you write code
 **§1.1 — zero inline comments.** The codebase is full of them and is wrong. Don't copy it.

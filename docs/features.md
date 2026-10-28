@@ -60,24 +60,20 @@ LoginScreen
          → customerService.countActive(null) + line count — TENANT-WIDE
          → refreshRequest() — the one pending customer_requests row, if any
 
-"Create a new organization" → signupSlice:
-  Step 1 (SignupOrganizationScreen)
-    → signupSlice.validateAndCheckCode()
-    → SignupService.validateOrganization() + repo.isTenantCodeAvailable()
-    → push /(auth)/signup-account
-  Step 2 (SignupAccountScreen)
-    → signupSlice.submit() → SignupService.createTenant() → SignupRepository.createTenant()
-    → supabase.functions.invoke('create-tenant') [service-role]
-       atomically: tenants(billing columns omitted → schema DEFAULTs) →
-       branches('Default Branch') → auth.users → public.users(role=superadmin, branch_id=null)
-       cascading rollback on any step
-    → auto-login via authSlice.login(...) → root layout routes on authSlice.user
+No self-service signup (removed 2026-10-27): new organizations = SaaS owner only (#33).
+Login screen (phone LoginScreen, web LoginPage) — Shared useSignInHelp() + useLegalLinks():
+  "Forgot your password or organization code?" + staff hint (ask your manager)
+  "Get help"                  → wa.me SupportWhatsAppNumber, sign-in help message
+  "New business? Contact us"  → same number, new-business message
+  Terms · Privacy             → WebsiteUrl pages
+  each link hidden while its option is blank
+Owner forgot password → SaaS owner: SuperAdmin → Tenant details → Owner login → Reset password
 
 app/(app)/_layout.tsx
   → !user → login · !tenantActive → TenantInactiveScreen · else tabs
 ```
 
-`primePostAuth(get, user)` is internal, called by `login` + `restoreSession`. `create-tenant` → `docs/edge-functions.md`; anon path → #33.
+`primePostAuth(get, user)` is internal, called by `login` + `restoreSession`. `create-tenant` → `docs/edge-functions.md`; who may create an organization → #33.
 
 ---
 
@@ -150,14 +146,23 @@ Snapshot rules → #18, #19, #21, #22, #24, #36.
 
 `app_options`: **global** key/value (no `tenant_id`), SaaS-owner config. Columns `id`, `key` (unique), `value` (text), `description`, timestamps. Keys:
 - `LiraRate` — default LBP per 1 USD, seeds new tenants' LBP.
-- `AllowSelfServiceSignup` (`'true'`/`'false'`, default true) — `false` → login hides "Create organization" **and** `create-tenant` rejects (`403`, `code: signup_disabled`); server authoritative.
-- `SupportWhatsAppNumber` — intl digits only; `UpdateAllowanceSheet` "Send request + WhatsApp" deep-link; blank hides button.
+- `SupportWhatsAppNumber` — intl digits only; `UpdateAllowanceSheet` "Send request + WhatsApp" deep-link + login "Get help" / "Contact us"; blank hides them.
+- `WebsiteUrl` — Website base, no trailing slash; legal links + account deletion (below); blank hides them.
+- `MinClientVersion` — lowest `CLIENT_VERSION` allowed to work (forced update, below); blank = no limit.
+- `AppDownloadUrl` — Play Store page / APK link the "Update needed" screen opens when no OTA update exists.
 
-- **RLS:** `app_options_select` → `SELECT` for **`anon` + `authenticated`** (anon: flags gate pre-auth UI). **No** write policy → only service role (SuperAdmin + `create-tenant`) writes.
+- **RLS:** `app_options_select` → `SELECT` for **`anon` + `authenticated`** (anon: login screen help + legal links). **No** write policy → only service role (SuperAdmin + `create-tenant`) writes.
 - **SuperAdmin**: CRUD in **Options** tab (`SuperAdmin/app/(tabs)/options.tsx` → `OptionsScreen`); module = repository + service + standalone `optionStore` + screen + `OptionFormSheet` (create + delete). Key **immutable after creation** (only `value`/`description` edit) so code-read keys can't be renamed away.
-- **SubsTrack**: **read-only** module (repository `findAll`/`findByKey`, `OptionService.getOptions`/`getOptionValue`, `optionSlice`, `useOptionSlice`). Fetched **at bootstrap** (`app/_layout.tsx`, pre-auth login needs flags) + re-primed in `primePostAuth`; **not** reset on `logout`. Keys via `OPTION_KEYS`, never magic strings. Hooks in `Shared/src/state/hooks/useOptionSlice.ts`: `useOptionValue(key)`, `useBooleanOption(key, fallback)`, `useSelfServiceSignupEnabled()`, `useSupportWhatsAppNumber()`. Conditional UI → gate in `SubsTrack/src/shared/components/FeatureGate.tsx`: `<CanCreateOrganization>` renders `children` or `fallback` (no flag ternaries in screens). WhatsApp links → `openWhatsApp()` (`SubsTrack/src/shared/lib/whatsapp.ts`).
+- **SubsTrack**: **read-only** module (repository `findAll`/`findByKey`, `OptionService.getOptions`/`getOptionValue`, `optionSlice`, `useOptionSlice`). Fetched **at bootstrap** (`app/_layout.tsx`, pre-auth login needs flags) + re-primed in `primePostAuth`; **not** reset on `logout`. Keys via `OPTION_KEYS`, never magic strings. Hooks in `Shared/src/state/hooks/useOptionSlice.ts`: `useOptionValue(key)`, `useSupportWhatsAppNumber()`, `useCustomerPortalUrl()`, `useLegalLinks()`, `useClientOutdated()`, `useAppDownloadUrl()`, `useWhatsAppSignupOptions()`. Phone `OfflineOptionRepository` = **online first**, mirror only offline (mirror fills after login; login screen needs options before). Links on the phone → `openUrl()` / `openWhatsApp()` (`SubsTrack/src/shared/lib/`).
 
 See #38.
+
+## Legal Links, Account Deletion, Forced Update
+
+- **Legal links**: Shared `legalLinks(WebsiteUrl)` → `{base}/privacy/`, `/terms/`, `/delete-account/` (Website pages; inputs in `Website/vite.config.js`). Shown: login footer (both apps), phone More → About group, web user menu.
+- **Account deletion** (Google Play rule: in-app path + web page): "Delete my account" → confirm → opens `/delete-account/`; the page takes requests by WhatsApp/email, owner deletes within 30 days (SuperAdmin; staff → admin removes in app).
+- **Forced update**: integer `CLIENT_VERSION` (`Shared/src/modules/options/utils/clientVersion.ts`) vs `MinClientVersion`; `isClientOutdated()` = the only rule. Phone: sync engine reads `MinClientVersion` from the SERVER in `canReachServer()` on every cycle + flush → outdated = no push, no pull, `SyncStatus.outdated = true` → root layout overlays `UpdateRequiredScreen` over `<Slot />` (router stays mounted): restart into a downloaded OTA → else download one → else open `AppDownloadUrl` → else inline error. Web: `SessionGate` → `useClientGate()` (re-reads options when the tab becomes visible) → reload page. Bump steps: docs/build-and-release.md → Forced update.
+- **Crash pages**: phone `CrashGate`; web root route `ErrorBoundary: CrashPage` (React Router data mode — every route error bubbles to it); Portal `CrashBoundary` around `<App />`.
 
 ---
 

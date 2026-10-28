@@ -1,5 +1,14 @@
-import type { CustomerRequest, Tenant, TenantCounts } from "@/src/core/types";
-import type { DbCustomerRequest, DbTenant } from "@/src/core/types/db";
+import type {
+  CustomerRequest,
+  Tenant,
+  TenantCounts,
+  TenantOwner,
+} from "@/src/core/types";
+import type {
+  DbCustomerRequest,
+  DbTenant,
+  DbTenantOwner,
+} from "@/src/core/types/db";
 import { supabaseAdmin } from "@/src/shared/lib/supabaseAdmin";
 import {
   TenantRepository,
@@ -43,6 +52,15 @@ function mapDbTenantToTenant(
     whatsappEnabled: Boolean(db.whatsapp_enabled),
     pendingRequest,
     createdAt: db.created_at,
+  };
+}
+
+function mapDbTenantOwner(db: DbTenantOwner): TenantOwner {
+  return {
+    id: db.id,
+    username: db.username,
+    fullName: db.full_name,
+    active: db.active,
   };
 }
 
@@ -122,6 +140,16 @@ export class TenantService {
 
   async getTenantCounts(tenantId: string): Promise<TenantCounts> {
     return mapTableCounts(await this.repository.countRows(tenantId));
+  }
+
+  async getOwners(tenantId: string): Promise<TenantOwner[]> {
+    return (await this.repository.findOwners(tenantId)).map(mapDbTenantOwner);
+  }
+
+  async resetOwnerPassword(userId: string, password: string): Promise<void> {
+    if (password.length < 8)
+      throw new Error("Password must be at least 8 characters");
+    await this.repository.setPassword(userId, password);
   }
 
   async createTenant(data: CreateTenantInput): Promise<Tenant> {

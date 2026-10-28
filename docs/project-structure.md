@@ -79,7 +79,7 @@ SubsTrack/
   app/                Expo Router
     _layout.tsx       root — configurePhone() first; fonts, GestureHandler, KeyboardProvider
     index.tsx         redirect to login or home
-    (auth)/           login, signup-organization, signup-account
+    (auth)/           login
     (app)/_layout.tsx auth guard (session, tenantActive)
     (app)/(tabs)/     home, customers ([id]/index, [id]/sales), transactions, reports, more (settings + admin/*) — role-aware tab bar (AppTabBar) in _layout.tsx
   src/platform/       what phone hands to Shared

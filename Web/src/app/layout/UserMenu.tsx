@@ -13,13 +13,17 @@ import { useTheme } from "@mui/material/styles";
 import AccountBalanceWalletOutlined from "@mui/icons-material/AccountBalanceWalletOutlined";
 import AccountCircleOutlined from "@mui/icons-material/AccountCircleOutlined";
 import Check from "@mui/icons-material/Check";
+import DescriptionOutlined from "@mui/icons-material/DescriptionOutlined";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import LogoutOutlined from "@mui/icons-material/LogoutOutlined";
+import PersonRemoveOutlined from "@mui/icons-material/PersonRemoveOutlined";
+import PrivacyTipOutlined from "@mui/icons-material/PrivacyTipOutlined";
 import { LANGUAGE_NAMES, SUPPORTED_LANGUAGES, type SupportedLanguage } from "@shared/core/i18n";
 import { isolate } from "@shared/core/utils/bidi";
 import { roleLabelKey } from "@shared/modules/admin/users/utils/userRules";
 import { confirm } from "@shared/shared/lib/confirm";
 import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
+import { useLegalLinks } from "@shared/state/hooks/useOptionSlice";
 import { endWebSession } from "@/state/webSession";
 import { currentLanguage } from "@/core/i18n/language";
 import { switchLanguage } from "@/core/i18n/setup";
@@ -30,6 +34,7 @@ export function UserMenu() {
   const navigate = useNavigate();
   const theme = useTheme();
   const user = useAuthSlice((s) => s.user);
+  const legal = useLegalLinks();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const buttonId = useId();
   const menuId = useId();
@@ -49,6 +54,55 @@ export function UserMenu() {
     close();
     navigate("/my-wallet");
   };
+
+  const deleteAccount = async (url: string) => {
+    close();
+    const ok = await confirm({
+      title: t("legal.delete_account"),
+      message: t("legal.delete_account_confirm"),
+      confirmLabel: t("legal.continue"),
+      destructive: true,
+    });
+    if (ok) window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const legalItems = legal
+    ? [
+        <Divider key="legal-divider" />,
+        <MenuItem
+          key="privacy"
+          component="a"
+          href={legal.privacy}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={close}
+        >
+          <ListItemIcon>
+            <PrivacyTipOutlined fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>{t("legal.privacy")}</ListItemText>
+        </MenuItem>,
+        <MenuItem
+          key="terms"
+          component="a"
+          href={legal.terms}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={close}
+        >
+          <ListItemIcon>
+            <DescriptionOutlined fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>{t("legal.terms")}</ListItemText>
+        </MenuItem>,
+        <MenuItem key="delete-account" onClick={() => void deleteAccount(legal.deleteAccount)}>
+          <ListItemIcon>
+            <PersonRemoveOutlined fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>{t("legal.delete_account")}</ListItemText>
+        </MenuItem>,
+      ]
+    : [];
 
   const logOut = async () => {
     close();
@@ -126,6 +180,7 @@ export function UserMenu() {
             <ListItemText lang={option}>{LANGUAGE_NAMES[option]}</ListItemText>
           </MenuItem>
         ))}
+        {legalItems}
         <Divider />
         <MenuItem onClick={() => void logOut()} sx={{ color: "error.main" }}>
           <ListItemIcon>

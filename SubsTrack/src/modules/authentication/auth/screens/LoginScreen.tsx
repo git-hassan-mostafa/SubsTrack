@@ -4,13 +4,13 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { useRouter, type Href } from "expo-router";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
-import { CanCreateOrganization } from "@/src/shared/components/FeatureGate";
-import { useSignupStore } from "@shared/modules/authentication/signup/state/signupStore";
+import { useSignInHelp } from "@shared/modules/authentication/auth/hooks/useSignInHelp";
+import { useLegalLinks } from "@shared/state/hooks/useOptionSlice";
+import { openUrl } from "@/src/shared/lib/openUrl";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 
 const BRAND_LOGO = require("@/assets/images/icon-web-transparent.png");
@@ -26,10 +26,11 @@ type FormState = {
 
 export function LoginScreen() {
   const { t } = useTranslation();
-  const router = useRouter();
   const login = useAuthSlice((s) => s.login);
   const error = useAuthSlice((s) => s.error);
   const clearError = useAuthSlice((s) => s.clearError);
+  const { signInHelpUrl, newBusinessUrl } = useSignInHelp();
+  const legal = useLegalLinks();
 
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState<FormState>({
@@ -37,11 +38,6 @@ export function LoginScreen() {
     username: "",
     password: "",
   });
-
-  function handleCreateOrganization() {
-    useSignupStore.getState().reset();
-    router.push("/(auth)/signup-organization" as Href);
-  }
 
   const isAccountNotConfigured = error === "account_not_configured";
   const fieldError = error && !isAccountNotConfigured ? error : null;
@@ -126,31 +122,56 @@ export function LoginScreen() {
               fullWidth
             />
 
-            <View className="flex-row justify-center mt-5">
-              <Text className="text-sm text-gray-400">
-                {t("auth.lost_organization_id")}{" "}
+            <View className="items-center mt-5">
+              <Text className="text-sm text-gray-500 text-center">
+                {t("auth.forgot_password")}
               </Text>
-              <Text fontWeight="SemiBold" className="text-sm text-primary">
-                {t("auth.get_help")}
+              <Text className="text-sm text-gray-400 text-center mt-1">
+                {t("auth.staff_reset_hint")}
               </Text>
+              {signInHelpUrl ? (
+                <Text
+                  fontWeight="SemiBold"
+                  className="text-sm text-primary mt-2"
+                  onPress={() => void openUrl(signInHelpUrl)}
+                >
+                  {t("auth.get_help")}
+                </Text>
+              ) : null}
             </View>
 
-            <CanCreateOrganization>
-              <View className="flex-row items-center my-6">
-                <View className="flex-1 h-px bg-gray-200" />
-                <Text className="mx-3 text-xs text-gray-400">
-                  {t("auth.or")}
+            {newBusinessUrl ? (
+              <View className="flex-row justify-center mt-6">
+                <Text className="text-sm text-gray-400">
+                  {t("auth.new_business")}{" "}
                 </Text>
-                <View className="flex-1 h-px bg-gray-200" />
+                <Text
+                  fontWeight="SemiBold"
+                  className="text-sm text-primary"
+                  onPress={() => void openUrl(newBusinessUrl)}
+                >
+                  {t("auth.contact_us")}
+                </Text>
               </View>
+            ) : null}
 
-              <Button
-                label={t("auth.create_organization")}
-                onPress={handleCreateOrganization}
-                variant="ghost"
-                fullWidth
-              />
-            </CanCreateOrganization>
+            {legal ? (
+              <View className="flex-row justify-center mt-8">
+                <Text
+                  className="text-xs text-gray-500"
+                  onPress={() => void openUrl(legal.terms)}
+                >
+                  {t("legal.terms")}
+                </Text>
+                <Text className="text-xs text-gray-400">{" · "}</Text>
+                <Text
+                  className="text-xs text-gray-500"
+                  onPress={() => void openUrl(legal.privacy)}
+                >
+                  {t("legal.privacy")}
+                </Text>
+              </View>
+            ) : null}
           </View>
         </ResponsiveContainer>
       </KeyboardAwareScrollView>

@@ -1,5 +1,5 @@
 import { FakeDb, mirrorRow } from "../helpers/fakeSqlite";
-import { FakeSupabase } from "../helpers/fakeSupabase";
+import { FakeSupabase, type RecordedSelect } from "../helpers/fakeSupabase";
 
 const mockServer = new FakeSupabase();
 let mockDb = new FakeDb({});
@@ -39,6 +39,7 @@ import {
   syncNow,
 } from "@/src/core/offline/sync/engine";
 import { getSyncStatus } from "@/src/core/offline/sync/status";
+import { CLIENT_VERSION } from "@shared/modules/options/utils/clientVersion";
 
 const MINUTE = 60 * 1000;
 const PULL_EVERY = 10 * MINUTE;
@@ -47,7 +48,9 @@ const stamped = (ageMs: number) => [
   { key: "last_sync_at", value: new Date(Date.now() - ageMs).toISOString() },
 ];
 
-const pulled = () => mockServer.selects.length > 0;
+const isVersionCheck = (s: RecordedSelect) =>
+  s.table === "app_options" && s.eq !== null;
+const pulled = () => mockServer.selects.some((s) => !isVersionCheck(s));
 const pushed = () => mockServer.upserts.length > 0;
 
 const metaStamp = (key: string) =>
@@ -94,7 +97,7 @@ describe("TC-SY-70..74 — the 10-minute pull gate skips the pull, never the pus
     expect(mockServer.upserts.map((u) => u.table)).toEqual(["collections"]);
   });
 
-  it("TC-SY-74 a fresh mirror with nothing dirty makes no request at all", async () => {
+  it("TC-SY-74 a fresh mirror with nothing dirty pushes and pulls nothing", async () => {
     mockDb = new FakeDb({ sync_meta: stamped(60_000) });
 
     await runSyncIfDue();
@@ -232,6 +235,49 @@ describe("TC-SY-86..88 — last push, pull and manual sync times", () => {
     await syncNow();
 
     expect(metaStamp("last_manual_sync_at")).toBeUndefined();
+  });
+});
+
+describe("TC-SY-91..93 — a build below MinClientVersion stops syncing", () => {
+  const requireVersion = (version: number) =>
+    mockServer.setRows("app_options", [
+      { key: "MinClientVersion", value: String(version) },
+    ]);
+
+  it("TC-SY-91 an outdated build neither pushes nor pulls, and says so", async () => {
+    requireVersion(CLIENT_VERSION + 1);
+    mockDb = new FakeDb({
+      collections: [mirrorRow("collections", { id: "cash" }, 1)],
+    });
+
+    await runSync();
+
+    expect(pushed()).toBe(false);
+    expect(pulled()).toBe(false);
+    expect(getSyncStatus().outdated).toBe(true);
+  });
+
+  it("TC-SY-92 an outdated build never pushes money from the 5-minute flush", async () => {
+    requireVersion(CLIENT_VERSION + 1);
+    mockDb = new FakeDb({
+      collections: [mirrorRow("collections", { id: "cash" }, 1)],
+    });
+
+    await flushPendingWrites();
+
+    expect(pushed()).toBe(false);
+  });
+
+  it("TC-SY-93 a build at MinClientVersion syncs and clears the flag", async () => {
+    requireVersion(CLIENT_VERSION);
+    mockDb = new FakeDb({
+      collections: [mirrorRow("collections", { id: "cash" }, 1)],
+    });
+
+    await runSync();
+
+    expect(pushed()).toBe(true);
+    expect(getSyncStatus().outdated).toBe(false);
   });
 });
 

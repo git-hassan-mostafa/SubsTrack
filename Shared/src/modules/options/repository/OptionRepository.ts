@@ -2,10 +2,7 @@ import { BaseRepository } from "@shared/core/utils/BaseRepository";
 import type { DbAppOption } from "@shared/core/types/db";
 import type { IOptionRepository } from "@shared/modules/options/repository/IOptionRepository";
 
-// Read-only access to the global app_options table. Sijil never writes
-// options — that is the SuperAdmin app's responsibility (service role). RLS
-// allows both anon and authenticated to SELECT (anon is required because some
-// flags gate pre-auth UI, e.g. self-service signup on the login screen).
+// Read-only; anon reads it too, for the login screen's help and legal links.
 export class OptionRepository
   extends BaseRepository
   implements IOptionRepository

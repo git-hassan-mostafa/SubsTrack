@@ -12,3 +12,4 @@ Turn on airplane mode, do the action, turn the network back on and sync. Then ch
 8. Two admins receive the same cash offline → after sync it sits with exactly one of them.
 9. Collect money offline, then reopen the app the same day (sync not due yet) → the payment is still pushed to the server.
 10. Two phones write off the same unpaid month offline → after sync there is one written-off bill for that month, not two.
+11. Collect money offline on an old app version, then set MinClientVersion above it and go online → the phone shows "Update needed" and sends nothing; after updating, the payment is pushed once.

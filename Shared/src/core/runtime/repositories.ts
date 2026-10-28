@@ -9,7 +9,6 @@ import type { IServiceRepository } from "@shared/modules/admin/service-catalog/r
 import type { ITenantSettingRepository } from "@shared/modules/admin/tenant-settings/repository/ITenantSettingRepository";
 import type { IUserRepository } from "@shared/modules/admin/users/repository/IUserRepository";
 import type { IAuthRepository } from "@shared/modules/authentication/auth/repository/IAuthRepository";
-import type { ISignupRepository } from "@shared/modules/authentication/signup/repository/ISignupRepository";
 import type { ISkippedMonthRepository } from "@shared/modules/customer/customer-payments/repository/ISkippedMonthRepository";
 import type { IUsageReadingRepository } from "@shared/modules/customer/customer-payments/repository/IUsageReadingRepository";
 import type { ICustomerImportRepository } from "@shared/modules/customer/customer-import/repository/ICustomerImportRepository";
@@ -38,7 +37,6 @@ export interface Repositories {
   tenantSetting: ITenantSettingRepository;
   user: IUserRepository;
   auth: IAuthRepository;
-  signup: ISignupRepository;
   skippedMonth: ISkippedMonthRepository;
   usageReading: IUsageReadingRepository;
   customerPlan: ICustomerPlanRepository;

@@ -5,13 +5,17 @@ import * as Updates from "expo-updates";
 export const IS_OTA_CAPABLE =
   Platform.OS !== "web" && Updates.isEnabled && !__DEV__;
 
-async function downloadIfAvailable(): Promise<void> {
+// true once a newer bundle is downloaded and waiting for a restart
+export async function downloadUpdate(): Promise<boolean> {
+  if (!IS_OTA_CAPABLE) return false;
   try {
     const result = await Updates.checkForUpdateAsync();
-    if (result.isAvailable || result.isRollBackToEmbedded) {
-      await Updates.fetchUpdateAsync();
-    }
-  } catch {}
+    if (!result.isAvailable && !result.isRollBackToEmbedded) return false;
+    await Updates.fetchUpdateAsync();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -26,7 +30,7 @@ export function useAppUpdate(): { updateReady: boolean; apply: () => void } {
   useEffect(() => {
     if (!IS_OTA_CAPABLE) return;
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") void downloadIfAvailable();
+      if (state === "active") void downloadUpdate();
     });
     return () => sub.remove();
   }, []);

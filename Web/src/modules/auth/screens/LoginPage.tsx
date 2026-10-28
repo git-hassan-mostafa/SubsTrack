@@ -4,6 +4,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
+import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -11,9 +12,16 @@ import Typography from "@mui/material/Typography";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
+import {
+  useLegalLinks,
+  useOptionSlice,
+} from "@shared/state/hooks/useOptionSlice";
+import { useSignInHelp } from "@shared/modules/authentication/auth/hooks/useSignInHelp";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 
 const ACCOUNT_NOT_CONFIGURED = "account_not_configured";
+
+const NEW_TAB = { target: "_blank", rel: "noopener noreferrer" } as const;
 
 type FormState = {
   tenantCode: string;
@@ -27,6 +35,9 @@ export function LoginPage() {
   const login = useAuthSlice((s) => s.login);
   const error = useAuthSlice((s) => s.error);
   const clearError = useAuthSlice((s) => s.clearError);
+  const fetchOptions = useOptionSlice((s) => s.fetchOptions);
+  const { signInHelpUrl, newBusinessUrl } = useSignInHelp();
+  const legal = useLegalLinks();
   const [form, setForm] = useState<FormState>({
     tenantCode: "",
     username: "",
@@ -36,6 +47,10 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => clearError, [clearError]);
+
+  useEffect(() => {
+    void fetchOptions();
+  }, [fetchOptions]);
 
   const message =
     error === ACCOUNT_NOT_CONFIGURED ? t("auth.account_not_configured") : error;
@@ -141,6 +156,43 @@ export function LoginPage() {
             </Button>
           </Stack>
         </Box>
+
+        <Stack spacing={0.5} sx={{ mt: 3, alignItems: "center", textAlign: "center" }}>
+          <Typography variant="body2" color="text.secondary">
+            {t("auth.forgot_password")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t("auth.staff_reset_hint")}
+          </Typography>
+          {signInHelpUrl ? (
+            <Link href={signInHelpUrl} {...NEW_TAB} variant="body2" sx={{ fontWeight: 600 }}>
+              {t("auth.get_help")}
+            </Link>
+          ) : null}
+        </Stack>
+
+        {newBusinessUrl ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 3, textAlign: "center" }}>
+            {t("auth.new_business")}{" "}
+            <Link href={newBusinessUrl} {...NEW_TAB} sx={{ fontWeight: 600 }}>
+              {t("auth.contact_us")}
+            </Link>
+          </Typography>
+        ) : null}
+
+        {legal ? (
+          <Stack direction="row" spacing={1} sx={{ mt: 3, justifyContent: "center" }}>
+            <Link href={legal.terms} {...NEW_TAB} variant="caption" color="text.secondary">
+              {t("legal.terms")}
+            </Link>
+            <Typography variant="caption" color="text.secondary">
+              ·
+            </Typography>
+            <Link href={legal.privacy} {...NEW_TAB} variant="caption" color="text.secondary">
+              {t("legal.privacy")}
+            </Link>
+          </Stack>
+        ) : null}
       </Paper>
     </Box>
   );

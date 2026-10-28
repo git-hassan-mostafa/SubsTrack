@@ -1,6 +1,8 @@
 import { supabase } from "@/src/shared/lib/supabase";
 import { getDb, isOfflineDbReady } from "../db/sqlite";
 import { nowIso } from "@shared/core/utils/ids";
+import { OPTION_KEYS } from "@shared/modules/options/utils/constants";
+import { isClientOutdated } from "@shared/modules/options/utils/clientVersion";
 import { isOnline } from "../net/connectivity";
 import { IS_OFFLINE_CAPABLE } from "../platform";
 import {
@@ -42,11 +44,24 @@ export function resumeSync(): void {
   suspended = false;
 }
 
+// A failed read never blocks: only a MinClientVersion above this build's stops sync.
+async function isAppOutdated(): Promise<boolean> {
+  const { data } = await supabase
+    .from("app_options")
+    .select("value")
+    .eq("key", OPTION_KEYS.minClientVersion)
+    .maybeSingle();
+  return isClientOutdated((data as { value: string | null } | null)?.value);
+}
+
 // A signed-out pull returns empty rows and would wipe the mirror — see docs/offline.md
 async function canReachServer(): Promise<boolean> {
   if (!(await isOnline())) return false;
   const { data } = await supabase.auth.getSession();
-  return !!data.session;
+  if (!data.session) return false;
+  const outdated = await isAppOutdated();
+  setStatus({ outdated });
+  return !outdated;
 }
 
 async function stamp(field: SyncStamp): Promise<void> {

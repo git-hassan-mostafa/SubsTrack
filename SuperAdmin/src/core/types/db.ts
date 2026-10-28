@@ -13,6 +13,13 @@ export interface DbTenant {
   created_at: string;
 }
 
+export interface DbTenantOwner {
+  id: string;
+  username: string;
+  full_name: string;
+  active: boolean;
+}
+
 export interface DbCustomerRequest {
   id: string;
   tenant_id: string;

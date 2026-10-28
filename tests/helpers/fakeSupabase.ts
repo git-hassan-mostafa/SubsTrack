@@ -12,6 +12,7 @@ export interface RecordedSelect {
   columns: string;
   gt: [string, string] | null;
   gte: [string, string] | null;
+  eq: [string, string] | null;
   range: [number, number] | null;
 }
 
@@ -97,6 +98,7 @@ export class FakeSupabase {
       columns,
       gt: null,
       gte: null,
+      eq: null,
       range: null,
     };
     this.selects.push(rec);
@@ -112,9 +114,17 @@ export class FakeSupabase {
         rec.gte = [col, v];
         return builder;
       },
+      eq: (col: string, v: string) => {
+        rec.eq = [col, v];
+        return builder;
+      },
       range: (from: number, to: number) => {
         rec.range = [from, to];
         return builder;
+      },
+      maybeSingle: async () => {
+        const { data, error } = await builder.run();
+        return { data: data?.[0] ?? null, error };
       },
       run: async () => {
         if (self.failTables.has(table)) {
@@ -128,6 +138,10 @@ export class FakeSupabase {
         if (rec.gte) {
           const [col, v] = rec.gte;
           rows = rows.filter((r) => String(r[col]) >= v);
+        }
+        if (rec.eq) {
+          const [col, v] = rec.eq;
+          rows = rows.filter((r) => String(r[col]) === v);
         }
         const [from, to] = rec.range ?? [0, rows.length];
         return { data: rows.slice(from, to + 1), error: null };

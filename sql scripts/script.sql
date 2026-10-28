@@ -72,7 +72,7 @@ CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 -- Managed by the SaaS owner via the SuperAdmin "Options" page (service role).
 -- The SubsTrack mobile app reads these via RLS (authenticated SELECT only);
 -- it never writes. Example: 'LiraRate' = default USD→LBP rate seeded onto
--- each new tenant's auto-created Lebanese Pound (LBP) currency at signup.
+-- each new tenant's auto-created Lebanese Pound (LBP) currency.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS app_options ();
@@ -92,20 +92,21 @@ ALTER TABLE app_options ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL
 -- tenant's auto-created LBP currency.
 INSERT INTO app_options (key, value, description) VALUES
     ('LiraRate', '89000', 'Default USD→LBP exchange rate (LBP per 1 USD) seeded onto each new tenant''s Lebanese Pound currency.'),
-    ('AllowSelfServiceSignup', 'true', 'When ''false'', the login screen hides the "Create organization" button and the create-tenant Edge Function rejects new signups.'),
-    ('SupportWhatsAppNumber', '', 'Owner WhatsApp number in international format (digits only, e.g. 9613123456). Used by the "request more customers" flow in Organization Settings.'),
+    ('SupportWhatsAppNumber', '', 'Owner WhatsApp number in international format (digits only, e.g. 9613123456). Used by the "request more customers" flow and the login screen''s "Get help" and "Contact us" links.'),
     ('CustomerPortalUrl', '', 'Base URL of the customer portal web app, no trailing slash (e.g. https://portal.example.com). The app builds a customer''s link as {this}/{customers.id}. Blank hides the portal fields in the customer form.'),
     ('WhatsAppAppId', '', 'Meta App ID used by the WhatsApp Embedded Signup page. Public value. Blank hides the WhatsApp Cloud API feature everywhere.'),
     ('WhatsAppConfigId', '', 'Meta "Facebook Login for Business" configuration ID for WhatsApp Embedded Signup. Public value.'),
-    ('WhatsAppConnectUrl', '', 'Full URL of the Sijil web page that runs Embedded Signup, e.g. https://app.example.com/whatsapp-connect. Its domain must be allowed in the Meta app settings.')
+    ('WhatsAppConnectUrl', '', 'Full URL of the Sijil web page that runs Embedded Signup, e.g. https://app.example.com/whatsapp-connect. Its domain must be allowed in the Meta app settings.'),
+    ('WebsiteUrl', '', 'Base URL of the Sijil website, no trailing slash (e.g. https://sijil.example.com). The apps link to {this}/privacy/, {this}/terms/ and {this}/delete-account/. Blank hides those links.'),
+    ('MinClientVersion', '', 'Lowest CLIENT_VERSION (Shared clientVersion.ts) allowed to keep working. An older phone stops syncing and shows "Update needed"; an older web tab asks to reload. Blank = no limit.'),
+    ('AppDownloadUrl', '', 'Where an outdated phone gets the new app build (Play Store page or APK link). Used by the "Update needed" screen when no OTA update is available.')
 ON CONFLICT (key) DO NOTHING;
 
 -- ============================================================
 -- TENANTS
--- Managed by the SaaS owner via the SuperAdmin app (service role)
--- and by new users via the public `create-tenant` Edge Function
--- (service role, server-side). The SubsTrack mobile app never
--- writes to this table with the anon key.
+-- Managed only by the SaaS owner: the SuperAdmin app or the
+-- `create-tenant` Edge Function called with the service-role key.
+-- The SubsTrack mobile app never writes to this table.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS tenants ();
@@ -2798,9 +2799,8 @@ DO $$ BEGIN
 
     -- ── APP OPTIONS ──────────────────────────────────────────
     -- Global, non-tenant config (e.g. LiraRate, feature flags, support
-    -- contact). Readable by everyone (anon + authenticated) because some
-    -- flags gate pre-auth UI — e.g. the login screen hides the self-service
-    -- "Create organization" button when AllowSelfServiceSignup = false. No write
+    -- contact). Readable by everyone (anon + authenticated) because the
+    -- login screen shows the support and legal links before sign-in. No write
     -- policy exists, so only service_role (which bypasses RLS — used by
     -- SuperAdmin and the create-tenant Edge Function) can mutate.
     -- (Drop+create so the role set updates on existing deployments.)
@@ -3557,34 +3557,6 @@ DO $$ BEGIN
     -- pushes audit_logs with ON CONFLICT DO NOTHING — see TableSpec.appendOnly.
 
 END $$;
-
--- ============================================================
--- PUBLIC RPC: is_tenant_code_available
--- Exposed to the anon role so the public signup flow in SubsTrack
--- can pre-check organization-code availability before walking the user
--- through the account form. SECURITY DEFINER is required because the
--- tenants SELECT policy hides every row from anon callers — without
--- it the function would always return TRUE. Returning only a boolean
--- (not the row) keeps tenant enumeration limited to a yes/no oracle,
--- which is acceptable since tenant_code is user-chosen and treated
--- like a username.
--- ============================================================
-
-CREATE OR REPLACE FUNCTION public.is_tenant_code_available(code TEXT)
-RETURNS BOOLEAN
-LANGUAGE SQL
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-    SELECT NOT EXISTS (
-        SELECT 1 FROM public.tenants
-        WHERE tenant_code = lower(trim(code))
-    );
-$$;
-
-REVOKE ALL ON FUNCTION public.is_tenant_code_available(TEXT) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.is_tenant_code_available(TEXT) TO anon, authenticated;
 
 -- ============================================================
 -- SETUP NOTES (READ BEFORE DEPLOYING)

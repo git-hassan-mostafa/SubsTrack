@@ -1,6 +1,11 @@
 import { useGlobalStore } from "@shared/state/hooks/useGlobalStore";
 import type { OptionSlice } from "@shared/state/slices/options/optionSlice";
 import { OPTION_KEYS } from "@shared/modules/options/utils/constants";
+import { isClientOutdated } from "@shared/modules/options/utils/clientVersion";
+import {
+  legalLinks,
+  type LegalLinks,
+} from "@shared/modules/options/utils/legalLinks";
 
 export function useOptionSlice(): OptionSlice;
 export function useOptionSlice<T>(selector: (state: OptionSlice) => T): T;
@@ -13,11 +18,6 @@ export function useOptionSlice<T = OptionSlice>(
   });
 }
 
-function parseBool(value: string | null, fallback: boolean): boolean {
-  if (value == null) return fallback;
-  return value.trim().toLowerCase() === "true";
-}
-
 /** Raw string value of a global option, or `null` if the row is absent. */
 export const useOptionValue = (key: string): string | null =>
   useOptionSlice(
@@ -26,21 +26,22 @@ export const useOptionValue = (key: string): string | null =>
       null,
   );
 
-/** A boolean global option. Missing/blank rows fall back to `fallback`. */
-export const useBooleanOption = (key: string, fallback = false): boolean =>
-  parseBool(useOptionValue(key), fallback);
-
-// Semantic flag hooks — defaults preserve existing behavior when the SaaS
-// owner has not configured the option yet.
-export const useSelfServiceSignupEnabled = (): boolean =>
-  useBooleanOption(OPTION_KEYS.allowSelfServiceSignup, false);
-
 export const useSupportWhatsAppNumber = (): string | null =>
   useOptionValue(OPTION_KEYS.supportWhatsAppNumber);
 
 // Blank until the SaaS owner sets it, which is what hides the portal fields.
 export const useCustomerPortalUrl = (): string | null =>
   useOptionValue(OPTION_KEYS.customerPortalUrl);
+
+// Blank until the SaaS owner sets WebsiteUrl, which hides every legal link.
+export const useLegalLinks = (): LegalLinks | null =>
+  legalLinks(useOptionValue(OPTION_KEYS.websiteUrl));
+
+export const useClientOutdated = (): boolean =>
+  isClientOutdated(useOptionValue(OPTION_KEYS.minClientVersion));
+
+export const useAppDownloadUrl = (): string | null =>
+  useOptionValue(OPTION_KEYS.appDownloadUrl)?.trim() || null;
 
 export interface WhatsAppSignupOptions {
   appId: string | null;

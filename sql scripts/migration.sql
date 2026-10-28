@@ -137,3 +137,14 @@ ALTER TABLE plans DROP CONSTRAINT IF EXISTS chk_plan_price_consistency;
 --
 -- A fresh database never needs this — script.sql no longer declares the old check.
 ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS chk_audit_logs_action;
+
+-- ---------------------------------------------------------------------------
+-- 2026-10-27 — self-service signup removed
+-- ---------------------------------------------------------------------------
+-- Only the SaaS owner opens organizations now (SuperAdmin, or create-tenant
+-- called with the service-role key). The anon org-code check and the signup
+-- switch go. Safe to run repeatedly.
+--
+-- A fresh database never needs this — script.sql no longer declares either.
+DROP FUNCTION IF EXISTS public.is_tenant_code_available(TEXT);
+DELETE FROM app_options WHERE key = 'AllowSelfServiceSignup';

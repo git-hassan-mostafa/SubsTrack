@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Tenant, TenantCounts } from "@/src/core/types";
+import type { Tenant, TenantCounts, TenantOwner } from "@/src/core/types";
 import {
   TenantService,
   type CreateTenantInput,
@@ -10,11 +10,15 @@ import type { GrantedCounts } from "../repository/TenantRepository";
 interface TenantState {
   tenants: Tenant[];
   counts: TenantCounts | null;
+  owners: TenantOwner[];
   loading: boolean;
   countsLoading: boolean;
+  ownersLoading: boolean;
   error: string | null;
   fetchTenants: () => Promise<void>;
   fetchCounts: (tenantId: string) => Promise<void>;
+  fetchOwners: (tenantId: string) => Promise<void>;
+  resetOwnerPassword: (userId: string, password: string) => Promise<boolean>;
   createTenant: (data: CreateTenantInput) => Promise<boolean>;
   updateTenant: (id: string, data: UpdateTenantInput) => Promise<boolean>;
   acceptRequest: (
@@ -32,8 +36,10 @@ const tenantService = new TenantService();
 export const useTenantStore = create<TenantState>((set, get) => ({
   tenants: [],
   counts: null,
+  owners: [],
   loading: false,
   countsLoading: false,
+  ownersLoading: false,
   error: null,
 
   fetchTenants: async () => {
@@ -54,6 +60,27 @@ export const useTenantStore = create<TenantState>((set, get) => ({
       set({ counts, countsLoading: false });
     } catch (e) {
       set({ error: (e as Error).message, countsLoading: false });
+    }
+  },
+
+  fetchOwners: async (tenantId) => {
+    set({ owners: [], ownersLoading: true, error: null });
+    try {
+      const owners = await tenantService.getOwners(tenantId);
+      set({ owners, ownersLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, ownersLoading: false });
+    }
+  },
+
+  resetOwnerPassword: async (userId, password) => {
+    set({ error: null });
+    try {
+      await tenantService.resetOwnerPassword(userId, password);
+      return true;
+    } catch (e) {
+      set({ error: (e as Error).message });
+      return false;
     }
   },
 

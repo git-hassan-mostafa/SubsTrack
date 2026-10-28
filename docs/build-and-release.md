@@ -20,7 +20,7 @@ yarn start          # Expo dev server (scan QR with Expo Go)
 yarn android        # Android emulator
 yarn ios            # iOS simulator
 yarn deploy-create-user-edge-function    # Deploy Supabase Edge Function
-yarn deploy-create-tenant-edge-function  # self-service tenant signup function (public, --no-verify-jwt)
+yarn deploy-create-tenant-edge-function  # tenant creation, service-role callers only (--no-verify-jwt, key checked in code)
 yarn deploy-whatsapp-functions           # the five whatsapp-* functions (docs/whatsapp.md)
 
 # SuperAdmin
@@ -113,6 +113,7 @@ npm run ota-prod -- -m "fix debt tile"  # …or pass the message
 npm run ota-preview                     # same, to the preview channel
 npm run ota-fingerprint                 # print the local runtime fingerprint
 npm run build-preview / build-prod      # full rebuild — only when the table below says so
+npm run build-prod-apk                  # production as an installable APK (profile production-apk = production + android.buildType apk, same channel)
 ```
 
 |Ships OTA ✅|Needs rebuild + reinstall ❌|
@@ -126,5 +127,9 @@ Both OTA scripts pass `--environment` (= channel name; required since SDK 55) �
 Postgres changes are server-side, unrelated — but run `script.sql` **before** publishing an update that reads a new column. Non-additive local-schema changes still not reconciled on either side.
 
 `runtimeVersion` = `{ policy: "fingerprint" }`: only matching builds receive an update → forgotten rebuild = "no update arrives", never a crash. **Main trap**: `package.json` → `scripts` + raw bytes of `eas.json` / `.gitignore` feed it; repo-root `.gitattributes` (`* text=auto eol=lf`) stops CRLF drift (→ #53b). Read #53 / #53b before changing scripts or native deps, or if an update never arrives. Channels on `eas.json` build profiles (`development` / `preview` / `production`); a build w/ no channel can never receive an update. Rollback `eas update:rollback`; promote preview → production `eas update:republish`.
+
+### Forced update (MinClientVersion)
+
+A DB change older app code must not write through (non-additive column, changed meaning): 1. bump `CLIENT_VERSION` (`Shared/src/modules/options/utils/clientVersion.ts`); 2. ship it (`npm run ota-prod`, or a build if native changed) + deploy `Web/`; 3. SuperAdmin → Options → `MinClientVersion` = new number (set `AppDownloadUrl` first if old phones need a new build); 4. only then run the SQL. Older phones stop pushing/pulling and show "Update needed"; older web tabs ask to reload. Rule + UI: docs/features.md → Legal Links, Account Deletion, Forced Update.
 
 In-app `useAppUpdate` + `<UpdateBanner>` (mounted once in `app/(app)/_layout.tsx`) download in background, re-check every foreground, show "New version ready → Restart" pill. Both no-op on web + in dev builds.

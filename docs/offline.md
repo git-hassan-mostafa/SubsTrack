@@ -149,7 +149,7 @@ Read single `last_pulled_at`, pull every table **concurrently**, paging `updated
 
 ## Triggers — when a cycle runs
 
-**Push → pull → prune**, serialized (second `runSync()` returns running promise), **gated on signed-in session + connection**. Not after writes, not on resume-from-RAM, no connectivity-returned trigger:
+**Push → pull → prune**, serialized (second `runSync()` returns running promise), **gated on signed-in session + connection + current build** (`canReachServer()` also reads `app_options.MinClientVersion` from the server; below it → no push, no pull, `SyncStatus.outdated = true`, root layout shows `UpdateRequiredScreen`; TC-SY-91…93). Not after writes, not on resume-from-RAM, no connectivity-returned trigger:
 
 - **Cold start** — `startSync(cb)` in `app/_layout.tsx` seeds `SyncStatus.lastPushAt`/`lastPullAt`/`lastManualSyncAt` from durable stamps (in-memory starts blank), awaits `runSyncIfDue()`, starts the timers, calls `refreshActiveData`.
 - **Timers** (`engine.ts`, `setInterval`, started by `startSync`) — **push-only every 5 min** (`PUSH_EVERY_MS` → `flushPendingWrites()`), **full cycle every 10 min** (`PULL_EVERY_MS` → `runSync()`). No-op offline/signed out. Silent: **no global loader** (old `SyncIndicator` pill removed).
@@ -175,7 +175,7 @@ Nothing fires it on background `runSyncIfDue()` or the timers (reloading under u
 
 ## Manual sync + observable status
 
-`sync/status.ts`: `SyncStatus = { syncing, lastPushAt, lastPullAt, lastManualSyncAt, lastError }` via `getSyncStatus()` / `subscribeSyncStatus()`; `runSync()` broadcasts, so **every** cycle flips `syncing` (Developer screen reads it; no UI shows it). `syncNow()` = manual entry (probes connectivity first, returns `{ ok, offline }` to tell "reached server" from "no connection"). Re-exported from `src/core/offline/index.ts`; components read via `useSyncStatus()` (`src/shared/hooks/`, `useSyncExternalStore`).
+`sync/status.ts`: `SyncStatus = { syncing, lastPushAt, lastPullAt, lastManualSyncAt, lastError, outdated }` via `getSyncStatus()` / `subscribeSyncStatus()`; `runSync()` broadcasts, so **every** cycle flips `syncing` (Developer screen reads it; no UI shows it). `syncNow()` = manual entry (probes connectivity first, returns `{ ok, offline }` to tell "reached server" from "no connection"). Re-exported from `src/core/offline/index.ts`; components read via `useSyncStatus()` (`src/shared/hooks/`, `useSyncExternalStore`).
 
 - **No global marker** — automatic syncs show nothing anywhere.
 - **Settings** (native only) — "Sync now" row → `syncNow()`, spinner from local `manualSyncing` state (never `status.syncing`, else a timer cycle would spin it); then Last upload / Last download / Last manual sync rows (`SyncTimeRow`, `formatDateTimeShort`, "Not yet" when null); brief bottom flash reports outcome (done / offline / failed).

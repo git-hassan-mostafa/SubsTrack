@@ -30,6 +30,8 @@ import { formatDateTimeShort } from "@shared/core/utils/date";
 import * as Updates from "expo-updates";
 import Constants from "expo-constants";
 import { useCopyText } from "@/src/shared/hooks/useCopyText";
+import { openUrl } from "@/src/shared/lib/openUrl";
+import { useLegalLinks } from "@shared/state/hooks/useOptionSlice";
 import { AdminSection } from "../components/AdminSection";
 
 type SyncFailure = "offline" | "failed";
@@ -40,6 +42,7 @@ export function MoreScreen() {
   const router = useRouter();
   const { user, isAdmin } = useAuth();
   const { copied, copy } = useCopyText();
+  const legal = useLegalLinks();
   const fingerprint =
     Updates.runtimeVersion ??
     (typeof Constants.expoConfig?.runtimeVersion === "string"
@@ -79,6 +82,16 @@ export function MoreScreen() {
     });
     if (!ok) return;
     setLanguage(lang);
+  }
+
+  async function handleDeleteAccountPress(deleteAccountUrl: string) {
+    const ok = await confirm({
+      title: t("legal.delete_account"),
+      message: t("legal.delete_account_confirm"),
+      confirmLabel: t("legal.continue"),
+      destructive: true,
+    });
+    if (ok) await openUrl(deleteAccountUrl);
   }
 
   async function handleLogoutPress() {
@@ -198,6 +211,27 @@ export function MoreScreen() {
                 ) : null}
               </ListGroup>
             </View>
+          ) : null}
+
+          {legal ? (
+            <ListGroup label={t("legal.section")}>
+              <ListRow
+                icon="shield-checkmark-outline"
+                title={t("legal.privacy")}
+                onPress={() => void openUrl(legal.privacy)}
+              />
+              <ListRow
+                icon="document-text-outline"
+                title={t("legal.terms")}
+                onPress={() => void openUrl(legal.terms)}
+              />
+              <ListRow
+                icon="trash-outline"
+                title={t("legal.delete_account")}
+                destructive
+                onPress={() => void handleDeleteAccountPress(legal.deleteAccount)}
+              />
+            </ListGroup>
           ) : null}
 
           <ListGroup className="mx-4 mb-6">

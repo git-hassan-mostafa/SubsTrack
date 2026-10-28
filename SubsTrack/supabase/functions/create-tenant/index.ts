@@ -1,20 +1,4 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
 // @ts-nocheck — runs on Deno, not Node.
-//
-// Public endpoint: callable with the anon key, no session required. Deploy with
-//   `supabase functions deploy create-tenant --no-verify-jwt`
-//
-// Performs the full atomic tenant signup flow with cascading rollback:
-//   1. INSERT tenants
-//   2. INSERT branches (Default Branch)
-//   3. auth.admin.createUser
-//   4. INSERT public.users (role='superadmin', branch_id=null)
-// Any later failure rolls back earlier steps so the database never carries
-// orphaned rows from a half-finished signup.
-//
-// Future paid-plan hook: `paymentToken` is accepted but unused — when paid
-// signup ships, validate the token here before step 1.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -27,10 +11,11 @@ const corsHeaders = {
 const TENANT_CODE_REGEX = /^[a-z0-9]+$/;
 const USERNAME_REGEX = /^[a-z0-9._]+$/;
 
-// Fallback USD→LBP rate (LBP per 1 USD) used only if the global
-// app_options.LiraRate row is missing or invalid. A misconfigured option
-// must never block tenant signup.
+// Used only when app_options.LiraRate is missing or invalid.
 const DEFAULT_LIRA_RATE = 89000;
+
+const SIGNUP_CLOSED_MESSAGE =
+  "New organizations are opened by Sijil support. Please contact us to get your account.";
 
 function jsonResponse(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
@@ -39,14 +24,44 @@ function jsonResponse(body: unknown, status: number) {
   });
 }
 
+// Constant-time, so response timing never hints at how much of the key matched.
+function sameSecret(given: string, expected: string): boolean {
+  if (!given || given.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < given.length; i++) {
+    diff |= given.charCodeAt(i) ^ expected.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+// Only the SaaS owner's service-role key opens an organization — gotcha #33.
+function isServiceRoleCaller(req: Request, serviceRoleKey: string): boolean {
+  const bearer = (req.headers.get("Authorization") ?? "").replace(
+    /^Bearer\s+/i,
+    "",
+  );
+  const apiKey = req.headers.get("apikey") ?? "";
+  return (
+    sameSecret(apiKey, serviceRoleKey) || sameSecret(bearer, serviceRoleKey)
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const serviceRoleKey = Deno.env.get("SERVICE_ROLE_KEY") ?? "";
+  if (!isServiceRoleCaller(req, serviceRoleKey)) {
+    return jsonResponse(
+      { error: SIGNUP_CLOSED_MESSAGE, code: "signup_disabled" },
+      403,
+    );
+  }
+
   const serviceClient = createClient(
     Deno.env.get("SUPABASE_URL"),
-    Deno.env.get("SERVICE_ROLE_KEY"),
+    serviceRoleKey,
   );
 
   let createdTenantId: string | null = null;
@@ -55,7 +70,6 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
 
-    // ---- validate input (re-checked here; do not trust the client) ----
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const tenantCode =
       typeof body.tenantCode === "string"
@@ -104,36 +118,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ---- gate: self-service signup must be enabled by the SaaS owner ----
-    // Authoritative server-side enforcement (the login screen also hides the
-    // entry point, but this guarantees signup is blocked even if bypassed).
-    // Default to allowed when the row is missing; only an explicit 'false'
-    // blocks — a misconfigured/absent option must not lock out the flow.
-    const { data: signupOption } = await serviceClient
-      .from("app_options")
-      .select("value")
-      .eq("key", "AllowSelfServiceSignup")
-      .maybeSingle();
-    if (
-      signupOption &&
-      String(signupOption.value).trim().toLowerCase() === "false"
-    ) {
-      return jsonResponse(
-        {
-          error: "Self-service signup is currently disabled",
-          code: "signup_disabled",
-        },
-        403,
-      );
-    }
-
-    // ---- 1. tenants ----
-    // customer_allowance, plan_allowance and price_per_plan_usd are omitted on
-    // purpose so the schema DEFAULTs decide the starting deal in one place.
-
-    // ---- read the global default LBP rate (seeded in app_options) ----
-    // Done before any tenant rows exist so a missing/invalid value can fall
-    // back to DEFAULT_LIRA_RATE without any rollback cost. Never blocks signup.
     const { data: liraOption } = await serviceClient
       .from("app_options")
       .select("value")
@@ -152,7 +136,6 @@ Deno.serve(async (req) => {
       .single();
 
     if (tenantErr) {
-      // 23505 = unique_violation. Could be tenant_code or name.
       if (tenantErr.code === "23505") {
         const msg = (tenantErr.message ?? "").toLowerCase();
         if (msg.includes("tenant_code")) {
@@ -179,13 +162,11 @@ Deno.serve(async (req) => {
 
     createdTenantId = tenantRow.id;
 
-    // ---- 2. branches (Default Branch) ----
     const { error: branchErr } = await serviceClient
       .from("branches")
       .insert({ tenant_id: createdTenantId, name: "Default Branch" });
     if (branchErr) throw new Error(branchErr.message);
 
-    // ---- 3. auth user ----
     const email = `${adminUserName}@${tenantCode}.com`;
     const { data: authData, error: authErr } =
       await serviceClient.auth.admin.createUser({
@@ -197,7 +178,6 @@ Deno.serve(async (req) => {
 
     createdAuthUserId = authData.user.id;
 
-    // ---- 4. public.users (tenant owner) ----
     const { error: profileErr } = await serviceClient.from("users").insert({
       id: createdAuthUserId,
       username: adminUserName,
@@ -208,10 +188,6 @@ Deno.serve(async (req) => {
     });
     if (profileErr) throw new Error(profileErr.message);
 
-    // ---- 5. seed the tenant's default Lebanese Pound (LBP) currency ----
-    // Rate comes from the global app_options.LiraRate (read above). The
-    // currencies → tenants FK cascades on tenant delete, so the catch-block
-    // rollback (which deletes the tenant) cleans this up automatically.
     const { error: currencyErr } = await serviceClient
       .from("currencies")
       .insert({
@@ -226,17 +202,12 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ tenantId: createdTenantId, tenantCode }, 200);
   } catch (err) {
-    // Cascading rollback — reverse order. Each step swallows its own errors:
-    // we already have one failure to report; we don't want a cleanup error
-    // to mask it.
     if (createdAuthUserId) {
       await serviceClient.auth.admin
         .deleteUser(createdAuthUserId)
         .catch(() => {});
     }
     if (createdTenantId) {
-      // branches FK cascades on tenant delete, so this cleans up the
-      // Default Branch too.
       await serviceClient
         .from("tenants")
         .delete()

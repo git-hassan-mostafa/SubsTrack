@@ -11,47 +11,48 @@ Do these in order. A skipped step fails later and looks like a code bug.
 5. **Turn on the auth hook** (Authentication → Hooks → Customize access token → `public.custom_access_token_hook`) — without it the app shows no data.
 6. **Set refresh token reuse interval to `30`** (Authentication → Sessions) — stops collectors being logged out.
 7. **Add function secrets `SERVICE_ROLE_KEY`, `ANON_KEY`, `PORTAL_JWT_SECRET`** (Edge Functions → Secrets) — names must match exactly; never change `PORTAL_JWT_SECRET` later.
-8. **Run `npm run deploy-all-functions`** in `SubsTrack/` — deploys all 10 edge functions; redeploy after any change, including `_shared/`.
+8. **Run `npm run deploy-all-functions`** in `SubsTrack/` — deploys 10 edge functions; redeploy after any change, including `_shared/`.
+9. **Deploy `customer-status` too** — `supabase functions deploy customer-status` in `SubsTrack/`. It is not in `deploy-all-functions`; the Web app's customer list needs it.
 
 ## Apps
 
-9. **Create `SubsTrack/.env`** — `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
-10. **Create `SuperAdmin/.env`** — same two plus `EXPO_PUBLIC_SUPABASE_SERVICE_KEY`; never install it on a customer's device.
-11. **Create `Portal/.env`** — `VITE_PORTAL_FUNCTION_URL` (`<project url>/functions/v1/customer-portal`), `VITE_SUPABASE_ANON_KEY`; on Vercel set them in Environment Variables.
-12. **Build the portal** (`cd Portal && npm install --ignore-scripts && npm run build`) — publish `dist/` to its own subdomain.
-13. **Review SuperAdmin → Options** — `LiraRate`, `AllowSelfServiceSignup`, `SupportWhatsAppNumber`, `CustomerPortalUrl` (no trailing slash).
-14. **Run the app** (`npm install`, then `npx expo run:android`) — needs a dev client; Expo Go does not work.
-15. **Run the tests** (`cd tests && npm install --ignore-scripts && npm test`) — checks the money rules.
+10. **Create `SubsTrack/.env`** — `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`. Local runs only.
+11. **Add the same two values in EAS** (expo.dev → project → Environment variables → `production`, and `preview` if you use it) — app builds and OTA updates read these, never `.env`. Missing → the app crashes at start.
+12. **Create `SuperAdmin/.env`** — same two plus `EXPO_PUBLIC_SUPABASE_SERVICE_KEY`; never install it on a customer's device.
+13. **Create `Portal/.env`** — `VITE_PORTAL_FUNCTION_URL` (`<project url>/functions/v1/customer-portal`), `VITE_SUPABASE_ANON_KEY`; on Vercel set them in Environment Variables.
+14. **Build the portal** (`cd Portal && npm install --ignore-scripts && npm run build`) — publish `dist/` to its own subdomain.
+15. **Publish the Website** (`Website/`) — first replace every `[...]` placeholder in `privacy/`, `terms/` and `delete-account/` (company name, address, support WhatsApp, support email).
+16. **Review SuperAdmin → Options**:
+    - `LiraRate`
+    - `SupportWhatsAppNumber` — powers "Get help" and "Contact us" on the login screen.
+    - `CustomerPortalUrl` — no `/` at the end.
+    - `WebsiteUrl` — no `/` at the end. Powers Privacy, Terms and Delete account links.
+    - `AppDownloadUrl` — Play Store page or APK link for old phones.
+    - `MinClientVersion` — leave blank until you need to force an update.
+17. **Create organizations in SuperAdmin** — the app has no sign-up screen any more. Reset a forgotten owner password in SuperAdmin → tenant details → Owner login.
+18. **Run the app** (`npm install`, then `npx expo run:android`) — needs a dev client; Expo Go does not work.
+19. **Run the tests** (`cd tests && npm install --ignore-scripts && npm test`) — checks the money rules.
 
 ## WhatsApp (optional)
 
 Full steps: [docs/whatsapp-setup-guide.md](docs/whatsapp-setup-guide.md).
 
-16. **Set up the Meta app** — Business Verification (takes days), WhatsApp use case, Embedded Signup configuration, allowed web domain.
-17. **Add function secrets `META_APP_ID`, `META_APP_SECRET`, `WHATSAPP_TOKEN_KEY`, `WHATSAPP_WORKER_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`** — keep a safe copy of `WHATSAPP_TOKEN_KEY`.
-18. **Add Vault secrets `whatsapp_worker_url`, `whatsapp_worker_secret`, `whatsapp_worker_apikey`** (Integrations → Vault) — if one is missing, messages stay "Waiting".
-19. **Set the Meta webhook to `<project url>/functions/v1/whatsapp-webhook?apikey=<anon key>`** — the `?apikey=` is required.
-20. **Deploy the SubsTrack web build** — it hosts the `/whatsapp-connect` page.
-21. **Fill `WhatsAppAppId`, `WhatsAppConfigId`, `WhatsAppConnectUrl`** in SuperAdmin → Options — blank means tenants cannot connect.
-22. **Turn on "WhatsApp messaging allowed"** per tenant (SuperAdmin → Tenants → edit) — nothing shows until it is on.
-23. **Pass Meta App Review and switch the app to Live** — until then only your own test accounts can connect.
+20. **Set up the Meta app** — Business Verification (takes days), WhatsApp use case, Embedded Signup configuration, allowed web domain.
+21. **Add function secrets `META_APP_ID`, `META_APP_SECRET`, `WHATSAPP_TOKEN_KEY`, `WHATSAPP_WORKER_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`** — make new random values for each project; keep them in a password manager, never in this repository. Keep a safe copy of `WHATSAPP_TOKEN_KEY`.
+22. **Add Vault secrets `whatsapp_worker_url`, `whatsapp_worker_secret`, `whatsapp_worker_apikey`** (Integrations → Vault) — if one is missing, messages stay "Waiting".
+23. **Set the Meta webhook to `<project url>/functions/v1/whatsapp-webhook?apikey=<anon key>`** — the `?apikey=` is required.
+24. **Deploy the SubsTrack web build** — it hosts the `/whatsapp-connect` page.
+25. **Fill `WhatsAppAppId`, `WhatsAppConfigId`, `WhatsAppConnectUrl`** in SuperAdmin → Options — blank means tenants cannot connect.
+26. **Turn on "WhatsApp messaging allowed"** per tenant (SuperAdmin → Tenants → edit) — nothing shows until it is on.
+27. **Pass Meta App Review and switch the app to Live** — until then only your own test accounts can connect.
 
 ## Launch check
 
-- [ ] Sign up a new organization — `create-tenant` works.
+- [ ] Create an organization in SuperAdmin — the owner can log in.
 - [ ] Open a customer — rows appear (empty = auth hook off).
 - [ ] Create a staff user — `create-user` works.
 - [ ] Collect a payment — the month turns paid.
 - [ ] Open a customer's portal link — the portal opens, same month grid as the app.
+- [ ] Login screen shows "Get help", "Contact us", Terms and Privacy.
+- [ ] More → Delete my account opens the Website deletion page.
 - [ ] (WhatsApp) Send a reminder to your own phone — Admin → WhatsApp messages shows Delivered.
-
-## Generated Random Tokens
-
-- `WHATSAPP_TOKEN_KEY`: iAmQfdKyaecnZb9SsOfnACANrGoie6+yWVelJRemB1U=
-- `WHATSAPP_WORKER_SECRET`: 9e7bfa9432aca952812b511f1b97209c0506bf4f98a6b7d955a34865f915b458
-- `WHATSAPP_WEBHOOK_VERIFY_TOKEN`: 0621dbb1c118b6b27b217cc9b79ef13799956d9f4e220b31
-- `WABA_ID`: 1083804544382483
-- `PHONE_NUMBER_ID`: 1278109982060414
-- `TOKEN`: EABA07fo68ZC0BSqLZCPdpX3cZBRpqPjeL3rKp1Nsgku7zgUqXwhgURr1nXwJHqEcXtzLR5bG4ZBFvDXFdImssRvcX6FvlAhtmVI3hlc3OnZCBRIqXGZAJ8GHgyxjnISPki3a8tOPZBcLka4SyZBIQYYKRQXTaNkkZBonhlpbmsoA4P9YgiWBu12AjHlcNUgKWdQZDZD
-
-- `URL`: https://graph.facebook.com/v25.0/1083804544382483/subscribed_apps" -H "Authorization: Bearer EABA07fo68ZC0BSqLZCPdpX3cZBRpqPjeL3rKp1Nsgku7zgUqXwhgURr1nXwJHqEcXtzLR5bG4ZBFvDXFdImssRvcX6FvlAhtmVI3hlc3OnZCBRIqXGZAJ8GHgyxjnISPki3a8tOPZBcLka4SyZBIQYYKRQXTaNkkZBonhlpbmsoA4P9YgiWBu12AjHlcNUgKWdQZDZD

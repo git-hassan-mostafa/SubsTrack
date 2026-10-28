@@ -5,6 +5,7 @@ export interface SyncStatus {
   lastPullAt: string | null;
   lastManualSyncAt: string | null;
   lastError: string | null;
+  outdated: boolean;
 }
 
 let status: SyncStatus = {
@@ -13,6 +14,7 @@ let status: SyncStatus = {
   lastPullAt: null,
   lastManualSyncAt: null,
   lastError: null,
+  outdated: false,
 };
 const listeners = new Set<(s: SyncStatus) => void>();
 

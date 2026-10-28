@@ -56,3 +56,10 @@ export interface TenantCounts {
   services: TenantCount;
   currencies: TenantCount;
 }
+
+export interface TenantOwner {
+  id: string;
+  username: string;
+  fullName: string;
+  active: boolean;
+}

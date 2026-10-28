@@ -1,5 +1,5 @@
-import { Linking } from "react-native";
 import { whatsAppChatUrl } from "@shared/core/utils/whatsappLink";
+import { openUrl } from "./openUrl";
 
 // wa.me opens the installed app when present, otherwise the browser.
 export async function openWhatsApp(
@@ -7,11 +7,5 @@ export async function openWhatsApp(
   message?: string,
 ): Promise<boolean> {
   const url = whatsAppChatUrl(phone, message);
-  if (!url) return false;
-  try {
-    await Linking.openURL(url);
-    return true;
-  } catch {
-    return false;
-  }
+  return url ? openUrl(url) : false;
 }

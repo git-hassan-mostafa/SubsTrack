@@ -1,5 +1,9 @@
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import type { DbCustomerRequest, DbTenant } from "@/src/core/types/db";
+import type {
+  DbCustomerRequest,
+  DbTenant,
+  DbTenantOwner,
+} from "@/src/core/types/db";
 
 // What the owner actually grants, per limit — either half may be 0.
 export interface GrantedCounts {
@@ -153,6 +157,24 @@ export class TenantRepository extends BaseRepository {
 
   async delete(id: string): Promise<void> {
     const { error } = await this.db.from("tenants").delete().eq("id", id);
+    if (error) this.handleError(error);
+  }
+
+  async findOwners(tenantId: string): Promise<DbTenantOwner[]> {
+    const { data, error } = await this.db
+      .from("users")
+      .select("id, username, full_name, active")
+      .eq("tenant_id", tenantId)
+      .eq("role", "superadmin")
+      .order("username");
+    if (error) this.handleError(error);
+    return (data ?? []) as DbTenantOwner[];
+  }
+
+  async setPassword(userId: string, password: string): Promise<void> {
+    const { error } = await this.db.auth.admin.updateUserById(userId, {
+      password,
+    });
     if (error) this.handleError(error);
   }
 

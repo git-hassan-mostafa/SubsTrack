@@ -17,14 +17,14 @@ Sets `auth.users` password via service role; same-tenant + role checks: **own pa
 
 ## `create-tenant`
 
-- **Public** (`--no-verify-jwt`); **sole** anon path to create a tenant (app ships anon key only; no INSERT policy on `tenants`/`branches`).
-- **Signup gate** first: `app_options.AllowSelfServiceSignup` explicit `'false'` → `403 { error, code: 'signup_disabled' }`; missing/blank = allowed (misconfig must never lock out signup). Server is authoritative; login screen only hides the entry.
-- Service role, cascading rollback on any step: 1. `tenants` — `customer_allowance`, `plan_allowance`, `price_per_plan_usd` **omitted on purpose** → schema defaults (30 customers, 30 lines, $0.15/line) decide starting deal in one place; 30 = product floor, self-service tenant born on it. 2. `branches` ('Default Branch'). 3. seed `LBP` (`decimals 0`, symbol `ل.ل`) at `app_options.LiraRate` (fallback `DEFAULT_LIRA_RATE = 89000`). 4. `auth.users`. 5. `public.users` (role = `superadmin`, `branch_id = null`).
-- Org signup pre-check: `is_tenant_code_available` SECURITY DEFINER RPC (granted `anon`), boolean only.
-- `paymentToken` in body accepted, ignored — hook for paid-plan gating.
-- Deploy: `yarn deploy-create-tenant-edge-function` (in `SubsTrack/`). No OTA for edge fns → after per-customer-pricing change, redeploy **before** `script.sql`: safe (insert without dropped `tier_id` works while column has a default); reverse order 500s every signup in between.
+- **Service-role callers only.** Deployed `--no-verify-jwt`; the check is in code, before the body is read: `apikey` or `Authorization: Bearer` must equal the `SERVICE_ROLE_KEY` secret (constant-time compare). Anyone else (anon key, staff JWT, an old build's signup screen) → `403 { error: "New organizations are opened by Sijil support…", code: "signup_disabled" }`; old builds show that `error` text.
+- Self-service signup removed 2026-10-27: app signup screens, Shared `signup` module, `is_tenant_code_available` anon RPC, `AllowSelfServiceSignup` option all gone. New organizations = SaaS owner only (#33).
+- Supabase's official secret-key gate (`withSupabase({ auth: 'secret' })`, `npm:@supabase/server`) accepts only the new `sb_secret_` keys; this project runs the legacy service_role key → hand-written compare. Moving to the new API keys → switch to it.
+- Service role, cascading rollback on any step: 1. `tenants` — `customer_allowance`, `plan_allowance`, `price_per_plan_usd` **omitted on purpose** → schema defaults (30 customers, 30 lines, $0.15/line) decide starting deal in one place. 2. `branches` ('Default Branch'). 3. `auth.users`. 4. `public.users` (role = `superadmin`, `branch_id = null`). 5. seed `LBP` (`decimals 0`, symbol `ل.ل`) at `app_options.LiraRate` (fallback `DEFAULT_LIRA_RATE = 89000`).
+- SuperAdmin does NOT call it: `TenantService.createTenant` runs the same steps itself with its service-role client.
+- Deploy: `yarn deploy-create-tenant-edge-function` (in `SubsTrack/`). No OTA for edge fns → after per-customer-pricing change, redeploy **before** `script.sql`: safe (insert without dropped `tier_id` works while column has a default); reverse order 500s every create in between.
 
-Flow: `docs/features.md` → Authentication Flow; anon rationale: gotcha #33.
+Flow: `docs/features.md` → Authentication Flow; who may create: gotcha #33.
 
 ## `customer-portal`
 

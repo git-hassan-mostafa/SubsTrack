@@ -5,6 +5,8 @@ import { useOptionSlice } from "@shared/state/hooks/useOptionSlice";
 import { resetAllDomainStores } from "@shared/shared/lib/storeReset";
 import { CrashGate } from "@/src/shared/components/CrashGate";
 import { LoadingScreen } from "@/src/shared/components/LoadingScreen";
+import { UpdateRequiredScreen } from "@/src/shared/components/UpdateRequiredScreen";
+import { useSyncStatus } from "@/src/shared/hooks/useSyncStatus";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as Font from "expo-font";
@@ -34,6 +36,7 @@ export default function RootLayout() {
   const loading = useAuthSlice((s) => s.loading);
   const restoreSession = useAuthSlice((s) => s.restoreSession);
   const fetchOptions = useOptionSlice((s) => s.fetchOptions);
+  const { outdated } = useSyncStatus();
   const segments = useSegments();
   const router = useRouter();
 
@@ -78,6 +81,7 @@ export default function RootLayout() {
         <CrashGate>
           <StatusBar style="dark" />
           <Slot />
+          {outdated ? <UpdateRequiredScreen /> : null}
         </CrashGate>
       </KeyboardProvider>
     </GestureHandlerRootView>

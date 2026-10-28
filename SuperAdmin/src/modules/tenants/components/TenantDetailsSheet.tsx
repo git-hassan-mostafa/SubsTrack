@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -10,7 +10,14 @@ import {
 } from "react-native";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { formatShortDate } from "@/src/core/utils/formatDate";
-import type { Tenant, TenantCount, TenantCounts } from "@/src/core/types";
+import { Button } from "@/src/shared/components/Button";
+import { Input } from "@/src/shared/components/Input";
+import type {
+  Tenant,
+  TenantCount,
+  TenantCounts,
+  TenantOwner,
+} from "@/src/core/types";
 import { useTenantStore } from "../store/tenantStore";
 
 interface Props {
@@ -60,13 +67,86 @@ function DetailCard({ rows }: { rows: DetailRow[] }) {
   );
 }
 
+function OwnerRow({ owner, divided }: { owner: TenantOwner; divided: boolean }) {
+  const resetOwnerPassword = useTenantStore((s) => s.resetOwnerPassword);
+  const clearError = useTenantStore((s) => s.clearError);
+  const [editing, setEditing] = useState(false);
+  const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [changed, setChanged] = useState(false);
+
+  function startEditing() {
+    setChanged(false);
+    setPassword("");
+    setEditing(true);
+  }
+
+  function cancel() {
+    clearError();
+    setEditing(false);
+  }
+
+  async function save() {
+    setSaving(true);
+    const ok = await resetOwnerPassword(owner.id, password);
+    setSaving(false);
+    if (!ok) return;
+    setEditing(false);
+    setChanged(true);
+  }
+
+  return (
+    <View style={[styles.ownerBlock, divided && styles.rowDivided]}>
+      <View style={styles.ownerHeader}>
+        <View style={styles.ownerInfo}>
+          <Text style={styles.rowValue}>{owner.fullName}</Text>
+          <Text style={styles.ownerUsername}>@{owner.username}</Text>
+        </View>
+        {editing ? null : (
+          <Pressable onPress={startEditing} hitSlop={8}>
+            <Text style={styles.close}>Reset password</Text>
+          </Pressable>
+        )}
+      </View>
+      {changed ? <Text style={styles.ownerNote}>Password changed</Text> : null}
+      {editing ? (
+        <View style={styles.ownerForm}>
+          <Input
+            label="New password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <View style={styles.ownerActions}>
+            <Button label="Cancel" variant="ghost" onPress={cancel} />
+            <Button label="Save" onPress={save} loading={saving} />
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export function TenantDetailsSheet({ visible, tenant, onDismiss }: Props) {
-  const { counts, countsLoading, error, fetchCounts, clearError } =
-    useTenantStore();
+  const {
+    counts,
+    countsLoading,
+    owners,
+    ownersLoading,
+    error,
+    fetchCounts,
+    fetchOwners,
+    clearError,
+  } = useTenantStore();
 
   useEffect(() => {
-    if (visible && tenant) fetchCounts(tenant.id);
-  }, [visible, tenant, fetchCounts]);
+    if (visible && tenant) {
+      fetchCounts(tenant.id);
+      fetchOwners(tenant.id);
+    }
+  }, [visible, tenant, fetchCounts, fetchOwners]);
 
   function handleDismiss() {
     clearError();
@@ -155,6 +235,19 @@ export function TenantDetailsSheet({ visible, tenant, onDismiss }: Props) {
           <Text style={styles.sectionTitle}>Account</Text>
           <DetailCard rows={accountRows} />
 
+          <Text style={styles.sectionTitle}>Owner login</Text>
+          {ownersLoading ? (
+            <View style={[styles.card, styles.loadingCard]}>
+              <ActivityIndicator color="#0a7ea4" />
+            </View>
+          ) : (
+            <View style={styles.card}>
+              {owners.map((owner, index) => (
+                <OwnerRow key={owner.id} owner={owner} divided={index > 0} />
+              ))}
+            </View>
+          )}
+
           <Text style={styles.sectionTitle}>Subscription</Text>
           <DetailCard rows={subscriptionRows} />
 
@@ -233,6 +326,22 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 12,
   },
+  ownerBlock: { paddingVertical: 12 },
+  ownerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  ownerInfo: { flexShrink: 1, marginRight: 12 },
+  ownerUsername: { fontSize: 13, color: "#64748b", marginTop: 2 },
+  ownerNote: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#16a34a",
+    marginTop: 8,
+  },
+  ownerForm: { marginTop: 12 },
+  ownerActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
   rowDivided: { borderTopWidth: 1, borderTopColor: "#e2e8f0" },
   rowLabel: { fontSize: 14, color: "#64748b", marginRight: 12 },
   rowValue: {

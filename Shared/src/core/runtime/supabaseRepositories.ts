@@ -10,7 +10,6 @@ import { ServiceRepository } from "@shared/modules/admin/service-catalog/reposit
 import { TenantSettingRepository } from "@shared/modules/admin/tenant-settings/repository/TenantSettingRepository";
 import { UserRepository } from "@shared/modules/admin/users/repository/UserRepository";
 import { AuthRepository } from "@shared/modules/authentication/auth/repository/AuthRepository";
-import { SignupRepository } from "@shared/modules/authentication/signup/repository/SignupRepository";
 import { SkippedMonthRepository } from "@shared/modules/customer/customer-payments/repository/SkippedMonthRepository";
 import { UsageReadingRepository } from "@shared/modules/customer/customer-payments/repository/UsageReadingRepository";
 import { CustomerImportRepository } from "@shared/modules/customer/customer-import/repository/CustomerImportRepository";
@@ -39,7 +38,6 @@ export function createSupabaseRepositories(): Repositories {
     tenantSetting: new TenantSettingRepository(),
     user: new UserRepository(),
     auth: new AuthRepository(),
-    signup: new SignupRepository(),
     skippedMonth: new SkippedMonthRepository(),
     usageReading: new UsageReadingRepository(),
     customerPlan: new CustomerPlanRepository(),

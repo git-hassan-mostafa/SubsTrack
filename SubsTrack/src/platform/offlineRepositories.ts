@@ -10,7 +10,6 @@ import { OfflineServiceRepository } from "@/src/modules/admin/service-catalog/re
 import { OfflineTenantSettingRepository } from "@/src/modules/admin/tenant-settings/repository/TenantSettingRepository.offline";
 import { OfflineUserRepository } from "@/src/modules/admin/users/repository/UserRepository.offline";
 import { OfflineAuthRepository } from "@/src/modules/authentication/auth/repository/AuthRepository.offline";
-import { OfflineSignupRepository } from "@/src/modules/authentication/signup/repository/SignupRepository.offline";
 import { OfflineSkippedMonthRepository } from "@/src/modules/customer/customer-payments/repository/SkippedMonthRepository.offline";
 import { OfflineUsageReadingRepository } from "@/src/modules/customer/customer-payments/repository/UsageReadingRepository.offline";
 import { OfflineCustomerImportRepository } from "@/src/modules/customer/customer-import/repository/CustomerImportRepository.offline";
@@ -38,7 +37,6 @@ export function createOfflineRepositories(): Repositories {
     tenantSetting: new OfflineTenantSettingRepository(),
     user: new OfflineUserRepository(),
     auth: new OfflineAuthRepository(),
-    signup: new OfflineSignupRepository(),
     skippedMonth: new OfflineSkippedMonthRepository(),
     usageReading: new OfflineUsageReadingRepository(),
     customerPlan: new OfflineCustomerPlanRepository(),

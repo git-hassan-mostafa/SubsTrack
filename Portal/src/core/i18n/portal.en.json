@@ -8,6 +8,8 @@
   "unavailable": "This page is not available.",
   "offline": "Could not connect. Please check your internet.",
   "server_error": "Something went wrong. Please try again.",
+  "crashed": "The page stopped working. Reload it to try again.",
+  "reload": "Reload",
   "bad_link": "This link is not complete. Please ask for it again.",
   "not_configured": "This portal is not set up yet. Please contact support.",
   "sign_out": "Sign out",

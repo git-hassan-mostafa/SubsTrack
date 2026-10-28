@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router";
 import { AppFrame } from "@/app/layout/AppFrame";
+import { CrashPage } from "@/app/layout/CrashPage";
 import { ComingSoonPage } from "@/app/layout/ComingSoonPage";
 import { NotFoundPage } from "@/app/layout/NotFoundPage";
 import type { PageHandle } from "@/app/layout/usePageTitle";
@@ -13,35 +14,40 @@ import { RequireSignedIn } from "./RequireSignedIn";
 import { SessionGate } from "./SessionGate";
 
 export const router = createBrowserRouter([
-  { path: "whatsapp-connect", element: <WhatsAppConnectPage /> },
   {
-    element: <SessionGate />,
+    ErrorBoundary: CrashPage,
     children: [
+      { path: "whatsapp-connect", element: <WhatsAppConnectPage /> },
       {
-        element: <GuestOnly />,
-        children: [{ path: "login", element: <LoginPage /> }],
-      },
-      {
-        element: <RequireSignedIn />,
+        element: <SessionGate />,
         children: [
           {
-            element: <AppFrame />,
+            element: <GuestOnly />,
+            children: [{ path: "login", element: <LoginPage /> }],
+          },
+          {
+            element: <RequireSignedIn />,
             children: [
-              { index: true, element: <LandingRedirect /> },
-              ...APP_PAGES.map(({ path, titleKey, access, component: Page = ComingSoonPage }) => ({
-                path,
-                handle: { titleKey } satisfies PageHandle,
-                element: (
-                  <RequireAccess access={access}>
-                    <Page />
-                  </RequireAccess>
-                ),
-              })),
+              {
+                element: <AppFrame />,
+                children: [
+                  { index: true, element: <LandingRedirect /> },
+                  ...APP_PAGES.map(({ path, titleKey, access, component: Page = ComingSoonPage }) => ({
+                    path,
+                    handle: { titleKey } satisfies PageHandle,
+                    element: (
+                      <RequireAccess access={access}>
+                        <Page />
+                      </RequireAccess>
+                    ),
+                  })),
+                ],
+              },
             ],
           },
+          { path: "*", element: <NotFoundPage /> },
         ],
       },
-      { path: "*", element: <NotFoundPage /> },
     ],
   },
 ]);

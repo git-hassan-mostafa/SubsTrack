@@ -77,7 +77,12 @@
     "subtitle": "Sign in to your organization",
     "welcome_back": "Welcome back",
     "welcome_description": "Sign in to your organization to start collecting.",
-    "lost_organization_id": "Lost your organization ID?",
+    "forgot_password": "Forgot your password or organization code?",
+    "staff_reset_hint": "Staff: ask your manager to reset your password.",
+    "help_message": "Hello, I need help signing in to Sijil.",
+    "new_business": "New business?",
+    "contact_us": "Contact us",
+    "new_business_message": "Hello, I want to open a Sijil account for my business.",
     "get_help": "Get help",
     "organization_id": "Organization Code",
     "username": "Username",
@@ -86,39 +91,21 @@
     "username_placeholder": "username",
     "password_placeholder": "••••••••",
     "sign_in": "Sign In",
-    "account_not_configured": "Account not configured. Contact your administrator.",
-    "or": "or",
-    "create_organization": "Create a new organization"
+    "account_not_configured": "Account not configured. Contact your administrator."
   },
-  "signup": {
-    "organization_title": "Create your organization",
-    "organization_subtitle": "Tell us about your business. You can change the display name later.",
-    "step_label": "Step {{current}} of {{total}}",
-    "organization_name_label": "Organization Name",
-    "organization_name_placeholder": "e.g. Acme Internet",
-    "tenant_code_label": "Organization Code",
-    "tenant_code_placeholder": "acme-isp",
-    "tenant_code_hint": "Lowercase letters and numbers only, no spaces. This is what your staff will use to sign in.",
-    "next": "Next",
-    "account_title": "Create your account",
-    "account_subtitle": "You'll be the owner of {{tenantCode}}.",
-    "fullname_label": "Full Name",
-    "fullname_placeholder": "e.g. Jane Smith",
-    "username_label": "Username",
-    "username_placeholder": "username",
-    "password_label": "Password",
-    "password_placeholder": "Minimum 8 characters",
-    "confirm_password_label": "Confirm Password",
-    "confirm_password_placeholder": "Re-enter password",
-    "create_organization": "Create Organization",
-    "errors": {
-      "name_required": "Organization name is required",
-      "tenant_code_required": "Organization code is required",
-      "tenant_code_length": "Organization code must be between 2 and 32 characters",
-      "tenant_code_format": "Organization code can only contain lowercase letters and numbers",
-      "tenant_code_reserved": "This organization code is reserved",
-      "tenant_code_taken": "This organization code is already taken"
-    }
+  "legal": {
+    "section": "About",
+    "privacy": "Privacy policy",
+    "terms": "Terms of service",
+    "delete_account": "Delete my account",
+    "delete_account_confirm": "You will go to our website to ask us to delete your account and its data. We delete it within 30 days.",
+    "continue": "Continue"
+  },
+  "update_required": {
+    "title": "Update needed",
+    "message": "This version of Sijil is too old to keep working safely. Update it to continue. Your saved work stays on this phone.",
+    "update": "Update now",
+    "not_found": "No update was found. Please contact support."
   },
   "home": {
     "title": "Home"
