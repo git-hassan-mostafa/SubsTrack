@@ -1,5 +1,6 @@
 import type {
   CustomerRequest,
+  PricingModel,
   Tenant,
   TenantCounts,
   TenantOwner,
@@ -49,6 +50,8 @@ function mapDbTenantToTenant(
     customerAllowance: Number(db.customer_allowance),
     planAllowance: Number(db.plan_allowance),
     pricePerPlanUsd: Number(db.price_per_plan_usd),
+    pricingModel: db.pricing_model ?? "per_line",
+    fixedPriceUsd: db.fixed_price_usd == null ? null : Number(db.fixed_price_usd),
     whatsappEnabled: Boolean(db.whatsapp_enabled),
     pendingRequest,
     createdAt: db.created_at,
@@ -88,6 +91,8 @@ export interface CreateTenantInput {
   customerAllowance?: number;
   planAllowance?: number;
   pricePerPlanUsd?: number;
+  pricingModel?: PricingModel;
+  fixedPriceUsd?: number | null;
 }
 
 export interface UpdateTenantInput {
@@ -96,30 +101,39 @@ export interface UpdateTenantInput {
   customerAllowance: number;
   planAllowance: number;
   pricePerPlanUsd: number;
+  pricingModel: PricingModel;
+  fixedPriceUsd: number | null;
   whatsappEnabled: boolean;
 }
 
-// The allowance every tenant starts on and none may go below. Mirrored by
-// chk_tenants_customer_allowance_min and by the tenant app's own constant.
-export const MIN_CUSTOMER_ALLOWANCE = 30;
+interface BillingInput {
+  allowance: number;
+  planAllowance: number;
+  price: number;
+  pricingModel: PricingModel;
+  fixedPriceUsd: number | null;
+}
 
-// The service-line allowance is what the tenant is billed on, and it can never
-// sit below the customer one — mirrored by chk_tenants_plan_allowance_floor.
-function validateBilling(
-  allowance: number,
-  planAllowance: number,
-  price: number,
-): void {
-  if (!Number.isInteger(allowance) || allowance < MIN_CUSTOMER_ALLOWANCE)
+// Mirrors SQL chk_tenants_customer_allowance_min_v2 and Shared's constant.
+export const MIN_CUSTOMER_ALLOWANCE = 20;
+
+// Mirrors chk_tenants_plan_allowance_floor and chk_tenants_fixed_price_set.
+function validateBilling(input: BillingInput): void {
+  if (!Number.isInteger(input.allowance) || input.allowance < MIN_CUSTOMER_ALLOWANCE)
     throw new Error(
       `Customer allowance must be a whole number of ${MIN_CUSTOMER_ALLOWANCE} or more`,
     );
-  if (!Number.isInteger(planAllowance) || planAllowance < allowance)
+  if (!Number.isInteger(input.planAllowance) || input.planAllowance < input.allowance)
     throw new Error(
       "Service line allowance must be a whole number and at least the customer allowance",
     );
-  if (!Number.isFinite(price) || price < 0)
+  if (!Number.isFinite(input.price) || input.price < 0)
     throw new Error("Price per service line must be 0 or more");
+  if (
+    input.pricingModel !== "per_line" &&
+    (input.fixedPriceUsd == null || !Number.isFinite(input.fixedPriceUsd) || input.fixedPriceUsd < 0)
+  )
+    throw new Error("A package or unlimited plan needs a monthly price of 0 or more");
 }
 
 export class TenantService {
@@ -162,11 +176,13 @@ export class TenantService {
       throw new Error("Password must be at least 8 characters");
     // Only what was actually typed is checked; an omitted field takes the
     // schema default, which already sits on the floor.
-    validateBilling(
-      data.customerAllowance ?? MIN_CUSTOMER_ALLOWANCE,
-      data.planAllowance ?? MIN_CUSTOMER_ALLOWANCE,
-      data.pricePerPlanUsd ?? 0,
-    );
+    validateBilling({
+      allowance: data.customerAllowance ?? MIN_CUSTOMER_ALLOWANCE,
+      planAllowance: data.planAllowance ?? MIN_CUSTOMER_ALLOWANCE,
+      price: data.pricePerPlanUsd ?? 0,
+      pricingModel: data.pricingModel ?? "per_line",
+      fixedPriceUsd: data.fixedPriceUsd ?? null,
+    });
 
     const payload: CreateTenantPayload = {
       name: data.name.trim(),
@@ -178,6 +194,10 @@ export class TenantService {
       payload.plan_allowance = data.planAllowance;
     if (data.pricePerPlanUsd !== undefined)
       payload.price_per_plan_usd = data.pricePerPlanUsd;
+    if (data.pricingModel !== undefined)
+      payload.pricing_model = data.pricingModel;
+    if (data.fixedPriceUsd !== undefined)
+      payload.fixed_price_usd = data.fixedPriceUsd;
 
     const row = await this.repository.create(payload);
     const tenant = mapDbTenantToTenant(row);
@@ -232,17 +252,21 @@ export class TenantService {
 
   async updateTenant(id: string, data: UpdateTenantInput): Promise<Tenant> {
     if (!data.name.trim()) throw new Error("Tenant name is required");
-    validateBilling(
-      data.customerAllowance,
-      data.planAllowance,
-      data.pricePerPlanUsd,
-    );
+    validateBilling({
+      allowance: data.customerAllowance,
+      planAllowance: data.planAllowance,
+      price: data.pricePerPlanUsd,
+      pricingModel: data.pricingModel,
+      fixedPriceUsd: data.fixedPriceUsd,
+    });
     const row = await this.repository.update(id, {
       name: data.name.trim(),
       active: data.active,
       customer_allowance: data.customerAllowance,
       plan_allowance: data.planAllowance,
       price_per_plan_usd: data.pricePerPlanUsd,
+      pricing_model: data.pricingModel,
+      fixed_price_usd: data.pricingModel === "per_line" ? null : data.fixedPriceUsd,
       whatsapp_enabled: data.whatsappEnabled,
     });
     return mapDbTenantToTenant(row);

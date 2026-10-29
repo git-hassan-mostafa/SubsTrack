@@ -2,6 +2,12 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { formatShortDate } from "@/src/core/utils/formatDate";
 import type { Tenant } from "@/src/core/types";
+import { PRICING_MODEL_LABELS, dollars, monthlyBillUsd } from "../utils/pricing";
+
+function limitsText(tenant: Tenant): string {
+  if (tenant.pricingModel === "unlimited") return "No limit";
+  return `${tenant.customerAllowance} customers · ${tenant.planAllowance} lines`;
+}
 
 interface TenantCardProps {
   tenant: Tenant;
@@ -39,7 +45,7 @@ export function TenantCard({ tenant, onPress, onEdit }: TenantCardProps) {
         <View style={styles.meta}>
           <View style={styles.allowanceBadge}>
             <Text style={styles.allowanceText}>
-              {`${tenant.customerAllowance} customers · ${tenant.planAllowance} lines · $${tenant.pricePerPlanUsd} each${tenant.whatsappEnabled ? " · WhatsApp" : ""}`}
+              {`${PRICING_MODEL_LABELS[tenant.pricingModel]} · ${limitsText(tenant)} · ${dollars(monthlyBillUsd(tenant))}/mo${tenant.whatsappEnabled ? " · WhatsApp" : ""}`}
             </Text>
           </View>
           <Text style={styles.date}>{formatShortDate(tenant.createdAt)}</Text>

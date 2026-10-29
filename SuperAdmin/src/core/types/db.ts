@@ -9,6 +9,8 @@ export interface DbTenant {
   customer_allowance: number;
   plan_allowance: number;
   price_per_plan_usd: number;
+  pricing_model: "per_line" | "package" | "unlimited";
+  fixed_price_usd: number | null;
   whatsapp_enabled?: boolean | null;
   created_at: string;
 }

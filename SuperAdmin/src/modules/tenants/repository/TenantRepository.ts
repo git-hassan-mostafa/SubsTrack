@@ -17,7 +17,11 @@ export type CreateTenantPayload = Pick<DbTenant, "name" | "tenant_code"> &
   Partial<
     Pick<
       DbTenant,
-      "customer_allowance" | "plan_allowance" | "price_per_plan_usd"
+      | "customer_allowance"
+      | "plan_allowance"
+      | "price_per_plan_usd"
+      | "pricing_model"
+      | "fixed_price_usd"
     >
   >;
 
@@ -141,6 +145,8 @@ export class TenantRepository extends BaseRepository {
         | "customer_allowance"
         | "plan_allowance"
         | "price_per_plan_usd"
+        | "pricing_model"
+        | "fixed_price_usd"
         | "whatsapp_enabled"
       >
     >,

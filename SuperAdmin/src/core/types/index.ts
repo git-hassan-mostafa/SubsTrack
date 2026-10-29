@@ -1,3 +1,5 @@
+export type PricingModel = "per_line" | "package" | "unlimited";
+
 // pendingRequest is zipped on by TenantService.getTenants, not a DB column.
 export interface Tenant {
   id: string;
@@ -7,6 +9,8 @@ export interface Tenant {
   customerAllowance: number;
   planAllowance: number;
   pricePerPlanUsd: number;
+  pricingModel: PricingModel;
+  fixedPriceUsd: number | null;
   whatsappEnabled: boolean;
   pendingRequest: CustomerRequest | null;
   createdAt: string;

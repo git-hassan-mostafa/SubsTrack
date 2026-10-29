@@ -12,9 +12,15 @@ import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { formatShortDate } from "@/src/core/utils/formatDate";
-import type { Tenant } from "@/src/core/types";
+import type { PricingModel, Tenant } from "@/src/core/types";
 import { useTenantStore } from "../store/tenantStore";
 import { MIN_CUSTOMER_ALLOWANCE } from "../services/TenantService";
+import {
+  PRICING_MODEL_LABELS,
+  PRICING_MODELS,
+  dollars,
+  monthlyBillUsd,
+} from "../utils/pricing";
 
 interface Props {
   visible: boolean;
@@ -45,6 +51,8 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
   const [allowance, setAllowance] = useState(DEFAULT_ALLOWANCE);
   const [planAllowance, setPlanAllowance] = useState(DEFAULT_ALLOWANCE);
   const [price, setPrice] = useState(DEFAULT_PRICE);
+  const [pricingModel, setPricingModel] = useState<PricingModel>("per_line");
+  const [fixedPrice, setFixedPrice] = useState("");
   const [granted, setGranted] = useState("");
   const [grantedPlans, setGrantedPlans] = useState("");
   const [adminUserName, setAdminUserName] = useState("");
@@ -66,6 +74,10 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
         tenant ? String(tenant.planAllowance) : DEFAULT_ALLOWANCE,
       );
       setPrice(tenant ? String(tenant.pricePerPlanUsd) : DEFAULT_PRICE);
+      setPricingModel(tenant?.pricingModel ?? "per_line");
+      setFixedPrice(
+        tenant?.fixedPriceUsd != null ? String(tenant.fixedPriceUsd) : "",
+      );
       setGranted(
         tenant?.pendingRequest
           ? String(tenant.pendingRequest.requestedCount)
@@ -84,6 +96,8 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, tenant]);
 
+  const fixedPriceUsd = pricingModel === "per_line" ? null : Number(fixedPrice);
+
   async function handleSubmit() {
     let success: boolean;
     if (isEditing) {
@@ -93,6 +107,8 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
         customerAllowance: Number(allowance),
         planAllowance: Number(planAllowance),
         pricePerPlanUsd: Number(price),
+        pricingModel,
+        fixedPriceUsd,
         whatsappEnabled,
       });
     } else {
@@ -105,6 +121,8 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
         customerAllowance: Number(allowance),
         planAllowance: Number(planAllowance),
         pricePerPlanUsd: Number(price),
+        pricingModel,
+        fixedPriceUsd,
       });
     }
     if (success) onDismiss();
@@ -135,13 +153,29 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
     Number(granted) >= 0 &&
     Number(grantedPlans) >= 0 &&
     Number(granted) + Number(grantedPlans) >= 1;
+  const fixedPriceValid =
+    pricingModel === "per_line" ||
+    (fixedPrice.trim() !== "" &&
+      Number.isFinite(Number(fixedPrice)) &&
+      Number(fixedPrice) >= 0);
   const billingValid =
     Number.isInteger(Number(allowance)) &&
     Number(allowance) >= MIN_CUSTOMER_ALLOWANCE &&
     Number.isInteger(Number(planAllowance)) &&
     Number(planAllowance) >= Number(allowance) &&
     Number.isFinite(Number(price)) &&
-    Number(price) >= 0;
+    Number(price) >= 0 &&
+    fixedPriceValid;
+  const monthlyBill = billingValid
+    ? dollars(
+        monthlyBillUsd({
+          pricingModel,
+          planAllowance: Number(planAllowance),
+          pricePerPlanUsd: Number(price),
+          fixedPriceUsd,
+        }),
+      )
+    : "—";
 
   const canSubmit = isEditing
     ? !!name.trim() && !!tenantCode.trim() && billingValid
@@ -235,42 +269,88 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
             />
           )}
 
-          <Input
-            label="Customer Allowance"
-            value={allowance}
-            onChangeText={setAllowance}
-            keyboardType="number-pad"
-            placeholder={DEFAULT_ALLOWANCE}
-            onFocus={clearError}
-            error={
-              allowance && Number(allowance) < MIN_CUSTOMER_ALLOWANCE
-                ? `Minimum ${MIN_CUSTOMER_ALLOWANCE} customers`
-                : null
-            }
-          />
+          <Text style={styles.fieldLabel}>Pricing</Text>
+          <View style={styles.modelRow}>
+            {PRICING_MODELS.map((model) => (
+              <Pressable
+                key={model}
+                style={[
+                  styles.modelChip,
+                  pricingModel === model && styles.modelChipActive,
+                ]}
+                onPress={() => {
+                  clearError();
+                  setPricingModel(model);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.modelChipText,
+                    pricingModel === model && styles.modelChipTextActive,
+                  ]}
+                >
+                  {PRICING_MODEL_LABELS[model]}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
 
-          <Input
-            label="Service Line Allowance"
-            value={planAllowance}
-            onChangeText={setPlanAllowance}
-            keyboardType="number-pad"
-            placeholder={DEFAULT_ALLOWANCE}
-            onFocus={clearError}
-            error={
-              planAllowance && Number(planAllowance) < Number(allowance)
-                ? "Cannot be below the customer allowance"
-                : null
-            }
-          />
+          {pricingModel !== "unlimited" ? (
+            <>
+              <Input
+                label="Customer Allowance"
+                value={allowance}
+                onChangeText={setAllowance}
+                keyboardType="number-pad"
+                placeholder={DEFAULT_ALLOWANCE}
+                onFocus={clearError}
+                error={
+                  allowance && Number(allowance) < MIN_CUSTOMER_ALLOWANCE
+                    ? `Minimum ${MIN_CUSTOMER_ALLOWANCE} customers`
+                    : null
+                }
+              />
 
-          <Input
-            label="Price Per Service Line (USD)"
-            value={price}
-            onChangeText={setPrice}
-            keyboardType="decimal-pad"
-            placeholder={DEFAULT_PRICE}
-            onFocus={clearError}
-          />
+              <Input
+                label="Service Line Allowance"
+                value={planAllowance}
+                onChangeText={setPlanAllowance}
+                keyboardType="number-pad"
+                placeholder={DEFAULT_ALLOWANCE}
+                onFocus={clearError}
+                error={
+                  planAllowance && Number(planAllowance) < Number(allowance)
+                    ? "Cannot be below the customer allowance"
+                    : null
+                }
+              />
+            </>
+          ) : null}
+
+          {pricingModel === "per_line" ? (
+            <Input
+              label="Price Per Service Line (USD)"
+              value={price}
+              onChangeText={setPrice}
+              keyboardType="decimal-pad"
+              placeholder={DEFAULT_PRICE}
+              onFocus={clearError}
+            />
+          ) : (
+            <Input
+              label="Monthly Price (USD)"
+              value={fixedPrice}
+              onChangeText={setFixedPrice}
+              keyboardType="decimal-pad"
+              placeholder="e.g. 30"
+              onFocus={clearError}
+            />
+          )}
+
+          <View style={styles.billRow}>
+            <Text style={styles.billLabel}>Monthly bill</Text>
+            <Text style={styles.billValue}>{monthlyBill}</Text>
+          </View>
 
           {isEditing ? (
             <View style={styles.switchRow}>
@@ -425,5 +505,35 @@ const styles = StyleSheet.create({
   },
   sectionHint: { fontSize: 13, color: "#64748b" },
   hint: { fontSize: 13, color: "#f59e0b", marginTop: -8, marginBottom: 12 },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  modelRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
+  modelChip: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    alignItems: "center",
+  },
+  modelChipActive: { backgroundColor: "#0a7ea4", borderColor: "#0a7ea4" },
+  modelChipText: { fontSize: 13, fontWeight: "600", color: "#374151" },
+  modelChipTextActive: { color: "#fff" },
+  billRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#f0f9ff",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  billLabel: { fontSize: 14, color: "#0a7ea4", fontWeight: "500" },
+  billValue: { fontSize: 16, color: "#0a7ea4", fontWeight: "700" },
   submitRow: { marginTop: 8, marginBottom: 32 },
 });

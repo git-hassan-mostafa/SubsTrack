@@ -19,6 +19,7 @@ import type {
   TenantOwner,
 } from "@/src/core/types";
 import { useTenantStore } from "../store/tenantStore";
+import { PRICING_MODEL_LABELS, dollars, monthlyBillUsd } from "../utils/pricing";
 
 interface Props {
   visible: boolean;
@@ -162,27 +163,29 @@ export function TenantDetailsSheet({ visible, tenant, onDismiss }: Props) {
     { label: "Created", value: formatShortDate(tenant.createdAt) },
   ];
 
+  const limited = tenant.pricingModel !== "unlimited";
   const subscriptionRows: DetailRow[] = [
+    { label: "Pricing", value: PRICING_MODEL_LABELS[tenant.pricingModel] },
     {
       label: "Customer allowance",
-      value: counts
-        ? `${tenant.customerAllowance} · ${counts.customers.active ?? 0} used`
-        : String(tenant.customerAllowance),
+      value: !limited
+        ? `No limit · ${counts?.customers.active ?? 0} used`
+        : counts
+          ? `${tenant.customerAllowance} · ${counts.customers.active ?? 0} used`
+          : String(tenant.customerAllowance),
     },
     {
       label: "Service line allowance",
-      value: counts
-        ? `${tenant.planAllowance} · ${counts.serviceLines.active ?? 0} used`
-        : String(tenant.planAllowance),
+      value: !limited
+        ? `No limit · ${counts?.serviceLines.active ?? 0} used`
+        : counts
+          ? `${tenant.planAllowance} · ${counts.serviceLines.active ?? 0} used`
+          : String(tenant.planAllowance),
     },
-    {
-      label: "Price per service line",
-      value: `$${tenant.pricePerPlanUsd}`,
-    },
-    {
-      label: "Total Price",
-      value: `$${tenant.planAllowance * tenant.pricePerPlanUsd}`,
-    },
+    tenant.pricingModel === "per_line"
+      ? { label: "Price per service line", value: `$${tenant.pricePerPlanUsd}` }
+      : { label: "Monthly price", value: dollars(tenant.fixedPriceUsd ?? 0) },
+    { label: "Total Price", value: dollars(monthlyBillUsd(tenant)) },
   ];
 
   if (pending)
