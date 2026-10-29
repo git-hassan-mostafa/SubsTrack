@@ -14,12 +14,15 @@ import { Input } from "@/src/shared/components/Input";
 import { formatShortDate } from "@/src/core/utils/formatDate";
 import type { PricingModel, Tenant } from "@/src/core/types";
 import { useTenantStore } from "../store/tenantStore";
+import { useOptionStore } from "../../options/store/optionStore";
 import { MIN_CUSTOMER_ALLOWANCE } from "../services/TenantService";
 import {
   PRICING_MODEL_LABELS,
   PRICING_MODELS,
   dollars,
   monthlyBillUsd,
+  pricePackages,
+  type PricePackage,
 } from "../utils/pricing";
 
 interface Props {
@@ -41,6 +44,8 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
     error,
     clearError,
   } = useTenantStore();
+  const options = useOptionStore((s) => s.options);
+  const fetchOptions = useOptionStore((s) => s.fetchOptions);
 
   const isEditing = !!tenant;
 
@@ -96,7 +101,19 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, tenant]);
 
+  useEffect(() => {
+    if (visible) void fetchOptions();
+  }, [visible, fetchOptions]);
+
   const fixedPriceUsd = pricingModel === "per_line" ? null : Number(fixedPrice);
+  const packages = pricePackages(options);
+
+  function pickPackage(pkg: PricePackage) {
+    clearError();
+    setAllowance(String(pkg.size));
+    setPlanAllowance(String(pkg.size));
+    setFixedPrice(pkg.priceUsd == null ? "" : String(pkg.priceUsd));
+  }
 
   async function handleSubmit() {
     let success: boolean;
@@ -294,6 +311,48 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
               </Pressable>
             ))}
           </View>
+
+          {pricingModel === "package" ? (
+            <>
+              <Text style={styles.fieldLabel}>Package</Text>
+              <View style={styles.modelRow}>
+                {packages.map((pkg) => {
+                  const picked =
+                    Number(allowance) === pkg.size &&
+                    Number(planAllowance) === pkg.size;
+                  return (
+                    <Pressable
+                      key={pkg.size}
+                      style={[styles.modelChip, picked && styles.modelChipActive]}
+                      onPress={() => pickPackage(pkg)}
+                    >
+                      <Text
+                        style={[
+                          styles.modelChipText,
+                          picked && styles.modelChipTextActive,
+                        ]}
+                      >
+                        {pkg.size.toLocaleString("en-US")}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.packagePrice,
+                          picked && styles.modelChipTextActive,
+                        ]}
+                      >
+                        {pkg.priceUsd == null
+                          ? "No price set"
+                          : `${dollars(pkg.priceUsd)}/mo`}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={styles.packageHint}>
+                Pick one to fill the fields below, or type your own.
+              </Text>
+            </>
+          ) : null}
 
           {pricingModel !== "unlimited" ? (
             <>
@@ -523,6 +582,8 @@ const styles = StyleSheet.create({
   modelChipActive: { backgroundColor: "#0a7ea4", borderColor: "#0a7ea4" },
   modelChipText: { fontSize: 13, fontWeight: "600", color: "#374151" },
   modelChipTextActive: { color: "#fff" },
+  packagePrice: { fontSize: 11, color: "#64748b", marginTop: 2 },
+  packageHint: { fontSize: 12, color: "#64748b", marginTop: -8, marginBottom: 16 },
   billRow: {
     flexDirection: "row",
     justifyContent: "space-between",

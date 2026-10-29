@@ -1,4 +1,4 @@
-import type { PricingModel } from "../../../core/types";
+import type { AppOption, PricingModel } from "../../../core/types";
 
 export const FREE_PLAN_LINES = 20;
 
@@ -28,4 +28,30 @@ export function monthlyBillUsd(pricing: TenantPricing): number {
 
 export function dollars(amount: number): string {
   return `$${amount.toFixed(2)}`;
+}
+
+export interface PricePackage {
+  size: number;
+  priceUsd: number | null;
+}
+
+// Copy of Shared packages.ts (no Shared here); TC-CA-16d pins both.
+const PACKAGE_OPTIONS = [
+  { size: 300, priceKey: "Package300Usd" },
+  { size: 500, priceKey: "Package500Usd" },
+  { size: 1000, priceKey: "Package1000Usd" },
+];
+
+function packagePrice(options: AppOption[], key: string): number | null {
+  const raw = options.find((o) => o.key.toLowerCase() === key.toLowerCase())?.value;
+  if (!raw?.trim()) return null;
+  const price = Number(raw);
+  return Number.isFinite(price) && price > 0 ? Math.round(price * 100) / 100 : null;
+}
+
+export function pricePackages(options: AppOption[]): PricePackage[] {
+  return PACKAGE_OPTIONS.map(({ size, priceKey }) => ({
+    size,
+    priceUsd: packagePrice(options, priceKey),
+  }));
 }
