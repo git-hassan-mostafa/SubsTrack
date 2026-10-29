@@ -21,7 +21,7 @@ Do these in order. A skipped step fails later and looks like a code bug.
 12. **Create `SuperAdmin/.env`** — same two plus `EXPO_PUBLIC_SUPABASE_SERVICE_KEY`; never install it on a customer's device.
 13. **Create `Portal/.env`** — `VITE_PORTAL_FUNCTION_URL` (`<project url>/functions/v1/customer-portal`), `VITE_SUPABASE_ANON_KEY`; on Vercel set them in Environment Variables.
 14. **Build the portal** (`cd Portal && npm install --ignore-scripts && npm run build`) — publish `dist/` to its own subdomain.
-15. **Publish the Website** (`Website/`) — first replace every `[...]` placeholder in `privacy/`, `terms/` and `delete-account/` (company name, address, support WhatsApp, support email).
+15. **Publish the Website** (`Website/`) — first replace `[COMPANY LEGAL NAME]` and `[ADDRESS]` in `privacy/` and `terms/`, and set the 3 variables from `Website/.env.example` (in `Website/.env` locally, in Vercel for the live site): support WhatsApp number (same as `SupportWhatsAppNumber`), support email, site URL (same as `WebsiteUrl`).
 16. **Review SuperAdmin → Options**:
     - `LiraRate`
     - `SupportWhatsAppNumber` — powers "Get help" and "Contact us" on the login screen.

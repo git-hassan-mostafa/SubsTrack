@@ -11,7 +11,7 @@ describe("initialsOf", () => {
   });
 
   it("TC-IN-03 an Arabic name gives ONE letter, so two letters never join into a word", () => {
-    expect(initialsOf("علي خليل")).toBe("ع");
+    expect(initialsOf("علي مصطفى")).toBe("ع");
   });
 
   it("TC-IN-04 a leading Arabic article is skipped", () => {

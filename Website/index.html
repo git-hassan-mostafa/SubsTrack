@@ -1,16 +1,47 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" dir="ltr" data-theme="dark">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sijil — Modern Subscription & Billing Management for ISPs, Gyms & Local Businesses</title>
-  <meta name="description" content="Eliminate spreadsheet chaos and lost revenue. Sijil delivers dynamic visual month grids, offline-first field cash collection, strict custody tracking, and automated WhatsApp receipts.">
-  <meta name="keywords" content="subscription management, ISP billing software, gym membership software, recurring billing, field cash collection, offline billing, WhatsApp receipts">
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var saved = {};
+      try {
+        saved.lang = localStorage.getItem("sijil_lang");
+        saved.theme = localStorage.getItem("sijil_theme");
+      } catch (e) { }
+      var asked = new URLSearchParams(location.search).get("lang");
+      var browserArabic = (navigator.language || "").slice(0, 2) === "ar";
+      var lang = asked === "ar" || asked === "en" ? asked : saved.lang === "ar" || saved.lang === "en" ? saved.lang : browserArabic ? "ar" : "en";
+      if (saved.theme === "light" || saved.theme === "dark") root.setAttribute("data-theme", saved.theme);
+      if (lang === "ar") {
+        root.lang = "ar";
+        root.dir = "rtl";
+        root.classList.add("i18n-pending");
+        setTimeout(function () { root.classList.remove("i18n-pending"); }, 2000);
+      }
+    })();
+  </script>
+  <title data-i18n="meta.title">Sijil — Subscription app for generator owners and internet providers in Lebanon</title>
+  <meta name="description" data-i18n-attr="content:meta.description"
+    content="Bill generator and internet subscribers by meter or fixed fee, collect in dollar or lira even with no internet, send receipts on WhatsApp, and see which collector holds the cash. Free up to 20 subscribers.">
+  <meta name="keywords"
+    content="generator subscription app Lebanon, اشتراك مولد, برنامج مولدات, internet distributor billing, meter billing kWh, collector app, WhatsApp receipts, LBP USD">
   <meta name="theme-color" content="#2f36a8">
-  <meta property="og:title" content="Sijil — Subscription Management Built for the Real World">
-  <meta property="og:description" content="Dynamic visual month grids, 100% offline field collections, and automated WhatsApp receipts for recurring businesses.">
-  <meta property="og:image" content="/assets/images/dahsboard.png">
+  <meta property="og:title" data-i18n-attr="content:meta.ogTitle"
+    content="Sijil — Subscriptions for generators and internet in Lebanon">
+  <meta property="og:description" data-i18n-attr="content:meta.ogDescription"
+    content="Meter bills, cash collection with no internet, dollar and lira, WhatsApp receipts. Free up to 20 subscribers.">
+  <meta property="og:image" content="%VITE_SITE_URL%/assets/images/icon.png">
+  <meta property="og:url" content="%VITE_SITE_URL%/">
   <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="ar_LB">
+  <link rel="alternate" hreflang="en" href="%VITE_SITE_URL%/?lang=en">
+  <link rel="alternate" hreflang="ar" href="%VITE_SITE_URL%/?lang=ar">
+  <link rel="alternate" hreflang="x-default" href="%VITE_SITE_URL%/">
   <link rel="icon" type="image/png" href="/assets/images/favicon-32.png">
   <link rel="stylesheet" href="/src/styles/main.css">
   <script type="application/ld+json">
@@ -18,54 +49,77 @@
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     "name": "Sijil",
-    "operatingSystem": "Android, iOS, Web",
+    "url": "%VITE_SITE_URL%/",
+    "operatingSystem": "Android, Web",
     "applicationCategory": "BusinessApplication",
-    "offers": {
-      "@type": "Offer",
-      "price": "4.50",
-      "priceCurrency": "USD",
-      "priceSpecification": {
-        "@type": "UnitPriceSpecification",
-        "price": "0.15",
-        "priceCurrency": "USD",
-        "unitText": "customer/month"
+    "inLanguage": ["en", "ar"],
+    "offers": [
+      {
+        "@type": "Offer",
+        "name": "Free up to 20 subscribers",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      {
+        "@type": "Offer",
+        "name": "21 to 100 subscribers",
+        "priceSpecification": {
+          "@type": "UnitPriceSpecification",
+          "price": "0.15",
+          "priceCurrency": "USD",
+          "unitText": "active subscriber per month"
+        }
       }
-    },
-    "description": "Multi-tenant recurring subscription billing and field collection platform."
+    ],
+    "description": "Subscription billing and cash collection app for generator owners and internet providers in Lebanon."
   }
   </script>
 </head>
+
 <body>
+  <svg class="icon-sprite" aria-hidden="true">
+    <symbol id="i-check" viewBox="0 0 24 24">
+      <polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+        stroke-linejoin="round" />
+    </symbol>
+    <symbol id="i-whatsapp" viewBox="0 0 24 24">
+      <path fill="currentColor"
+        d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.13c-.24.68-1.42 1.3-1.95 1.34-.5.05-.97.23-3.27-.68-2.76-1.09-4.5-3.92-4.64-4.1-.13-.18-1.1-1.46-1.1-2.79 0-1.33.7-1.98.95-2.25.24-.27.53-.34.71-.34h.51c.16 0 .38-.06.6.46.23.54.77 1.87.84 2 .07.14.11.3.02.48-.09.18-.14.29-.27.45-.14.16-.29.36-.41.48-.14.14-.28.28-.12.55.16.27.7 1.16 1.51 1.88 1.04.93 1.91 1.21 2.18 1.35.27.14.43.11.59-.07.16-.18.68-.79.86-1.07.18-.27.36-.23.61-.14.25.09 1.58.75 1.85.88.27.14.45.2.52.32.07.11.07.66-.17 1.33Z" />
+    </symbol>
+  </svg>
 
   <header class="site-nav">
     <div class="container nav-container">
-      <a href="#" class="brand-logo" id="nav-brand-logo">
+      <a href="#hero" class="brand-logo">
         <div class="brand-icon-wrapper">
-          <img src="/assets/images/icon-web-transparent.png" alt="Sijil Logo">
+          <img src="/assets/images/icon-web-transparent.png" alt="Sijil logo" data-i18n-attr="alt:brand.logoAlt">
         </div>
         <div class="brand-text">
-          <span class="brand-title">Sijil</span>
-          <span class="brand-tag">Operations</span>
+          <span class="brand-title" data-i18n="brand.name">Sijil</span>
+          <span class="brand-tag" data-i18n="brand.tag">Subscriptions</span>
         </div>
       </a>
 
       <ul class="nav-links" id="nav-links">
-        <li><a href="#features" class="nav-link">Features</a></li>
-        <li><a href="#simulator" class="nav-link">Live Simulator</a></li>
-        <li><a href="#solutions" class="nav-link">Solutions</a></li>
-        <li><a href="#tour" class="nav-link">App Tour</a></li>
-        <li><a href="#calculator" class="nav-link">ROI Calculator</a></li>
-        <li><a href="#pricing" class="nav-link">Pricing</a></li>
-        <li><a href="#faq" class="nav-link">FAQ</a></li>
+        <li><a href="#solutions" class="nav-link" data-i18n="nav.solutions">Generators &amp; internet</a></li>
+        <li><a href="#demo" class="nav-link" data-i18n="nav.demo">Try it</a></li>
+        <li><a href="#features" class="nav-link" data-i18n="nav.features">Features</a></li>
+        <li><a href="#how" class="nav-link" data-i18n="nav.how">How to start</a></li>
+        <li><a href="#pricing" class="nav-link" data-i18n="nav.pricing">Pricing</a></li>
+        <li><a href="#faq" class="nav-link" data-i18n="nav.faq">FAQ</a></li>
       </ul>
 
       <div class="nav-actions">
-        <button class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Toggle theme">
+        <button type="button" class="lang-toggle-btn" id="lang-toggle-btn" lang="ar" data-i18n="nav.otherLanguage"
+          data-i18n-attr="aria-label:nav.otherLanguageLabel" aria-label="Show the site in Arabic">عربي</button>
+        <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" data-i18n-attr="aria-label:nav.themeLabel"
+          aria-label="Switch light or dark mode">
           <span id="theme-toggle-icon"></span>
         </button>
-        <button class="btn btn-secondary btn-sm" data-open-modal="demo" id="btn-nav-demo">Book Demo</button>
-        <button class="btn btn-primary btn-sm" data-open-modal="demo" id="btn-nav-trial">Start Free</button>
-        <button class="mobile-menu-btn" id="mobile-menu-toggle" aria-label="Open mobile menu">☰</button>
+        <button type="button" class="btn btn-primary btn-sm nav-start-btn" data-open-modal="contact"
+          data-i18n="nav.start">Start free</button>
+        <button type="button" class="mobile-menu-btn" id="mobile-menu-toggle" data-i18n-attr="aria-label:nav.menuLabel"
+          aria-label="Open menu" aria-expanded="false" aria-controls="nav-links">☰</button>
       </div>
     </div>
   </header>
@@ -76,206 +130,143 @@
       <div class="container">
         <div class="hero-content">
           <div class="hero-announcement">
-            <span class="hero-badge-pill">Free Forever</span>
-            <span>Start free and stay free forever · Up to 30 active customers</span>
-            <span>→</span>
+            <span class="hero-badge-pill" data-i18n="hero.badge">Lebanon</span>
+            <span data-i18n="hero.announcement">Made for generator owners and internet providers</span>
           </div>
 
-          <h1 class="hero-title">
-            Subscription Management Built for the <span class="hero-title-highlight">Real World</span>.
+          <h1 class="hero-title" data-i18n="hero.title">
+            Every subscriber. Every month. <span class="hero-title-highlight">Every dollar and lira.</span>
           </h1>
 
-          <p class="hero-subtitle">
-            Say goodbye to messy spreadsheets, uncollected dues, and lost cash. Sijil empowers ISPs, gyms, and route delivery services with dynamic visual month grids, field cash custody, and offline-first mobile operations.
+          <p class="hero-subtitle" data-i18n="hero.subtitle">
+            Sijil is the subscription app for generator owners and internet providers in Lebanon. Bill by meter or by
+            fixed fee, collect at the door even with no internet, send the receipt on WhatsApp, and always know which
+            collector holds the cash.
           </p>
 
           <div class="hero-actions">
-            <button class="btn btn-primary btn-lg" data-open-modal="demo" id="btn-hero-trial">
-              Start Free — Stay Free Forever
+            <button type="button" class="btn btn-primary btn-lg" data-open-modal="contact" data-i18n="hero.ctaStart">
+              Start free — up to 20 subscribers
             </button>
-            <a href="#pricing" class="btn btn-secondary btn-lg" id="btn-hero-demo">
-              View Free Plan & Pricing
-            </a>
+            <a href="#demo" class="btn btn-secondary btn-lg" data-i18n="hero.ctaDemo">Try the live demo</a>
           </div>
 
           <ul class="hero-trust-list">
             <li class="hero-trust-item">
-              <span class="hero-trust-icon">✓</span>
-              <span><strong>Free forever up to 30 customers</strong></span>
+              <svg class="hero-trust-icon" width="16" height="16">
+                <use href="#i-check" />
+              </svg>
+              <span data-i18n="hero.trustFree">Free up to 20 subscribers</span>
             </li>
             <li class="hero-trust-item">
-              <span class="hero-trust-icon">✓</span>
-              <span>Works 100% Offline (SQLite Sync)</span>
+              <svg class="hero-trust-icon" width="16" height="16">
+                <use href="#i-check" />
+              </svg>
+              <span data-i18n="hero.trustOffline">Works with no internet</span>
             </li>
             <li class="hero-trust-item">
-              <span class="hero-trust-icon">✓</span>
-              <span>Instant WhatsApp Receipts</span>
+              <svg class="hero-trust-icon" width="16" height="16">
+                <use href="#i-check" />
+              </svg>
+              <span data-i18n="hero.trustCurrency">Dollar and lira</span>
             </li>
             <li class="hero-trust-item">
-              <span class="hero-trust-icon">✓</span>
-              <span>No Credit Card Required</span>
+              <svg class="hero-trust-icon" width="16" height="16">
+                <use href="#i-check" />
+              </svg>
+              <span data-i18n="hero.trustLanguage">Arabic and English</span>
             </li>
           </ul>
         </div>
 
         <div class="hero-visual-wrapper">
-          <div class="hero-floating-card hero-card-left">
+          <div class="hero-floating-card hero-card-start">
             <div class="stat-pill">
-              <div class="stat-icon success">✓</div>
+              <div class="stat-icon whatsapp">
+                <svg width="22" height="22">
+                  <use href="#i-whatsapp" />
+                </svg>
+              </div>
               <div class="stat-details">
-                <span class="stat-label">May 2026 Collected</span>
-                <span class="stat-value">$12,840.00</span>
+                <span class="stat-label" data-i18n="hero.floatReceiptLabel">Receipt sent</span>
+                <span class="stat-value" data-i18n="hero.floatReceiptValue">On WhatsApp, in one tap</span>
               </div>
             </div>
           </div>
 
-          <div class="hero-floating-card hero-card-right">
+          <div class="hero-floating-card hero-card-end">
             <div class="stat-pill">
-              <div class="stat-icon primary">⚡</div>
+              <div class="stat-icon primary">📶</div>
               <div class="stat-details">
-                <span class="stat-label">Collection Rate</span>
-                <span class="stat-value">96% (165 of 172 Active)</span>
+                <span class="stat-label" data-i18n="hero.floatOfflineLabel">No signal?</span>
+                <span class="stat-value" data-i18n="hero.floatOfflineValue">Saved — syncs later</span>
               </div>
             </div>
           </div>
 
-          <div class="hero-mockup-frame">
-            <img src="/assets/images/dahsboard.png" alt="Sijil Executive Dashboard Overview" class="hero-img">
+          <div class="phone-mock" role="img" data-i18n-attr="aria-label:mock.phoneLabel"
+            aria-label="Example of the Sijil home screen">
+            <div class="phone-notch"></div>
+            <div class="mock-header">
+              <span class="mock-org" data-i18n="mock.org">Al Nour Generators</span>
+              <span class="mock-date" data-i18n="mock.date">July 2026</span>
+            </div>
+            <div class="mock-hero-card">
+              <span class="mock-label" data-i18n="mock.collectedLabel">Collected this month</span>
+              <span class="mock-amount">$3,240</span>
+              <span class="mock-amount-second" data-i18n="mock.collectedLira">+ 41,500,000 LBP</span>
+              <div class="mock-progress"><span style="width: 88%"></span></div>
+              <span class="mock-caption" data-i18n="mock.paidCount">212 of 240 subscribers paid</span>
+            </div>
+            <div class="mock-tiles">
+              <div class="mock-tile">
+                <span class="mock-tile-label" data-i18n="mock.toCollectLabel">To collect</span>
+                <span class="mock-tile-value danger">28</span>
+                <span class="mock-tile-sub" data-i18n="mock.toCollectSub">subscribers</span>
+              </div>
+              <div class="mock-tile">
+                <span class="mock-tile-label" data-i18n="mock.spentLabel">Spent</span>
+                <span class="mock-tile-value">$1,150</span>
+                <span class="mock-tile-sub" data-i18n="mock.spentSub">diesel, salaries</span>
+              </div>
+            </div>
+            <div class="mock-list-title" data-i18n="mock.cashTitle">Cash with collectors</div>
+            <div class="mock-list">
+              <div class="mock-row">
+                <span class="mock-avatar" data-i18n="mock.cashAliInitial">A</span>
+                <span class="mock-name" data-i18n="mock.cashAli">Ali</span>
+                <span class="mock-value" data-i18n="mock.cashAliValue">$410 · 6.2M LBP</span>
+              </div>
+              <div class="mock-row">
+                <span class="mock-avatar" data-i18n="mock.cashRamiInitial">R</span>
+                <span class="mock-name" data-i18n="mock.cashRami">Rami</span>
+                <span class="mock-value" data-i18n="mock.cashRamiValue">$260 · 3.9M LBP</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="stats-banner" id="stats">
+    <section class="stats-banner" id="facts">
       <div class="container">
         <div class="stats-grid">
           <div class="stat-item">
-            <div class="stat-item-number">$12,840</div>
-            <div class="stat-item-label">Collected This Month (Acme ISP)</div>
+            <div class="stat-item-number">20</div>
+            <div class="stat-item-label" data-i18n="facts.freeLabel">subscribers free, for as long as you like</div>
           </div>
           <div class="stat-item">
-            <div class="stat-item-number">96%</div>
-            <div class="stat-item-label">On-Time Monthly Collection Rate</div>
+            <div class="stat-item-number" data-i18n="facts.currencyNumber">$ · LBP</div>
+            <div class="stat-item-label" data-i18n="facts.currencyLabel">Bill and collect in dollar or lira</div>
           </div>
           <div class="stat-item">
-            <div class="stat-item-number">184</div>
-            <div class="stat-item-label">Total Customers (172 Active)</div>
+            <div class="stat-item-number" data-i18n="facts.offlineNumber">Offline</div>
+            <div class="stat-item-label" data-i18n="facts.offlineLabel">Collect where there is no signal</div>
           </div>
           <div class="stat-item">
-            <div class="stat-item-number">5 Plans</div>
-            <div class="stat-item-label">Active Plans (Fiber 50 to Fiber Pro)</div>
+            <div class="stat-item-number" data-i18n="facts.receiptNumber">1 tap</div>
+            <div class="stat-item-label" data-i18n="facts.receiptLabel">to send the receipt on WhatsApp</div>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section simulator-section" id="simulator">
-      <div class="container">
-        <div class="section-header">
-          <div class="section-eyebrow">Interactive Demo</div>
-          <h2 class="section-title">The Dynamic Visual Month Grid</h2>
-          <p class="section-description">
-            Months are never stored as dummy database records. Pure money logic determines paid, overdue, skipped, and future months at a single glance. Test live payment collection for <strong>Tunde Okoro</strong> in Sijil.
-          </p>
-        </div>
-
-        <div class="simulator-box">
-          <div class="simulator-top-bar">
-            <div class="customer-info-preview">
-              <div class="customer-avatar">TO</div>
-              <div class="customer-meta">
-                <h4>Tunde Okoro — 14 Adelabu St, Surulere, Lagos</h4>
-                <span class="customer-plan-tag">Plan: Fiber 50 ($30.00 / month) · Started Apr 1, 2024</span>
-              </div>
-            </div>
-
-            <div class="simulator-actions">
-              <button class="btn btn-primary btn-sm" id="sim-btn-collect-30">Collect $30 (May 2026)</button>
-              <button class="btn btn-secondary btn-sm" id="sim-btn-collect-60">Collect $60 (May + June)</button>
-              <button class="btn btn-secondary btn-sm" id="sim-btn-skip">Pause / Skip July</button>
-              <button class="btn btn-secondary btn-sm" id="sim-btn-reset">Reset</button>
-            </div>
-          </div>
-
-          <div class="month-grid" id="simulator-grid"></div>
-
-          <div class="simulator-explanation">
-            <div class="explanation-icon">💡</div>
-            <div class="explanation-content">
-              <h5 id="sim-exp-title">Tunde Okoro's Live Profile (Acme ISP)</h5>
-              <p id="sim-exp-desc">
-                4 paid ($120 collected) · 1 unpaid (May 2026 · $30 due · 12 days into the month). Click an action above to test payment collection in Sijil.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section" id="features">
-      <div class="container">
-        <div class="section-header">
-          <div class="section-eyebrow">Platform Capabilities</div>
-          <h2 class="section-title">Built for Front-Line Subscription Operations</h2>
-          <p class="section-description">
-            Engineered specifically for business owners, field collectors, and front-desk staff who handle physical cash, recurring plans, and customer renewals daily.
-          </p>
-        </div>
-
-        <div class="features-grid">
-          <article class="feature-card">
-            <div class="feature-icon-wrapper">🗓️</div>
-            <h3>Dynamic Visual Month Grid</h3>
-            <p>
-              Months are never stored as dummy database records. Pure money logic determines paid, overdue, skipped, and future months at a single glance. Zero guessing.
-            </p>
-            <span class="feature-tag-pill">Signature Innovation</span>
-          </article>
-
-          <article class="feature-card">
-            <div class="feature-icon-wrapper">📶</div>
-            <h3>100% Offline-First Architecture</h3>
-            <p>
-              Field staff like Derek Lim and Tomás Ferreira can record payments in remote areas, underground basements, or during internet outages. Everything saves locally and syncs safely when reconnected.
-            </p>
-            <span class="feature-tag-pill">SQLite Mirror Sync</span>
-          </article>
-
-          <article class="feature-card">
-            <div class="feature-icon-wrapper">🛡️</div>
-            <h3>Strict Cash Custody Tracking</h3>
-            <p>
-              Know to the penny which staff member holds which cash hand-over. Hand money up the chain from collectors to Sarah Kowalski (Admin) with formal custody transfers and complete audit logging.
-            </p>
-            <span class="feature-tag-pill">Custody Ledger</span>
-          </article>
-
-          <article class="feature-card">
-            <div class="feature-icon-wrapper">🌊</div>
-            <h3>Oldest-First Debt Waterfall</h3>
-            <p>
-              When a subscriber like Omar Farouk hands over cash, the algorithm clears their oldest overdue bill first before moving to subsequent months. Eliminates partial-balance chaos.
-            </p>
-            <span class="feature-tag-pill">Deterministic Waterfall</span>
-          </article>
-
-          <article class="feature-card">
-            <div class="feature-icon-wrapper">💬</div>
-            <h3>WhatsApp Auto-Receipts</h3>
-            <p>
-              Instant branded payment receipts like Receipt A-2104 and gentle upcoming renewal alerts sent straight to your subscribers' WhatsApp. Cut late payments by over 40%.
-            </p>
-            <span class="feature-tag-pill">WhatsApp Cloud API</span>
-          </article>
-
-          <article class="feature-card">
-            <div class="feature-icon-wrapper">🌐</div>
-            <h3>Customer Self-Service Portal</h3>
-            <p>
-              Empower your customers with a clean, read-only web portal. Subscribers can verify their active plan, download historical receipts, and check next due dates without calling support.
-            </p>
-            <span class="feature-tag-pill">Self-Service Portal</span>
-          </article>
         </div>
       </div>
     </section>
@@ -283,330 +274,401 @@
     <section class="section simulator-section" id="solutions">
       <div class="container">
         <div class="section-header">
-          <div class="section-eyebrow">Tailored Solutions</div>
-          <h2 class="section-title">Designed for Your Exact Business Model</h2>
-          <p class="section-description">
-            Whether you run a regional ISP like Acme ISP, manage a bustling fitness club, or deliver monthly essentials on scheduled routes, Sijil fits like a glove.
+          <div class="section-eyebrow" data-i18n="solutions.eyebrow">Built for your business</div>
+          <h2 class="section-title" data-i18n="solutions.title">Made for generators and internet in Lebanon</h2>
+          <p class="section-description" data-i18n="solutions.description">
+            Two businesses, two ways of billing. Sijil handles both — even in the same account, when one subscriber
+            takes both.
           </p>
         </div>
 
-        <div class="solutions-tabs-header">
-          <button class="tab-btn active" data-target="sol-isp">🌐 Internet Service Providers</button>
-          <button class="tab-btn" data-target="sol-gym">🏋️ Gyms & Fitness Centers</button>
-          <button class="tab-btn" data-target="sol-delivery">🚚 Route Delivery & Utilities</button>
-          <button class="tab-btn" data-target="sol-services">💼 Maintenance & Co-Working</button>
+        <div class="solutions-tabs-header" role="tablist">
+          <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-target="sol-generator"
+            data-i18n="solutions.tabGenerator">⚡ Generator owners</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" data-target="sol-internet"
+            data-i18n="solutions.tabInternet">🌐 Internet providers</button>
         </div>
 
-        <div class="solution-panel active" id="sol-isp">
+        <div class="solution-panel active" id="sol-generator" role="tabpanel">
           <div class="solution-content">
-            <span class="solution-badge">Proven in Acme ISP</span>
-            <h3>Automate Internet Billing Without Revenue Leaks</h3>
-            <p>
-              Managing subscribers like Maria Hernandez (Fiber 100) and Tunde Okoro (Fiber 50) requires reliable field collections, flexible bandwidth tiers, and instant proof of payment.
+            <span class="solution-badge" data-i18n="generator.badge">Generator subscriptions</span>
+            <h3 data-i18n="generator.title">Meter bills that work themselves out</h3>
+            <p data-i18n="generator.text">
+              Each month, type the kWh price once — for example, when the ministry publishes it. Collectors enter each
+              meter reading on their phone. Sijil works out every bill: fixed fee + kWh used × price.
             </p>
             <ul class="solution-checklist">
               <li class="solution-check-item">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Field collectors log cash payments offline at customer doors</span>
+                <svg width="20" height="20">
+                  <use href="#i-check" />
+                </svg>
+                <span data-i18n="generator.check1">Meter plans and fixed-fee (amperage) plans, in lira or dollar</span>
               </li>
               <li class="solution-check-item">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Instant WhatsApp receipts with plan details (Fiber 50 to Fiber Pro)</span>
+                <svg width="20" height="20">
+                  <use href="#i-check" />
+                </svg>
+                <span data-i18n="generator.check2">A warning when a reading is below last month or much higher than
+                  usual</span>
               </li>
               <li class="solution-check-item">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Automated overdue tracking: 7 unpaid out of 184 customers ($210 outstanding)</span>
+                <svg width="20" height="20">
+                  <use href="#i-check" />
+                </svg>
+                <span data-i18n="generator.check3">Meter replaced during the month? Enter the old and new readings and
+                  the bill stays right</span>
+              </li>
+              <li class="solution-check-item">
+                <svg width="20" height="20">
+                  <use href="#i-check" />
+                </svg>
+                <span data-i18n="generator.check4">A bill waits until both the reading and the month's price are in, so
+                  nobody collects a wrong amount</span>
+              </li>
+              <li class="solution-check-item">
+                <svg width="20" height="20">
+                  <use href="#i-check" />
+                </svg>
+                <span data-i18n="generator.check5">Record a deposit or any one-off fee as its own charge</span>
               </li>
             </ul>
-            <button class="btn btn-primary" data-open-modal="demo">See ISP Case Study</button>
+            <button type="button" class="btn btn-primary" data-open-modal="contact" data-i18n="generator.cta">Start free
+              with your generator</button>
           </div>
           <div class="solution-visual">
-            <img src="/assets/images/customers.png" alt="ISP Subscriber Management Interface">
+            <div class="mock-card" role="img" data-i18n-attr="aria-label:generator.mockLabel"
+              aria-label="Example of a meter bill in Sijil">
+              <div class="mock-card-head">
+                <span class="mock-card-title" data-i18n="generator.mockTitle">Meter reading · June</span>
+                <span class="mock-pill danger" data-i18n="generator.mockStatus">Ready to collect</span>
+              </div>
+              <div class="mock-kv">
+                <span data-i18n="generator.mockCustomer">Subscriber</span>
+                <strong data-i18n="generator.mockCustomerName">Hassan Mostafa · 10 A</strong>
+              </div>
+              <div class="mock-kv">
+                <span data-i18n="generator.mockPrevious">Last reading</span>
+                <strong>14,280</strong>
+              </div>
+              <div class="mock-kv">
+                <span data-i18n="generator.mockCurrent">This reading</span>
+                <strong>14,460</strong>
+              </div>
+              <div class="mock-kv">
+                <span data-i18n="generator.mockUsed">Used</span>
+                <strong data-i18n="generator.mockUsedValue">180 kWh</strong>
+              </div>
+              <div class="mock-bill-line" data-i18n="generator.mockBillLine">Fixed fee 900,000 + 180 × 36,000 =
+                <strong>7,380,000 LBP</strong>
+              </div>
+              <span class="mock-note" data-i18n="generator.mockNote">Example prices</span>
+            </div>
           </div>
         </div>
 
-        <div class="solution-panel" id="sol-gym">
+        <div class="solution-panel" id="sol-internet" role="tabpanel">
           <div class="solution-content">
-            <span class="solution-badge">Built for Fitness Clubs</span>
-            <h3>Stop Member Churn & Accelerate Front-Desk Check-Ins</h3>
-            <p>
-              Front-desk staff see member payment status in milliseconds. Flag overdue accounts before entrance, allow temporary vacation freezes, and sell drinks or merchandise without switching apps.
+            <span class="solution-badge" data-i18n="internet.badge">Internet subscriptions</span>
+            <h3 data-i18n="internet.title">Every package and every renewal in one list</h3>
+            <p data-i18n="internet.text">
+              Whether your subscribers pay each month or pay ahead, Sijil shows who is paid, who expires soon and who is
+              behind — and reminds them on WhatsApp.
             </p>
             <ul class="solution-checklist">
               <li class="solution-check-item">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Instant visual badge: Green (Paid), Red (Overdue), Yellow (Paused)</span>
+                <svg width="20" height="20">
+                  <use href="#i-check" />
+                </svg>
+                <span data-i18n="internet.check1">Monthly or prepaid packages, plus bundles (for example 3 months at a
+                  set price)</span>
               </li>
               <li class="solution-check-item">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>1-click membership skips for member travel or illness</span>
+                <svg width="20" height="20">
+                  <use href="#i-check" />
+                </svg>
+                <span data-i18n="internet.check2">Filters for Expiring soon, Expired today and Expired</span>
               </li>
               <li class="solution-check-item">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>POS sales for gym apparel, protein shakes, and personal training</span>
+                <svg width="20" height="20">
+                  <use href="#i-check" />
+                </svg>
+                <span data-i18n="internet.check3">Payment and renewal reminders on WhatsApp, to one subscriber or many
+                  at once</span>
+              </li>
+              <li class="solution-check-item">
+                <svg width="20" height="20">
+                  <use href="#i-check" />
+                </svg>
+                <span data-i18n="internet.check4">Tell everyone about an outage, and when service is back, in one
+                  message</span>
+              </li>
+              <li class="solution-check-item">
+                <svg width="20" height="20">
+                  <use href="#i-check" />
+                </svg>
+                <span data-i18n="internet.check5">Sell routers and cables, charge for installation, and keep track of
+                  your stock</span>
               </li>
             </ul>
-            <button class="btn btn-primary" data-open-modal="demo">Explore Gym Features</button>
+            <button type="button" class="btn btn-primary" data-open-modal="contact" data-i18n="internet.cta">Start free
+              with your network</button>
           </div>
           <div class="solution-visual">
-            <img src="/assets/images/customer-details.png" alt="Gym Member Profile and Month Grid">
-          </div>
-        </div>
-
-        <div class="solution-panel" id="sol-delivery">
-          <div class="solution-content">
-            <span class="solution-badge">Built for Route Services</span>
-            <h3>Keep Route Collectors Accountable in Real Time</h3>
-            <p>
-              For businesses delivering purified water, LPG cylinders, or commercial laundry on monthly plans. Track drivers with cash balances and reconcile end-of-day balances without manual ledger counting.
-            </p>
-            <ul class="solution-checklist">
-              <li class="solution-check-item">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Driver cash custody ledger prevents unrecorded hand-overs</span>
-              </li>
-              <li class="solution-check-item">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Multi-currency support: collect in USD, IQD, or local cash without currency mix-ups</span>
-              </li>
-              <li class="solution-check-item">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Multi-branch support for regional warehouses and depot hubs</span>
-              </li>
-            </ul>
-            <button class="btn btn-primary" data-open-modal="demo">View Delivery Solution</button>
-          </div>
-          <div class="solution-visual">
-            <img src="/assets/images/record-payment.png" alt="Field Route Cash Collection">
-          </div>
-        </div>
-
-        <div class="solution-panel" id="sol-services">
-          <div class="solution-content">
-            <span class="solution-badge">Built for Service Retainers</span>
-            <h3>Professional Retainer & Lease Management</h3>
-            <p>
-              Ideal for facility management, commercial security contracts, cleaning services, and shared co-working spaces. Keep agreements running smoothly with automated invoicing and clear audit trails.
-            </p>
-            <ul class="solution-checklist">
-              <li class="solution-check-item">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Automated monthly invoice snapshot keeps historical billing immutable</span>
-              </li>
-              <li class="solution-check-item">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Strict role permissions: Cashier, Collector, Accountant, Admin</span>
-              </li>
-              <li class="solution-check-item">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Customer portal access for corporate clients to retrieve VAT receipts</span>
-              </li>
-            </ul>
-            <button class="btn btn-primary" data-open-modal="demo">Explore Retainer Features</button>
-          </div>
-          <div class="solution-visual">
-            <img src="/assets/images/plans.png" alt="Service Plans and Contracts Setup">
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section" id="tour">
-      <div class="container">
-        <div class="section-header">
-          <div class="section-eyebrow">Product Tour</div>
-          <h2 class="section-title">Designed for Speed on Phone and Desktop</h2>
-          <p class="section-description">
-            Your field staff use the blazing-fast mobile app; your management and accountants use the rich desktop web dashboard.
-          </p>
-        </div>
-
-        <div class="tour-tabs">
-          <button class="tour-tab-btn active" data-tour="tour-dash">1. Acme ISP Dashboard</button>
-          <button class="tour-tab-btn" data-tour="tour-cust">2. Customers (184 Total)</button>
-          <button class="tour-tab-btn" data-tour="tour-grid">3. Tunde Okoro's Profile</button>
-          <button class="tour-tab-btn" data-tour="tour-pay">4. Field Cash Collection</button>
-          <button class="tour-tab-btn" data-tour="tour-receipt">5. Receipt A-2104</button>
-        </div>
-
-        <div class="tour-display">
-          <div class="tour-panel active" id="tour-dash">
-            <div class="tour-image-box">
-              <img src="/assets/images/dahsboard.png" alt="Sijil Executive Financial Dashboard">
-            </div>
-            <div class="tour-caption-box">
-              <h3>Acme ISP: $12,840 Collected This Month</h3>
-              <p>
-                Sarah Kowalski (Admin) tracks May 2026 performance in real time: 165 of 172 active customers paid (96% on-time), with live transaction entries from Maria Hernandez (+$50.00), Aisha Khan (+$45.00), and Sofie Jensen (+$80.00).
-              </p>
-              <ul class="solution-checklist">
-                <li class="solution-check-item">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>Real-time total collected cash ($12,840 vs $210 unpaid)</span>
-                </li>
-                <li class="solution-check-item">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>Needs attention flag: Omar Farouk (3 months unpaid · $90)</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div class="tour-panel" id="tour-cust">
-            <div class="tour-image-box">
-              <img src="/assets/images/customers.png" alt="Subscriber Directory and Filter List">
-            </div>
-            <div class="tour-caption-box">
-              <h3>184 Customers with Instant Status Badges</h3>
-              <p>
-                Quickly filter through subscribers: All (184), Unpaid (7), Active (172), Inactive (12). Badges instantly show paid status for Maria Hernandez (Fiber 100) or unpaid counts for Tunde Okoro (2 unpaid) and Jakub Nowak (1 unpaid).
-              </p>
-              <ul class="solution-checklist">
-                <li class="solution-check-item">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>Filter by unpaid, active, or inactive with one tap</span>
-                </li>
-                <li class="solution-check-item">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>Instant search by name, phone (+234 803 555 0142), or address</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div class="tour-panel" id="tour-grid">
-            <div class="tour-image-box">
-              <img src="/assets/images/customer-details.png" alt="Subscriber Profile with 12 Month Grid">
-            </div>
-            <div class="tour-caption-box">
-              <h3>Tunde Okoro: Visual Month Grid</h3>
-              <p>
-                View Tunde Okoro's active subscription on Fiber 50 ($30.00/mo since Apr 1, 2024). Jan to Apr are paid in full ($120 collected), while May 2026 is flagged with an immediate [Collect] action ($30.00 due).
-              </p>
-              <ul class="solution-checklist">
-                <li class="solution-check-item">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>4 paid, 1 unpaid, $120 total collected in 2026</span>
-                </li>
-                <li class="solution-check-item">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>Address: 14 Adelabu St, Surulere, Lagos</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div class="tour-panel" id="tour-pay">
-            <div class="tour-image-box">
-              <img src="/assets/images/record-payment.png" alt="Field Cash Payment Entry Form">
-            </div>
-            <div class="tour-caption-box">
-              <h3>3-Second Field Cash Entry</h3>
-              <p>
-                Designed for field collectors standing at the customer's door. Collect $30.00 for May 2026 · Fiber 50, add optional notes like "Cash collected at door", and tap Mark as paid.
-              </p>
-              <ul class="solution-checklist">
-                <li class="solution-check-item">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>Receipt ID generated automatically</span>
-                </li>
-                <li class="solution-check-item">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>Instant offline SQLite save with zero cellular network</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div class="tour-panel" id="tour-receipt">
-            <div class="tour-image-box">
-              <img src="/assets/images/payment-receipt.png" alt="Customer Payment Receipt Preview">
-            </div>
-            <div class="tour-caption-box">
-              <h3>Receipt A-2104: Full Audit Trail</h3>
-              <p>
-                Verified payment of $30.00 for April 2026 · paid in full. Record shows it was received by sarah.k on Apr 3, 2026 at 10:42 AM with note "Cash collected at door", plus custody safety controls.
-              </p>
-              <ul class="solution-checklist">
-                <li class="solution-check-item">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>Strict audit trail attaching cash to collector</span>
-                </li>
-                <li class="solution-check-item">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span>One-click WhatsApp sharing to subscriber</span>
-                </li>
-              </ul>
+            <div class="mock-card" role="img" data-i18n-attr="aria-label:internet.mockLabel"
+              aria-label="Example of an internet subscriber list in Sijil">
+              <div class="mock-card-head">
+                <span class="mock-card-title" data-i18n="internet.mockTitle">Subscribers</span>
+                <span class="mock-pill" data-i18n="internet.mockFilter">Expiring soon</span>
+              </div>
+              <div class="mock-sub-row">
+                <div>
+                  <strong data-i18n="internet.mockName1">Rami Haddad</strong>
+                  <span data-i18n="internet.mockPlan1">8 Mbps · prepaid</span>
+                </div>
+                <span class="mock-pill success" data-i18n="internet.mockState1">Paid until 31 Jul</span>
+              </div>
+              <div class="mock-sub-row">
+                <div>
+                  <strong data-i18n="internet.mockName2">Nadine Khoury</strong>
+                  <span data-i18n="internet.mockPlan2">16 Mbps · prepaid</span>
+                </div>
+                <span class="mock-pill warning" data-i18n="internet.mockState2">Expires in 2 days</span>
+              </div>
+              <div class="mock-sub-row">
+                <div>
+                  <strong data-i18n="internet.mockName3">Georges Saad</strong>
+                  <span data-i18n="internet.mockPlan3">8 Mbps · prepaid</span>
+                </div>
+                <span class="mock-pill danger" data-i18n="internet.mockState3">Expired today</span>
+              </div>
+              <div class="mock-sub-row">
+                <div>
+                  <strong data-i18n="internet.mockName4">Hiba Mansour</strong>
+                  <span data-i18n="internet.mockPlan4">25 Mbps · monthly</span>
+                </div>
+                <span class="mock-pill danger" data-i18n="internet.mockState4">Overdue</span>
+              </div>
+              <div class="mock-wa-action">
+                <svg width="18" height="18">
+                  <use href="#i-whatsapp" />
+                </svg>
+                <span data-i18n="internet.mockAction">Send renewal reminder</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section simulator-section" id="calculator">
+    <section class="section" id="demo">
       <div class="container">
         <div class="section-header">
-          <div class="section-eyebrow">Financial Impact</div>
-          <h2 class="section-title">Calculate Your Recoverable Revenue</h2>
-          <p class="section-description">
-            Discover how much lost cash Sijil can recover for your business each year through automated dunning, oldest-first waterfall, and strict custody.
+          <div class="section-eyebrow" data-i18n="demo.eyebrow">Try it</div>
+          <h2 class="section-title" data-i18n="demo.title">A subscriber's whole year, at a glance</h2>
+          <p class="section-description" data-i18n="demo.description">
+            Nobody types the months by hand. Each month's color comes from the money that came in. Try it below: enter a
+            meter reading, collect, or skip a month.
           </p>
         </div>
 
-        <div class="calculator-card">
-          <div class="calc-inputs">
-            <div class="calc-input-group">
-              <div class="calc-label-row">
-                <span class="calc-label">Active Subscribers</span>
-                <span class="calc-current-value" id="val-subscribers">184</span>
+        <div class="simulator-box">
+          <div class="simulator-top-bar">
+            <div class="customer-info-preview">
+              <div class="customer-avatar" data-i18n="demo.initials">HK</div>
+              <div class="customer-meta">
+                <h4 data-i18n="demo.customer">Hassan Khalil — Generator, 10 A meter</h4>
+                <span class="customer-plan-tag" data-i18n="demo.plan">Meter plan · fixed fee 900,000 LBP + 36,000 LBP
+                  per kWh</span>
               </div>
-              <input type="range" class="calc-slider" id="slider-subscribers" min="30" max="2500" step="10" value="184">
             </div>
 
-            <div class="calc-input-group">
-              <div class="calc-label-row">
-                <span class="calc-label">Average Monthly Subscription Fee</span>
-                <span class="calc-current-value" id="val-fee">$50/mo</span>
-              </div>
-              <input type="range" class="calc-slider" id="slider-fee" min="10" max="200" step="5" value="50">
-            </div>
-
-            <div class="calc-input-group">
-              <div class="calc-label-row">
-                <span class="calc-label">Estimated Uncollected / Late Rate</span>
-                <span class="calc-current-value" id="val-leakage">5%</span>
-              </div>
-              <input type="range" class="calc-slider" id="slider-leakage" min="2" max="25" step="1" value="5">
+            <div class="simulator-actions">
+              <button type="button" class="btn btn-secondary btn-sm" id="sim-btn-reading"
+                data-i18n="demo.btnReading">Enter June reading</button>
+              <button type="button" class="btn btn-primary btn-sm" id="sim-btn-collect"
+                data-i18n="demo.btnCollect">Collect all owed</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="sim-btn-skip" data-i18n="demo.btnSkip">Skip
+                August</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="sim-btn-reset" data-i18n="demo.btnReset">Start
+                over</button>
             </div>
           </div>
 
-          <div class="calc-results-box">
-            <div class="calc-result-row">
-              <span class="calc-res-label">Total Annual Subscription Volume</span>
-              <span class="calc-res-number" id="calc-res-annual">$110,400</span>
-            </div>
+          <div class="month-grid" id="simulator-grid" aria-live="polite"></div>
 
-            <div class="calc-result-row">
-              <span class="calc-res-label">Estimated Cash Recovered per Year</span>
-              <span class="calc-res-number" id="calc-res-recovered">+$4,306/yr</span>
-            </div>
+          <ul class="month-legend">
+            <li><span class="legend-dot paid"></span><span data-i18n="demo.legendPaid">Paid</span></li>
+            <li><span class="legend-dot unpaid"></span><span data-i18n="demo.legendUnpaid">Unpaid</span></li>
+            <li><span class="legend-dot waiting"></span><span data-i18n="demo.legendWaiting">Waiting for reading</span>
+            </li>
+            <li><span class="legend-dot skipped"></span><span data-i18n="demo.legendSkipped">Skipped</span></li>
+            <li><span class="legend-dot future"></span><span data-i18n="demo.legendFuture">Not yet</span></li>
+          </ul>
 
-            <div class="calc-result-row">
-              <span class="calc-res-label">Staff Reconciliation Time Saved</span>
-              <span class="calc-res-number" id="calc-res-hours">15 hrs/mo</span>
+          <div class="simulator-explanation">
+            <div class="explanation-icon">💡</div>
+            <div class="explanation-content">
+              <h5 id="sim-exp-title"></h5>
+              <p id="sim-exp-desc"></p>
+              <div class="wa-bubble" id="sim-receipt" hidden></div>
             </div>
           </div>
+          <p class="simulator-note" data-i18n="demo.note">Example: today is early July 2026. Prices are examples only.
+          </p>
         </div>
       </div>
     </section>
 
-    <section class="section" id="comparison">
+    <section class="section simulator-section" id="features">
       <div class="container">
         <div class="section-header">
-          <div class="section-eyebrow">Direct Comparison</div>
-          <h2 class="section-title">Why Sijil Beats Generic Software</h2>
-          <p class="section-description">
-            Generic accounting tools don't understand field collectors, cash custody, or monthly service lines. Here is how we compare.
+          <div class="section-eyebrow" data-i18n="features.eyebrow">Everything in one app</div>
+          <h2 class="section-title" data-i18n="features.title">What Sijil does for you</h2>
+          <p class="section-description" data-i18n="features.description">
+            Built for owners and collectors who handle cash every day, and simple enough for every collector to use.
+          </p>
+        </div>
+
+        <div class="features-grid">
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">🗓️</div>
+            <h3 data-i18n="features.gridTitle">The month grid</h3>
+            <p data-i18n="features.gridText">Each subscriber's year in one view: paid, unpaid, waiting, skipped. The
+              color comes from the money received, so it is never out of date.</p>
+            <span class="feature-tag-pill" data-i18n="features.gridTag">At a glance</span>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">📶</div>
+            <h3 data-i18n="features.offlineTitle">Works with no internet</h3>
+            <p data-i18n="features.offlineText">Collectors record payments, meter readings and new subscribers with no
+              signal. Everything syncs when the phone is back online.</p>
+            <span class="feature-tag-pill" data-i18n="features.offlineTag">Android app</span>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">💵</div>
+            <h3 data-i18n="features.currencyTitle">Dollar and lira</h3>
+            <p data-i18n="features.currencyText">Price each plan in dollar or lira, and collect in the currency the
+              subscriber hands over. Every payment keeps that day's rate, so old totals never change.</p>
+            <span class="feature-tag-pill" data-i18n="features.currencyTag">Two currencies</span>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">🤝</div>
+            <h3 data-i18n="features.cashTitle">Who holds the cash</h3>
+            <p data-i18n="features.cashText">Every payment shows which collector has the money. Collectors hand the cash
+              to their manager in the app, and the owner closes it out. No more guessing.</p>
+            <span class="feature-tag-pill" data-i18n="features.cashTag">Collector wallets</span>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">🧾</div>
+            <h3 data-i18n="features.orderTitle">Oldest month first</h3>
+            <p data-i18n="features.orderText">Money always pays the oldest bill first, and the app shows the order
+              before you save. Part payments are fine: the rest simply stays owed.</p>
+            <span class="feature-tag-pill" data-i18n="features.orderTag">No mix-ups</span>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">💬</div>
+            <h3 data-i18n="features.whatsappTitle">WhatsApp receipts and reminders</h3>
+            <p data-i18n="features.whatsappText">Send the receipt in one tap after collecting. Connect your WhatsApp
+              Business number to send payment reminders, renewal reminders and outage notices to many subscribers at
+              once.</p>
+            <span class="feature-tag-pill" data-i18n="features.whatsappTag">WhatsApp</span>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">🔗</div>
+            <h3 data-i18n="features.portalTitle">A page for each subscriber</h3>
+            <p data-i18n="features.portalText">Give a subscriber a private link and password. They see their months,
+              bills and payments without calling you, and they cannot change anything.</p>
+            <span class="feature-tag-pill" data-i18n="features.portalTag">Customer page</span>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">📊</div>
+            <h3 data-i18n="features.reportsTitle">Reports and expenses</h3>
+            <p data-i18n="features.reportsText">Record diesel, maintenance, rent and salaries. See what you collected,
+              what you spent, what is still owed and who owes the most. Export to Excel (CSV).</p>
+            <span class="feature-tag-pill" data-i18n="features.reportsTag">For owners</span>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon-wrapper">🛡️</div>
+            <h3 data-i18n="features.historyTitle">History of every change</h3>
+            <p data-i18n="features.historyText">Every payment, cancel and edit records who did it and when. A mistake is
+              cancelled with a reason, never deleted.</p>
+            <span class="feature-tag-pill" data-i18n="features.historyTag">Change history</span>
+          </article>
+        </div>
+
+        <div class="also-included">
+          <h3 class="also-included-title" data-i18n="features.alsoTitle">Also included</h3>
+          <ul class="also-included-list">
+            <li data-i18n="features.alsoBranches">Branches for each area</li>
+            <li data-i18n="features.alsoRoles">Admin and staff roles</li>
+            <li data-i18n="features.alsoImport">Excel import</li>
+            <li data-i18n="features.alsoWeb">Web app for the office</li>
+            <li data-i18n="features.alsoMap">Location on Google Maps</li>
+            <li data-i18n="features.alsoSkip">Skip a month</li>
+            <li data-i18n="features.alsoWriteOff">Write off a lost debt</li>
+            <li data-i18n="features.alsoSales">Sales and stock</li>
+            <li data-i18n="features.alsoLanguage">Arabic and English</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="how">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-eyebrow" data-i18n="how.eyebrow">How to start</div>
+          <h2 class="section-title" data-i18n="how.title">Start in four steps</h2>
+          <p class="section-description" data-i18n="how.description">
+            We open your account for you and help you set it up.
+          </p>
+        </div>
+
+        <ol class="steps-grid">
+          <li class="step-card">
+            <span class="step-number">1</span>
+            <h3 data-i18n="how.step1Title">Message us on WhatsApp</h3>
+            <p data-i18n="how.step1Text">Tell us your business name and how many subscribers you have. We open your
+              account and send you your organization code.</p>
+          </li>
+          <li class="step-card">
+            <span class="step-number">2</span>
+            <h3 data-i18n="how.step2Title">Add your subscribers</h3>
+            <p data-i18n="how.step2Text">Type them in on the phone, or import your Excel sheet from the web app. Set
+              your plans: meter, fixed fee or internet packages.</p>
+          </li>
+          <li class="step-card">
+            <span class="step-number">3</span>
+            <h3 data-i18n="how.step3Title">Collect at the door</h3>
+            <p data-i18n="how.step3Text">Collectors use the Android app, with or without internet, and send each receipt
+              on WhatsApp.</p>
+          </li>
+          <li class="step-card">
+            <span class="step-number">4</span>
+            <h3 data-i18n="how.step4Title">Check your numbers</h3>
+            <p data-i18n="how.step4Text">Collectors hand over the cash in the app. You see what was collected, what is
+              still owed and what is left after expenses.</p>
+          </li>
+        </ol>
+        <p class="steps-note" data-i18n="how.note">Sijil runs on Android phones and in any computer browser.</p>
+      </div>
+    </section>
+
+    <section class="section simulator-section" id="comparison">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-eyebrow" data-i18n="compare.eyebrow">Compare</div>
+          <h2 class="section-title" data-i18n="compare.title">Why not a notebook or Excel?</h2>
+          <p class="section-description" data-i18n="compare.description">
+            Many generator and internet businesses still use a notebook, Excel or WhatsApp groups. Here is the
+            difference.
           </p>
         </div>
 
@@ -614,48 +676,55 @@
           <table class="comparison-table">
             <thead>
               <tr>
-                <th>Feature / Capability</th>
-                <th class="highlight-col">Sijil</th>
-                <th>Excel & Spreadsheets</th>
-                <th>QuickBooks / Xero</th>
+                <th scope="col" data-i18n="compare.colTask">What you need</th>
+                <th scope="col" class="highlight-col" data-i18n="compare.colSijil">Sijil</th>
+                <th scope="col" data-i18n="compare.colNotebook">Notebook</th>
+                <th scope="col" data-i18n="compare.colExcel">Excel</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td><strong>Dynamic Visual Month Grid</strong></td>
-                <td class="highlight-col check-yes">✓ Yes (Pure Money Logic)</td>
-                <td class="check-no">✕ Manual colors</td>
-                <td class="check-no">✕ No (List only)</td>
+                <th scope="row" data-i18n="compare.row1">See who paid this month</th>
+                <td class="highlight-col check-yes" data-i18n="compare.row1Sijil">✓ Month grid with colors</td>
+                <td class="check-no" data-i18n="compare.row1Notebook">✕ Flip through pages</td>
+                <td class="check-mid" data-i18n="compare.row1Excel">~ Color the cells by hand</td>
               </tr>
               <tr>
-                <td><strong>100% Offline Mobile Operation</strong></td>
-                <td class="highlight-col check-yes">✓ Native SQLite Sync</td>
-                <td class="check-no">✕ File conflicts</td>
-                <td class="check-no">✕ Requires Internet</td>
+                <th scope="row" data-i18n="compare.row2">Work on the street with no internet</th>
+                <td class="highlight-col check-yes" data-i18n="compare.row2Sijil">✓ Phone app works offline</td>
+                <td class="check-mid" data-i18n="compare.row2Notebook">~ Yes, but easy to lose</td>
+                <td class="check-no" data-i18n="compare.row2Excel">✕ Needs a laptop</td>
               </tr>
               <tr>
-                <td><strong>Cash Custody by Collector</strong></td>
-                <td class="highlight-col check-yes">✓ Real-time Tracking (sarah.k / derek.lim)</td>
-                <td class="check-no">✕ High risk of loss</td>
-                <td class="check-no">✕ No field custody</td>
+                <th scope="row" data-i18n="compare.row3">Dollar and lira without mix-ups</th>
+                <td class="highlight-col check-yes" data-i18n="compare.row3Sijil">✓ Each payment keeps its rate</td>
+                <td class="check-no" data-i18n="compare.row3Notebook">✕ Easy to mix up</td>
+                <td class="check-mid" data-i18n="compare.row3Excel">~ Only with your own formulas</td>
               </tr>
               <tr>
-                <td><strong>Automated Oldest-First Waterfall</strong></td>
-                <td class="highlight-col check-yes">✓ Mathematical Auto-Settle</td>
-                <td class="check-no">✕ Prone to math errors</td>
-                <td class="check-no">✕ Manual invoice matching</td>
+                <th scope="row" data-i18n="compare.row4">Work out meter bills</th>
+                <td class="highlight-col check-yes" data-i18n="compare.row4Sijil">✓ From the reading and the month's
+                  price</td>
+                <td class="check-no" data-i18n="compare.row4Notebook">✕ By hand, one by one</td>
+                <td class="check-mid" data-i18n="compare.row4Excel">~ Only with your own formulas</td>
               </tr>
               <tr>
-                <td><strong>Automated WhatsApp Receipts</strong></td>
-                <td class="highlight-col check-yes">✓ 1-Click WhatsApp</td>
-                <td class="check-no">✕ Manual messaging</td>
-                <td class="check-no">✕ Email only</td>
+                <th scope="row" data-i18n="compare.row5">Know which collector holds the cash</th>
+                <td class="highlight-col check-yes" data-i18n="compare.row5Sijil">✓ A wallet for each collector</td>
+                <td class="check-no" data-i18n="compare.row5Notebook">✕ Trust only</td>
+                <td class="check-no" data-i18n="compare.row5Excel">✕ Not really</td>
               </tr>
               <tr>
-                <td><strong>Customer Self-Service Web Portal</strong></td>
-                <td class="highlight-col check-yes">✓ White-labeled Portal</td>
-                <td class="check-no">✕ None</td>
-                <td class="check-no">✕ Complex login required</td>
+                <th scope="row" data-i18n="compare.row6">Give the subscriber a receipt</th>
+                <td class="highlight-col check-yes" data-i18n="compare.row6Sijil">✓ On WhatsApp, in one tap</td>
+                <td class="check-mid" data-i18n="compare.row6Notebook">~ Paper receipt book</td>
+                <td class="check-no" data-i18n="compare.row6Excel">✕ No</td>
+              </tr>
+              <tr>
+                <th scope="row" data-i18n="compare.row7">Know who changed what</th>
+                <td class="highlight-col check-yes" data-i18n="compare.row7Sijil">✓ Who, what and when</td>
+                <td class="check-no" data-i18n="compare.row7Notebook">✕ Pages can be torn out</td>
+                <td class="check-no" data-i18n="compare.row7Excel">✕ Cells get overwritten</td>
               </tr>
             </tbody>
           </table>
@@ -663,327 +732,322 @@
       </div>
     </section>
 
-    <section class="section simulator-section" id="pricing">
+    <section class="section" id="pricing">
       <div class="container">
         <div class="section-header">
-          <div class="section-eyebrow">Fair, Predictable Pricing</div>
-          <h2 class="section-title">Start Free and Stay Free Forever</h2>
-          <p class="section-description">
-            30 active customers and below are 100% free forever—with every single feature included and no credit card required. When you expand past 30, pricing simply scales at $0.15 per customer/month with no staff seat fees or branch limits.
+          <div class="section-eyebrow" data-i18n="pricing.eyebrow">Simple pricing</div>
+          <h2 class="section-title" data-i18n="pricing.title">Free up to 20 subscribers</h2>
+          <p class="section-description" data-i18n="pricing.description">
+            Every feature for everyone. Up to 20 subscribers: free. From 21 to 100: $0.15 per subscriber per month.
+            Above 100: one fixed monthly price per package. No setup fee and no fee per staff member.
           </p>
         </div>
 
         <div class="pricing-free-hook-banner">
           <div class="pricing-free-hook-content">
-            <div class="pricing-free-hook-icon">✓</div>
+            <div class="pricing-free-hook-icon">
+              <svg width="22" height="22">
+                <use href="#i-check" />
+              </svg>
+            </div>
             <div class="pricing-free-hook-text">
-              <div class="pricing-free-hook-title">Start free and stay free forever</div>
-              <div class="pricing-free-hook-desc">100% free for up to 30 active customers. No credit card required, full offline & WhatsApp access.</div>
+              <div class="pricing-free-hook-title" data-i18n="pricing.freeTitle">Free up to 20 subscribers, forever
+              </div>
+              <div class="pricing-free-hook-desc" data-i18n="pricing.freeText">No card needed. Every feature included.
+              </div>
             </div>
           </div>
-          <button class="btn btn-primary" data-open-modal="demo">Claim Free Account</button>
-        </div>
-
-        <div class="pricing-billing-switch">
-          <span class="billing-switch-label" id="label-monthly">Billed Monthly</span>
-          <div class="switch-toggle-track" id="pricing-toggle-track">
-            <div class="switch-toggle-thumb"></div>
-          </div>
-          <span class="billing-switch-label" id="label-annual">Billed Annually</span>
-          <span class="switch-discount-tag">Save 20%</span>
+          <button type="button" class="btn btn-primary" data-open-modal="contact" data-i18n="pricing.freeCta">Start
+            free</button>
         </div>
 
         <div class="pricing-slider-card">
           <div class="pricing-slider-header">
             <div>
-              <h3 class="pricing-slider-title">Interactive Customer Count Calculator</h3>
-              <p class="pricing-slider-subtitle">Drag the slider or choose a customer preset to see your exact rate.</p>
+              <h3 class="pricing-slider-title" data-i18n="pricing.calcTitle">How much will I pay?</h3>
+              <p class="pricing-slider-subtitle" data-i18n="pricing.calcSubtitle">For up to 100 subscribers. Move the
+                slider to your number.</p>
             </div>
             <div class="pricing-customer-badge">
-              <span class="pricing-customer-val" id="pricing-slider-val">184</span>
-              <span class="pricing-customer-unit">Active Customers</span>
+              <span class="pricing-customer-val" id="pricing-slider-val">50</span>
+              <span class="pricing-customer-unit" data-i18n="pricing.unit">subscribers</span>
             </div>
           </div>
 
           <div class="pricing-slider-wrapper">
-            <input type="range" class="pricing-range-input" id="pricing-customer-slider" min="10" max="2000" step="1" value="184">
+            <input type="range" class="pricing-range-input" id="pricing-customer-slider" min="10" max="100" step="1"
+              value="50" data-i18n-attr="aria-label:pricing.sliderLabel" aria-label="Number of subscribers">
             <div class="pricing-slider-ticks">
               <span>10</span>
-              <span>30 (Free Forever)</span>
-              <span>250</span>
-              <span>500</span>
-              <span>1,000</span>
-              <span>2,000+</span>
+              <span>100</span>
             </div>
           </div>
 
           <div class="pricing-presets">
-            <span class="pricing-preset-label">Quick Presets:</span>
-            <button type="button" class="pricing-preset-btn" data-customers="30">30 (Free Forever)</button>
-            <button type="button" class="pricing-preset-btn" data-customers="100">100 Customers</button>
-            <button type="button" class="pricing-preset-btn active" data-customers="184">184 (Acme ISP)</button>
-            <button type="button" class="pricing-preset-btn" data-customers="500">500 Customers</button>
-            <button type="button" class="pricing-preset-btn" data-customers="1000">1,000 Customers</button>
-            <button type="button" class="pricing-preset-btn" data-customers="2000">2,000 Customers</button>
+            <span class="pricing-preset-label" data-i18n="pricing.presets">Quick pick:</span>
+            <button type="button" class="pricing-preset-btn" data-customers="20" data-i18n="pricing.presetFree">20
+              (free)</button>
+            <button type="button" class="pricing-preset-btn active" data-customers="50">50</button>
+            <button type="button" class="pricing-preset-btn" data-customers="75">75</button>
+            <button type="button" class="pricing-preset-btn" data-customers="100">100</button>
           </div>
 
           <div class="pricing-calc-result-box">
             <div class="pricing-calc-cost">
               <div class="pricing-calc-price-row">
-                <span class="pricing-currency">$</span>
-                <span class="pricing-calc-amount" id="pricing-dynamic-total">27.60</span>
-                <span class="pricing-period" id="pricing-dynamic-period">/ month</span>
+                <span class="pricing-calc-amount" id="pricing-total">$7.50</span>
+                <span class="pricing-period" id="pricing-period"></span>
               </div>
-              <div class="pricing-calc-rate-detail">
-                <span class="pricing-rate-pill" id="pricing-dynamic-rate">$0.15</span>
-                <span>per active subscriber each month</span>
-              </div>
-              <div class="pricing-calc-savings" id="pricing-dynamic-savings" style="display: none;"></div>
+              <div class="pricing-calc-rate-detail" id="pricing-detail"></div>
             </div>
-            <button class="btn btn-primary btn-large" data-open-modal="demo" id="pricing-dynamic-cta">Start Free & Scale</button>
+            <button type="button" class="btn btn-primary btn-lg" data-open-modal="contact"
+              data-i18n="pricing.calcCta">Start free</button>
           </div>
+
+          <div class="pricing-packages">
+            <h3 class="pricing-packages-title" data-i18n="pricing.packagesTitle">More than 100 subscribers?</h3>
+            <p class="pricing-packages-text" data-i18n="pricing.packagesText">Pick a package: one fixed price per
+              month, every feature included.</p>
+            <div class="pricing-packages-grid">
+              <div class="package-card">
+                <div class="package-head">
+                  <span class="package-label" data-i18n="pricing.packageUpTo">Up to</span>
+                  <span class="package-size">300</span>
+                  <span class="package-unit" data-i18n="pricing.packageUnit">subscribers</span>
+                </div>
+                <div class="package-price">
+                  <span class="package-from" data-package-from="300" data-i18n="pricing.packageFrom" hidden>From</span>
+                  <span class="package-amount" data-package-amount="300"></span>
+                  <span class="package-period" data-package-period="300"></span>
+                </div>
+                <span class="package-per" data-package-per="300"></span>
+                <button type="button" class="btn btn-secondary" data-open-modal="contact" data-contact-count="300"
+                  data-i18n="pricing.packageCta">Choose this package</button>
+              </div>
+              <div class="package-card">
+                <div class="package-head">
+                  <span class="package-label" data-i18n="pricing.packageUpTo">Up to</span>
+                  <span class="package-size">500</span>
+                  <span class="package-unit" data-i18n="pricing.packageUnit">subscribers</span>
+                </div>
+                <div class="package-price">
+                  <span class="package-from" data-package-from="500" data-i18n="pricing.packageFrom" hidden>From</span>
+                  <span class="package-amount" data-package-amount="500"></span>
+                  <span class="package-period" data-package-period="500"></span>
+                </div>
+                <span class="package-per" data-package-per="500"></span>
+                <button type="button" class="btn btn-secondary" data-open-modal="contact" data-contact-count="500"
+                  data-i18n="pricing.packageCta">Choose this package</button>
+              </div>
+              <div class="package-card">
+                <div class="package-head">
+                  <span class="package-label" data-i18n="pricing.packageUpTo">Up to</span>
+                  <span class="package-size">1,000</span>
+                  <span class="package-unit" data-i18n="pricing.packageUnit">subscribers</span>
+                </div>
+                <div class="package-price">
+                  <span class="package-from" data-package-from="1000" data-i18n="pricing.packageFrom" hidden>From</span>
+                  <span class="package-amount" data-package-amount="1000"></span>
+                  <span class="package-period" data-package-period="1000"></span>
+                </div>
+                <span class="package-per" data-package-per="1000"></span>
+                <button type="button" class="btn btn-secondary" data-open-modal="contact" data-contact-count="1000"
+                  data-i18n="pricing.packageCta">Choose this package</button>
+              </div>
+              <div class="package-card custom">
+                <div class="package-head">
+                  <span class="package-label" data-i18n="pricing.packageMoreThan">More than</span>
+                  <span class="package-size">1,000</span>
+                  <span class="package-unit" data-i18n="pricing.packageUnit">subscribers</span>
+                </div>
+                <div class="package-price">
+                  <span class="package-amount ask" data-i18n="pricing.packageMorePrice">A price for your size</span>
+                </div>
+                <span class="package-per" data-i18n="pricing.packageMoreText">We set it together on WhatsApp.</span>
+                <button type="button" class="btn btn-primary" data-open-modal="contact"
+                  data-i18n="pricing.contactUs">Contact us</button>
+              </div>
+            </div>
+          </div>
+
+          <p class="pricing-count-note" data-i18n="pricing.countNote">The price follows the limit you pick in the app.
+            A subscriber who takes both generator and internet counts as 2. Ask for a higher limit, or lower it, any
+            time from the app's settings.</p>
 
           <div class="pricing-included-section">
             <div class="pricing-included-heading">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              <span>100% of Features Included Across Every Customer Tier:</span>
+              <svg width="20" height="20">
+                <use href="#i-check" />
+              </svg>
+              <span data-i18n="pricing.includedTitle">Every feature, at every size:</span>
             </div>
             <div class="pricing-included-grid">
-              <div class="pricing-included-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Unlimited Staff Collector Accounts</span>
-              </div>
-              <div class="pricing-included-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Unlimited Physical Branch Locations</span>
-              </div>
-              <div class="pricing-included-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>100% Offline SQLite Mobile App (Android/iOS)</span>
-              </div>
-              <div class="pricing-included-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Automated WhatsApp Cloud API Receipts</span>
-              </div>
-              <div class="pricing-included-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Dynamic 12-Month Grid with Waterfall Billing</span>
-              </div>
-              <div class="pricing-included-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Customer Self-Service Web Portal</span>
-              </div>
+              <div class="pricing-included-item"><svg width="18" height="18">
+                  <use href="#i-check" />
+                </svg><span data-i18n="pricing.inc1">Unlimited staff and collectors</span></div>
+              <div class="pricing-included-item"><svg width="18" height="18">
+                  <use href="#i-check" />
+                </svg><span data-i18n="pricing.inc2">Unlimited branches</span></div>
+              <div class="pricing-included-item"><svg width="18" height="18">
+                  <use href="#i-check" />
+                </svg><span data-i18n="pricing.inc3">Android app that works offline</span></div>
+              <div class="pricing-included-item"><svg width="18" height="18">
+                  <use href="#i-check" />
+                </svg><span data-i18n="pricing.inc4">Web app for the office</span></div>
+              <div class="pricing-included-item"><svg width="18" height="18">
+                  <use href="#i-check" />
+                </svg><span data-i18n="pricing.inc5">Meter and fixed-fee billing</span></div>
+              <div class="pricing-included-item"><svg width="18" height="18">
+                  <use href="#i-check" />
+                </svg><span data-i18n="pricing.inc6">WhatsApp receipts</span></div>
+              <div class="pricing-included-item"><svg width="18" height="18">
+                  <use href="#i-check" />
+                </svg><span data-i18n="pricing.inc7">A page for each subscriber</span></div>
+              <div class="pricing-included-item"><svg width="18" height="18">
+                  <use href="#i-check" />
+                </svg><span data-i18n="pricing.inc8">Reports, expenses and Excel export</span></div>
+              <div class="pricing-included-item"><svg width="18" height="18">
+                  <use href="#i-check" />
+                </svg><span data-i18n="pricing.inc9">Arabic and English</span></div>
             </div>
           </div>
-        </div>
-
-        <div class="pricing-grid">
-          <div class="pricing-card">
-            <span class="pricing-badge-free">Free Forever</span>
-            <div class="pricing-card-header">
-              <h3 class="pricing-plan-name">Free Starter</h3>
-              <p class="pricing-plan-desc">For boutique gyms, single-location clubs, and newly launched operations.</p>
-            </div>
-            <div class="pricing-price-box">
-              <span class="pricing-currency">$</span>
-              <span class="pricing-amount" id="price-starter">0</span>
-              <span class="pricing-tier-period">/ forever</span>
-            </div>
-            <ul class="pricing-features-list">
-              <li class="pricing-feature-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span><strong>Up to 30 Active Customers (100% Free)</strong></span>
-              </li>
-              <li class="pricing-feature-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Start free and stay free forever</span>
-              </li>
-              <li class="pricing-feature-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>No credit card required, never expires</span>
-              </li>
-              <li class="pricing-feature-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Unlimited Staff Collector Accounts</span>
-              </li>
-              <li class="pricing-feature-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>100% Offline SQLite Mobile App</span>
-              </li>
-              <li class="pricing-feature-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Visual 12-Month Grid & WhatsApp Receipts</span>
-              </li>
-            </ul>
-            <button class="btn btn-secondary" data-open-modal="demo">Start Free Forever</button>
-          </div>
-
-          <div class="pricing-card featured">
-            <span class="pricing-badge-popular">Most Popular (Acme ISP)</span>
-            <div class="pricing-card-header">
-              <h3 class="pricing-plan-name">Growing Provider</h3>
-              <p class="pricing-plan-desc">For regional ISPs, multi-room clubs, and expanding field operations.</p>
-            </div>
-            <div class="pricing-price-box">
-              <span class="pricing-currency">$</span>
-              <span class="pricing-amount" id="price-growth">75</span>
-              <span class="pricing-tier-period">/ month</span>
-            </div>
-            <ul class="pricing-features-list">
-              <li class="pricing-feature-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span><strong>Up to 500 Active Customers</strong></span>
-              </li>
-              <li class="pricing-feature-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Pay as you grow beyond 30 at $0.15/cust</span>
-              </li>
-              <li class="pricing-feature-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Acme ISP Live Plan (184 Customers = $27.60/mo)</span>
-              </li>
-              <li class="pricing-feature-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Unlimited Staff & Branches</span>
-              </li>
-              <li class="pricing-feature-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Staff Cash Custody Tracking</span>
-              </li>
-              <li class="pricing-feature-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Self-Service Customer Portal</span>
-              </li>
-            </ul>
-            <button class="btn btn-primary" data-open-modal="demo">Start Free & Scale</button>
-          </div>
-
-          <div class="pricing-card">
-            <div class="pricing-card-header">
-              <h3 class="pricing-plan-name">Scale & Enterprise</h3>
-              <p class="pricing-plan-desc">For large telecom operators, municipal networks, and multi-city franchises.</p>
-            </div>
-            <div class="pricing-price-box">
-              <span class="pricing-currency">$</span>
-              <span class="pricing-amount" id="price-enterprise">150</span>
-              <span class="pricing-tier-period">/ month</span>
-            </div>
-            <ul class="pricing-features-list">
-              <li class="pricing-feature-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span><strong>Up to 1,000+ Active Customers</strong></span>
-              </li>
-              <li class="pricing-feature-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Scale beyond 1,000 at $0.15/cust</span>
-              </li>
-              <li class="pricing-feature-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Custom RADIUS / Mikrotik Integration</span>
-              </li>
-              <li class="pricing-feature-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Dedicated Technical Migration Engineer</span>
-              </li>
-            </ul>
-            <button class="btn btn-secondary" data-open-modal="demo">Contact Sales</button>
-          </div>
+          <p class="pricing-footnote" data-i18n="pricing.whatsappNote">Receipts and single reminders go from your own
+            WhatsApp for free. Bulk reminders through a WhatsApp Business number are charged by Meta to your WhatsApp
+            account.</p>
         </div>
       </div>
     </section>
 
-    <section class="section" id="faq">
+    <section class="section simulator-section" id="faq">
       <div class="container">
         <div class="section-header">
-          <div class="section-eyebrow">Got Questions?</div>
-          <h2 class="section-title">Frequently Asked Questions</h2>
-          <p class="section-description">
-            Everything you need to know about Sijil, field operations, and migration.
-          </p>
+          <div class="section-eyebrow" data-i18n="faq.eyebrow">Questions</div>
+          <h2 class="section-title" data-i18n="faq.title">Frequently asked questions</h2>
         </div>
 
         <div class="faq-list">
           <div class="faq-item">
-            <button class="faq-question-btn">
-              <span>Is Sijil really free for 30 customers and below?</span>
+            <button type="button" class="faq-question-btn" aria-expanded="false">
+              <span data-i18n="faq.q1">Is it really free up to 20 subscribers?</span>
               <span class="faq-icon-arrow">▼</span>
             </button>
             <div class="faq-answer">
-              <p>
-                Yes! Start free and stay free forever. If you manage 30 active customers or fewer, Sijil is 100% free with no time limits, no credit card required, and full access to every single feature (including our offline mobile app, staff cash custody, WhatsApp receipts, and the customer portal). When your business expands beyond 30 subscribers, pricing simply scales at $0.15 per customer/month.
-              </p>
-            </div>
-          </div>
-
-          <div class="faq-item active">
-            <button class="faq-question-btn">
-              <span>How does the offline-first mode work when field collectors have no signal?</span>
-              <span class="faq-icon-arrow">▼</span>
-            </button>
-            <div class="faq-answer">
-              <p>
-                Sijil mobile app includes an embedded local SQLite database. Field staff can search subscribers, collect cash, and generate receipts even in basements or zero-coverage rural areas. Once their phone connects to cellular data or Wi-Fi, changes are automatically pushed to the cloud with automatic conflict resolution.
-              </p>
+              <p data-i18n="faq.a1">Yes. Up to 20 subscribers, Sijil is free with every feature, for as long as you
+                like. From 21 to 100 subscribers, it is $0.15 per subscriber per month. Above 100, you pick a package
+                with one fixed monthly price.</p>
             </div>
           </div>
 
           <div class="faq-item">
-            <button class="faq-question-btn">
-              <span>What is the Oldest-First Waterfall and why is it superior?</span>
+            <button type="button" class="faq-question-btn" aria-expanded="false">
+              <span data-i18n="faq.q2">How do I start?</span>
               <span class="faq-icon-arrow">▼</span>
             </button>
             <div class="faq-answer">
-              <p>
-                When a subscriber owes for multiple past months (like Omar Farouk with 3 months unpaid) and hands over cash, Sijil automatically allocates the payment to clear the oldest unpaid invoice first. This eliminates disputes, avoids messy partial balances across multiple invoices, and keeps accounting crystal clear.
-              </p>
+              <p data-i18n="faq.a2">Send us a message on WhatsApp. We open your account, send you your organization code
+                and help you add your first subscribers. Then you add your staff from the app.</p>
             </div>
           </div>
 
           <div class="faq-item">
-            <button class="faq-question-btn">
-              <span>How does Sijil track cash custody among staff?</span>
+            <button type="button" class="faq-question-btn" aria-expanded="false">
+              <span data-i18n="faq.q3">Does it work without internet?</span>
               <span class="faq-icon-arrow">▼</span>
             </button>
             <div class="faq-answer">
-              <p>
-                Every cash collection recorded in the app is explicitly attached to the collector (e.g. sarah.k or derek.lim). Branch managers can view exactly how much cash each collector is currently holding and log an official "Custody Hand-Over" when the cash is deposited into the safe or bank.
-              </p>
+              <p data-i18n="faq.a3">Yes. The Android app keeps a copy of your data on the phone. Collectors can record
+                payments, enter meter readings and add subscribers with no signal. Everything syncs when the phone is
+                online again. A few admin tasks, like adding staff, need internet.</p>
             </div>
           </div>
 
           <div class="faq-item">
-            <button class="faq-question-btn">
-              <span>Can our customers view their subscriptions online?</span>
+            <button type="button" class="faq-question-btn" aria-expanded="false">
+              <span data-i18n="faq.q4">Can it bill generator subscribers by meter (kWh)?</span>
               <span class="faq-icon-arrow">▼</span>
             </button>
             <div class="faq-answer">
-              <p>
-                Yes! Sijil includes a dedicated read-only Customer Portal. You can send subscribers their secure link via WhatsApp or SMS, where they can check their active plans, upcoming due dates, and download digital payment receipts.
-              </p>
+              <p data-i18n="faq.a4">Yes. Make a meter plan with a fixed fee and a price per kWh. Each month you type the
+                kWh price once, and collectors enter the readings. Sijil works out each bill. Fixed-fee (amperage) plans
+                work too.</p>
             </div>
           </div>
 
           <div class="faq-item">
-            <button class="faq-question-btn">
-              <span>Can we import our existing customer spreadsheet?</span>
+            <button type="button" class="faq-question-btn" aria-expanded="false">
+              <span data-i18n="faq.q5">Can I use dollars and lira together?</span>
               <span class="faq-icon-arrow">▼</span>
             </button>
             <div class="faq-answer">
-              <p>
-                Yes. Our web app includes an Excel (.xlsx / .csv) bulk import tool. You can upload your customer list, active plans, start dates, and initial balances in just a few clicks.
-              </p>
+              <p data-i18n="faq.a5">Yes. Each plan has its own currency. A payment is saved in the currency the
+                subscriber hands over, with that day's rate, so your old totals do not change when the rate moves.</p>
             </div>
           </div>
 
           <div class="faq-item">
-            <button class="faq-question-btn">
-              <span>Can a customer pause or skip a month without accumulating debt?</span>
+            <button type="button" class="faq-question-btn" aria-expanded="false">
+              <span data-i18n="faq.q6">How do collectors hand over the cash?</span>
               <span class="faq-icon-arrow">▼</span>
             </button>
             <div class="faq-answer">
-              <p>
-                Yes! Our "Month Skip" feature is designed for real-world scenarios such as member vacations, seasonal pauses, or travel. The month is marked as Skipped on the visual grid without raising an unpaid invoice.
-              </p>
+              <p data-i18n="faq.a6">Every payment is linked to the collector who took it. In the app, a manager receives
+                the cash from a collector, and the owner receives it from the managers. At any time you can see how much
+                cash each person holds.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button type="button" class="faq-question-btn" aria-expanded="false">
+              <span data-i18n="faq.q7">Can my subscribers see their own account?</span>
+              <span class="faq-icon-arrow">▼</span>
+            </button>
+            <div class="faq-answer">
+              <p data-i18n="faq.a7">Yes. You can give each subscriber a private link with a password. It shows their
+                months, bills and payments. They can only look; they cannot change anything.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button type="button" class="faq-question-btn" aria-expanded="false">
+              <span data-i18n="faq.q8">Can I bring my list from Excel?</span>
+              <span class="faq-icon-arrow">▼</span>
+            </button>
+            <div class="faq-answer">
+              <p data-i18n="faq.a8">Yes. From the web app, an admin can import subscribers from an Excel or CSV file, in
+                Arabic or English. Sijil checks every row first and tells you which rows need fixing.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button type="button" class="faq-question-btn" aria-expanded="false">
+              <span data-i18n="faq.q9">Do WhatsApp messages cost extra?</span>
+              <span class="faq-icon-arrow">▼</span>
+            </button>
+            <div class="faq-answer">
+              <p data-i18n="faq.a9">Sending a receipt or a single reminder from your own WhatsApp is free. To send
+                reminders and notices to many subscribers at once, you connect a WhatsApp Business number, and Meta
+                charges those messages to your WhatsApp account.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button type="button" class="faq-question-btn" aria-expanded="false">
+              <span data-i18n="faq.q10">What if a collector makes a mistake?</span>
+              <span class="faq-icon-arrow">▼</span>
+            </button>
+            <div class="faq-answer">
+              <p data-i18n="faq.a10">Cancel the payment with a reason and record it again. The history keeps both, so
+                nothing disappears.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button type="button" class="faq-question-btn" aria-expanded="false">
+              <span data-i18n="faq.q11">Which devices does it run on?</span>
+              <span class="faq-icon-arrow">▼</span>
+            </button>
+            <div class="faq-answer">
+              <p data-i18n="faq.a11">Android phones, plus a web app that works in any computer browser.</p>
             </div>
           </div>
         </div>
@@ -993,17 +1057,12 @@
     <section class="cta-banner-section" id="cta-banner">
       <div class="container">
         <div class="cta-card">
-          <h2>Start Free and Stay Free Forever.</h2>
-          <p>
-            Manage up to 30 active customers completely free—no credit card required, no feature lock-in, and no expiration date. Scale at just $0.15/customer as your business grows.
-          </p>
+          <h2 data-i18n="cta.title">Put the notebook away.</h2>
+          <p data-i18n="cta.text">Start free with up to 20 subscribers. We help you set up your account on WhatsApp.</p>
           <div class="cta-actions">
-            <button class="btn btn-white btn-lg" data-open-modal="demo" id="btn-cta-trial">
-              Start Free — Stay Free Forever
-            </button>
-            <button class="btn btn-ghost-white btn-lg" data-open-modal="demo" id="btn-cta-demo">
-              Schedule a Live Demo
-            </button>
+            <button type="button" class="btn btn-white btn-lg" data-open-modal="contact" data-i18n="cta.start">Start
+              free on WhatsApp</button>
+            <a href="#pricing" class="btn btn-ghost-white btn-lg" data-i18n="cta.pricing">See pricing</a>
           </div>
         </div>
       </div>
@@ -1016,108 +1075,111 @@
         <div class="footer-brand">
           <div class="brand-logo">
             <div class="brand-icon-wrapper">
-              <img src="/assets/images/icon-web-transparent.png" alt="Sijil Logo">
+              <img src="/assets/images/icon-web-transparent.png" alt="Sijil logo" data-i18n-attr="alt:brand.logoAlt">
             </div>
             <div class="brand-text">
-              <span class="brand-title">Sijil</span>
-              <span class="brand-tag">Operations</span>
+              <span class="brand-title" data-i18n="brand.name">Sijil</span>
+              <span class="brand-tag" data-i18n="brand.tag">Subscriptions</span>
             </div>
           </div>
-          <p>
-            The dedicated subscription management and cash collection platform for ISPs, gyms, delivery routes, and recurring service businesses.
-          </p>
+          <p data-i18n="footer.about">The subscription app for generator owners and internet providers in Lebanon.</p>
         </div>
 
         <div class="footer-col">
-          <h4 class="footer-col-title">Product</h4>
+          <h4 class="footer-col-title" data-i18n="footer.product">Product</h4>
           <ul class="footer-links">
-            <li><a href="#features">Dynamic Month Grid</a></li>
-            <li><a href="#features">Offline Sync Engine</a></li>
-            <li><a href="#features">Cash Custody Ledger</a></li>
-            <li><a href="#features">WhatsApp Invoicing</a></li>
-            <li><a href="#tour">Mobile & Web Apps</a></li>
+            <li><a href="#features" data-i18n="nav.features">Features</a></li>
+            <li><a href="#demo" data-i18n="nav.demo">Try it</a></li>
+            <li><a href="#how" data-i18n="nav.how">How to start</a></li>
+            <li><a href="#pricing" data-i18n="nav.pricing">Pricing</a></li>
           </ul>
         </div>
 
         <div class="footer-col">
-          <h4 class="footer-col-title">Solutions</h4>
+          <h4 class="footer-col-title" data-i18n="footer.businesses">For</h4>
           <ul class="footer-links">
-            <li><a href="#solutions">Internet Service Providers</a></li>
-            <li><a href="#solutions">Gyms & Fitness Studios</a></li>
-            <li><a href="#solutions">Route & Water Delivery</a></li>
-            <li><a href="#solutions">Retainers & Co-Working</a></li>
-            <li><a href="#calculator">ROI Calculator</a></li>
+            <li><a href="#solutions" data-show-tab="sol-generator" data-i18n="footer.generators">Generator owners</a>
+            </li>
+            <li><a href="#solutions" data-show-tab="sol-internet" data-i18n="footer.internet">Internet providers</a>
+            </li>
           </ul>
         </div>
 
         <div class="footer-col">
-          <h4 class="footer-col-title">Company</h4>
+          <h4 class="footer-col-title" data-i18n="footer.company">Help</h4>
           <ul class="footer-links">
-            <li><a href="#pricing">Pricing Plans</a></li>
-            <li><a href="#" data-open-modal="demo">Book a Demo</a></li>
-            <li><a href="#faq">Knowledge Base</a></li>
-            <li><a href="/privacy/">Privacy Policy</a></li>
-            <li><a href="/terms/">Terms of Service</a></li>
-            <li><a href="/delete-account/">Delete account</a></li>
+            <li><a href="#" data-whatsapp-link data-i18n="footer.contact">Contact us on WhatsApp</a></li>
+            <li><a href="#faq" data-i18n="nav.faq">FAQ</a></li>
+            <li><a href="/privacy/" data-i18n="footer.privacy">Privacy policy</a></li>
+            <li><a href="/terms/" data-i18n="footer.terms">Terms of service</a></li>
+            <li><a href="/delete-account/" data-i18n="footer.deleteAccount">Delete account</a></li>
           </ul>
         </div>
       </div>
 
       <div class="footer-bottom">
-        <div>© 2026 Sijil Technologies. All rights reserved.</div>
-        <div>Demonstrated on live workspace: Acme ISP (acme-isp).</div>
+        <div data-i18n="footer.copyright">© 2026 Sijil. All rights reserved.</div>
+        <div data-i18n="footer.madeFor">Made for Lebanon.</div>
       </div>
     </div>
   </footer>
 
-  <div class="modal-overlay" id="modal-demo">
+  <div class="modal-overlay" id="modal-contact" role="dialog" aria-modal="true" aria-labelledby="contact-title">
     <div class="modal-card">
-      <button class="modal-close-btn" aria-label="Close modal">×</button>
+      <button type="button" class="modal-close-btn" data-i18n-attr="aria-label:contact.close"
+        aria-label="Close">×</button>
       <div class="modal-header">
-        <h3>Experience Sijil Live</h3>
-        <p>Get a personalized 15-minute walkthrough tailored to your workspace.</p>
+        <h3 id="contact-title" data-i18n="contact.title">Start with Sijil</h3>
+        <p data-i18n="contact.text">Tell us a little about your business. We continue on WhatsApp.</p>
       </div>
 
-      <form class="modal-form" id="demo-form">
+      <form class="modal-form" id="contact-form">
         <div class="form-group">
-          <label class="form-label" for="demo-name">Your Full Name</label>
-          <input type="text" class="form-input" id="demo-name" placeholder="Sarah Kowalski" required>
+          <label class="form-label" for="contact-name" data-i18n="contact.name">Your name</label>
+          <input type="text" class="form-input" id="contact-name" autocomplete="name" required
+            data-i18n-attr="placeholder:contact.namePlaceholder" placeholder="e.g. Hassan Mostafa">
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="demo-company">Workspace / Business Name</label>
-          <input type="text" class="form-input" id="demo-company" placeholder="Acme ISP" required>
+          <label class="form-label" for="contact-business" data-i18n="contact.business">Business name</label>
+          <input type="text" class="form-input" id="contact-business" autocomplete="organization" required
+            data-i18n-attr="placeholder:contact.businessPlaceholder" placeholder="e.g. Al Nour Generators">
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="demo-phone">WhatsApp / Phone Number</label>
-          <input type="tel" class="form-input" id="demo-phone" placeholder="+1 415 555 0188" required>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="demo-type">Primary Business Type</label>
-          <select class="form-input" id="demo-type" required>
-            <option value="isp">Internet Service Provider (ISP)</option>
-            <option value="gym">Gym / Fitness Center</option>
-            <option value="delivery">Route & Monthly Delivery</option>
-            <option value="maintenance">Maintenance / Retainers</option>
-            <option value="other">Other Recurring Business</option>
+          <label class="form-label" for="contact-type" data-i18n="contact.type">What do you sell?</label>
+          <select class="form-input" id="contact-type" required>
+            <option value="generator" data-i18n="contact.typeGenerator">Generator subscriptions</option>
+            <option value="internet" data-i18n="contact.typeInternet">Internet subscriptions</option>
+            <option value="both" data-i18n="contact.typeBoth">Both</option>
           </select>
         </div>
 
-        <button type="submit" class="btn btn-primary btn-lg" style="margin-top: 8px;">
-          Submit Request
-        </button>
-      </form>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="contact-count" data-i18n="contact.count">Subscribers (about)</label>
+            <input type="number" class="form-input" id="contact-count" min="1" inputmode="numeric" placeholder="200">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="contact-area" data-i18n="contact.area">Area</label>
+            <input type="text" class="form-input" id="contact-area" data-i18n-attr="placeholder:contact.areaPlaceholder"
+              placeholder="e.g. Dekwaneh">
+          </div>
+        </div>
 
-      <div class="modal-success-state" id="demo-success">
-        <div class="modal-success-icon">✓</div>
-        <h3>Request Received!</h3>
-        <p>Our subscription operations specialist will reach out on WhatsApp within 15 minutes to configure your workspace demo.</p>
-      </div>
+        <button type="submit" class="btn btn-whatsapp btn-lg">
+          <svg width="20" height="20">
+            <use href="#i-whatsapp" />
+          </svg>
+          <span data-i18n="contact.submit">Continue on WhatsApp</span>
+        </button>
+        <p class="form-hint" data-i18n="contact.hint">WhatsApp opens with your message ready. Nothing is sent until you
+          press send.</p>
+      </form>
     </div>
   </div>
 
   <script type="module" src="/src/main.js"></script>
 </body>
+
 </html>

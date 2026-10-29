@@ -7,9 +7,10 @@ Do the parts in order. Step-by-step detail for the first setup is also in [prere
 ## Still to do by you (the code cannot do these)
 
 1. **Revoke the old secrets.** `prerequisites.md` used to hold the WhatsApp keys and a real Meta access token. They are removed from the file, but git history still has them. Revoke that Meta token in Meta, and make new values for every secret in prod.
-2. **Fill the legal pages.** `Website/privacy/`, `Website/terms/` and `Website/delete-account/` have `[...]` placeholders: company legal name, address, support WhatsApp number, support email. Have a lawyer check the text.
-3. **Fix the Website "Book a demo" form.** It shows "Request received" but sends nothing, so every request is lost. New businesses can no longer sign up in the app, so this form (or the WhatsApp "Contact us" link) is how they reach you.
+2. **Fill the legal pages.** `Website/privacy/` and `Website/terms/` still have `[COMPANY LEGAL NAME]` and `[ADDRESS]`. Have a lawyer check the text.
+3. **Set the Website's 3 environment variables** (list in `Website/.env.example`): `VITE_SUPPORT_WHATSAPP_NUMBER` (digits only, same as the `SupportWhatsAppNumber` option), `VITE_SUPPORT_EMAIL`, `VITE_SITE_URL` (same as the `WebsiteUrl` option, no trailing slash). Every "Start free" button opens WhatsApp to that number, and the legal pages show the number and email. The build stops if one is missing. Optional: `VITE_PACKAGE_300_USD`, `VITE_PACKAGE_500_USD`, `VITE_PACKAGE_1000_USD` = monthly package prices on the pricing section; empty shows "Ask us for the price".
 4. **The SuperAdmin app holds the master key** (service_role). Anyone with it can read and change every tenant's data. Install it only on your own phone; never share the APK.
+5. **Make the app's bill match the Website price.** The Website says: free up to 30, $0.15 per subscriber from 31 to 100, a fixed monthly package above 100. The app still bills every business as allowed lines × $0.15 (30 lines = $4.50) and has no packages.
 
 ## 1. Accounts to create
 
@@ -64,11 +65,11 @@ Do the parts in order. Step-by-step detail for the first setup is also in [prere
 |-|-|-|-|
 | Customer portal | `Portal` | `VITE_PORTAL_FUNCTION_URL` = `<project url>/functions/v1/customer-portal`, `VITE_SUPABASE_ANON_KEY` | `portal.` |
 | Staff web | `SubsTrack` (Expo web, live today) **or** `Web` (new, still preview) | Expo: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` · Web: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | `app.` |
-| Website | `Website` | none | `www.` |
+| Website | `Website` | `VITE_SUPPORT_WHATSAPP_NUMBER`, `VITE_SUPPORT_EMAIL`, `VITE_SITE_URL`; optional `VITE_PACKAGE_300_USD`, `VITE_PACKAGE_500_USD`, `VITE_PACKAGE_1000_USD` | `www.` |
 
 - [ ] Portal and Web read files from `../Shared` — keep Vercel's "Include files outside the root directory" on.
 - [ ] Pick ONE staff web for `app.`. Both have the `/whatsapp-connect` page.
-- [ ] Website: fill the placeholders first ("Still to do by you", point 2).
+- [ ] Website: fill the placeholders and set its env vars first ("Still to do by you", points 2 and 3).
 
 ## 5. SuperAdmin (your owner app)
 
