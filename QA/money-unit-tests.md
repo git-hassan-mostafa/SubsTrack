@@ -79,7 +79,7 @@ The automated safety net under every rule that touches money. It runs on a lapto
 | `expenses.test.ts`          | TC-EX-*                   | The Expenses form and list rules both apps run: a new expense starts in the user's branch else company-wide, only a positive amount saves, the picked date + time is stored via `pickedInstantIso` (untouched = save instant, picked = that local minute; a bare day via `dayToInstantIso`: past = local noon, today = now), the typed currency travels with the amount, a filtered view sums only its rows at each row's frozen rate (no stock/other split), a month of stock credits still shows its split, only a typed expense can be removed (a stock row opens its product), a credit prints unsigned |
 | `sharedChecks.test.ts`        | TC-SK-*                   | Small checks both apps share: Full / Partial / Pay later choices and the partial outcome, the bill payments header (counted vs voided, a voided bill takes all), the refused-Save reasons, who a receipt can go to (a number needs a digit, walk-in has nobody), plan span labels, which currencies a picker offers, the void warning counting every bill the payment paid, and a bulk void taking its money off the bills it paid |
 | `userRules.test.ts`           | TC-UR-*                   | The username / password rules the staff forms and signup share, the role filter (Admins includes the owner), the role pill label. Not money Only staff must belong to a branch (`mayBeTenantWide`). |
-| `allowanceDraft.test.ts`      | TC-AD-*                   | The "update your limits" form both apps share: no change is invalid, a raise asks for 10+ across both limits, no raise-and-lower, no cut below active or under 30 customers, editing a request only raises, plans ride up with customers, the − floors |
+| `allowanceDraft.test.ts`      | TC-AD-*                   | The "update your limits" form both apps share: no change is invalid, a raise asks for 10+ across both limits, no raise-and-lower, no cut below active or under 20 customers, editing a request only raises, plans ride up with customers, the − floors |
 | `auditFilter.test.ts`         | TC-AF-*, TC-WL-*          | The Audit Log filter both apps send (whole UTC days, branch always passed), the wa.me link (digits only, encoded text, no link without a number), the signed change box. Not money |
 | `customerStatusPage.test.ts`  | TC-CT-*                   | The server's exact customer tabs give the phone list's answer on the same data (every tab, statuses, debt at the frozen rate, a fully unpaid month is not debt, To collect = debts + unpaid months at their own price, the To collect filter and sort), paging, name-then-id order, search on four fields, counts that follow the search, the caller's day pinned and released, the request checks |
 | `customerForm.test.ts`        | TC-CF-*                   | The customer form both apps share: a new customer starts with one line dated today, a special price keeps its currency and a zero or empty one sends none, cancelled lines are not saved, a plan owned by another branch is cleared without counting as a change, the pills (inactive / non-regular replace, debt rides along), the plan summary, the line period label, the 10-letter portal password |
@@ -105,18 +105,31 @@ The automated safety net under every rule that touches money. It runs on a lapto
 
 ## 2b. The customer allowance (`customerAllowance.test.ts`)
 
-The tenant's own bill and the one quantity limit left in the product. There are **no tiers**: branches, users, plans, products and currencies are unlimited, and only the number of **active customers** is capped. The on-device behaviour — the settings card, the request flow, the block modal and the owner-side accept / decline — is [customer-allowance.md](customer-allowance.md).
+The tenant's own bill and the quantity limits. Three pricing models: **per line** (free up to 20 lines, then every allowed line × price), **package** (fixed monthly price, limits kept) and **unlimited** (fixed monthly price, no limits). Branches, users, plans, products and currencies are always unlimited. The on-device behaviour — the settings card, the request flow, the block modal and the owner-side accept / decline — is [customer-allowance.md](customer-allowance.md).
 
 | Case     | What it asserts                                                                                                                                                        |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| TC-CA-01 | `monthlyAmountUsd(100, 0.15)` = **15** — the amount is active customers × price per customer, **always in USD**, never the tenant's display currency                   |
-| TC-CA-02 | **Rounds to cents.** `7 × 0.15` must read **1.05**, not `1.0499999999999998`; `3 × 0.3333` reads `1`                                                                   |
-| TC-CA-03 | A tenant with no customers owes **0**                                                                                                                                  |
-| TC-CA-04 | A **zero price** owes 0 however many customers — a tenant the owner does not charge                                                                                    |
+| TC-CA-01 | Per line: 100 allowed lines × $0.15 = **$15** — counted on the **allowed** lines, **always in USD**, never the tenant's display currency                               |
+| TC-CA-02 | **Rounds to cents.** `23 × 0.15` must read **3.45**, not `3.4499999999999997`; `30 × 0.3333` reads `10`                                                                |
+| TC-CA-03 | A tenant allowed no lines owes **0**                                                                                                                                   |
+| TC-CA-04 | A **zero price** owes 0 however many lines — a tenant the owner does not charge                                                                                        |
+| TC-CA-04b | Billed on the **allowance**: 80 allowed with 50 in use costs the same as 80 in use                                                                                    |
+| TC-CA-04c | **Free up to 20 lines.** 20 allowed = $0; at 21, **every** line is billed ($3.15), not only the one past 20                                                           |
+| TC-CA-04d | A **package** bills its fixed monthly price, whatever its limit or the per-line price                                                                                |
+| TC-CA-04e | **Unlimited** bills its fixed monthly price, rounded to cents; a missing price reads $0                                                                              |
+| TC-CA-04f | The owner app (SuperAdmin) works out the same bill as the tenant app in every case                                                                                    |
+| TC-CA-12 | An **unlimited** tenant is never blocked from adding customers or lines                                                                                               |
+| TC-CA-13 | A **package** keeps its limits: subscriber 301 on a 300 package is blocked                                                                                            |
+| TC-CA-14 | Only a per-line tenant changes its own limits in the app; package and unlimited go through support                                                                   |
+| TC-CA-15 | Asking for **more than 100** lines shows the "contact us for a special price" popup instead of sending a request                                                      |
+| TC-CA-16a | A package price that is blank, not a number, zero or negative shows "Ask for price"; a real price rounds to cents                                                    |
+| TC-CA-16b | Each package (300, 500, 1,000) reads its own price option                                                                                                            |
+| TC-CA-16c | Only a **package** business whose line limit is 300, 500 or 1,000 sees that card marked "Your plan"                                                                 |
+| TC-CA-16d | Picking a package in SuperAdmin fills the same limits and price the tenant apps show                                                                                 |
 | TC-CA-05 | A create **below** the allowance is allowed (30 allowed, 29 active)                                                                                                    |
 | TC-CA-06 | **Blocks AT the allowance, not one past it** — 30 active against 30 allowed throws `CustomerLimitError`, and the error carries both numbers so the modal can name them |
 | TC-CA-07 | Still blocks when the tenant is already **over** cap, i.e. after the owner lowered the allowance under the live count                                                  |
-| TC-CA-08 | A **zero allowance** blocks everything, including the very first customer. Unreachable in the product since the floor became 30, but the cap must not depend on that   |
+| TC-CA-08 | A **zero allowance** blocks everything, including the very first customer. Unreachable in the product since the floor became 20, but the cap must not depend on that   |
 | TC-CA-09 | A request **below 10** is refused (9, 0 and a negative)                                                                                                                |
 | TC-CA-10 | 10 and above are accepted — the minimum is inclusive                                                                                                                   |
 | TC-CA-11 | A **fraction** of a customer (10.5) is refused                                                                                                                         |
@@ -187,10 +200,10 @@ Each one failed before it was fixed. If one starts failing again, the bug is bac
 | TC-CD-02    | One **below** the active count throws `AllowanceFloorError`, carrying both numbers so the sheet can say how many to deactivate |
 | TC-CD-03    | A **raise** through the lowering door is refused, equal-to-current included — the request flow is the only way up              |
 | TC-CD-04    | A fraction (40.5) or a negative is refused                                                                                     |
-| TC-CD-05    | **Never below 30**, even with 0 active customers — the product floor, not just the active count                                |
-| TC-CD-05b   | A cut to **exactly** 30 is allowed                                                                                             |
+| TC-CD-05    | **Never below 20**, even with 0 active customers — the product floor, not just the active count                                |
+| TC-CD-05b   | A cut to **exactly** 20 is allowed                                                                                             |
 | TC-CD-05c   | With 45 active, 30 is still refused — the **active count outranks** the product floor when it is higher                        |
 | TC-CD-06    | When both the raise check and the floor would fire, the **floor** is what throws                                               |
 | TC-CD-07    | A tenant already over cap can still cut down to its own active count                                                           |
-| TC-CD-08    | The floor is read from `MIN_CUSTOMER_ALLOWANCE`, not a literal 30 sprinkled around                                             |
+| TC-CD-08    | The floor is read from `MIN_CUSTOMER_ALLOWANCE` (20), not a literal sprinkled around                                           |
 | TC-CS-01…03 | The signed change field: `+20` keeps its plus, `-20` its minus, and **no change renders empty**, never `+0`                    |

@@ -3,6 +3,11 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import billingService from "@shared/modules/admin/billing/services/BillingService";
 import {
+  useBillingContact,
+  type OpenSupportChat,
+} from "@shared/modules/admin/billing/hooks/useBillingContact";
+import { useTenantPricing } from "@shared/modules/admin/billing/hooks/useTenantPricing";
+import {
   allowanceFloor,
   openingAllowanceTotal,
   readAllowanceDraft,
@@ -25,13 +30,14 @@ import { useBillingSlice } from "@shared/state/hooks/useBillingSlice";
 const NO_CHANGE: QuotaPair = { customers: 0, plans: 0 };
 
 // Both apps' "update your limits" form: a raise is a request, a cut is not.
-export function useAllowanceForm(editing: boolean) {
+export function useAllowanceForm(editing: boolean, openChat: OpenSupportChat) {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { askSpecialPrice } = useBillingContact(openChat);
+  const pricing = useTenantPricing();
   const request = useBillingSlice((s) => s.request);
   const limits = useBillingSlice((s) => s.limits);
   const active = useBillingSlice((s) => s.active);
-  const price = useBillingSlice((s) => s.pricePerPlanUsd);
   const lowerAllowances = useBillingSlice((s) => s.lowerAllowances);
   const requestMore = useBillingSlice((s) => s.requestMore);
   const editRequest = useBillingSlice((s) => s.editRequest);
@@ -88,6 +94,10 @@ export function useAllowanceForm(editing: boolean) {
 
   const send = async (): Promise<QuotaPair | null> => {
     if (!user) return null;
+    if (billingService.needsSpecialPrice(total)) {
+      await askSpecialPrice(total.plans);
+      return null;
+    }
     const ok = editing
       ? await editRequest(draft.extra)
       : await requestMore(user.tenantId, draft.extra, user.id);
@@ -107,7 +117,8 @@ export function useAllowanceForm(editing: boolean) {
     draft,
     dirty,
     sendsRequest: editing || draft.raising,
-    loweredAmountUsd: billingService.monthlyAmountUsd(total.plans, price),
+    needsSpecialPrice: (editing || draft.raising) && billingService.needsSpecialPrice(total),
+    loweredAmountUsd: billingService.monthlyAmountUsd({ ...pricing, planAllowance: total.plans }),
     askText: askText(t, draft.extra),
     setCustomers,
     setPlans,

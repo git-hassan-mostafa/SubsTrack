@@ -6,6 +6,7 @@ import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useTenantSettingSlice } from "@shared/state/hooks/useTenantSettingSlice";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { LimitsSection } from "@/modules/admin/billing/components/LimitsSection";
+import { PackagesSection } from "@/modules/admin/billing/components/PackagesSection";
 import { DisplayCurrencySection } from "../components/DisplayCurrencySection";
 import { UnpaidRuleSection } from "../components/UnpaidRuleSection";
 import { TrackStockSection } from "../components/TrackStockSection";
@@ -32,6 +33,7 @@ export function OrganizationPage() {
     <Stack spacing={3} sx={{ maxWidth: 760 }}>
       <ErrorBanner message={error} onDismiss={clearError} />
       <LimitsSection />
+      <PackagesSection />
       <DisplayCurrencySection />
       <UnpaidRuleSection />
       <TrackStockSection />

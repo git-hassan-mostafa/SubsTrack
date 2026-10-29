@@ -13,6 +13,8 @@ export type MonthStatus =
   | "no_service";
 
 // The bill is planAllowance's unit, not customerAllowance's — see gotcha #149.
+export type PricingModel = "per_line" | "package" | "unlimited";
+
 export interface Tenant {
   id: string;
   name: string;
@@ -21,6 +23,8 @@ export interface Tenant {
   customerAllowance: number;
   planAllowance: number;
   pricePerPlanUsd: number;
+  pricingModel: PricingModel;
+  fixedPriceUsd: number | null;
   whatsappEnabled: boolean;
   createdAt: string;
 }

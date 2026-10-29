@@ -1,12 +1,8 @@
 import { currentScriptText, onLanguageChange } from "./i18n.js";
+import { fetchPackagePrices } from "./packagePrices.js";
 
 const FREE_SUBSCRIBERS = 20;
 const CENTS_PER_SUBSCRIBER = 15;
-const PACKAGE_PRICES_USD = {
-  300: import.meta.env.VITE_PACKAGE_300_USD,
-  500: import.meta.env.VITE_PACKAGE_500_USD,
-  1000: import.meta.env.VITE_PACKAGE_1000_USD,
-};
 
 // Above the free 20, every subscriber is billed, not only the ones past 20.
 function monthlyCents(count) {
@@ -18,17 +14,17 @@ function dollars(cents) {
 }
 
 function packageDollars(price) {
-  return `$${Number(price).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+  return `$${price.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
 
 function perSubscriber(price, size) {
-  return (Number(price) / Number(size)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (price / Number(size)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function renderPackages(text) {
+function renderPackages(text, prices) {
   document.querySelectorAll("[data-package-amount]").forEach((amount) => {
     const size = amount.dataset.packageAmount;
-    const price = PACKAGE_PRICES_USD[size];
+    const price = prices[size];
     amount.textContent = price ? packageDollars(price) : text.askPrice;
     amount.classList.toggle("ask", !price);
     document.querySelector(`[data-package-from="${size}"]`).hidden = !price;
@@ -46,6 +42,7 @@ export function initPricing() {
   const detail = document.getElementById("pricing-detail");
   const presets = document.querySelectorAll(".pricing-preset-btn");
   let count = Number(slider.value);
+  let packagePrices = null;
 
   const render = () => {
     const text = currentScriptText().pricing;
@@ -56,7 +53,7 @@ export function initPricing() {
     period.textContent = cents === 0 ? "" : text.perMonth;
     detail.textContent = cents === 0 ? text.freeDetail : text.paidDetail(countText);
     presets.forEach((preset) => preset.classList.toggle("active", Number(preset.dataset.customers) === count));
-    renderPackages(text);
+    if (packagePrices) renderPackages(text, packagePrices);
   };
 
   slider.addEventListener("input", () => {
@@ -74,4 +71,10 @@ export function initPricing() {
 
   render();
   onLanguageChange(render);
+  fetchPackagePrices()
+    .catch(() => ({}))
+    .then((prices) => {
+      packagePrices = prices;
+      render();
+    });
 }

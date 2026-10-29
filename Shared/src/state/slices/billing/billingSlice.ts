@@ -1,5 +1,5 @@
 import type { StateCreator } from "zustand";
-import type { CustomerRequest } from "@shared/core/types";
+import type { CustomerRequest, PricingModel } from "@shared/core/types";
 import billingService from "@shared/modules/admin/billing/services/BillingService";
 import { AllowanceFloorError } from "@shared/modules/admin/billing/utils/allowanceFloorError";
 import type { QuotaExceededError } from "@shared/modules/admin/billing/utils/quotaError";
@@ -19,6 +19,8 @@ export interface BillingSlice {
   limits: QuotaPair;
   active: QuotaPair;
   pricePerPlanUsd: number;
+  pricingModel: PricingModel;
+  fixedPriceUsd: number | null;
   request: CustomerRequest | null;
   loading: boolean;
   saving: boolean;
@@ -52,6 +54,8 @@ export const createBillingSlice: StateCreator<
   limits: NO_QUOTA,
   active: NO_QUOTA,
   pricePerPlanUsd: 0,
+  pricingModel: "per_line",
+  fixedPriceUsd: null,
   request: null,
   loading: false,
   saving: false,
@@ -64,11 +68,10 @@ export const createBillingSlice: StateCreator<
   init: async (tenantId) => {
     const tenant = get().auth.user?.tenant;
     set((state) => {
-      state.billing.limits = {
-        customers: tenant?.customerAllowance ?? 0,
-        plans: tenant?.planAllowance ?? 0,
-      };
+      state.billing.limits = tenant ? billingService.quotaLimitsOf(tenant) : NO_QUOTA;
       state.billing.pricePerPlanUsd = tenant?.pricePerPlanUsd ?? 0;
+      state.billing.pricingModel = tenant?.pricingModel ?? "per_line";
+      state.billing.fixedPriceUsd = tenant?.fixedPriceUsd ?? null;
       state.billing.loading = true;
       state.billing.error = null;
     });
@@ -135,10 +138,7 @@ export const createBillingSlice: StateCreator<
     try {
       const tenant = await billingService.lowerAllowances(next, limits, active);
       set((state) => {
-        state.billing.limits = {
-          customers: tenant.customerAllowance,
-          plans: tenant.planAllowance,
-        };
+        state.billing.limits = billingService.quotaLimitsOf(tenant);
         state.billing.saving = false;
         if (state.auth.user) {
           state.auth.user.tenant.customerAllowance = tenant.customerAllowance;
@@ -256,6 +256,8 @@ export const createBillingSlice: StateCreator<
       state.billing.limits = NO_QUOTA;
       state.billing.active = NO_QUOTA;
       state.billing.pricePerPlanUsd = 0;
+      state.billing.pricingModel = "per_line";
+      state.billing.fixedPriceUsd = null;
       state.billing.request = null;
       state.billing.loading = false;
       state.billing.saving = false;

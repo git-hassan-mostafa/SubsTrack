@@ -1,6 +1,7 @@
 import { useGlobalStore } from "@shared/state/hooks/useGlobalStore";
 import type { OptionSlice } from "@shared/state/slices/options/optionSlice";
 import { OPTION_KEYS } from "@shared/modules/options/utils/constants";
+import { optionValue } from "@shared/modules/options/utils/optionValue";
 import { isClientOutdated } from "@shared/modules/options/utils/clientVersion";
 import {
   legalLinks,
@@ -18,13 +19,8 @@ export function useOptionSlice<T = OptionSlice>(
   });
 }
 
-/** Raw string value of a global option, or `null` if the row is absent. */
 export const useOptionValue = (key: string): string | null =>
-  useOptionSlice(
-    (s) =>
-      s.items.find((o) => o.key.toLowerCase() === key.toLowerCase())?.value ??
-      null,
-  );
+  useOptionSlice((s) => optionValue(s.items, key));
 
 export const useSupportWhatsAppNumber = (): string | null =>
   useOptionValue(OPTION_KEYS.supportWhatsAppNumber);

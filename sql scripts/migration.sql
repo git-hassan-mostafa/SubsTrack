@@ -148,3 +148,16 @@ ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS chk_audit_logs_action;
 -- A fresh database never needs this — script.sql no longer declares either.
 DROP FUNCTION IF EXISTS public.is_tenant_code_available(TEXT);
 DELETE FROM app_options WHERE key = 'AllowSelfServiceSignup';
+
+-- ---------------------------------------------------------------------------
+-- 2026-10-29 — tenant floor 30 -> 20 (the first 20 lines are free)
+-- ---------------------------------------------------------------------------
+-- A tenant must be able to sit on 20 to be free. script.sql declares the
+-- replacement chk_tenants_customer_allowance_min_v2 (>= 20); the old >= 30
+-- check goes here, and new tenants start on 20. Live tenants keep their
+-- limits. Safe to run repeatedly.
+--
+-- A fresh database never needs this — script.sql declares the new shape.
+ALTER TABLE tenants DROP CONSTRAINT IF EXISTS chk_tenants_customer_allowance_min;
+ALTER TABLE tenants ALTER COLUMN customer_allowance SET DEFAULT 20;
+ALTER TABLE tenants ALTER COLUMN plan_allowance SET DEFAULT 20;

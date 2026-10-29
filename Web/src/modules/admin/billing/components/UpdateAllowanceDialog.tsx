@@ -6,6 +6,7 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useAllowanceForm } from "@shared/modules/admin/billing/hooks/useAllowanceForm";
 import {
+  MAX_SELF_SERVE_PLANS,
   MIN_CUSTOMER_ALLOWANCE,
   MIN_CUSTOMER_REQUEST,
 } from "@shared/modules/admin/billing/utils/types";
@@ -26,7 +27,7 @@ export function UpdateAllowanceDialog({ editing, onClose }: UpdateAllowanceDialo
   const error = useBillingSlice((s) => s.error);
   const clearError = useBillingSlice((s) => s.clearError);
   const supportNumber = useSupportWhatsAppNumber();
-  const form = useAllowanceForm(editing);
+  const form = useAllowanceForm(editing, openWhatsAppAfterSave);
   const { total, limits, active, draft } = form;
   const overKind = draft.overCap[0];
 
@@ -146,7 +147,9 @@ export function UpdateAllowanceDialog({ editing, onClose }: UpdateAllowanceDialo
         </Typography>
       ) : null}
 
-      {draft.raising && !draft.tooSmallRaise && !draft.mixed ? (
+      {form.needsSpecialPrice ? (
+        <Alert severity="info">{t("billing.special_price_hint", { max: MAX_SELF_SERVE_PLANS })}</Alert>
+      ) : draft.raising && !draft.tooSmallRaise && !draft.mixed ? (
         <Typography variant="body2" color="text.secondary">
           {t("billing.raise_needs_approval", { ask: form.askText })}
         </Typography>

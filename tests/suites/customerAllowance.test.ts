@@ -3,9 +3,22 @@ import { QuotaExceededError } from "@shared/modules/admin/billing/utils/quotaErr
 import { AllowanceFloorError } from "@shared/modules/admin/billing/utils/allowanceFloorError";
 import { signedText } from "@shared/modules/admin/billing/utils/allowanceChange";
 import {
+  FREE_PLAN_LINES,
+  MAX_SELF_SERVE_PLANS,
   MIN_CUSTOMER_ALLOWANCE,
   type QuotaPair,
+  type TenantPricing,
 } from "@shared/modules/admin/billing/utils/types";
+import {
+  currentPackageSize,
+  parsePackagePrice,
+  pricePackages,
+} from "@shared/modules/admin/billing/utils/packages";
+import type { AppOption } from "@shared/core/types";
+import {
+  monthlyBillUsd,
+  pricePackages as superAdminPricePackages,
+} from "../../SuperAdmin/src/modules/tenants/utils/pricing";
 
 // TC-CA-* — what the tenant is billed and whether they may add a customer or a
 // service line. monthlyAmountUsd is an invoice figure shown to the admin, and
@@ -16,32 +29,166 @@ const pair = (customers: number, plans: number): QuotaPair => ({
   plans,
 });
 
+const perLine = (planAllowance: number, pricePerPlanUsd: number): TenantPricing => ({
+  pricingModel: "per_line",
+  planAllowance,
+  pricePerPlanUsd,
+  fixedPriceUsd: null,
+});
+
+const fixed = (
+  pricingModel: "package" | "unlimited",
+  planAllowance: number,
+  fixedPriceUsd: number | null,
+): TenantPricing => ({ pricingModel, planAllowance, pricePerPlanUsd: 0.15, fixedPriceUsd });
+
 describe("billing: monthly amount", () => {
   it("TC-CA-01 charges price per ALLOWED service line, not per customer", () => {
-    expect(billingService.monthlyAmountUsd(100, 0.15)).toBe(15);
+    expect(billingService.monthlyAmountUsd(perLine(100, 0.15))).toBe(15);
   });
 
-  it("TC-CA-02 rounds to cents instead of leaking float noise", () => {
-    // 7 * 0.15 is 1.0499999999999998 in raw float.
-    expect(billingService.monthlyAmountUsd(7, 0.15)).toBe(1.05);
-    expect(billingService.monthlyAmountUsd(3, 0.3333)).toBe(1);
+  it("TC-CA-02 rounds 23 × 0.15 (3.4499999999999997 in raw float) to cents", () => {
+    expect(billingService.monthlyAmountUsd(perLine(23, 0.15))).toBe(3.45);
+    expect(billingService.monthlyAmountUsd(perLine(30, 0.3333))).toBe(10);
   });
 
   it("TC-CA-03 a tenant allowed no service lines owes nothing", () => {
-    expect(billingService.monthlyAmountUsd(0, 0.15)).toBe(0);
+    expect(billingService.monthlyAmountUsd(perLine(0, 0.15))).toBe(0);
   });
 
   it("TC-CA-04 a free tenant owes nothing however many lines", () => {
-    expect(billingService.monthlyAmountUsd(500, 0)).toBe(0);
+    expect(billingService.monthlyAmountUsd(perLine(500, 0))).toBe(0);
   });
 
   it("TC-CA-04b bills the ALLOWANCE, so using fewer lines costs the same", () => {
     const allowance = 80;
     const active = 50;
-    expect(billingService.monthlyAmountUsd(allowance, 0.15)).toBe(12);
-    expect(billingService.monthlyAmountUsd(allowance, 0.15)).not.toBe(
-      billingService.monthlyAmountUsd(active, 0.15),
+    expect(billingService.monthlyAmountUsd(perLine(allowance, 0.15))).toBe(12);
+    expect(billingService.monthlyAmountUsd(perLine(allowance, 0.15))).not.toBe(
+      billingService.monthlyAmountUsd(perLine(active, 0.15)),
     );
+  });
+
+  it("TC-CA-04c up to 20 allowed lines is free; at 21 EVERY line is billed", () => {
+    expect(FREE_PLAN_LINES).toBe(20);
+    expect(billingService.monthlyAmountUsd(perLine(20, 0.15))).toBe(0);
+    expect(billingService.isFreeTier(perLine(20, 0.15))).toBe(true);
+    expect(billingService.monthlyAmountUsd(perLine(21, 0.15))).toBe(3.15);
+    expect(billingService.isFreeTier(perLine(21, 0.15))).toBe(false);
+  });
+
+  it("TC-CA-04d a package bills its fixed price, whatever its limit or line price", () => {
+    expect(billingService.monthlyAmountUsd(fixed("package", 300, 30))).toBe(30);
+    expect(billingService.monthlyAmountUsd(fixed("package", 20, 30))).toBe(30);
+    expect(billingService.isFreeTier(fixed("package", 20, 30))).toBe(false);
+  });
+
+  it("TC-CA-04e unlimited bills its fixed price, rounded; a missing price reads 0", () => {
+    expect(billingService.monthlyAmountUsd(fixed("unlimited", 20, 75))).toBe(75);
+    expect(billingService.monthlyAmountUsd(fixed("unlimited", 20, 29.999))).toBe(30);
+    expect(billingService.monthlyAmountUsd(fixed("unlimited", 20, null))).toBe(0);
+  });
+
+  it("TC-CA-04f SuperAdmin's copy of the bill rule gives the same amount in every case", () => {
+    const cases = [
+      perLine(0, 0.15),
+      perLine(20, 0.15),
+      perLine(21, 0.15),
+      perLine(23, 0.15),
+      perLine(100, 0.15),
+      perLine(80, 0.3333),
+      fixed("package", 300, 30),
+      fixed("package", 500, 49.99),
+      fixed("unlimited", 20, 75),
+      fixed("unlimited", 20, null),
+    ];
+    for (const pricing of cases) {
+      expect(monthlyBillUsd(pricing)).toBe(billingService.monthlyAmountUsd(pricing));
+    }
+  });
+});
+
+describe("billing: pricing models and the limits they set", () => {
+  it("TC-CA-12 an unlimited plan never refuses a write, whatever it stores", () => {
+    const limits = billingService.quotaLimitsOf({
+      pricingModel: "unlimited",
+      customerAllowance: 20,
+      planAllowance: 20,
+    });
+    expect(() =>
+      billingService.assertQuotas(limits, pair(5000, 9000), pair(5001, 9002)),
+    ).not.toThrow();
+  });
+
+  it("TC-CA-13 a package keeps its limits: subscriber 301 is refused", () => {
+    const limits = billingService.quotaLimitsOf({
+      pricingModel: "package",
+      customerAllowance: 300,
+      planAllowance: 300,
+    });
+    expect(limits).toEqual(pair(300, 300));
+    expect(() =>
+      billingService.assertQuotas(limits, pair(300, 300), pair(301, 301)),
+    ).toThrow(QuotaExceededError);
+  });
+
+  it("TC-CA-14 only a per-line plan changes its own limits in the app", () => {
+    expect(billingService.changesLimitsInApp("per_line")).toBe(true);
+    expect(billingService.changesLimitsInApp("package")).toBe(false);
+    expect(billingService.changesLimitsInApp("unlimited")).toBe(false);
+  });
+
+  it("TC-CA-15 asking for more than 100 plans asks for a special price instead", () => {
+    expect(MAX_SELF_SERVE_PLANS).toBe(100);
+    expect(billingService.needsSpecialPrice(pair(100, 100))).toBe(false);
+    expect(billingService.needsSpecialPrice(pair(90, 101))).toBe(true);
+  });
+});
+
+const option = (key: string, value: string | null): AppOption => ({
+  id: key,
+  key,
+  value,
+  description: null,
+  createdAt: "2026-10-29T00:00:00Z",
+  updatedAt: "2026-10-29T00:00:00Z",
+});
+
+// TC-CA-16* — the three website packages, priced from app_options.
+describe("billing: price packages", () => {
+  it("TC-CA-16a a blank, bad, zero or negative price means no price yet", () => {
+    expect(parsePackagePrice(null)).toBeNull();
+    expect(parsePackagePrice("")).toBeNull();
+    expect(parsePackagePrice("  ")).toBeNull();
+    expect(parsePackagePrice("abc")).toBeNull();
+    expect(parsePackagePrice("0")).toBeNull();
+    expect(parsePackagePrice("-5")).toBeNull();
+    expect(parsePackagePrice("30")).toBe(30);
+    expect(parsePackagePrice("29.999")).toBe(30);
+  });
+
+  it("TC-CA-16b each package reads its own option, whatever the key case", () => {
+    const options = [option("package300usd", "30"), option("Package1000Usd", "80")];
+    expect(pricePackages(options)).toEqual([
+      { size: 300, priceUsd: 30 },
+      { size: 500, priceUsd: null },
+      { size: 1000, priceUsd: 80 },
+    ]);
+  });
+
+  it("TC-CA-16c only a package plan whose line limit is a package size is current", () => {
+    expect(currentPackageSize({ pricingModel: "package", planAllowance: 500 })).toBe(500);
+    expect(currentPackageSize({ pricingModel: "package", planAllowance: 400 })).toBeNull();
+    expect(currentPackageSize({ pricingModel: "per_line", planAllowance: 300 })).toBeNull();
+  });
+
+  it("TC-CA-16d SuperAdmin fills the same packages and prices as the apps show", () => {
+    const options = [
+      option("Package300Usd", "30"),
+      option("Package500Usd", ""),
+      option("Package1000Usd", "79.995"),
+    ];
+    expect(superAdminPricePackages(options)).toEqual(pricePackages(options));
   });
 });
 
@@ -155,7 +302,7 @@ describe("billing: request validation", () => {
 });
 
 // TC-CD-* — lowering the limits. An admin does this without the owner, so three
-// floors guard it: the 30-customer product minimum, what is already active, and
+// floors guard it: the 20-customer product minimum, what is already active, and
 // the rule that service lines can never sit below customers.
 describe("billing: lowering the limits", () => {
   it("TC-CD-01 allows a cut down to exactly the active counts", () => {
@@ -256,9 +403,9 @@ describe("billing: lowering the limits", () => {
     ).toThrow();
   });
 
-  it("TC-CD-05 refuses to go under the 30-customer floor, even at 0 active", () => {
+  it("TC-CD-05 refuses to go under the 20-customer floor, even at 0 active", () => {
     expect(() =>
-      billingService.validateDecrease(pair(29, 80), pair(60, 100), pair(0, 0)),
+      billingService.validateDecrease(pair(19, 80), pair(60, 100), pair(0, 0)),
     ).toThrow();
     expect(() =>
       billingService.validateDecrease(pair(0, 80), pair(60, 100), pair(0, 0)),
@@ -304,7 +451,7 @@ describe("billing: lowering the limits", () => {
   });
 
   it("TC-CD-08 the floor is a constant, not a literal, in both directions", () => {
-    expect(MIN_CUSTOMER_ALLOWANCE).toBe(30);
+    expect(MIN_CUSTOMER_ALLOWANCE).toBe(20);
     expect(() =>
       billingService.validateDecrease(
         pair(MIN_CUSTOMER_ALLOWANCE - 1, 80),

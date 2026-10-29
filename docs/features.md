@@ -151,7 +151,7 @@ Snapshot rules → #18, #19, #21, #22, #24, #36.
 - `MinClientVersion` — lowest `CLIENT_VERSION` allowed to work (forced update, below); blank = no limit.
 - `AppDownloadUrl` — Play Store page / APK link the "Update needed" screen opens when no OTA update exists.
 
-- **RLS:** `app_options_select` → `SELECT` for **`anon` + `authenticated`** (anon: login screen help + legal links). **No** write policy → only service role (SuperAdmin + `create-tenant`) writes.
+- **RLS:** `app_options_select` → `SELECT` for **`anon` + `authenticated`** (anon: login screen help + legal links + website package prices #149k). **No** write policy → only service role (SuperAdmin + `create-tenant`) writes.
 - **SuperAdmin**: CRUD in **Options** tab (`SuperAdmin/app/(tabs)/options.tsx` → `OptionsScreen`); module = repository + service + standalone `optionStore` + screen + `OptionFormSheet` (create + delete). Key **immutable after creation** (only `value`/`description` edit) so code-read keys can't be renamed away.
 - **SubsTrack**: **read-only** module (repository `findAll`/`findByKey`, `OptionService.getOptions`/`getOptionValue`, `optionSlice`, `useOptionSlice`). Fetched **at bootstrap** (`app/_layout.tsx`, pre-auth login needs flags) + re-primed in `primePostAuth`; **not** reset on `logout`. Keys via `OPTION_KEYS`, never magic strings. Hooks in `Shared/src/state/hooks/useOptionSlice.ts`: `useOptionValue(key)`, `useSupportWhatsAppNumber()`, `useCustomerPortalUrl()`, `useLegalLinks()`, `useClientOutdated()`, `useAppDownloadUrl()`, `useWhatsAppSignupOptions()`. Phone `OfflineOptionRepository` = **online first**, mirror only offline (mirror fills after login; login screen needs options before). Links on the phone → `openUrl()` / `openWhatsApp()` (`SubsTrack/src/shared/lib/`).
 
@@ -184,20 +184,23 @@ See #38.
 
 ## Allowances & Requests
 
-No tiers. Billed per **active service line** at one price; also capped on **active customers**; all else unlimited. Three `tenants` columns:
-- `customer_allowance INT NOT NULL DEFAULT 30` — 30 = start AND hard **floor** (`chk_tenants_customer_allowance_min`) for every tenant.
-- `plan_allowance INT NOT NULL DEFAULT 30` — active `customer_plans`; the bill's count. ≥ `customer_allowance` (`chk_tenants_plan_allowance_floor`; each customer needs ≥1 line). Live DB: `sql scripts/migration.sql` before `script.sql` → #149h.
-- `price_per_plan_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15` — USD/line/month; 4dp b/c fractions of a cent, round only at total.
+Three pricing models (`pricing_model`, owner sets it in SuperAdmin): **per line** (default) = allowed lines × price, free while the limit is ≤ 20 lines; **package** = fixed monthly price + the two caps; **unlimited** = fixed monthly price, no caps. All else unlimited. Rules → #149j. `tenants` columns:
+- `customer_allowance INT NOT NULL DEFAULT 20` — 20 = start AND hard **floor** (`chk_tenants_customer_allowance_min_v2`) for every tenant.
+- `plan_allowance INT NOT NULL DEFAULT 20` — active `customer_plans`; the bill's count. ≥ `customer_allowance` (`chk_tenants_plan_allowance_floor`; each customer needs ≥1 line). Live DB: `sql scripts/migration.sql` before `script.sql` → #149h.
+- `price_per_plan_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15` — USD/line/month (`per_line` only); 4dp b/c fractions of a cent, round only at total.
+- `pricing_model TEXT NOT NULL DEFAULT 'per_line'` + `fixed_price_usd NUMERIC(10,2)` — required for `package` / `unlimited`.
+
+**Card by model** (phone `CustomerAllowanceSection`, web `LimitsSection`, both via Shared `limitsCardMode` + `monthlyBillView` + `useTenantPricing`): `per_line` = two bars + bill + "Update your limits"; `package` = two bars + bill + "Change your plan on WhatsApp" (`useBillingContact.changePlan`); `unlimited` = active counts + bill + same door. Update sheet/dialog: a raise past 100 lines shows the special-price popup instead of sending a request (`useAllowanceForm(editing, openChat)`). **Packages card** under it (phone + web `PackagesSection`, `usePricePackages`): 300/500/1000 with price or "Ask for price", current one marked "Your plan" (not tappable), tap → WhatsApp ask (`askPackage`); hidden without support number (#149k).
 
 **Why two limits** → #149; line limit decides the bill, customer limit = second cap on list size. **"Active line" = line AND customer active** (plain `WHERE active` keeps billing a customer who left); join written 3× (`CustomerPlanRepository.countActive`, offline twin, `lower_allowances()`), must agree → #149b.
 
-**Columns OWNER-ONLY, locked twice:** (1) **no UPDATE policy on `tenants`** (`tenants_update` dropped; app never writes it); (2) **`trg_tenants_guard_billing`** RAISEs when role is `authenticated`/`anon` and any of the three changes — tests ROLE not `auth.uid()` (#149i); survives a permissive policy re-added later, blocks leaked-token self-raise. Only service role writes (SuperAdmin, edge functions).
+**Columns OWNER-ONLY, locked twice:** (1) **no UPDATE policy on `tenants`** (`tenants_update` dropped; app never writes it); (2) **`trg_tenants_guard_billing`** RAISEs when role is `authenticated`/`anon` and any of the five changes — tests ROLE not `auth.uid()` (#149i); survives a permissive policy re-added later, blocks leaked-token self-raise. Only service role writes (SuperAdmin, edge functions).
 
 **Only exception, DOWN only:** `lower_allowances(p_customer_allowance INT, p_plan_allowance INT)`, `SECURITY DEFINER`. **Both in ONE call** (`plan_allowance >= customer_allowance` leaves no safe order for two). Refuses: non-active-`admin`/`superadmin` caller, non-cut, line < customer limit, either < tenant's **live active counts** (own `SELECT COUNT(*)`, never client numbers). Either arg above current RAISEs — raising only via owner-accepted request.
 
 Limits + price ride on auth-time `AuthRepository.getTenant` row (**no extra fetch**); only the two counts + pending request hit network.
 
-**Module** `src/modules/admin/billing/`: `services/BillingService.ts`; `ICustomerRequestRepository`/`CustomerRequestRepository`/`CustomerRequestRepository.offline` + `IAllowanceRepository`/`AllowanceRepository`/`AllowanceRepository.offline` (RPC); `utils/allowanceChange.ts` (`signedText`), `utils/requestAsk.ts` (`requestedPair`, `askText`), `utils/` `quotaError.ts`, `allowanceFloorError.ts`, `types.ts`, `mapper.ts`; five components. **State** global `Shared/src/state/slices/billing/billingSlice.ts`: `limits`, `active` (`QuotaPair` `{ customers, plans }`), `pricePerPlanUsd`, `request`, `loading`, `saving`, `error`, `floorError`, `quotaError`; `init`/`refreshCounts`/`refreshRequest`/`bumpActive`/`lowerAllowances`/`requestMore`/`editRequest`/`cancelRequest`/`setQuotaError`/`clearQuotaError`/`clearError`/`reset`; via `useBillingSlice`. `authSlice.primePostAuth` → `billing.init(tenantId)`; `logout` → `billing.reset()`.
+**Module** `src/modules/admin/billing/`: `services/BillingService.ts`; `ICustomerRequestRepository`/`CustomerRequestRepository`/`CustomerRequestRepository.offline` + `IAllowanceRepository`/`AllowanceRepository`/`AllowanceRepository.offline` (RPC); `utils/allowanceChange.ts` (`signedText`), `utils/requestAsk.ts` (`requestedPair`, `askText`), `utils/` `quotaError.ts`, `allowanceFloorError.ts`, `types.ts`, `mapper.ts`; five components. **State** global `Shared/src/state/slices/billing/billingSlice.ts`: `limits` (= `quotaLimitsOf(tenant)`, `Infinity` pair when unlimited), `active` (`QuotaPair` `{ customers, plans }`), `pricePerPlanUsd`, `pricingModel`, `fixedPriceUsd`, `request`, `loading`, `saving`, `error`, `floorError`, `quotaError`; `init`/`refreshCounts`/`refreshRequest`/`bumpActive`/`lowerAllowances`/`requestMore`/`editRequest`/`cancelRequest`/`setQuotaError`/`clearQuotaError`/`clearError`/`reset`; via `useBillingSlice`. `authSlice.primePostAuth` → `billing.init(tenantId)`; `logout` → `billing.reset()`.
 
 ---
 
@@ -225,7 +228,7 @@ Title/body/icon from `payload.kind` (one component, both walls). Tenant-wide adm
 
 `<CustomerAllowanceSection />` (`SubsTrack/src/modules/admin/billing/components/CustomerAllowanceSection.tsx`), **above** `<DisplayCurrencySection />` on `TenantSettingsScreen`:
 - **TWO `<UsageBar />`s** (customers, lines; bar takes `kind`, own labels): big `used / total`, track, "N more … available" / "you have used your whole limit". Indigo, **amber from 80%**, **red at/over**.
-- **Monthly amount** `BillingService.monthlyAmountUsd(active.plans, pricePerPlanUsd)`, 2dp, note `N active × $price` (100 × $0.15 = $15.00). Tested: `7 × 0.15` → `1.05`, not `1.0499999…`.
+- **Monthly amount** `monthlyBillView(useTenantPricing())` → `BillingService.monthlyAmountUsd(pricing)` (allowed lines, not active), 2dp, note by model: `N allowed × $price` / free while ≤ 20 / package / unlimited. Tested: `23 × 0.15` → `3.45`, not `3.4499999…`.
 - Then: **"Update your limits"** button, or **amber pending block** (Edit / Cancel), or **red "declined"** note above button.
 
 Re-reads request **on focus** (owner may decide meanwhile). **Amount ALWAYS USD** (`$` + `toFixed(2)`), **never** display-currency formatter — tenant-editable `currencies.rate_per_usd` would let it rewrite its bill.
@@ -245,7 +248,7 @@ Re-reads request **on focus** (owner may decide meanwhile). **Amount ALWAYS USD*
 
 **Cut floor = per-limit ACTIVE COUNT, checked twice:** (1) `BillingService.validateDecrease(next, current, active)` throws `AllowanceFloorError` (`utils/allowanceFloorError.ts`) `{kind, requested, activeCount}` → amber **"Deactivate N customers first"** / **"Cancel N service lines first"**, Save disabled; (2) **Postgres wins** — `lower_allowances()` re-counts for JWT tenant (client counts cached/forgeable). Coded refusals `active_customers_exceed_limit:<active>:<requested>` / `active_plans_exceed_limit:<active>:<requested>` vs `ALLOWANCE_FLOOR_CODES` (`utils/types.ts`) → same typed error, no sentence parsing; slice `floorError: AllowanceFloorPayload | null` beside `error: string`.
 
-**Three floors, highest binds:** `MIN_CUSTOMER_ALLOWANCE = 30`, that limit's active count, (lines) customer limit. Equal legal, below not.
+**Three floors, highest binds:** `MIN_CUSTOMER_ALLOWANCE = 20`, that limit's active count, (lines) customer limit. Equal legal, below not.
 
 **Patch TWO places**: `billing.limits` AND auth tenant — `billing.init` re-seeds from `auth.user.tenant` on restore, else old numbers return. **Online-only**: `AllowanceRepository.offline` throws `RequiresConnectionError` (mirror can't answer live counts).
 
@@ -281,7 +284,7 @@ CREATE UNIQUE INDEX uq_customer_requests_one_pending
 ### SuperAdmin side
 
 - **`TenantCard`**: `{customers} customers · {lines} lines ·  each` + **ORANGE `Requested +N customers / +N lines` pill** when pending.
-- **`TenantFormSheet`**: **"Customer Allowance"**, **"Service Line Allowance"**, **"Price Per Service Line (USD)"** on create **and** edit (owner's direct path); line field inline error while < customer field. Pending → **Accept / Decline** block on top, **"Grant customers"**/**"Grant service lines"** default to ask (may grant fewer); 0 on **both** refused.
+- **`TenantFormSheet`**: **"Customer Allowance"**, **"Service Line Allowance"**, **"Price Per Service Line (USD)"** on create **and** edit (owner's direct path); line field inline error while < customer field. Pricing chips (per line / package / unlimited); **package** shows 300/500/1000 chips (prices from `app_options`, re-read on open) — tap fills both allowances + "Monthly Price (USD)", still editable (#149k). Pending → **Accept / Decline** block on top, **"Grant customers"**/**"Grant service lines"** default to ask (may grant fewer); 0 on **both** refused.
 - **Trap:** after accept **re-sync both inputs** (lines via same `GREATEST`) — else next Save writes pre-accept numbers over the raise.
 - **`TenantService.getTenants()`** = `Promise.all([findAll(), findPendingRequests()])`, zipped; `findPendingRequests` = **one flat query, not PostgREST embed** (embed drags all history rows).
 - **2 tabs**: Tenants, Options.
@@ -302,7 +305,7 @@ Limits ride the `tenants` row in read-through auth cache → **caps work offline
 
 ### Tenant creation
 
-`create-tenant`: no tier lookup; **omits billing columns** → `DEFAULT`s (30 customers, $0.15). Defaults = contract → **redeploy before SQL runs** (edge functions **not** OTA):
+`create-tenant`: no tier lookup; **omits billing columns** → `DEFAULT`s (20 customers, $0.15, `per_line`). Defaults = contract → **redeploy before SQL runs** (edge functions **not** OTA):
 
 ```
 supabase functions deploy create-tenant --no-verify-jwt
@@ -312,7 +315,7 @@ supabase functions deploy create-tenant --no-verify-jwt
 
 ### Tests
 
-`tests/suites/customerAllowance.test.ts` (TC-CA-01..11): monthly amount, 2dp (`7 × 0.15` → `1.05`), cap blocks **at** allowance, min-10 request. Imports `BillingService` from Shared file (no barrels → no stub).
+`tests/suites/customerAllowance.test.ts` (TC-CA-01..16d): monthly amount, package prices (blank/bad = none, SuperAdmin copy agrees), 2dp (`23 × 0.15` → `3.45`), free ≤ 20, package/unlimited fixed price, SuperAdmin copy agrees, unlimited never capped, > 100 → special price, cap blocks **at** allowance, min-10 request. Imports `BillingService` from Shared file (no barrels → no stub).
 
 ---
 

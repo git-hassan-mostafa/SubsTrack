@@ -43,9 +43,9 @@ describe("allowance draft", () => {
     expect(draft.valid).toBe(false);
   });
 
-  it("TC-AD-05 the customer limit never goes under 30", () => {
+  it("TC-AD-05 the customer limit never goes under 20", () => {
     const low = readAllowanceDraft({
-      total: { customers: 29, plans: 60 },
+      total: { customers: 19, plans: 60 },
       limits,
       active: { customers: 0, plans: 0 },
       editing: false,
@@ -82,9 +82,9 @@ describe("allowance draft", () => {
     });
   });
 
-  it("TC-AD-09 floors: 30 customers, plans at customers, the limits when editing", () => {
+  it("TC-AD-09 floors: 20 customers, plans at customers, the limits when editing", () => {
     const total = { customers: 45, plans: 50 };
-    expect(allowanceFloor("customers", total, limits, false)).toBe(30);
+    expect(allowanceFloor("customers", total, limits, false)).toBe(20);
     expect(allowanceFloor("plans", total, limits, false)).toBe(45);
     expect(allowanceFloor("customers", total, limits, true)).toBe(50);
     expect(allowanceFloor("plans", total, limits, true)).toBe(60);

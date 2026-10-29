@@ -8,4 +8,7 @@ export const OPTION_KEYS = {
   websiteUrl: "WebsiteUrl",
   minClientVersion: "MinClientVersion",
   appDownloadUrl: "AppDownloadUrl",
+  package300Usd: "Package300Usd",
+  package500Usd: "Package500Usd",
+  package1000Usd: "Package1000Usd",
 } as const;

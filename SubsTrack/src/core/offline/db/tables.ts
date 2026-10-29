@@ -26,6 +26,8 @@ export const TABLES: TableSpec[] = [
       customer_allowance: "int",
       plan_allowance: "int",
       price_per_plan_usd: "num",
+      pricing_model: "text",
+      fixed_price_usd: "num",
       whatsapp_enabled: "bool",
       created_at: "text",
       updated_at: "text",

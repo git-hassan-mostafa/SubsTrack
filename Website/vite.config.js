@@ -1,8 +1,14 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 
-const REQUIRED_ENV = ["VITE_SUPPORT_WHATSAPP_NUMBER", "VITE_SUPPORT_EMAIL", "VITE_SITE_URL"];
-const PACKAGE_PRICE_ENV = ["VITE_PACKAGE_300_USD", "VITE_PACKAGE_500_USD", "VITE_PACKAGE_1000_USD"];
+const REQUIRED_ENV = [
+  "VITE_SUPPORT_WHATSAPP_NUMBER",
+  "VITE_SUPPORT_EMAIL",
+  "VITE_SITE_URL",
+  "VITE_SUPABASE_URL",
+  "VITE_SUPABASE_ANON_KEY",
+];
+const URL_ENV = ["VITE_SITE_URL", "VITE_SUPABASE_URL"];
 
 // HTML %VITE_X% is left as raw text when a variable is missing, so stop the build instead.
 function assertSiteEnv(env) {
@@ -13,12 +19,9 @@ function assertSiteEnv(env) {
   if (!/^\d+$/.test(env.VITE_SUPPORT_WHATSAPP_NUMBER)) {
     throw new Error("Website: VITE_SUPPORT_WHATSAPP_NUMBER must be digits only with the country code: no +, spaces or dashes (e.g. 96170123456).");
   }
-  if (env.VITE_SITE_URL.endsWith("/")) {
-    throw new Error("Website: VITE_SITE_URL must not end with a slash.");
-  }
-  const badPrices = PACKAGE_PRICE_ENV.filter((key) => env[key] && !(Number(env[key]) > 0));
-  if (badPrices.length > 0) {
-    throw new Error(`Website: ${badPrices.join(", ")} must be a number of US dollars, like 30 or 29.99 (or left empty).`);
+  const slashed = URL_ENV.filter((key) => env[key].endsWith("/"));
+  if (slashed.length > 0) {
+    throw new Error(`Website: ${slashed.join(", ")} must not end with a slash.`);
   }
 }
 

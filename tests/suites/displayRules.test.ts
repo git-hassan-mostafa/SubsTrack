@@ -1,5 +1,5 @@
 import type { MonthEntry } from "@shared/core/types";
-import { usageOf, freeLineCount, monthlyAmountText } from "@shared/modules/admin/billing/utils/usage";
+import { usageOf, freeLineCount, monthlyBillView } from "@shared/modules/admin/billing/utils/usage";
 import {
   hasMonthMoney,
   isSelectableMonth,
@@ -75,8 +75,19 @@ describe("usage meter", () => {
     expect(freeLineCount({ customers: 5, plans: 8 }, { customers: 2, plans: 3 })).toBe(5);
   });
 
-  it("TC-DR-03 the monthly amount prints as dollars with two decimals", () => {
-    expect(monthlyAmountText(4, 2.5)).toBe("$10.00");
+  it("TC-DR-03 the monthly amount prints as dollars with two decimals, with the note that explains it", () => {
+    expect(
+      monthlyBillView({ pricingModel: "per_line", planAllowance: 40, pricePerPlanUsd: 2.5, fixedPriceUsd: null }),
+    ).toEqual({ amountText: "$100.00", noteKey: "billing.amount_note", noteParams: { count: 40, price: "2.5" } });
+    expect(
+      monthlyBillView({ pricingModel: "per_line", planAllowance: 20, pricePerPlanUsd: 0.15, fixedPriceUsd: null }),
+    ).toEqual({ amountText: "$0.00", noteKey: "billing.amount_note_free", noteParams: { count: 20 } });
+    expect(
+      monthlyBillView({ pricingModel: "package", planAllowance: 300, pricePerPlanUsd: 0.15, fixedPriceUsd: 30 }),
+    ).toMatchObject({ amountText: "$30.00", noteKey: "billing.amount_note_package" });
+    expect(
+      monthlyBillView({ pricingModel: "unlimited", planAllowance: 20, pricePerPlanUsd: 0.15, fixedPriceUsd: 75 }),
+    ).toMatchObject({ amountText: "$75.00", noteKey: "billing.amount_note_unlimited" });
   });
 });
 

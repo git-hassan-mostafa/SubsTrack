@@ -8,9 +8,9 @@ Do the parts in order. Step-by-step detail for the first setup is also in [prere
 
 1. **Revoke the old secrets.** `prerequisites.md` used to hold the WhatsApp keys and a real Meta access token. They are removed from the file, but git history still has them. Revoke that Meta token in Meta, and make new values for every secret in prod.
 2. **Fill the legal pages.** `Website/privacy/` and `Website/terms/` still have `[COMPANY LEGAL NAME]` and `[ADDRESS]`. Have a lawyer check the text.
-3. **Set the Website's 3 environment variables** (list in `Website/.env.example`): `VITE_SUPPORT_WHATSAPP_NUMBER` (digits only, same as the `SupportWhatsAppNumber` option), `VITE_SUPPORT_EMAIL`, `VITE_SITE_URL` (same as the `WebsiteUrl` option, no trailing slash). Every "Start free" button opens WhatsApp to that number, and the legal pages show the number and email. The build stops if one is missing. Optional: `VITE_PACKAGE_300_USD`, `VITE_PACKAGE_500_USD`, `VITE_PACKAGE_1000_USD` = monthly package prices on the pricing section; empty shows "Ask us for the price".
+3. **Set the Website's 5 environment variables** (list in `Website/.env.example`): `VITE_SUPPORT_WHATSAPP_NUMBER` (digits only, same as the `SupportWhatsAppNumber` option), `VITE_SUPPORT_EMAIL`, `VITE_SITE_URL` (same as the `WebsiteUrl` option, no trailing slash), `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (same values as the phone app's `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`). Every "Start free" button opens WhatsApp to that number, and the legal pages show the number and email. The build stops if one is missing. Package prices are **not** environment variables: set them in SuperAdmin → Options (`Package300Usd`, `Package500Usd`, `Package1000Usd`). The website and the apps read them from there right away, no rebuild. Empty shows "Ask us for the price".
 4. **The SuperAdmin app holds the master key** (service_role). Anyone with it can read and change every tenant's data. Install it only on your own phone; never share the APK.
-5. **Make the app's bill match the Website price.** The Website says: free up to 30, $0.15 per subscriber from 31 to 100, a fixed monthly package above 100. The app still bills every business as allowed lines × $0.15 (30 lines = $4.50) and has no packages.
+5. **New pricing (2026-10-29): run the database update, then ship the apps.** Run `migration.sql` first, then `script.sql`. Then publish the phone app (`npm run ota-prod`), deploy the web app, and update SuperAdmin. New businesses start free with 20 lines. Businesses that already exist keep their current limits (old default 30 = $4.50/month): lower them to 20 in SuperAdmin if they should be free. Above 100 lines, set the business to **Package** or **Unlimited** in SuperAdmin and type its monthly price.
 
 ## 1. Accounts to create
 
@@ -65,7 +65,7 @@ Do the parts in order. Step-by-step detail for the first setup is also in [prere
 |-|-|-|-|
 | Customer portal | `Portal` | `VITE_PORTAL_FUNCTION_URL` = `<project url>/functions/v1/customer-portal`, `VITE_SUPABASE_ANON_KEY` | `portal.` |
 | Staff web | `SubsTrack` (Expo web, live today) **or** `Web` (new, still preview) | Expo: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` · Web: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | `app.` |
-| Website | `Website` | `VITE_SUPPORT_WHATSAPP_NUMBER`, `VITE_SUPPORT_EMAIL`, `VITE_SITE_URL`; optional `VITE_PACKAGE_300_USD`, `VITE_PACKAGE_500_USD`, `VITE_PACKAGE_1000_USD` | `www.` |
+| Website | `Website` | `VITE_SUPPORT_WHATSAPP_NUMBER`, `VITE_SUPPORT_EMAIL`, `VITE_SITE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | `www.` |
 
 - [ ] Portal and Web read files from `../Shared` — keep Vercel's "Include files outside the root directory" on.
 - [ ] Pick ONE staff web for `app.`. Both have the `/whatsapp-connect` page.

@@ -6,15 +6,19 @@ import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import { useBillingContact } from "@shared/modules/admin/billing/hooks/useBillingContact";
+import { useTenantPricing } from "@shared/modules/admin/billing/hooks/useTenantPricing";
 import { askText, requestedPair } from "@shared/modules/admin/billing/utils/requestAsk";
 import {
   freeLineCount,
-  monthlyAmountText,
+  limitsCardMode,
+  monthlyBillView,
   requestsByStatus,
 } from "@shared/modules/admin/billing/utils/usage";
 import { confirm } from "@shared/shared/lib/confirm";
 import { useBillingSlice } from "@shared/state/hooks/useBillingSlice";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import { openWhatsAppAfterSave } from "@/shared/lib/openWhatsAppAfterSave";
 import { SettingsSection } from "@/modules/admin/tenant-settings/components/SettingsSection";
 import { UpdateAllowanceDialog } from "./UpdateAllowanceDialog";
 import { UsageMeter } from "./UsageMeter";
@@ -23,8 +27,9 @@ import { UsageMeter } from "./UsageMeter";
 export function LimitsSection() {
   const { t } = useTranslation();
   const limits = useBillingSlice((s) => s.limits);
-  const price = useBillingSlice((s) => s.pricePerPlanUsd);
   const active = useBillingSlice((s) => s.active);
+  const pricing = useTenantPricing();
+  const { canContact, changePlan } = useBillingContact(openWhatsAppAfterSave);
   const request = useBillingSlice((s) => s.request);
   const saving = useBillingSlice((s) => s.saving);
   const cancelRequest = useBillingSlice((s) => s.cancelRequest);
@@ -32,6 +37,8 @@ export function LimitsSection() {
   const clearError = useBillingSlice((s) => s.clearError);
   const [dialog, setDialog] = useState<"update" | "edit" | null>(null);
 
+  const mode = limitsCardMode(pricing.pricingModel);
+  const bill = monthlyBillView(pricing);
   const { pending, declined } = requestsByStatus(request);
   const pendingAsk = pending ? askText(t, requestedPair(pending)) : "";
 
@@ -49,23 +56,47 @@ export function LimitsSection() {
   return (
     <SettingsSection title={t("web.organization.limits_title")}>
       <ErrorBanner message={dialog ? null : error} onDismiss={clearError} />
-      <UsageMeter kind="customers" used={active.customers} total={limits.customers} />
-      <Divider />
-      <UsageMeter kind="plans" used={active.plans} total={limits.plans} />
+      {mode.showsLimits ? (
+        <>
+          <UsageMeter kind="customers" used={active.customers} total={limits.customers} />
+          <Divider />
+          <UsageMeter kind="plans" used={active.plans} total={limits.plans} />
+        </>
+      ) : (
+        <Stack>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            {t("billing.no_limit_title")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t("billing.active_now", { customers: active.customers, plans: active.plans })}
+          </Typography>
+        </Stack>
+      )}
       <Divider />
       <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
         <Stack>
           <Typography variant="body2">{t("billing.monthly_amount")}</Typography>
           <Typography variant="caption" color="text.secondary">
-            {t("billing.amount_note", { count: limits.plans, price: price.toString() })}
+            {t(bill.noteKey, bill.noteParams)}
           </Typography>
         </Stack>
         <Typography variant="h6" component="p" sx={{ fontWeight: 700 }}>
-          {monthlyAmountText(limits.plans, price)}
+          {bill.amountText}
         </Typography>
       </Stack>
 
-      {pending ? (
+      {!mode.selfServe ? (
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+          {canContact ? (
+            <Button variant="contained" onClick={changePlan}>
+              {t("billing.change_plan")}
+            </Button>
+          ) : null}
+          <Typography variant="body2" color="text.secondary">
+            {t("billing.change_plan_hint")}
+          </Typography>
+        </Stack>
+      ) : pending ? (
         <Alert
           severity="warning"
           action={

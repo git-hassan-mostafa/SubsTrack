@@ -1,6 +1,6 @@
 import { repositories } from "@shared/core/runtime/repositories";
 import i18n from "@shared/core/i18n";
-import type { CustomerRequest, Tenant } from "@shared/core/types";
+import type { CustomerRequest, PricingModel, Tenant } from "@shared/core/types";
 import {
   mapDbCustomerRequestToCustomerRequest,
   mapDbTenantToTenant,
@@ -9,17 +9,53 @@ import { QuotaExceededError } from "@shared/modules/admin/billing/utils/quotaErr
 import { AllowanceFloorError } from "@shared/modules/admin/billing/utils/allowanceFloorError";
 import {
   ALLOWANCE_FLOOR_CODES,
+  FREE_PLAN_LINES,
+  MAX_SELF_SERVE_PLANS,
   MIN_CUSTOMER_ALLOWANCE,
   MIN_CUSTOMER_REQUEST,
   QUOTA_KINDS,
   type QuotaPair,
+  type TenantPricing,
 } from "@shared/modules/admin/billing/utils/types";
 
+const NO_LIMIT: QuotaPair = {
+  customers: Number.POSITIVE_INFINITY,
+  plans: Number.POSITIVE_INFINITY,
+};
+
 class BillingService {
-  // Counted on the ALLOWED service lines, never the active ones, so this reads
-  // the same figure SuperAdmin bills — gotchas #145, #149.
-  monthlyAmountUsd(planAllowance: number, pricePerPlanUsd: number): number {
-    return Math.round(planAllowance * pricePerPlanUsd * 100) / 100;
+  isFreeTier(pricing: TenantPricing): boolean {
+    return pricing.pricingModel === "per_line" && pricing.planAllowance <= FREE_PLAN_LINES;
+  }
+
+  // Allowed lines, never active ones; SuperAdmin copy: monthlyBillUsd (#149j).
+  monthlyAmountUsd(pricing: TenantPricing): number {
+    if (pricing.pricingModel !== "per_line") {
+      return Math.round((pricing.fixedPriceUsd ?? 0) * 100) / 100;
+    }
+    if (this.isFreeTier(pricing)) return 0;
+    return Math.round(pricing.planAllowance * pricing.pricePerPlanUsd * 100) / 100;
+  }
+
+  hasQuotaLimits(model: PricingModel): boolean {
+    return model !== "unlimited";
+  }
+
+  // An unlimited plan still stores allowances; they must never refuse a write.
+  quotaLimitsOf(
+    tenant: Pick<Tenant, "pricingModel" | "customerAllowance" | "planAllowance">,
+  ): QuotaPair {
+    if (!this.hasQuotaLimits(tenant.pricingModel)) return NO_LIMIT;
+    return { customers: tenant.customerAllowance, plans: tenant.planAllowance };
+  }
+
+  // Only per-line plans change their own limits; packages go through support.
+  changesLimitsInApp(model: PricingModel): boolean {
+    return model === "per_line";
+  }
+
+  needsSpecialPrice(total: QuotaPair): boolean {
+    return total.plans > MAX_SELF_SERVE_PLANS;
   }
 
   // The one quota gate in the product. Only a quota the write GROWS can refuse

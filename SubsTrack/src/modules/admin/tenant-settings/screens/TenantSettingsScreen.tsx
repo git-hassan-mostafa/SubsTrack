@@ -11,7 +11,10 @@ import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
 import { useBillingSlice } from "@shared/state/hooks/useBillingSlice";
 import { useCurrencySlice } from "@shared/state/hooks/useCurrencySlice";
 import { useTenantSettingSlice } from "@shared/state/hooks/useTenantSettingSlice";
-import { CustomerAllowanceSection } from "@/src/modules/admin/billing";
+import {
+  CustomerAllowanceSection,
+  PackagesSection,
+} from "@/src/modules/admin/billing";
 import { DisplayCurrencySection } from "../components/DisplayCurrencySection";
 import { UnpaidRuleSection } from "../components/UnpaidRuleSection";
 import { TrackStockSection } from "../components/TrackStockSection";
@@ -76,6 +79,7 @@ export function TenantSettingsScreen() {
             <ErrorBanner message={error} onDismiss={clearError} />
           ) : null}
           <CustomerAllowanceSection />
+          <PackagesSection />
           <DisplayCurrencySection />
           <UnpaidRuleSection />
           <TrackStockSection />

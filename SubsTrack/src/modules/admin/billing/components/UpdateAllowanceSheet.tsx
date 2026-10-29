@@ -10,6 +10,7 @@ import { useSupportWhatsAppNumber } from "@shared/state/hooks/useOptionSlice";
 import { useAllowanceForm } from "@shared/modules/admin/billing/hooks/useAllowanceForm";
 import { openWhatsApp } from "@/src/shared/lib/whatsapp";
 import {
+  MAX_SELF_SERVE_PLANS,
   MIN_CUSTOMER_ALLOWANCE,
   MIN_CUSTOMER_REQUEST,
 } from "@shared/modules/admin/billing/utils/types";
@@ -26,7 +27,7 @@ export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
   const error = useBillingSlice((s) => s.error);
   const clearError = useBillingSlice((s) => s.clearError);
   const supportNumber = useSupportWhatsAppNumber();
-  const form = useAllowanceForm(editing);
+  const form = useAllowanceForm(editing, openWhatsApp);
   const { total, limits, active, draft } = form;
   const overKind = draft.overCap[0];
 
@@ -123,7 +124,11 @@ export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
         </Text>
       ) : null}
 
-      {draft.raising && !draft.tooSmallRaise && !draft.mixed ? (
+      {form.needsSpecialPrice ? (
+        <Text className="text-xs text-amber-700 mb-4">
+          {t("billing.special_price_hint", { max: MAX_SELF_SERVE_PLANS })}
+        </Text>
+      ) : draft.raising && !draft.tooSmallRaise && !draft.mixed ? (
         <Text className="text-xs text-gray-500 mb-4">
           {t("billing.raise_needs_approval", { ask: form.askText })}
         </Text>

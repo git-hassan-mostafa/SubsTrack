@@ -1,3 +1,5 @@
+import type { PricingModel } from "@shared/core/types";
+
 // The two things a tenant's subscription caps. The BILL is counted on 'plans'.
 export type QuotaKind = "customers" | "plans";
 
@@ -24,10 +26,21 @@ export interface AllowanceFloorPayload {
 // The minimum a request may ask for ACROSS both quotas, not per quota.
 export const MIN_CUSTOMER_REQUEST = 10;
 
-// The allowance every tenant is born with and none may go under. Mirrored by
-// chk_tenants_customer_allowance_min and lower_allowances(). The plan allowance
-// has no floor of its own — it may never sit below the customer one.
-export const MIN_CUSTOMER_ALLOWANCE = 30;
+// Start + floor; SQL mirrors it in chk_tenants_customer_allowance_min_v2.
+export const MIN_CUSTOMER_ALLOWANCE = 20;
+
+// A per-line tenant allowed this many plans or fewer pays nothing.
+export const FREE_PLAN_LINES = 20;
+
+// Past this, a per-line tenant is offered a package instead of a request.
+export const MAX_SELF_SERVE_PLANS = 100;
+
+export interface TenantPricing {
+  pricingModel: PricingModel;
+  planAllowance: number;
+  pricePerPlanUsd: number;
+  fixedPriceUsd: number | null;
+}
 
 // Must match the RAISEs in lower_allowances() — see sql scripts/script.sql.
 export const ALLOWANCE_FLOOR_CODES: Record<QuotaKind, string> = {

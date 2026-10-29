@@ -10,12 +10,16 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { useBillingSlice } from "@shared/state/hooks/useBillingSlice";
 import { confirm } from "@shared/shared/lib/confirm";
+import { useBillingContact } from "@shared/modules/admin/billing/hooks/useBillingContact";
+import { useTenantPricing } from "@shared/modules/admin/billing/hooks/useTenantPricing";
 import { askText, requestedPair } from "@shared/modules/admin/billing/utils/requestAsk";
 import {
   freeLineCount,
-  monthlyAmountText,
+  limitsCardMode,
+  monthlyBillView,
   requestsByStatus,
 } from "@shared/modules/admin/billing/utils/usage";
+import { openWhatsApp } from "@/src/shared/lib/whatsapp";
 import { UpdateAllowanceSheet } from "./UpdateAllowanceSheet";
 import { UsageBar } from "./UsageBar";
 
@@ -25,8 +29,9 @@ export function CustomerAllowanceSection() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const limits = useBillingSlice((s) => s.limits);
-  const price = useBillingSlice((s) => s.pricePerPlanUsd);
   const active = useBillingSlice((s) => s.active);
+  const pricing = useTenantPricing();
+  const { canContact, changePlan } = useBillingContact(openWhatsApp);
   const request = useBillingSlice((s) => s.request);
   const saving = useBillingSlice((s) => s.saving);
   const refreshRequest = useBillingSlice((s) => s.refreshRequest);
@@ -43,6 +48,8 @@ export function CustomerAllowanceSection() {
   );
 
   const remaining = freeLineCount(limits, active);
+  const mode = limitsCardMode(pricing.pricingModel);
+  const bill = monthlyBillView(pricing);
   const { pending, declined } = requestsByStatus(request);
   const pendingAsk = pending ? askText(t, requestedPair(pending)) : "";
   const declinedAsk = declined ? askText(t, requestedPair(declined)) : "";
@@ -64,34 +71,55 @@ export function CustomerAllowanceSection() {
     <View className={`${CARD_SURFACE} p-4 mb-4`}>
       <SectionLabel className="mb-3">{t("billing.section_title")}</SectionLabel>
 
-      <UsageBar
-        kind="customers"
-        used={active.customers}
-        total={limits.customers}
-      />
-
-      <View className="mt-4 pt-4 border-t border-gray-100">
-        <UsageBar kind="plans" used={active.plans} total={limits.plans} />
-      </View>
+      {mode.showsLimits ? (
+        <>
+          <UsageBar
+            kind="customers"
+            used={active.customers}
+            total={limits.customers}
+          />
+          <View className="mt-4 pt-4 border-t border-gray-100">
+            <UsageBar kind="plans" used={active.plans} total={limits.plans} />
+          </View>
+        </>
+      ) : (
+        <View>
+          <Text fontWeight="SemiBold" className="text-base text-gray-900">
+            {t("billing.no_limit_title")}
+          </Text>
+          <Text className="text-xs text-gray-500 mt-0.5">
+            {t("billing.active_now", {
+              customers: active.customers,
+              plans: active.plans,
+            })}
+          </Text>
+        </View>
+      )}
 
       <View className="flex-row items-center justify-between mt-4 pt-3 border-t border-gray-100">
-        <View>
+        <View className="flex-1 pe-3">
           <Text className="text-xs text-gray-500">
             {t("billing.monthly_amount")}
           </Text>
           <Text className="text-xs text-gray-400 mt-0.5">
-            {t("billing.amount_note", {
-              count: limits.plans,
-              price: price.toString(),
-            })}
+            {t(bill.noteKey, bill.noteParams)}
           </Text>
         </View>
         <Text fontWeight="SemiBold" className="text-lg text-gray-900">
-          {monthlyAmountText(limits.plans, price)}
+          {bill.amountText}
         </Text>
       </View>
 
-      {pending ? (
+      {!mode.selfServe ? (
+        <View className="mt-4">
+          {canContact ? (
+            <Button label={t("billing.change_plan")} onPress={changePlan} fullWidth />
+          ) : null}
+          <Text className="text-xs text-gray-400 text-center mt-2">
+            {t("billing.change_plan_hint")}
+          </Text>
+        </View>
+      ) : pending ? (
         <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mt-4">
           <Text fontWeight="SemiBold" className="text-sm text-amber-900 mb-0.5">
             {t("billing.pending_title")}

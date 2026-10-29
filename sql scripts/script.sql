@@ -99,7 +99,10 @@ INSERT INTO app_options (key, value, description) VALUES
     ('WhatsAppConnectUrl', '', 'Full URL of the Sijil web page that runs Embedded Signup, e.g. https://app.example.com/whatsapp-connect. Its domain must be allowed in the Meta app settings.'),
     ('WebsiteUrl', '', 'Base URL of the Sijil website, no trailing slash (e.g. https://sijil.example.com). The apps link to {this}/privacy/, {this}/terms/ and {this}/delete-account/. Blank hides those links.'),
     ('MinClientVersion', '', 'Lowest CLIENT_VERSION (Shared clientVersion.ts) allowed to keep working. An older phone stops syncing and shows "Update needed"; an older web tab asks to reload. Blank = no limit.'),
-    ('AppDownloadUrl', '', 'Where an outdated phone gets the new app build (Play Store page or APK link). Used by the "Update needed" screen when no OTA update is available.')
+    ('AppDownloadUrl', '', 'Where an outdated phone gets the new app build (Play Store page or APK link). Used by the "Update needed" screen when no OTA update is available.'),
+    ('Package300Usd', '', 'Monthly price in USD of the 300-customer package (300 customers, 300 service lines). Shown on the tenant Organization settings and filled in by the SuperAdmin tenant form. Blank = "Ask for price". The website pricing cards read it live too.'),
+    ('Package500Usd', '', 'Monthly price in USD of the 500-customer package (500 customers, 500 service lines). Shown on the tenant Organization settings and filled in by the SuperAdmin tenant form. Blank = "Ask for price". The website pricing cards read it live too.'),
+    ('Package1000Usd', '', 'Monthly price in USD of the 1000-customer package (1000 customers, 1000 service lines). Shown on the tenant Organization settings and filled in by the SuperAdmin tenant form. Blank = "Ask for price". The website pricing cards read it live too.')
 ON CONFLICT (key) DO NOTHING;
 
 -- ============================================================
@@ -119,29 +122,22 @@ ALTER TABLE tenants ADD COLUMN IF NOT EXISTS tenant_code TEXT NOT NULL UNIQUE
     CHECK (tenant_code ~ '^[a-z0-9]+$');
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
 
--- How many ACTIVE customers this tenant may hold. Owner-only: raised from
--- SuperAdmin or by accepting a customer_requests row. Guarded against
--- tenant-side writes by trg_tenants_guard_billing. 30 is the floor every
--- tenant starts on and none may go below — see MIN_CUSTOMER_ALLOWANCE.
-ALTER TABLE tenants ADD COLUMN IF NOT EXISTS customer_allowance INT NOT NULL DEFAULT 30;
+-- Owner-only cap on ACTIVE customers; 20 = start and floor (MIN_CUSTOMER_ALLOWANCE), gotcha #149.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS customer_allowance INT NOT NULL DEFAULT 20;
 
--- The floor moved 0 -> 30, and a CHECK on the line above would not be
--- re-evaluated on a live DB, so it lives here instead: drop the old
--- constraint by name, lift any tenant sitting under the new floor, then add
--- the new one. Runs clean on a fresh database too.
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'chk_tenants_customer_allowance_min'
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_tenants_customer_allowance_min_v2'
     ) THEN
-        ALTER TABLE tenants ADD CONSTRAINT chk_tenants_customer_allowance_min
-            CHECK (customer_allowance >= 30);
+        ALTER TABLE tenants ADD CONSTRAINT chk_tenants_customer_allowance_min_v2
+            CHECK (customer_allowance >= 20);
     END IF;
 END $$;
 
 -- How many ACTIVE service lines (customer_plans) this tenant may hold. Owner-only,
 -- same guard, and never below customer_allowance — see the DO block under it.
-ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_allowance INT NOT NULL DEFAULT 30;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_allowance INT NOT NULL DEFAULT 20;
 
 -- Multi-column, so it cannot ride on the ADD COLUMN above. A live database must
 -- lift its tenants over this floor FIRST — see migration.sql.
@@ -158,6 +154,24 @@ END $$;
 -- USD charged per ACTIVE SERVICE LINE per month. Owner-only, same guard.
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS price_per_plan_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15
     CONSTRAINT chk_tenants_price_per_plan CHECK (price_per_plan_usd >= 0);
+
+-- How the bill is worked out (BillingService.monthlyAmountUsd); owner-only, same guard.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS pricing_model TEXT NOT NULL DEFAULT 'per_line'
+    CONSTRAINT chk_tenants_pricing_model CHECK (pricing_model IN ('per_line', 'package', 'unlimited'));
+
+-- The monthly USD price of a package or unlimited plan; owner-only, same guard.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS fixed_price_usd NUMERIC(10,2)
+    CONSTRAINT chk_tenants_fixed_price CHECK (fixed_price_usd >= 0);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_tenants_fixed_price_set'
+    ) THEN
+        ALTER TABLE tenants ADD CONSTRAINT chk_tenants_fixed_price_set
+            CHECK (pricing_model = 'per_line' OR fixed_price_usd IS NOT NULL);
+    END IF;
+END $$;
 
 -- Owner-only switch that lets this tenant connect WhatsApp. Same guard.
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS whatsapp_enabled BOOLEAN NOT NULL DEFAULT FALSE;
@@ -706,9 +720,11 @@ BEGIN
        AND (NEW.customer_allowance IS DISTINCT FROM OLD.customer_allowance
             OR NEW.plan_allowance IS DISTINCT FROM OLD.plan_allowance
             OR NEW.price_per_plan_usd IS DISTINCT FROM OLD.price_per_plan_usd
+            OR NEW.pricing_model IS DISTINCT FROM OLD.pricing_model
+            OR NEW.fixed_price_usd IS DISTINCT FROM OLD.fixed_price_usd
             OR NEW.whatsapp_enabled IS DISTINCT FROM OLD.whatsapp_enabled)
     THEN
-        RAISE EXCEPTION 'customer_allowance, plan_allowance, price_per_plan_usd and whatsapp_enabled are owner-only';
+        RAISE EXCEPTION 'The limits, the price and whatsapp_enabled are owner-only';
     END IF;
     RETURN NEW;
 END;
@@ -2228,6 +2244,7 @@ DECLARE
     v_tenant_id UUID := current_tenant_id();
     v_current_customers INT;
     v_current_plans INT;
+    v_pricing_model TEXT;
     v_active_customers INT;
     v_active_plans INT;
     v_row tenants;
@@ -2245,17 +2262,21 @@ BEGIN
         RAISE EXCEPTION 'Only an admin may change the limits';
     END IF;
 
-    IF p_customer_allowance IS NULL OR p_customer_allowance < 30 THEN
-        RAISE EXCEPTION 'The customer limit cannot go below 30';
+    IF p_customer_allowance IS NULL OR p_customer_allowance < 20 THEN
+        RAISE EXCEPTION 'The customer limit cannot go below 20';
     END IF;
 
     IF p_plan_allowance IS NULL OR p_plan_allowance < p_customer_allowance THEN
         RAISE EXCEPTION 'The service-line limit cannot go below the customer limit';
     END IF;
 
-    SELECT customer_allowance, plan_allowance
-      INTO v_current_customers, v_current_plans
+    SELECT customer_allowance, plan_allowance, pricing_model
+      INTO v_current_customers, v_current_plans, v_pricing_model
       FROM tenants WHERE id = v_tenant_id;
+
+    IF v_pricing_model <> 'per_line' THEN
+        RAISE EXCEPTION 'A package or unlimited plan is changed by support';
+    END IF;
 
     IF p_customer_allowance > v_current_customers OR p_plan_allowance > v_current_plans THEN
         RAISE EXCEPTION 'This door only lowers the limits; request more to raise them';
