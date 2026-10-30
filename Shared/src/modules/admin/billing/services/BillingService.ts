@@ -8,8 +8,11 @@ import {
 import { QuotaExceededError } from "@shared/modules/admin/billing/utils/quotaError";
 import { AllowanceFloorError } from "@shared/modules/admin/billing/utils/allowanceFloorError";
 import {
+  isFreeTierOf,
+  monthlyAmountUsdOf,
+} from "@shared/modules/admin/billing/utils/monthlyAmount";
+import {
   ALLOWANCE_FLOOR_CODES,
-  FREE_PLAN_LINES,
   MAX_SELF_SERVE_PLANS,
   MIN_CUSTOMER_ALLOWANCE,
   MIN_CUSTOMER_REQUEST,
@@ -25,16 +28,12 @@ const NO_LIMIT: QuotaPair = {
 
 class BillingService {
   isFreeTier(pricing: TenantPricing): boolean {
-    return pricing.pricingModel === "per_line" && pricing.planAllowance <= FREE_PLAN_LINES;
+    return isFreeTierOf(pricing);
   }
 
-  // Allowed lines, never active ones; SuperAdmin copy: monthlyBillUsd (#149j).
+  // Math in utils/monthlyAmount.ts; SuperAdmin copy: monthlyBillUsd (#149j).
   monthlyAmountUsd(pricing: TenantPricing): number {
-    if (pricing.pricingModel !== "per_line") {
-      return Math.round((pricing.fixedPriceUsd ?? 0) * 100) / 100;
-    }
-    if (this.isFreeTier(pricing)) return 0;
-    return Math.round(pricing.planAllowance * pricing.pricePerPlanUsd * 100) / 100;
+    return monthlyAmountUsdOf(pricing);
   }
 
   hasQuotaLimits(model: PricingModel): boolean {

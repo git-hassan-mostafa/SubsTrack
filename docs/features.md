@@ -136,7 +136,7 @@ snapshotCurrency(row, currencies): Currency | null  // ratePerUsd = row's frozen
 
 **Delete**: `CurrencyService.deleteCurrency()` counts refs in `plans`, `charges`, `collections`, `customer_plans.custom_currency_id`; >0 → soft (`active = false`), else hard. FKs `ON DELETE RESTRICT` guard history.
 
-**Default LBP**: each new tenant seeded `LBP` (`decimals = 0`, `symbol = 'ل.ل'`), `rate_per_usd` copied **once at creation** from `app_options.LiraRate`, then ordinary editable (no live link). Both paths seed: SuperAdmin `TenantService.createTenant` (`TenantRepository.getLiraRate` + `createLbpCurrency`) and `create-tenant` edge function; bad/missing `LiraRate` never blocks signup → `DEFAULT_LIRA_RATE = 89000`.
+**Default LBP**: each new tenant seeded `LBP` (`decimals = 0`, `symbol = 'ل.ل'`), `rate_per_usd` copied **once at creation** from `app_options.LiraRate`, then ordinary editable (no live link). Both paths seed: SuperAdmin `TenantService.createTenant` (`TenantRepository.getLiraRate` + `createLbpCurrency`; SuperAdminWeb twin `findLiraRateValue` + `createLbpCurrency`) and `create-tenant` edge function; bad/missing `LiraRate` never blocks signup → `DEFAULT_LIRA_RATE = 89000`.
 
 Snapshot rules → #18, #19, #21, #22, #24, #36.
 

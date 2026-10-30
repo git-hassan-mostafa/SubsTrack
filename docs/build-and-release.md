@@ -78,6 +78,24 @@ npm run lint                                # oxlint; on this laptop "Access is 
 - Edge bundle: `npm run build-edge` writes the Shared code `customer-status` runs into `SubsTrack/supabase/functions/customer-status/_generated/` (committed — rebuild + commit after a month-rule change); `npm run deploy-customer-status` builds + deploys; plain `supabase functions deploy customer-status` uses the committed bundle. Details + no-CLI route: docs/edge-functions.md → `customer-status`.
 - Deploy: `Web/vercel.json` (installs Web + Shared dev deps, SPA rewrite). Vercel **preview** project until switch-over phase (H2); real address stays on Expo web until then.
 
+### SuperAdminWeb (`SuperAdminWeb/`)
+
+SaaS-owner page (tenants + options), plain JS + Vite 8 + `vite-plugin-singlefile` 2.3.x (Vite 8 support since 2.3.1; plugin sets Rolldown `codeSplitting: false` itself). Own package — never add anything to `SubsTrack/package.json` for it (#53). The one built file is the whole app: Vercel serves it (phones need a URL), or double-click it on a laptop.
+
+```bash
+cd SuperAdminWeb
+npm install --ignore-scripts
+cp .env.example .env      # VITE_SUPABASE_URL only — never a key
+npm run build             # = node node_modules/vite/bin/vite.js build → dist/index.html, JS + CSS inlined, nothing else in dist/
+npm run dev               # http://localhost:3100
+```
+
+- Open: double-click `dist/index.html` (file://, no server). First open shows one field "Paste service role key" → saved in that browser's `localStorage`; header **Forget key** clears it; 401 / bad key → cleared + asked again with a message (#10). Supabase REST answers file:// (origin `null`) with `Access-Control-Allow-Origin: *` — checked headless Chrome 2026-10-30. **Phones:** use the Vercel URL — opening the file from phone storage is unreliable (iPhone Files often runs no JavaScript).
+- Key must be the **legacy `service_role` JWT** (`eyJ…`): Supabase 401s new `sb_secret_…` keys sent from a browser (User-Agent check); the page refuses `sb_secret_`, `sb_publishable_` and anon keys before any call.
+- `vite.config.js` guards: missing / non-https / trailing-slash `VITE_SUPABASE_URL` → stop; any key-shaped `.env` value → stop; built page holding a key (`eyJ….eyJ…`, `sb_secret_…`) → deleted + build fails; a Shared file importing any package (i18next, React…) → build fails, because Vite would quietly bundle `Shared/node_modules`.
+- Deploy: Vercel project, **Root Directory `SuperAdminWeb`**, keep "Include files outside the Root Directory" ON (build reads `../Shared/src`, as Web + Portal do); env var `VITE_SUPABASE_URL` (Production + Preview) — never a key. `vercel.json`: `npm install --include=dev` only (no Shared install: only package-free Shared files are imported, the guard stays honest), `npm run build`, `dist`, all paths → `/`. Headers: CSP `default-src 'none'`, inline script + style only (`'unsafe-inline'`: singlefile inlines everything, a hash would change every build), `connect-src https://*.supabase.co` (a pasted key can only travel to Supabase), `img-src data:`, `frame-ancestors 'none'` + `X-Frame-Options DENY`, `Referrer-Policy no-referrer`, `X-Robots-Tag noindex`, `Cache-Control no-store` (phones always get the latest build). Checked 2026-10-30: full UI flow under these headers, zero CSP reports; a fetch to any other host is blocked. New external resource (font, CDN, image host) → add it to the CSP or it silently fails.
+- Layers: `modules/<m>/repository` (only Supabase caller, maps rows via Shared mappers, `BaseRepository.fail()` → friendly `AppError`, 401 → `InvalidKeyError`) → `services` (all rules; `tenantForm.js` = pure form rules) → `store` (`core/createStore.js`, write patches the store) → `ui` (DOM only, native `<dialog>`). Phone layout ≤ 640px (`main.css` media query): lists = `DataTable` rows shown as cards (each `td` carries `data-label`), form + details dialogs full screen, 16px inputs (no iOS zoom), 44px tap targets. Same DB reads/writes as `SuperAdmin/` incl. `createTenant` order + rollback (#30) and one-call accept (#146).
+
 ### Tests (`tests/`)
 
 ```bash

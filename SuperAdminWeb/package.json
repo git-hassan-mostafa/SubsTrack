@@ -1,0 +1,18 @@
+{
+  "name": "sijil-superadmin-web",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "SaaS-owner admin page (tenants + global options) built into ONE self-contained dist/index.html, opened from disk. The service role key is pasted at runtime and kept in the browser's localStorage, never in a file.",
+  "scripts": {
+    "dev": "node node_modules/vite/bin/vite.js",
+    "build": "node node_modules/vite/bin/vite.js build"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.2"
+  },
+  "devDependencies": {
+    "vite": "^8.3.4",
+    "vite-plugin-singlefile": "^2.3.4"
+  }
+}
