@@ -77,10 +77,10 @@ End every task with `## Changes Made`: **3–5 bullets**, one short sentence eac
 
 ## 4. Project Shape
 **SubsTrack** — multi-tenant subscription management for small businesses (ISPs, gyms, delivery) collecting monthly fees. Staff manage customers, assign plans, record monthly payments. Paid vs overdue = **dynamically generated month grid — months never stored, only payments.**
-- `SubsTrack/` Expo, tenant-facing (admin + user roles). `SuperAdmin/` Expo, internal for the SaaS owner.
+- `SubsTrack/` Expo, tenant-facing (admin + user roles).
 - `Portal/` — READ-ONLY customer portal, React + Vite + Tailwind (NOT Expo). Writes nothing, no Supabase client; same pure `Shared/` logic via `@shared/*`, no stubs. One read: public `customer-portal` edge function, the ONLY thing that can scope a read to one customer.
 - `Web/` — staff desktop app (React + Vite + React Router + MUI v9 + MUI X), own package; Shared services/stores + `createSupabaseRepositories()` (no offline layer). **Read `docs/web-app.md` first.** Musts: module folders = SubsTrack layout; pages + roles = ONE list `appPages.ts`; logout only via `endWebSession()`; every list = `DataTable` (fixed `viewKey`) over a `createPagedStore()` store on `I*Repository.findPage()`; writes go through the Shared slice, then patch the row or mark stale — never a reload per door; every door = the SAME Shared hook the phone runs.
-- `SuperAdminWeb/` — SaaS-owner page (tenants + options), plain JS + Vite + `vite-plugin-singlefile` → ONE `dist/index.html`, deployed on Vercel (`vercel.json`: strict CSP, `connect-src` Supabase only) or opened from disk; service role key pasted at runtime, never in a file (#10); package-free Shared files only (build guard). Replaces `SuperAdmin/` once checked.
+- `SuperAdminWeb/` — SaaS-owner page (tenants + options), plain JS + Vite + `vite-plugin-singlefile` → ONE `dist/index.html`, deployed on Vercel (`vercel.json`: strict CSP, `connect-src` Supabase only) or opened from disk; service role key pasted at runtime, never in a file (#10); package-free Shared files only (build guard).
 - Every row/selection menu = ONE pure Shared fn returning `MenuItem<K>[]`; apps add icons + handlers only. Page roles = Shared `pageAccess.ts`; data → colour = Shared fn returning a `Tone`; admin forms = Shared `<module>Form.ts`.
 - Also: `sql scripts/`, `new-features.md` (backlog), `Design/`, `QA/`, `tests/` (Jest, money rules).
 
@@ -91,7 +91,7 @@ End every task with `## Changes Made`: **3–5 bullets**, one short sentence eac
 
 **Nothing may be added to `SubsTrack/package.json`** for the portal or `Web/` — its `scripts` + dependency tree feed the OTA fingerprint (#53).
 
-**Stack**: RN 0.86.3 + Expo SDK 57 (React 19.2, Hermes v1, New Architecture only) · Expo Router 57 (never import `@react-navigation/*` — use `expo-router/react-navigation`) · Zustand 5 + immer · NativeWind 4 · Supabase · TS 6 strict · i18next (en/ar, RTL) · sheets via `@expo/ui` (#45). `react-native-gesture-handler` intentionally **3.x** (#140). tsconfig `paths` pins `i18next` + `@supabase/supabase-js` (#188). SuperAdmin still SDK 54.
+**Stack**: RN 0.86.3 + Expo SDK 57 (React 19.2, Hermes v1, New Architecture only) · Expo Router 57 (never import `@react-navigation/*` — use `expo-router/react-navigation`) · Zustand 5 + immer · NativeWind 4 · Supabase · TS 6 strict · i18next (en/ar, RTL) · sheets via `@expo/ui` (#45). `react-native-gesture-handler` intentionally **3.x** (#140). tsconfig `paths` pins `i18next` + `@supabase/supabase-js` (#188).
 
 Commands (`docs/build-and-release.md`): `npx expo run:android` — **dev client required, Expo Go redboxes**. OTA: `npm run ota-prod`. Rebuild only when something **native** changed. `.env` = local dev only; EAS reads its environment's variables (#187).
 

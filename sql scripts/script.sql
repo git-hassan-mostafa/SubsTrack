@@ -69,7 +69,7 @@ CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 -- ============================================================
 -- APP OPTIONS
 -- Global key/value config shared across ALL tenants (NOT tenant-scoped).
--- Managed by the SaaS owner via the SuperAdmin "Options" page (service role).
+-- Managed by the SaaS owner via the SuperAdminWeb "Options" page (service role).
 -- The SubsTrack mobile app reads these via RLS (authenticated SELECT only);
 -- it never writes. Example: 'LiraRate' = default USD→LBP rate seeded onto
 -- each new tenant's auto-created Lebanese Pound (LBP) currency.
@@ -87,7 +87,7 @@ ALTER TABLE app_options ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL
 ALTER TABLE app_options ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 -- Seed default global options. Idempotent via ON CONFLICT — re-runs of the
--- script preserve any value edited later via SuperAdmin. 'LiraRate' is the
+-- script preserve any value edited later via SuperAdminWeb. 'LiraRate' is the
 -- default USD→LBP exchange rate (units of LBP per 1 USD) applied to each new
 -- tenant's auto-created LBP currency.
 INSERT INTO app_options (key, value, description) VALUES
@@ -100,14 +100,14 @@ INSERT INTO app_options (key, value, description) VALUES
     ('WebsiteUrl', '', 'Base URL of the Sijil website, no trailing slash (e.g. https://sijil.example.com). The apps link to {this}/privacy/, {this}/terms/ and {this}/delete-account/. Blank hides those links.'),
     ('MinClientVersion', '', 'Lowest CLIENT_VERSION (Shared clientVersion.ts) allowed to keep working. An older phone stops syncing and shows "Update needed"; an older web tab asks to reload. Blank = no limit.'),
     ('AppDownloadUrl', '', 'Where an outdated phone gets the new app build (Play Store page or APK link). Used by the "Update needed" screen when no OTA update is available.'),
-    ('Package300Usd', '', 'Monthly price in USD of the 300-customer package (300 customers, 300 service lines). Shown on the tenant Organization settings and filled in by the SuperAdmin tenant form. Blank = "Ask for price". The website pricing cards read it live too.'),
-    ('Package500Usd', '', 'Monthly price in USD of the 500-customer package (500 customers, 500 service lines). Shown on the tenant Organization settings and filled in by the SuperAdmin tenant form. Blank = "Ask for price". The website pricing cards read it live too.'),
-    ('Package1000Usd', '', 'Monthly price in USD of the 1000-customer package (1000 customers, 1000 service lines). Shown on the tenant Organization settings and filled in by the SuperAdmin tenant form. Blank = "Ask for price". The website pricing cards read it live too.')
+    ('Package300Usd', '', 'Monthly price in USD of the 300-customer package (300 customers, 300 service lines). Shown on the tenant Organization settings and filled in by the SuperAdminWeb tenant form. Blank = "Ask for price". The website pricing cards read it live too.'),
+    ('Package500Usd', '', 'Monthly price in USD of the 500-customer package (500 customers, 500 service lines). Shown on the tenant Organization settings and filled in by the SuperAdminWeb tenant form. Blank = "Ask for price". The website pricing cards read it live too.'),
+    ('Package1000Usd', '', 'Monthly price in USD of the 1000-customer package (1000 customers, 1000 service lines). Shown on the tenant Organization settings and filled in by the SuperAdminWeb tenant form. Blank = "Ask for price". The website pricing cards read it live too.')
 ON CONFLICT (key) DO NOTHING;
 
 -- ============================================================
 -- TENANTS
--- Managed only by the SaaS owner: the SuperAdmin app or the
+-- Managed only by the SaaS owner: SuperAdminWeb or the
 -- `create-tenant` Edge Function called with the service-role key.
 -- The SubsTrack mobile app never writes to this table.
 -- ============================================================
@@ -242,14 +242,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_customer_requests_one_pending
     ON customer_requests (tenant_id)
     WHERE status = 'pending';
 
--- SuperAdmin renders every tenant's pending pill in one pass.
+-- SuperAdminWeb renders every tenant's pending pill in one pass.
 CREATE INDEX IF NOT EXISTS idx_customer_requests_pending
     ON customer_requests (tenant_id, status);
 
 -- ============================================================
 -- TENANT SETTINGS
 -- Per-tenant key/value config — the tenant-scoped twin of app_options
--- (which is global and SuperAdmin-owned). Written in-app by admins from
+-- (which is global and SuperAdminWeb-owned). Written in-app by admins from
 -- Admin → Tenant Settings, read by every member of the tenant.
 -- Example: 'UnpaidStartRule' = when a month turns unpaid ('month_start'
 -- on the 1st, or 'customer_start_day' on the line's start day-of-month).
@@ -2149,7 +2149,7 @@ ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 -- ============================================================
 -- ACCEPT A CUSTOMER REQUEST
 -- Marking the request and raising the allowance are two writes, and this is
--- money — a torn write mis-bills a tenant. SuperAdmin talks plain PostgREST
+-- money — a torn write mis-bills a tenant. SuperAdminWeb talks plain PostgREST
 -- with no transaction, so both writes live here instead.
 -- REVOKEd from every tenant role: without that, an admin could accept their
 -- own request. Only service_role keeps EXECUTE.
@@ -2823,7 +2823,7 @@ DO $$ BEGIN
     -- contact). Readable by everyone (anon + authenticated) because the
     -- login screen shows the support and legal links before sign-in. No write
     -- policy exists, so only service_role (which bypasses RLS — used by
-    -- SuperAdmin and the create-tenant Edge Function) can mutate.
+    -- SuperAdminWeb and the create-tenant Edge Function) can mutate.
     -- (Drop+create so the role set updates on existing deployments.)
     DROP POLICY IF EXISTS app_options_select ON app_options;
     CREATE POLICY app_options_select ON app_options

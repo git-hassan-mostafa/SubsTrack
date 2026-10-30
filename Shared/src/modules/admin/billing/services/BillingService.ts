@@ -31,7 +31,7 @@ class BillingService {
     return isFreeTierOf(pricing);
   }
 
-  // Math in utils/monthlyAmount.ts; SuperAdmin copy: monthlyBillUsd (#149j).
+  // Math in utils/monthlyAmount.ts, which SuperAdminWeb imports (#149j).
   monthlyAmountUsd(pricing: TenantPricing): number {
     return monthlyAmountUsdOf(pricing);
   }

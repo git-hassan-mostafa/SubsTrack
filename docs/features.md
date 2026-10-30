@@ -67,7 +67,7 @@ Login screen (phone LoginScreen, web LoginPage) — Shared useSignInHelp() + use
   "New business? Contact us"  → same number, new-business message
   Terms · Privacy             → WebsiteUrl pages
   each link hidden while its option is blank
-Owner forgot password → SaaS owner: SuperAdmin → Tenant details → Owner login → Reset password
+Owner forgot password → SaaS owner: SuperAdminWeb → tenant details → Owner login → Reset password
 
 app/(app)/_layout.tsx
   → !user → login · !tenantActive → TenantInactiveScreen · else tabs
@@ -136,7 +136,7 @@ snapshotCurrency(row, currencies): Currency | null  // ratePerUsd = row's frozen
 
 **Delete**: `CurrencyService.deleteCurrency()` counts refs in `plans`, `charges`, `collections`, `customer_plans.custom_currency_id`; >0 → soft (`active = false`), else hard. FKs `ON DELETE RESTRICT` guard history.
 
-**Default LBP**: each new tenant seeded `LBP` (`decimals = 0`, `symbol = 'ل.ل'`), `rate_per_usd` copied **once at creation** from `app_options.LiraRate`, then ordinary editable (no live link). Both paths seed: SuperAdmin `TenantService.createTenant` (`TenantRepository.getLiraRate` + `createLbpCurrency`; SuperAdminWeb twin `findLiraRateValue` + `createLbpCurrency`) and `create-tenant` edge function; bad/missing `LiraRate` never blocks signup → `DEFAULT_LIRA_RATE = 89000`.
+**Default LBP**: each new tenant seeded `LBP` (`decimals = 0`, `symbol = 'ل.ل'`), `rate_per_usd` copied **once at creation** from `app_options.LiraRate`, then ordinary editable (no live link). Both paths seed: SuperAdminWeb `TenantService.createTenant` (`TenantRepository.findLiraRateValue` + `createLbpCurrency`) and `create-tenant` edge function; bad/missing `LiraRate` never blocks signup → `DEFAULT_LIRA_RATE = 89000`.
 
 Snapshot rules → #18, #19, #21, #22, #24, #36.
 
@@ -151,8 +151,8 @@ Snapshot rules → #18, #19, #21, #22, #24, #36.
 - `MinClientVersion` — lowest `CLIENT_VERSION` allowed to work (forced update, below); blank = no limit.
 - `AppDownloadUrl` — Play Store page / APK link the "Update needed" screen opens when no OTA update exists.
 
-- **RLS:** `app_options_select` → `SELECT` for **`anon` + `authenticated`** (anon: login screen help + legal links + website package prices #149k). **No** write policy → only service role (SuperAdmin + `create-tenant`) writes.
-- **SuperAdmin**: CRUD in **Options** tab (`SuperAdmin/app/(tabs)/options.tsx` → `OptionsScreen`); module = repository + service + standalone `optionStore` + screen + `OptionFormSheet` (create + delete). Key **immutable after creation** (only `value`/`description` edit) so code-read keys can't be renamed away.
+- **RLS:** `app_options_select` → `SELECT` for **`anon` + `authenticated`** (anon: login screen help + legal links + website package prices #149k). **No** write policy → only service role (SuperAdminWeb + `create-tenant`) writes.
+- **SuperAdminWeb**: CRUD in **Options** tab (`SuperAdminWeb/src/modules/options/`: repository + service + `optionStore` + `OptionsPage` + `OptionFormDialog`; delete = hard delete, confirm first). Key **immutable after creation** (only `value`/`description` edit) so code-read keys can't be renamed away.
 - **SubsTrack**: **read-only** module (repository `findAll`/`findByKey`, `OptionService.getOptions`/`getOptionValue`, `optionSlice`, `useOptionSlice`). Fetched **at bootstrap** (`app/_layout.tsx`, pre-auth login needs flags) + re-primed in `primePostAuth`; **not** reset on `logout`. Keys via `OPTION_KEYS`, never magic strings. Hooks in `Shared/src/state/hooks/useOptionSlice.ts`: `useOptionValue(key)`, `useSupportWhatsAppNumber()`, `useCustomerPortalUrl()`, `useLegalLinks()`, `useClientOutdated()`, `useAppDownloadUrl()`, `useWhatsAppSignupOptions()`. Phone `OfflineOptionRepository` = **online first**, mirror only offline (mirror fills after login; login screen needs options before). Links on the phone → `openUrl()` / `openWhatsApp()` (`SubsTrack/src/shared/lib/`).
 
 See #38.
@@ -160,7 +160,7 @@ See #38.
 ## Legal Links, Account Deletion, Forced Update
 
 - **Legal links**: Shared `legalLinks(WebsiteUrl)` → `{base}/privacy/`, `/terms/`, `/delete-account/` (Website pages; inputs in `Website/vite.config.js`). Shown: login footer (both apps), phone More → About group, web user menu.
-- **Account deletion** (Google Play rule: in-app path + web page): "Delete my account" → confirm → opens `/delete-account/`; the page takes requests by WhatsApp/email, owner deletes within 30 days (SuperAdmin; staff → admin removes in app).
+- **Account deletion** (Google Play rule: in-app path + web page): "Delete my account" → confirm → opens `/delete-account/`; the page takes requests by WhatsApp/email, owner deletes within 30 days (SuperAdminWeb; staff → admin removes in app).
 - **Forced update**: integer `CLIENT_VERSION` (`Shared/src/modules/options/utils/clientVersion.ts`) vs `MinClientVersion`; `isClientOutdated()` = the only rule. Phone: sync engine reads `MinClientVersion` from the SERVER in `canReachServer()` on every cycle + flush → outdated = no push, no pull, `SyncStatus.outdated = true` → root layout overlays `UpdateRequiredScreen` over `<Slot />` (router stays mounted): restart into a downloaded OTA → else download one → else open `AppDownloadUrl` → else inline error. Web: `SessionGate` → `useClientGate()` (re-reads options when the tab becomes visible) → reload page. Bump steps: docs/build-and-release.md → Forced update.
 - **Crash pages**: phone `CrashGate`; web root route `ErrorBoundary: CrashPage` (React Router data mode — every route error bubbles to it); Portal `CrashBoundary` around `<App />`.
 
@@ -184,7 +184,7 @@ See #38.
 
 ## Allowances & Requests
 
-Three pricing models (`pricing_model`, owner sets it in SuperAdmin): **per line** (default) = allowed lines × price, free while the limit is ≤ 20 lines; **package** = fixed monthly price + the two caps; **unlimited** = fixed monthly price, no caps. All else unlimited. Rules → #149j. `tenants` columns:
+Three pricing models (`pricing_model`, owner sets it in SuperAdminWeb): **per line** (default) = allowed lines × price, free while the limit is ≤ 20 lines; **package** = fixed monthly price + the two caps; **unlimited** = fixed monthly price, no caps. All else unlimited. Rules → #149j. `tenants` columns:
 - `customer_allowance INT NOT NULL DEFAULT 20` — 20 = start AND hard **floor** (`chk_tenants_customer_allowance_min_v2`) for every tenant.
 - `plan_allowance INT NOT NULL DEFAULT 20` — active `customer_plans`; the bill's count. ≥ `customer_allowance` (`chk_tenants_plan_allowance_floor`; each customer needs ≥1 line). Live DB: `sql scripts/migration.sql` before `script.sql` → #149h.
 - `price_per_plan_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15` — USD/line/month (`per_line` only); 4dp b/c fractions of a cent, round only at total.
@@ -194,7 +194,7 @@ Three pricing models (`pricing_model`, owner sets it in SuperAdmin): **per line*
 
 **Why two limits** → #149; line limit decides the bill, customer limit = second cap on list size. **"Active line" = line AND customer active** (plain `WHERE active` keeps billing a customer who left); join written 3× (`CustomerPlanRepository.countActive`, offline twin, `lower_allowances()`), must agree → #149b.
 
-**Columns OWNER-ONLY, locked twice:** (1) **no UPDATE policy on `tenants`** (`tenants_update` dropped; app never writes it); (2) **`trg_tenants_guard_billing`** RAISEs when role is `authenticated`/`anon` and any of the five changes — tests ROLE not `auth.uid()` (#149i); survives a permissive policy re-added later, blocks leaked-token self-raise. Only service role writes (SuperAdmin, edge functions).
+**Columns OWNER-ONLY, locked twice:** (1) **no UPDATE policy on `tenants`** (`tenants_update` dropped; app never writes it); (2) **`trg_tenants_guard_billing`** RAISEs when role is `authenticated`/`anon` and any of the five changes — tests ROLE not `auth.uid()` (#149i); survives a permissive policy re-added later, blocks leaked-token self-raise. Only service role writes (SuperAdminWeb, edge functions).
 
 **Only exception, DOWN only:** `lower_allowances(p_customer_allowance INT, p_plan_allowance INT)`, `SECURITY DEFINER`. **Both in ONE call** (`plan_allowance >= customer_allowance` leaves no safe order for two). Refuses: non-active-`admin`/`superadmin` caller, non-cut, line < customer limit, either < tenant's **live active counts** (own `SELECT COUNT(*)`, never client numbers). Either arg above current RAISEs — raising only via owner-accepted request.
 
@@ -281,11 +281,11 @@ CREATE UNIQUE INDEX uq_customer_requests_one_pending
 
 ---
 
-### SuperAdmin side
+### SuperAdminWeb side
 
-- **`TenantCard`**: `{customers} customers · {lines} lines ·  each` + **ORANGE `Requested +N customers / +N lines` pill** when pending.
-- **`TenantFormSheet`**: **"Customer Allowance"**, **"Service Line Allowance"**, **"Price Per Service Line (USD)"** on create **and** edit (owner's direct path); line field inline error while < customer field. Pricing chips (per line / package / unlimited); **package** shows 300/500/1000 chips (prices from `app_options`, re-read on open) — tap fills both allowances + "Monthly Price (USD)", still editable (#149k). Pending → **Accept / Decline** block on top, **"Grant customers"**/**"Grant service lines"** default to ask (may grant fewer); 0 on **both** refused.
-- **Trap:** after accept **re-sync both inputs** (lines via same `GREATEST`) — else next Save writes pre-accept numbers over the raise.
+- **Tenants table** (`TenantsPage`): limits `{customers} customers · {lines} lines` + monthly bill + **ORANGE `+N customers / +N lines` pill** in the Request column when pending.
+- **`TenantFormDialog`** (rules in `services/tenantForm.js`): **"Customer allowance"**, **"Service line allowance"**, **"Price per service line (USD)"** on create **and** edit (owner's direct path); line field inline error while < customer field. Pricing chips (per line / package / unlimited); **package** shows 300/500/1000 chips (prices from `app_options`, re-read on open) — tap fills both allowances + "Monthly price (USD)", still editable (#149k, `packageChoices`). Pending → **Accept / Decline** block on top, **"Grant customers"**/**"Grant service lines"** default to ask (may grant fewer); 0 on **both** refused.
+- **Trap:** after accept **re-sync both inputs** (`allowancesAfterAccept`, lines via same `GREATEST`) — else next Save writes pre-accept numbers over the raise.
 - **`TenantService.getTenants()`** = `Promise.all([findAll(), findPendingRequests()])`, zipped; `findPendingRequests` = **one flat query, not PostgREST embed** (embed drags all history rows).
 - **2 tabs**: Tenants, Options.
 
@@ -315,7 +315,7 @@ supabase functions deploy create-tenant --no-verify-jwt
 
 ### Tests
 
-`tests/suites/customerAllowance.test.ts` (TC-CA-01..16d): monthly amount, package prices (blank/bad = none, SuperAdmin copy agrees), 2dp (`23 × 0.15` → `3.45`), free ≤ 20, package/unlimited fixed price, SuperAdmin copy agrees, unlimited never capped, > 100 → special price, cap blocks **at** allowance, min-10 request. Imports `BillingService` from Shared file (no barrels → no stub).
+`tests/suites/customerAllowance.test.ts` (TC-CA-01..16d): monthly amount, package prices (blank/bad = none, owner page pick agrees), 2dp (`23 × 0.15` → `3.45`), free ≤ 20, package/unlimited fixed price, owner page bill agrees, unlimited never capped, > 100 → special price, cap blocks **at** allowance, min-10 request. Imports `BillingService` from Shared file (no barrels → no stub).
 
 ---
 
@@ -591,7 +591,7 @@ Money **out**, so the dashboard answers "did I actually make money?". **Admin-on
 
 ## WhatsApp Cloud API (reminders and notices)
 
-Each tenant connects its **own** WhatsApp Business number (Embedded Signup, web page `/whatsapp-connect`); Meta bills the tenant directly. SaaS owner enables it per tenant in SuperAdmin.
+Each tenant connects its **own** WhatsApp Business number (Embedded Signup, web page `/whatsapp-connect`); Meta bills the tenant directly. SaaS owner enables it per tenant in SuperAdminWeb.
 
 - **Where:** customer row menu → Send payment reminder / Send renewal reminder (active prepaid line only) / Send WhatsApp message / Stop · Allow WhatsApp messages; customer list multi-select → Send on WhatsApp (all-prepaid pick starts on renewal reminder, `selectionSendPurpose`); customer detail header icon (all-prepaid → renewal, `headerReminderKey`). Prepaid lists to send from = Payment status filter Expiring soon / Expired today / Expired.
 - **Screens:** More → Admin → WhatsApp (org-wide admins only: connection, language, templates) + WhatsApp messages (history w/ status + failure reason).

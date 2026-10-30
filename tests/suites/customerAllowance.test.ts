@@ -14,11 +14,14 @@ import {
   parsePackagePrice,
   pricePackages,
 } from "@shared/modules/admin/billing/utils/packages";
+import { monthlyAmountUsdOf } from "@shared/modules/admin/billing/utils/monthlyAmount";
 import type { AppOption } from "@shared/core/types";
+import { formatMoney } from "@shared/core/utils/currency";
 import {
-  monthlyBillUsd,
-  pricePackages as superAdminPricePackages,
-} from "../../SuperAdmin/src/modules/tenants/utils/pricing";
+  initialDraft,
+  monthlyBillText,
+  packageChoices,
+} from "../../SuperAdminWeb/src/modules/tenants/services/tenantForm.js";
 
 // TC-CA-* — what the tenant is billed and whether they may add a customer or a
 // service line. monthlyAmountUsd is an invoice figure shown to the admin, and
@@ -89,7 +92,7 @@ describe("billing: monthly amount", () => {
     expect(billingService.monthlyAmountUsd(fixed("unlimited", 20, null))).toBe(0);
   });
 
-  it("TC-CA-04f SuperAdmin's copy of the bill rule gives the same amount in every case", () => {
+  it("TC-CA-04f the owner page's bill rule gives the same amount as the tenant apps in every case", () => {
     const cases = [
       perLine(0, 0.15),
       perLine(20, 0.15),
@@ -103,7 +106,7 @@ describe("billing: monthly amount", () => {
       fixed("unlimited", 20, null),
     ];
     for (const pricing of cases) {
-      expect(monthlyBillUsd(pricing)).toBe(billingService.monthlyAmountUsd(pricing));
+      expect(monthlyAmountUsdOf(pricing)).toBe(billingService.monthlyAmountUsd(pricing));
     }
   });
 });
@@ -182,13 +185,35 @@ describe("billing: price packages", () => {
     expect(currentPackageSize({ pricingModel: "per_line", planAllowance: 300 })).toBeNull();
   });
 
-  it("TC-CA-16d SuperAdmin fills the same packages and prices as the apps show", () => {
+  it("TC-CA-16d the owner page's package pick fills the same limits and price the apps show", () => {
     const options = [
       option("Package300Usd", "30"),
       option("Package500Usd", ""),
       option("Package1000Usd", "79.995"),
     ];
-    expect(superAdminPricePackages(options)).toEqual(pricePackages(options));
+    const draft = { ...initialDraft(null), pricingModel: "package", allowance: "500", planAllowance: "500" };
+    const choices = packageChoices(options, draft);
+    expect(choices.map(({ fields, picked }) => ({ ...fields, picked }))).toEqual(
+      pricePackages(options).map((pkg) => ({
+        allowance: String(pkg.size),
+        planAllowance: String(pkg.size),
+        fixedPrice: pkg.priceUsd == null ? "" : String(pkg.priceUsd),
+        picked: pkg.size === 500,
+      })),
+    );
+    expect(choices[2].fields).toEqual({ allowance: "1000", planAllowance: "1000", fixedPrice: "80" });
+    expect(monthlyBillText({ ...draft, ...choices[2].fields })).toBe(
+      formatMoney(
+        billingService.monthlyAmountUsd({
+          pricingModel: "package",
+          planAllowance: 1000,
+          pricePerPlanUsd: 0.15,
+          fixedPriceUsd: 80,
+        }),
+        null,
+        null,
+      ),
+    );
   });
 });
 

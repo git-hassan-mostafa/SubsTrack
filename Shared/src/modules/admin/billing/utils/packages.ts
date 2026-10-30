@@ -8,7 +8,7 @@ export interface PricePackage {
   priceUsd: number | null;
 }
 
-// The website's three cards; a size is both limits. SuperAdmin copy (#149k).
+// The website's three cards; a size is both limits (#149k).
 const PACKAGE_OPTIONS = [
   { size: 300, priceKey: OPTION_KEYS.package300Usd },
   { size: 500, priceKey: OPTION_KEYS.package500Usd },

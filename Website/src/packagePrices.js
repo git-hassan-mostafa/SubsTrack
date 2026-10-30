@@ -2,7 +2,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const READ_TIMEOUT_MS = 8000;
 
-// The app_options rows SuperAdmin edits; the apps read the same ones (#149k).
+// The app_options rows SuperAdminWeb edits; the apps read the same ones (#149k).
 const PRICE_KEYS = { 300: "package300usd", 500: "package500usd", 1000: "package1000usd" };
 
 // Blank, bad, zero or negative = no price yet, like the apps' parsePackagePrice.

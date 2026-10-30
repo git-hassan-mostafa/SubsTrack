@@ -37,7 +37,7 @@ Shared server code `_shared/whatsapp/` (`optOuts.ts` records/clears opt-outs for
 
 SQL functions (service role only): `whatsapp_claim_messages`, `whatsapp_apply_status` (forward-only, idempotent), `whatsapp_reached_last_day`, `whatsapp_kick_worker` (reads worker URL, secret, anon key from **Vault**). `whatsapp-worker` pg_cron job every minute; no-op when no rows due.
 
-Owner switch `tenants.whatsapp_enabled` (SuperAdmin), guarded by `trg_tenants_guard_billing`. Public Meta ids: `app_options.WhatsAppAppId`, `WhatsAppConfigId`, `WhatsAppConnectUrl`. Message language `tenant_settings.WhatsAppLanguage` (`en` | `ar`).
+Owner switch `tenants.whatsapp_enabled` (SuperAdminWeb), guarded by `trg_tenants_guard_billing`. Public Meta ids: `app_options.WhatsAppAppId`, `WhatsAppConfigId`, `WhatsAppConnectUrl`. Message language `tenant_settings.WhatsAppLanguage` (`en` | `ar`).
 
 ## 3. Sending rules
 
@@ -78,7 +78,7 @@ Owner switch `tenants.whatsapp_enabled` (SuperAdmin), guarded by `trg_tenants_gu
 - **Webhook callback URL** carries anon key: `…/whatsapp-webhook?apikey=<anon key>` (#167).
 - **Extensions:** `pg_cron`, `pg_net` (`script.sql` creates them).
 - **Deploy:** `yarn deploy-whatsapp-functions` from inside `SubsTrack/`. That script changed the OTA fingerprint, so it came w/ a new native build (#53). Also deploy Sijil web build — it hosts `/whatsapp-connect`.
-- **SuperAdmin → Options:** `WhatsAppAppId`, `WhatsAppConfigId`, `WhatsAppConnectUrl`. **SuperAdmin → Tenants:** "WhatsApp messaging allowed".
+- **SuperAdminWeb → Options:** `WhatsAppAppId`, `WhatsAppConfigId`, `WhatsAppConnectUrl`. **SuperAdminWeb → Tenants:** "WhatsApp messaging allowed".
 
 ## 6. Tenant admin steps
 

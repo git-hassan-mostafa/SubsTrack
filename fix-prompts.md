@@ -300,7 +300,7 @@ Ask me: who can set it (admins only?), and whether a disputed month should still
 ```text
 The problem: we charge an organization $0.15 per active plan per month. That is $45/month for 300 subscribers and $150/month for 1,000. Local tools cost much less: Hassil $19–25/month (Lebanon), SAS4 $250–350 per YEAR for 500–1,000 users, Moalidaty (Iraq) about $12/month. Owners will compare.
 
-How it should work: support volume pricing. Ask me for the numbers before building. Options to offer me: (a) a price per plan that drops in steps (the first 100 at one price, the next 400 cheaper, the rest cheaper again); (b) fixed monthly packages by size (up to 100 / 300 / 1,000); (c) a monthly minimum and a maximum. I (the owner, in SuperAdmin) must still be able to give one organization a special deal. Only I can change what an organization pays. The amount is always shown in US dollars. The organization's settings screen and the "update your limits" screen (phone and web) must show the new price clearly. Rounding must be exact (7 × 0.15 must show 1.05).
+How it should work: support volume pricing. Ask me for the numbers before building. Options to offer me: (a) a price per plan that drops in steps (the first 100 at one price, the next 400 cheaper, the rest cheaper again); (b) fixed monthly packages by size (up to 100 / 300 / 1,000); (c) a monthly minimum and a maximum. I (the owner, in SuperAdminWeb) must still be able to give one organization a special deal. Only I can change what an organization pays. The amount is always shown in US dollars. The organization's settings screen and the "update your limits" screen (phone and web) must show the new price clearly. Rounding must be exact (7 × 0.15 must show 1.05).
 ```
 
 ### 17. "Partly paid" instead of green "Paid"

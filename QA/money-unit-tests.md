@@ -117,7 +117,7 @@ The tenant's own bill and the quantity limits. Three pricing models: **per line*
 | TC-CA-04c | **Free up to 20 lines.** 20 allowed = $0; at 21, **every** line is billed ($3.15), not only the one past 20                                                           |
 | TC-CA-04d | A **package** bills its fixed monthly price, whatever its limit or the per-line price                                                                                |
 | TC-CA-04e | **Unlimited** bills its fixed monthly price, rounded to cents; a missing price reads $0                                                                              |
-| TC-CA-04f | The owner app (SuperAdmin) works out the same bill as the tenant app in every case                                                                                    |
+| TC-CA-04f | The owner page (SuperAdminWeb) works out the same bill as the tenant app in every case                                                                                    |
 | TC-CA-12 | An **unlimited** tenant is never blocked from adding customers or lines                                                                                               |
 | TC-CA-13 | A **package** keeps its limits: subscriber 301 on a 300 package is blocked                                                                                            |
 | TC-CA-14 | Only a per-line tenant changes its own limits in the app; package and unlimited go through support                                                                   |
@@ -125,7 +125,7 @@ The tenant's own bill and the quantity limits. Three pricing models: **per line*
 | TC-CA-16a | A package price that is blank, not a number, zero or negative shows "Ask for price"; a real price rounds to cents                                                    |
 | TC-CA-16b | Each package (300, 500, 1,000) reads its own price option                                                                                                            |
 | TC-CA-16c | Only a **package** business whose line limit is 300, 500 or 1,000 sees that card marked "Your plan"                                                                 |
-| TC-CA-16d | Picking a package in SuperAdmin fills the same limits and price the tenant apps show                                                                                 |
+| TC-CA-16d | Picking a package in SuperAdminWeb fills the same limits and price the tenant apps show                                                                                 |
 | TC-CA-05 | A create **below** the allowance is allowed (30 allowed, 29 active)                                                                                                    |
 | TC-CA-06 | **Blocks AT the allowance, not one past it** — 30 active against 30 allowed throws `CustomerLimitError`, and the error carries both numbers so the modal can name them |
 | TC-CA-07 | Still blocks when the tenant is already **over** cap, i.e. after the owner lowered the allowance under the live count                                                  |

@@ -1,9 +1,9 @@
 import { MIN_CUSTOMER_ALLOWANCE } from "@shared/modules/admin/billing/utils/types";
 import { AppError } from "../../../core/errors.js";
 import { TenantRepository } from "../repository/TenantRepository.js";
+import { MIN_PASSWORD_LENGTH } from "../utils/constants.js";
 
 const DEFAULT_LIRA_RATE = 89000;
-export const MIN_PASSWORD_LENGTH = 8;
 const TENANT_CODE = /^[a-z0-9]+$/;
 
 // Mirrors the tenants CHECKs: allowance floor, line floor, fixed price set.
@@ -65,7 +65,7 @@ export class TenantService {
     await this.#repository.setPassword(userId, password);
   }
 
-  // Order + rollback as in the Expo app (#30): tenant, branch, LBP, login, owner.
+  // Order + rollback per gotcha #30: tenant, branch, LBP, login, owner.
   async createTenant(data) {
     const tenantCode = data.tenantCode.toLowerCase().trim();
     if (!data.name.trim()) throw new AppError("Tenant name is required");

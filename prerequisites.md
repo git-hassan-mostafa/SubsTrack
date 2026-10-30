@@ -18,18 +18,18 @@ Do these in order. A skipped step fails later and looks like a code bug.
 
 10. **Create `SubsTrack/.env`** — `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`. Local runs only.
 11. **Add the same two values in EAS** (expo.dev → project → Environment variables → `production`, and `preview` if you use it) — app builds and OTA updates read these, never `.env`. Missing → the app crashes at start.
-12. **Create `SuperAdmin/.env`** — same two plus `EXPO_PUBLIC_SUPABASE_SERVICE_KEY`; never install it on a customer's device.
+12. **Set up SuperAdminWeb** (your owner page) — create `SuperAdminWeb/.env` with `VITE_SUPABASE_URL` only, never a key. Put it on Vercel (see `production-setup.md`). When the page opens, you paste the service role key; it stays only in that browser.
 13. **Create `Portal/.env`** — `VITE_PORTAL_FUNCTION_URL` (`<project url>/functions/v1/customer-portal`), `VITE_SUPABASE_ANON_KEY`; on Vercel set them in Environment Variables.
 14. **Build the portal** (`cd Portal && npm install --ignore-scripts && npm run build`) — publish `dist/` to its own subdomain.
 15. **Publish the Website** (`Website/`) — first replace `[COMPANY LEGAL NAME]` and `[ADDRESS]` in `privacy/` and `terms/`, and set the 3 variables from `Website/.env.example` (in `Website/.env` locally, in Vercel for the live site): support WhatsApp number (same as `SupportWhatsAppNumber`), support email, site URL (same as `WebsiteUrl`).
-16. **Review SuperAdmin → Options**:
+16. **Review SuperAdminWeb → Options**:
     - `LiraRate`
     - `SupportWhatsAppNumber` — powers "Get help" and "Contact us" on the login screen.
     - `CustomerPortalUrl` — no `/` at the end.
     - `WebsiteUrl` — no `/` at the end. Powers Privacy, Terms and Delete account links.
     - `AppDownloadUrl` — Play Store page or APK link for old phones.
     - `MinClientVersion` — leave blank until you need to force an update.
-17. **Create organizations in SuperAdmin** — the app has no sign-up screen any more. Reset a forgotten owner password in SuperAdmin → tenant details → Owner login.
+17. **Create organizations in SuperAdminWeb** — the app has no sign-up screen any more. Reset a forgotten owner password in SuperAdminWeb → tenant details → Owner login.
 18. **Run the app** (`npm install`, then `npx expo run:android`) — needs a dev client; Expo Go does not work.
 19. **Run the tests** (`cd tests && npm install --ignore-scripts && npm test`) — checks the money rules.
 
@@ -42,13 +42,13 @@ Full steps: [docs/whatsapp-setup-guide.md](docs/whatsapp-setup-guide.md).
 22. **Add Vault secrets `whatsapp_worker_url`, `whatsapp_worker_secret`, `whatsapp_worker_apikey`** (Integrations → Vault) — if one is missing, messages stay "Waiting".
 23. **Set the Meta webhook to `<project url>/functions/v1/whatsapp-webhook?apikey=<anon key>`** — the `?apikey=` is required.
 24. **Deploy the SubsTrack web build** — it hosts the `/whatsapp-connect` page.
-25. **Fill `WhatsAppAppId`, `WhatsAppConfigId`, `WhatsAppConnectUrl`** in SuperAdmin → Options — blank means tenants cannot connect.
-26. **Turn on "WhatsApp messaging allowed"** per tenant (SuperAdmin → Tenants → edit) — nothing shows until it is on.
+25. **Fill `WhatsAppAppId`, `WhatsAppConfigId`, `WhatsAppConnectUrl`** in SuperAdminWeb → Options — blank means tenants cannot connect.
+26. **Turn on "WhatsApp messaging allowed"** per tenant (SuperAdminWeb → Tenants → edit) — nothing shows until it is on.
 27. **Pass Meta App Review and switch the app to Live** — until then only your own test accounts can connect.
 
 ## Launch check
 
-- [ ] Create an organization in SuperAdmin — the owner can log in.
+- [ ] Create an organization in SuperAdminWeb — the owner can log in.
 - [ ] Open a customer — rows appear (empty = auth hook off).
 - [ ] Create a staff user — `create-user` works.
 - [ ] Collect a payment — the month turns paid.

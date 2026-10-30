@@ -4,7 +4,7 @@ Running the apps, `tests/`, OTA/EAS releases. CRLF trap: `docs/ota-fingerprint-m
 
 ## Stack + commands — full text (AGENTS.md §4 short form)
 
-**Stack**: RN 0.86.3 + Expo SDK 57 (React 19.2, Hermes v1, New Architecture only) · Expo Router 57 (file-based, typed routes; never import `@react-navigation/*` — use `expo-router/react-navigation`) · Zustand 5.0.12 + immer · NativeWind 4.2.3 · Supabase (PostgreSQL + RLS + Auth) · TS 6 strict · i18next (en/ar, RTL) · native sheets via `@expo/ui` (Material 3 Android, SwiftUI iOS, RN `Modal` web; gotcha #45) · alias `@/*` → repo root. `react-native-gesture-handler` intentionally **3.x**, ahead of the SDK 57 pin (2.32), guarded by `expo.install.exclude` (gotcha #140). SubsTrack tsconfig `paths` pins `i18next` + `@supabase/supabase-js` to its own `node_modules` (gotcha #188). SuperAdmin still SDK 54.
+**Stack**: RN 0.86.3 + Expo SDK 57 (React 19.2, Hermes v1, New Architecture only) · Expo Router 57 (file-based, typed routes; never import `@react-navigation/*` — use `expo-router/react-navigation`) · Zustand 5.0.12 + immer · NativeWind 4.2.3 · Supabase (PostgreSQL + RLS + Auth) · TS 6 strict · i18next (en/ar, RTL) · native sheets via `@expo/ui` (Material 3 Android, SwiftUI iOS, RN `Modal` web; gotcha #45) · alias `@/*` → repo root. `react-native-gesture-handler` intentionally **3.x**, ahead of the SDK 57 pin (2.32), guarded by `expo.install.exclude` (gotcha #140). SubsTrack tsconfig `paths` pins `i18next` + `@supabase/supabase-js` to its own `node_modules` (gotcha #188).
 
 Commands: `npm install` → `npx expo run:android` — **dev client required, Expo Go redboxes** (native keyboard-controller module). OTA: `npm run ota-prod`. Rebuild only when something **native** changed. Each app's `.env`: `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY` — local dev only; EAS Build + `eas update` read the EAS environment's variables, never `.env` (gotcha #187).
 
@@ -22,11 +22,6 @@ yarn ios            # iOS simulator
 yarn deploy-create-user-edge-function    # Deploy Supabase Edge Function
 yarn deploy-create-tenant-edge-function  # tenant creation, service-role callers only (--no-verify-jwt, key checked in code)
 yarn deploy-whatsapp-functions           # the five whatsapp-* functions (docs/whatsapp.md)
-
-# SuperAdmin
-cd SuperAdmin
-yarn install
-yarn start
 ```
 
 **SubsTrack needs a dev client — NOT Expo Go** (redboxes: native `react-native-keyboard-controller`). Local dev: `npx expo run:android` / `npx expo run:ios` (or add `expo-dev-client`, build once); distributables: EAS profiles `npm run build-preview` / `build-prod`. After pulling run `npm install` first — project uses `package-lock.json`; `yarn` labels above are legacy, map 1:1 to `npm`.
@@ -94,7 +89,7 @@ npm run dev               # http://localhost:3100
 - Key must be the **legacy `service_role` JWT** (`eyJ…`): Supabase 401s new `sb_secret_…` keys sent from a browser (User-Agent check); the page refuses `sb_secret_`, `sb_publishable_` and anon keys before any call.
 - `vite.config.js` guards: missing / non-https / trailing-slash `VITE_SUPABASE_URL` → stop; any key-shaped `.env` value → stop; built page holding a key (`eyJ….eyJ…`, `sb_secret_…`) → deleted + build fails; a Shared file importing any package (i18next, React…) → build fails, because Vite would quietly bundle `Shared/node_modules`.
 - Deploy: Vercel project, **Root Directory `SuperAdminWeb`**, keep "Include files outside the Root Directory" ON (build reads `../Shared/src`, as Web + Portal do); env var `VITE_SUPABASE_URL` (Production + Preview) — never a key. `vercel.json`: `npm install --include=dev` only (no Shared install: only package-free Shared files are imported, the guard stays honest), `npm run build`, `dist`, all paths → `/`. Headers: CSP `default-src 'none'`, inline script + style only (`'unsafe-inline'`: singlefile inlines everything, a hash would change every build), `connect-src https://*.supabase.co` (a pasted key can only travel to Supabase), `img-src data:`, `frame-ancestors 'none'` + `X-Frame-Options DENY`, `Referrer-Policy no-referrer`, `X-Robots-Tag noindex`, `Cache-Control no-store` (phones always get the latest build). Checked 2026-10-30: full UI flow under these headers, zero CSP reports; a fetch to any other host is blocked. New external resource (font, CDN, image host) → add it to the CSP or it silently fails.
-- Layers: `modules/<m>/repository` (only Supabase caller, maps rows via Shared mappers, `BaseRepository.fail()` → friendly `AppError`, 401 → `InvalidKeyError`) → `services` (all rules; `tenantForm.js` = pure form rules) → `store` (`core/createStore.js`, write patches the store) → `ui` (DOM only, native `<dialog>`). Phone layout ≤ 640px (`main.css` media query): lists = `DataTable` rows shown as cards (each `td` carries `data-label`), form + details dialogs full screen, 16px inputs (no iOS zoom), 44px tap targets. Same DB reads/writes as `SuperAdmin/` incl. `createTenant` order + rollback (#30) and one-call accept (#146).
+- Layers: `modules/<m>/repository` (only Supabase caller, maps rows via Shared mappers, `BaseRepository.fail()` → friendly `AppError`, 401 → `InvalidKeyError`) → `services` (all rules; `tenantForm.js` = pure form rules) → `store` (`core/createStore.js`, write patches the store) → `ui` (DOM only, native `<dialog>`). Phone layout ≤ 640px (`main.css` media query): lists = `DataTable` rows shown as cards (each `td` carries `data-label`), form + details dialogs full screen, 16px inputs (no iOS zoom), 44px tap targets. `createTenant` order + rollback (#30); accept = one RPC call (#146).
 
 ### Tests (`tests/`)
 
@@ -148,6 +143,6 @@ Postgres changes are server-side, unrelated — but run `script.sql` **before** 
 
 ### Forced update (MinClientVersion)
 
-A DB change older app code must not write through (non-additive column, changed meaning): 1. bump `CLIENT_VERSION` (`Shared/src/modules/options/utils/clientVersion.ts`); 2. ship it (`npm run ota-prod`, or a build if native changed) + deploy `Web/`; 3. SuperAdmin → Options → `MinClientVersion` = new number (set `AppDownloadUrl` first if old phones need a new build); 4. only then run the SQL. Older phones stop pushing/pulling and show "Update needed"; older web tabs ask to reload. Rule + UI: docs/features.md → Legal Links, Account Deletion, Forced Update.
+A DB change older app code must not write through (non-additive column, changed meaning): 1. bump `CLIENT_VERSION` (`Shared/src/modules/options/utils/clientVersion.ts`); 2. ship it (`npm run ota-prod`, or a build if native changed) + deploy `Web/`; 3. SuperAdminWeb → Options → `MinClientVersion` = new number (set `AppDownloadUrl` first if old phones need a new build); 4. only then run the SQL. Older phones stop pushing/pulling and show "Update needed"; older web tabs ask to reload. Rule + UI: docs/features.md → Legal Links, Account Deletion, Forced Update.
 
 In-app `useAppUpdate` + `<UpdateBanner>` (mounted once in `app/(app)/_layout.tsx`) download in background, re-check every foreground, show "New version ready → Restart" pill. Both no-op on web + in dev builds.

@@ -2,7 +2,7 @@ import { monthlyAmountUsdOf } from "@shared/modules/admin/billing/utils/monthlyA
 import { pricePackages } from "@shared/modules/admin/billing/utils/packages";
 import { MIN_CUSTOMER_ALLOWANCE } from "@shared/modules/admin/billing/utils/types";
 import { formatMoney } from "@shared/core/utils/currency";
-import { MIN_PASSWORD_LENGTH } from "./TenantService.js";
+import { MIN_PASSWORD_LENGTH } from "../utils/constants.js";
 
 export const DEFAULT_ALLOWANCE = String(MIN_CUSTOMER_ALLOWANCE);
 export const DEFAULT_PRICE = "0.15";

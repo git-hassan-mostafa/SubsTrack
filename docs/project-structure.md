@@ -4,7 +4,7 @@ Trees go stale — when in doubt, file-search. Update on any structure change.
 
 ## Workspace top level
 
-`App/`: `AGENTS.md` (core context for every agent; `CLAUDE.md` = `@AGENTS.md` import only), `docs/`, `new-features.md` (backlog; mark done when implemented), `Shared/` (types → services → repositories → stores; source only, not a workspace), `SubsTrack/` (tenant Expo app: UI + offline layer), `Web/` (staff desktop, React + Vite + MUI, on Shared services + stores), `Portal/` (read-only customer portal, React + Vite, Shared pure code), `SuperAdmin/` (SaaS-owner Expo app), `SuperAdminWeb/` (SaaS-owner page, plain JS → one self-contained `dist/index.html` opened from disk), `tests/` (Jest money rules; own package, never inside SubsTrack/), `sql scripts/` (script.sql schema + RLS, migration.sql one-offs, reset.sql teardown), `Design/`, `QA/`.
+`App/`: `AGENTS.md` (core context for every agent; `CLAUDE.md` = `@AGENTS.md` import only), `docs/`, `new-features.md` (backlog; mark done when implemented), `Shared/` (types → services → repositories → stores; source only, not a workspace), `SubsTrack/` (tenant Expo app: UI + offline layer), `Web/` (staff desktop, React + Vite + MUI, on Shared services + stores), `Portal/` (read-only customer portal, React + Vite, Shared pure code), `SuperAdminWeb/` (the SaaS-owner page, plain JS → one self-contained `dist/index.html`, on Vercel or opened from disk), `tests/` (Jest money rules; own package, never inside SubsTrack/), `sql scripts/` (script.sql schema + RLS, migration.sql one-offs, reset.sql teardown), `Design/`, `QA/`.
 
 `Web/scripts/`: `build-edge.mjs` (bundles Shared code for `customer-status` edge fn), `status-speed/` (seed + speed test, TEST project only).
 
@@ -107,17 +107,6 @@ SubsTrack/
 
 ---
 
-## SuperAdmin
-
-```
-SuperAdmin/
-  app/{_layout.tsx, (tabs)/{index.tsx (tenants list), options.tsx (global app options key/value editor: add/update/delete), _layout.tsx}}
-  src/core/types/{index,db}.ts, src/core/utils/BaseRepository.ts
-  src/modules/{tenants,options}/{repository,services,store,screens,components}   options = global app_options key/value CRUD (e.g. LiraRate)
-  src/shared/components/{Button,Input,ErrorBanner,LoadingScreen,EmptyState,ConfirmDialog}
-  src/shared/lib/supabaseAdmin.ts   SERVICE_ROLE_KEY (bypasses RLS — full DB access)
-```
-
 ## SuperAdminWeb
 
 ```
@@ -127,7 +116,7 @@ SuperAdminWeb/
   src/core/                   config, supabaseAdmin (client from pasted key), BaseRepository (fail → AppError / InvalidKeyError), errors (errorMessage), createStore
   src/app/AppShell.js         top bar: Tenants / Options tabs (#hash), Forget key
   src/modules/session/        services/keyRules (key shape), storage/keyStorage (localStorage), store/sessionStore, ui/KeyGate
-  src/modules/tenants/        repository/TenantRepository, services/{TenantService,tenantForm}, store/tenantStore, utils/tenantDisplay, ui/{TenantsPage,TenantDetailsDialog,TenantFormDialog,StatusPill}
+  src/modules/tenants/        repository/TenantRepository, services/{TenantService,tenantForm}, store/tenantStore, utils/{tenantDisplay,constants}, ui/{TenantsPage,TenantDetailsDialog,TenantFormDialog,StatusPill}
   src/modules/options/        repository/OptionRepository, services/OptionService, store/optionStore, ui/{OptionsPage,OptionFormDialog}
   src/shared/ui/              dom (h, watch, bind, button), DataTable (table → phone cards), Dialog (+ confirmDialog; size form | wide | compact), ErrorBanner (+ EmptyState), fields (textField, switchRow, chip)
   src/styles/main.css

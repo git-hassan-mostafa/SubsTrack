@@ -8,9 +8,9 @@ Do the parts in order. Step-by-step detail for the first setup is also in [prere
 
 1. **Revoke the old secrets.** `prerequisites.md` used to hold the WhatsApp keys and a real Meta access token. They are removed from the file, but git history still has them. Revoke that Meta token in Meta, and make new values for every secret in prod.
 2. **Fill the legal pages.** `Website/privacy/` and `Website/terms/` still have `[COMPANY LEGAL NAME]` and `[ADDRESS]`. Have a lawyer check the text.
-3. **Set the Website's 5 environment variables** (list in `Website/.env.example`): `VITE_SUPPORT_WHATSAPP_NUMBER` (digits only, same as the `SupportWhatsAppNumber` option), `VITE_SUPPORT_EMAIL`, `VITE_SITE_URL` (same as the `WebsiteUrl` option, no trailing slash), `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (same values as the phone app's `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`). Every "Start free" button opens WhatsApp to that number, and the legal pages show the number and email. The build stops if one is missing. Package prices are **not** environment variables: set them in SuperAdmin → Options (`Package300Usd`, `Package500Usd`, `Package1000Usd`). The website and the apps read them from there right away, no rebuild. Empty shows "Ask us for the price".
-4. **The SuperAdmin app holds the master key** (service_role). Anyone with it can read and change every tenant's data. Install it only on your own phone; never share the APK.
-5. **New pricing (2026-10-29): run the database update, then ship the apps.** Run `migration.sql` first, then `script.sql`. Then publish the phone app (`npm run ota-prod`), deploy the web app, and update SuperAdmin. New businesses start free with 20 lines. Businesses that already exist keep their current limits (old default 30 = $4.50/month): lower them to 20 in SuperAdmin if they should be free. Above 100 lines, set the business to **Package** or **Unlimited** in SuperAdmin and type its monthly price.
+3. **Set the Website's 5 environment variables** (list in `Website/.env.example`): `VITE_SUPPORT_WHATSAPP_NUMBER` (digits only, same as the `SupportWhatsAppNumber` option), `VITE_SUPPORT_EMAIL`, `VITE_SITE_URL` (same as the `WebsiteUrl` option, no trailing slash), `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (same values as the phone app's `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`). Every "Start free" button opens WhatsApp to that number, and the legal pages show the number and email. The build stops if one is missing. Package prices are **not** environment variables: set them in SuperAdminWeb → Options (`Package300Usd`, `Package500Usd`, `Package1000Usd`). The website and the apps read them from there right away, no rebuild. Empty shows "Ask us for the price".
+4. **SuperAdminWeb uses the master key** (service_role). Anyone with it can read and change every tenant's data. The key is not inside the page: you paste it when the page opens and it stays only in that browser. Press **Forget key** on any phone or computer that is not yours. Never share the key.
+5. **New pricing (2026-10-29): run the database update, then ship the apps.** Run `migration.sql` first, then `script.sql`. Then publish the phone app (`npm run ota-prod`), deploy the web app, and deploy SuperAdminWeb. New businesses start free with 20 lines. Businesses that already exist keep their current limits (old default 30 = $4.50/month): lower them to 20 in SuperAdminWeb if they should be free. Above 100 lines, set the business to **Package** or **Unlimited** in SuperAdminWeb and type its monthly price.
 
 ## 1. Accounts to create
 
@@ -29,7 +29,7 @@ Do the parts in order. Step-by-step detail for the first setup is also in [prere
 3. [ ] If it errors on `pg_cron` / `pg_net` → Database → Extensions → turn them on → run the script again.
 4. [ ] Authentication → Hooks → Customize access token → `public.custom_access_token_hook`. Without it the app shows no data.
 5. [ ] Authentication → Sessions → refresh token reuse interval = `30`.
-6. [ ] Recommended: Authentication → turn off "Allow new users to sign up". Only the edge functions and SuperAdmin create users, so this just blocks outsiders. Test creating an organization after.
+6. [ ] Recommended: Authentication → turn off "Allow new users to sign up". Only the edge functions and SuperAdminWeb create users, so this just blocks outsiders. Test creating an organization after.
 7. [ ] Edge Functions → Secrets: `SERVICE_ROLE_KEY`, `ANON_KEY`, `PORTAL_JWT_SECRET`.
    - Make a random value: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
    - Never change `PORTAL_JWT_SECRET` later — every portal customer would be logged out.
@@ -37,7 +37,7 @@ Do the parts in order. Step-by-step detail for the first setup is also in [prere
 9. [ ] Then, in `SubsTrack/`: `supabase functions deploy customer-status`.
    - If the CLI is blocked on your laptop: `cd Web && npm run build-edge`, then paste `SubsTrack/supabase/functions/_dashboard/customer-status/index.ts` in Dashboard → Edge Functions → Editor (name `customer-status`, "Verify JWT" ON).
 10. [ ] Advisors → Security Advisor → check it is clean.
-11. [ ] Set the options (SuperAdmin → Options):
+11. [ ] Set the options (SuperAdminWeb → Options):
     - `LiraRate`
     - `SupportWhatsAppNumber` — the login screen's "Get help" and "Contact us" open this WhatsApp.
     - `CustomerPortalUrl` = `https://portal.yourdomain` (no `/` at the end)
@@ -71,10 +71,12 @@ Do the parts in order. Step-by-step detail for the first setup is also in [prere
 - [ ] Pick ONE staff web for `app.`. Both have the `/whatsapp-connect` page.
 - [ ] Website: fill the placeholders and set its env vars first ("Still to do by you", points 2 and 3).
 
-## 5. SuperAdmin (your owner app)
+## 5. SuperAdminWeb (your owner page)
 
-- [ ] `SuperAdmin/.env`: prod `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `EXPO_PUBLIC_SUPABASE_SERVICE_KEY`.
-- [ ] Install it only on your own phone. Never share it, never put it on a store.
+- [ ] New Vercel project: Root Directory `SuperAdminWeb`, keep "Include files outside the root directory" on.
+- [ ] Vercel environment variable `VITE_SUPABASE_URL` = the prod project URL (no `/` at the end). Never add the key there.
+- [ ] Open the page and paste the **legacy `service_role` key** (it starts with `eyJ`). New `sb_secret_…` keys do not work in a browser.
+- [ ] Done on a phone or computer that is not yours → press **Forget key**.
 - [ ] New organizations are created here only — the app has no sign-up screen.
 - [ ] An owner forgot the password → tenant details → Owner login → Reset password.
 
@@ -95,7 +97,7 @@ Keep a safe copy of `WHATSAPP_TOKEN_KEY` — if you lose it, every tenant must c
 ## 7. Before you open to customers
 
 - [ ] `cd tests && npm install --ignore-scripts && npm test` — all pass.
-- [ ] Create an organization in SuperAdmin — the owner can log in.
+- [ ] Create an organization in SuperAdminWeb — the owner can log in.
 - [ ] Open a customer — rows show (empty = auth hook is off).
 - [ ] Add a staff user.
 - [ ] Collect a payment — the month turns paid.
@@ -108,7 +110,7 @@ Keep a safe copy of `WHATSAPP_TOKEN_KEY` — if you lose it, every tenant must c
 
 - Keep a separate **test** Supabase project for development. Never test on prod.
 - Database change: run `migration.sql` first, then `script.sql` — **before** the OTA update that uses it.
-- A database change old app versions must not write through: raise `CLIENT_VERSION` in the code, ship the update, then set `MinClientVersion` in SuperAdmin, and only then run the SQL. Old phones stop syncing and show "Update needed"; old web tabs ask to reload.
+- A database change old app versions must not write through: raise `CLIENT_VERSION` in the code, ship the update, then set `MinClientVersion` in SuperAdminWeb, and only then run the SQL. Old phones stop syncing and show "Update needed"; old web tabs ask to reload.
 - Edge function changed → deploy it again (OTA does not reach functions).
 - Take your own backup (`pg_dump`) from time to time — Pro keeps only 7 days.
 

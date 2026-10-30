@@ -99,9 +99,9 @@ Start this early. **Business Verification can take a few days.**
 
 ---
 
-## Part 4 — SuperAdmin (you)
+## Part 4 — SuperAdminWeb (you)
 
-19. SuperAdmin → **Options** → fill in:
+19. SuperAdminWeb → **Options** → fill in:
     | Option | Value |
     |---|---|
     | `WhatsAppAppId` | App ID from step 5 |
@@ -109,7 +109,7 @@ Start this early. **Business Verification can take a few days.**
     | `WhatsAppConnectUrl` | `https://<your Sijil web domain>/whatsapp-connect` |
 
     These three are public ids, not secrets. While any of them is empty, tenants see "not set up yet" and cannot connect.
-20. SuperAdmin → **Tenants** → edit a tenant → turn on **WhatsApp messaging allowed** → Save. The card then shows "· WhatsApp". Only tenants with this switch on see WhatsApp.
+20. SuperAdminWeb → **Tenants** → edit a tenant → turn on **WhatsApp messaging allowed** → Save. The WhatsApp column then shows "Yes". Only tenants with this switch on see WhatsApp.
 
 ---
 
@@ -165,7 +165,7 @@ Until this part is done, only people with a role on your Meta app (step 8) can c
 
 ## Part 7 — Each new tenant
 
-**You:** SuperAdmin → Tenants → turn on **WhatsApp messaging allowed** for them.
+**You:** SuperAdminWeb → Tenants → turn on **WhatsApp messaging allowed** for them.
 
 **Send the tenant admin these steps:**
 
@@ -186,7 +186,7 @@ Until this part is done, only people with a role on your Meta app (step 8) can c
 
 | What you see | What to check |
 |---|---|
-| No **WhatsApp** in the Admin menu | Is the switch on in SuperAdmin? Did the admin log in again? Is the user an organization-wide admin? |
+| No **WhatsApp** in the Admin menu | Is the switch on in SuperAdminWeb? Did the admin log in again? Is the user an organization-wide admin? |
 | "not set up by Sijil yet" / Connect disabled | The three Options in step 19 are empty |
 | Meta's window does not open, or says the domain is not allowed | Step 7 domains; the page must be on HTTPS on that exact domain |
 | Meta's window says the app is not available | The app is still in Development and this Facebook account has no role (step 8), or App Review is not done yet (Part 6) |
