@@ -6,6 +6,7 @@ export interface SyncStatus {
   lastManualSyncAt: string | null;
   lastError: string | null;
   outdated: boolean;
+  tenantInactive: boolean;
 }
 
 let status: SyncStatus = {
@@ -15,6 +16,7 @@ let status: SyncStatus = {
   lastManualSyncAt: null,
   lastError: null,
   outdated: false,
+  tenantInactive: false,
 };
 const listeners = new Set<(s: SyncStatus) => void>();
 

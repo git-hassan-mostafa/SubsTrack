@@ -71,6 +71,9 @@ Owner forgot password → SaaS owner: SuperAdminWeb → tenant details → Owner
 
 app/(app)/_layout.tsx
   → !user → login · !tenantActive → TenantInactiveScreen · else tabs
+  tenantActive re-read while open: authSlice.refreshTenantActive() — phone when
+  SyncStatus.tenantInactive flips, web when the tab becomes visible (useTenantGate);
+  the DATABASE refuses a turned-off org regardless (gotcha #196)
 ```
 
 `primePostAuth(get, user)` is internal, called by `login` + `restoreSession`. `create-tenant` → `docs/edge-functions.md`; who may create an organization → #33.

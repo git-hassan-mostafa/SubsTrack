@@ -8,6 +8,7 @@ Deno, each at `SubsTrack/supabase/functions/<name>/index.ts`.
 
 - Atomically creates `auth.users` + `public.users`; rolls back `auth.users` if `public.users` insert fails.
 - Caller must be admin (JWT); own tenant only; branch-scoped caller → `branch_id` validated + forced to theirs.
+- Caller's tenant must be active — `create-user`, `delete-user`, `update-user-password` all select `tenants(active)` on the caller → else 403 "This organization is not active." (service role skips RLS, so the DB's turned-off rule never reaches them; #196).
 - **One JSON log line per event** `{ fn, reqId, event, … }` via `log()`; `reqId` per call ties lines; `client` = `x-client-info` header (phone vs web). Every rejection via `fail()`, which logs status + reason → any 4xx explainable from dashboard logs alone. Passwords never logged (length only).
 - Deploy: `yarn deploy-create-user-edge-function` (in `SubsTrack/`).
 

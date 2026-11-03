@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from "react-router";
 import { useAuthSlice } from "@shared/state/hooks/useAuthSlice";
 import { TenantInactivePage } from "@/modules/auth/screens/TenantInactivePage";
+import { useTenantGate } from "./useTenantGate";
 
 export interface FromState {
   from?: string;
@@ -8,7 +9,7 @@ export interface FromState {
 
 export function RequireSignedIn() {
   const user = useAuthSlice((s) => s.user);
-  const tenantActive = useAuthSlice((s) => s.tenantActive);
+  const tenantActive = useTenantGate();
   const location = useLocation();
 
   if (!user) {

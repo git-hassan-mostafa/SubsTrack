@@ -18,7 +18,7 @@ One rules file for every AI agent (Claude Code loads it via `CLAUDE.md` = `@AGEN
 4. No business logic in components or stores.
 5. No Supabase calls outside repositories. Sole exception: sync engine `SubsTrack/src/core/offline/sync/`.
    5b. Services reach a repository ONLY via `repositories().x` (`Shared/src/core/runtime/repositories.ts`), inside a method, never at module load; never `new XxxRepository()` in a service/slice. Each app hands its set to `configureShared()`: Supabase classes (`createSupabaseRepositories()`), phone = offline twins (`SubsTrack/src/platform/offlineRepositories.ts`). Both `implements IXxxRepository` → change one's surface, change the interface and the other.
-6. RLS enforces multi-tenancy; app-level filtering secondary.
+6. RLS enforces multi-tenancy; app-level filtering secondary. Turned-off tenant → `current_tenant_id()` NULL → every policy refuses; service-role edge fns check `tenants.active` themselves (#196).
 7. **No hard deletes** — `voided_at` (charges, collections), `active=false`/`cancelled_at` (customers), `active=false` (branches, currencies, products).
 8. A bill's amount is a **snapshot** — never recompute from `plan.price` after a raise.
    8b. **Money is a hand-over, never a number on what it paid for.** Balance = `charge.amount − SUM(collection_items)`, computed; no `paid` counter anywhere. Correcting cash = void the collection, never edit an amount (Correct amount = void + re-record, #171).

@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
     // Look up caller's profile to get their role, tenant, and branch
     const { data: callerProfile, error: profileLookupErr } = await serviceClient
       .from("users")
-      .select("role, tenant_id, branch_id")
+      .select("role, tenant_id, branch_id, tenants(active)")
       .eq("id", caller.id)
       .single();
 
@@ -114,6 +114,12 @@ Deno.serve(async (req) => {
         reason: "caller_profile_missing",
         callerId: caller.id,
         dbError: profileLookupErr?.message ?? null,
+      });
+    }
+
+    if (callerProfile.tenants?.active !== true) {
+      return fail(reqId, 403, "This organization is not active.", {
+        callerTenantId: callerProfile.tenant_id,
       });
     }
 

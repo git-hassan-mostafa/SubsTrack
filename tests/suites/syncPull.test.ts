@@ -163,6 +163,21 @@ describe("TC-SY-50..55 — the shared cursor only advances on a COMPLETE cycle",
 
     expect(await cursor()).toBe("2026-02-01T00:00:00.000Z");
   });
+
+  it("TC-SY-55a HOLDS the cursor when the organization was turned off during the pull", async () => {
+    mockDb = new FakeDb({
+      sync_meta: [{ key: "last_pulled_at", value: "2026-01-01T00:00:00.000Z" }],
+    });
+    mockServer.setRows("tenants", [
+      { ...serverRow("t1", "2026-03-05T00:00:00.000Z"), active: false },
+    ]);
+    keepAll();
+
+    const complete = await pullChanges();
+
+    expect(complete).toBe(false);
+    expect(await cursor()).toBe("2026-01-01T00:00:00.000Z");
+  });
 });
 
 describe("TC-SY-55b — the overlap floor itself", () => {

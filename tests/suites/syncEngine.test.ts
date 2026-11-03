@@ -48,9 +48,10 @@ const stamped = (ageMs: number) => [
   { key: "last_sync_at", value: new Date(Date.now() - ageMs).toISOString() },
 ];
 
-const isVersionCheck = (s: RecordedSelect) =>
-  s.table === "app_options" && s.eq !== null;
-const pulled = () => mockServer.selects.some((s) => !isVersionCheck(s));
+const isGateCheck = (s: RecordedSelect) =>
+  (s.table === "app_options" && s.eq !== null) ||
+  (s.table === "tenants" && s.columns === "active");
+const pulled = () => mockServer.selects.some((s) => !isGateCheck(s));
 const pushed = () => mockServer.upserts.length > 0;
 
 const metaStamp = (key: string) =>
@@ -278,6 +279,63 @@ describe("TC-SY-91..93 — a build below MinClientVersion stops syncing", () => 
 
     expect(pushed()).toBe(true);
     expect(getSyncStatus().outdated).toBe(false);
+  });
+});
+
+describe("TC-SY-94..97 — a turned-off organization stops syncing, and keeps its money", () => {
+  const tenantActive = (active: boolean) =>
+    mockServer.setRows("tenants", [{ id: "t1", active }]);
+  const dirtyCash = () =>
+    mockDb.rows("collections").filter((r) => r._dirty === 1).length;
+
+  it("TC-SY-94 a turned-off organization neither pushes nor pulls, and says so", async () => {
+    tenantActive(false);
+    mockDb = new FakeDb({
+      collections: [mirrorRow("collections", { id: "cash" }, 1)],
+    });
+
+    await runSync();
+
+    expect(pushed()).toBe(false);
+    expect(pulled()).toBe(false);
+    expect(getSyncStatus().tenantInactive).toBe(true);
+    expect(dirtyCash()).toBe(1);
+  });
+
+  it("TC-SY-95 the 5-minute flush never pushes for a turned-off organization", async () => {
+    tenantActive(false);
+    mockDb = new FakeDb({
+      collections: [mirrorRow("collections", { id: "cash" }, 1)],
+    });
+
+    await flushPendingWrites();
+
+    expect(pushed()).toBe(false);
+    expect(dirtyCash()).toBe(1);
+  });
+
+  it("TC-SY-96 turned back on, the held money is pushed and the flag clears", async () => {
+    tenantActive(true);
+    mockDb = new FakeDb({
+      collections: [mirrorRow("collections", { id: "cash" }, 1)],
+    });
+
+    await runSync();
+
+    expect(mockServer.upserts.map((u) => u.table)).toEqual(["collections"]);
+    expect(getSyncStatus().tenantInactive).toBe(false);
+  });
+
+  it("TC-SY-97 an unreadable tenant row never blocks a sync", async () => {
+    mockServer.failTables.add("tenants");
+    mockDb = new FakeDb({
+      collections: [mirrorRow("collections", { id: "cash" }, 1)],
+    });
+
+    await runSync();
+
+    expect(pushed()).toBe(true);
+    expect(getSyncStatus().tenantInactive).toBe(false);
   });
 });
 

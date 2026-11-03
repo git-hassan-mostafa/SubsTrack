@@ -16,6 +16,7 @@ import {
 import { pruneWindowedTables, pullChanges } from "./pull";
 import { pushDirty } from "./push";
 import { getSyncStatus, setStatus, type SyncStatus } from "./status";
+import { isTenantInactive } from "./tenantActive";
 
 const PUSH_EVERY_MS = 5 * 60 * 1000;
 const PULL_EVERY_MS = 10 * 60 * 1000;
@@ -59,9 +60,12 @@ async function canReachServer(): Promise<boolean> {
   if (!(await isOnline())) return false;
   const { data } = await supabase.auth.getSession();
   if (!data.session) return false;
-  const outdated = await isAppOutdated();
-  setStatus({ outdated });
-  return !outdated;
+  const [outdated, tenantInactive] = await Promise.all([
+    isAppOutdated(),
+    isTenantInactive(),
+  ]);
+  setStatus({ outdated, tenantInactive });
+  return !outdated && !tenantInactive;
 }
 
 async function stamp(field: SyncStamp): Promise<void> {

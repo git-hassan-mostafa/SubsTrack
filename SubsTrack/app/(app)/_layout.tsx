@@ -6,10 +6,11 @@ import GlobalConfirmDialog from "@/src/shared/components/GlobalConfirmDialog";
 import { UpdateBanner } from "@/src/shared/components/UpdateBanner";
 import { QuickActionSheets } from "@/src/modules/quick-actions";
 import { useDismissKeyboardOnNavigate } from "@/src/shared/hooks/useDismissKeyboardOnNavigate";
+import { useTenantGate } from "@/src/shared/hooks/useTenantGate";
 export default function AppLayout() {
   useDismissKeyboardOnNavigate();
   const user = useAuthSlice((s) => s.user);
-  const tenantActive = useAuthSlice((s) => s.tenantActive);
+  const tenantActive = useTenantGate();
   const loading = useAuthSlice((s) => s.loading);
   if (loading) return <LoadingScreen />;
   if (!user) return <Redirect href="/(auth)/login" />;

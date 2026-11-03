@@ -100,6 +100,11 @@ class AuthService {
     };
   }
 
+  async isTenantActive(tenantId: string): Promise<boolean | null> {
+    const tenant = await repositories().auth.getTenant(tenantId);
+    return tenant ? tenant.active : null;
+  }
+
   async logout(): Promise<void> {
     await repositories().auth.signOut();
   }

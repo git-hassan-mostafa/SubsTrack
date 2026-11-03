@@ -15,6 +15,7 @@ export interface AuthSlice {
     password: string,
   ) => Promise<void>;
   restoreSession: () => Promise<void>;
+  refreshTenantActive: () => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
@@ -81,6 +82,19 @@ export const createAuthSlice: StateCreator<
         state.auth.loading = false;
       });
     }
+  },
+
+  refreshTenantActive: async () => {
+    const user = get().auth.user;
+    if (!user) return;
+    try {
+      const active = await authService.isTenantActive(user.tenantId);
+      if (active === null || active === get().auth.tenantActive) return;
+      set((state) => {
+        state.auth.tenantActive = active;
+      });
+      if (active) await primePostAuth(get, user);
+    } catch {}
   },
 
   logout: async () => {

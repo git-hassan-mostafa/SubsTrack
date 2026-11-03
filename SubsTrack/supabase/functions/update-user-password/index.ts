@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
 
     const { data: callerProfile, error: profileLookupErr } = await serviceClient
       .from("users")
-      .select("role, tenant_id")
+      .select("role, tenant_id, tenants(active)")
       .eq("id", caller.id)
       .single();
 
@@ -58,6 +58,16 @@ Deno.serve(async (req) => {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    if (callerProfile.tenants?.active !== true) {
+      return new Response(
+        JSON.stringify({ error: "This organization is not active." }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     if (!["admin", "superadmin"].includes(callerProfile.role)) {

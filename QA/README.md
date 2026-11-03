@@ -1,6 +1,6 @@
 # Money QA
 
-Only the money rules. No add / edit / delete screens, no layout checks.
+Only the money rules, plus keeping each organization's data apart (multi-tenancy.md). No add / edit / delete screens, no layout checks.
 
 Each line is one test: **what to do → what to check**. Check only the things named after the arrow — they are the ones that matter.
 
@@ -18,6 +18,7 @@ Run every line on the **phone** and on the **web** app, unless the line says (ph
 | [wallet.md](wallet.md) | Who holds the cash, handing it up, closing it out |
 | [dashboard-and-reports.md](dashboard-and-reports.md) | Revenue, expenses, net, reports, collection progress |
 | [offline.md](offline.md) | (phone) Money written with no network and on two phones |
+| [multi-tenancy.md](multi-tenancy.md) | Each organization sees only its own data: login, lists, settings, switching organization, portal, direct database checks |
 | [money-unit-tests.md](money-unit-tests.md) | The automated tests in `tests/` — run `cd tests && npm test` before the manual pass |
 
 ## Test data to prepare

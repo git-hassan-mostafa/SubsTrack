@@ -2197,7 +2197,8 @@ REVOKE EXECUTE ON FUNCTION accept_customer_request(UUID, INT, INT) FROM anon, au
 
 -- ============================================================
 -- HELPER FUNCTION
--- Extracts tenant_id from the Supabase JWT.
+-- Extracts tenant_id from the Supabase JWT — NULL while the SaaS owner has
+-- the tenant turned off, so every tenant policy shuts it out at once.
 -- The JWT must include a custom claim: { "tenant_id": "<uuid>" }
 -- Set this up in Supabase Dashboard → Auth → Hooks, or via
 -- a custom access token hook that reads from public.users.
@@ -2205,7 +2206,10 @@ REVOKE EXECUTE ON FUNCTION accept_customer_request(UUID, INT, INT) FROM anon, au
 
 CREATE OR REPLACE FUNCTION current_tenant_id()
 RETURNS UUID AS $$
-    SELECT (auth.jwt() ->> 'tenant_id')::uuid;
+    SELECT t.id
+    FROM public.tenants t
+    WHERE t.id = (auth.jwt() ->> 'tenant_id')::uuid
+      AND t.active;
 $$ LANGUAGE SQL STABLE SECURITY DEFINER;
 
 -- ============================================================
@@ -2746,13 +2750,15 @@ DROP POLICY IF EXISTS users_update  ON users;
 DO $$ BEGIN
 
     -- ── TENANTS ──────────────────────────────────────────────
-    -- App users can read their own tenant row.
+    -- App users can read their own tenant row — also while it is turned off,
+    -- so the app can show "organization inactive" (current_tenant_id() is
+    -- NULL then, hence the raw JWT claim).
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies
-        WHERE tablename = 'tenants' AND policyname = 'tenants_select'
+        WHERE tablename = 'tenants' AND policyname = 'tenants_select_own'
     ) THEN
-        CREATE POLICY tenants_select ON tenants
-            FOR SELECT USING (id = current_tenant_id());
+        CREATE POLICY tenants_select_own ON tenants
+            FOR SELECT USING (id = (auth.jwt() ->> 'tenant_id')::uuid);
     END IF;
 
     -- No UPDATE policy: tenants is read-only to the app. customer_allowance,
@@ -2916,6 +2922,16 @@ DO $$ BEGIN
                     OR branch_id = current_branch_id()
                 )
             );
+    END IF;
+
+    -- Your own row stays readable while the tenant is turned off, so login
+    -- reaches the "organization inactive" screen instead of failing.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'users' AND policyname = 'users_select_self'
+    ) THEN
+        CREATE POLICY users_select_self ON users
+            FOR SELECT USING (id = auth.uid());
     END IF;
 
     IF NOT EXISTS (

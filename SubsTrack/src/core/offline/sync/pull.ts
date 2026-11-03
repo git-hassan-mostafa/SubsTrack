@@ -12,6 +12,7 @@ import { withDbLock } from "../dbLock";
 import { isoDaysAgo } from "@shared/core/utils/ids";
 import { getMeta, META_LAST_PULLED_AT, setMeta } from "./meta";
 import { mapWithLimit, NETWORK_CONCURRENCY } from "./parallel";
+import { isTenantInactive } from "./tenantActive";
 
 const PAGE = 1000;
 const ID_BATCH = 200;
@@ -117,6 +118,7 @@ export async function pullChanges(): Promise<boolean> {
     if (!r.ok) complete = false;
     else if (r.max && (!newMax || r.max > newMax)) newMax = r.max;
   }
+  if (await isTenantInactive()) return false;
   if (complete && newMax && newMax !== startedAt) {
     await setMeta(db, META_LAST_PULLED_AT, newMax);
   }

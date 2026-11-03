@@ -161,3 +161,14 @@ DELETE FROM app_options WHERE key = 'AllowSelfServiceSignup';
 ALTER TABLE tenants DROP CONSTRAINT IF EXISTS chk_tenants_customer_allowance_min;
 ALTER TABLE tenants ALTER COLUMN customer_allowance SET DEFAULT 20;
 ALTER TABLE tenants ALTER COLUMN plan_allowance SET DEFAULT 20;
+
+-- ---------------------------------------------------------------------------
+-- 2026-11-02 — a turned-off organization is shut out by the database
+-- ---------------------------------------------------------------------------
+-- current_tenant_id() now returns NULL while tenants.active is false, which
+-- would also hide the tenant's own row from the app. script.sql declares the
+-- replacement tenants_select_own (reads the JWT claim directly); the old
+-- policy goes here. Safe to run repeatedly.
+--
+-- A fresh database never needs this — script.sql no longer declares it.
+DROP POLICY IF EXISTS tenants_select ON tenants;
