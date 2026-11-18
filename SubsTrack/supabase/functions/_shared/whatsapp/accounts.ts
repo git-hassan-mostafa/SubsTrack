@@ -1,12 +1,12 @@
 // @ts-nocheck — Deno runtime file.
 import { decryptSecret } from "./crypto.ts";
-import { graphRequest } from "./graph.ts";
+import { type GraphCredentials, graphRequest, sijilAppSecret } from "./graph.ts";
 import { HttpError } from "./http.ts";
 import { regionOf } from "./phone.ts";
 import { normalizeTier } from "./rules.ts";
 
 export const ACCOUNT_COLUMNS =
-  "id, tenant_id, waba_id, phone_number_id, display_phone_number, verified_name, default_region, is_coexistence, status, attention_code, messaging_limit_tier";
+  "id, tenant_id, waba_id, phone_number_id, display_phone_number, verified_name, default_region, is_coexistence, status, attention_code, messaging_limit_tier, app_id, webhook_auto";
 
 export async function liveAccount(service, tenantId: string) {
   const { data, error } = await service
@@ -27,14 +27,38 @@ export async function requireLiveAccount(service, tenantId: string) {
   return account;
 }
 
-export async function accountToken(service, accountId: string): Promise<string | null> {
+export async function ownAppSecret(service, accountId: string): Promise<string | null> {
   const { data, error } = await service
     .from("whatsapp_credentials")
-    .select("access_token_enc")
+    .select("app_secret_enc")
     .eq("account_id", accountId)
     .maybeSingle();
   if (error) throw error;
-  return data ? decryptSecret(data.access_token_enc) : null;
+  return data?.app_secret_enc ? decryptSecret(data.app_secret_enc) : null;
+}
+
+// An own-app account signs with its own secret; a popup account with Sijil's.
+export async function accountCredentials(
+  service,
+  accountId: string,
+): Promise<GraphCredentials | null> {
+  const { data, error } = await service
+    .from("whatsapp_credentials")
+    .select("access_token_enc, app_secret_enc")
+    .eq("account_id", accountId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    token: await decryptSecret(data.access_token_enc),
+    appSecret: data.app_secret_enc ? await decryptSecret(data.app_secret_enc) : sijilAppSecret(),
+  };
+}
+
+export async function requireCredentials(service, accountId: string): Promise<GraphCredentials> {
+  const creds = await accountCredentials(service, accountId);
+  if (!creds) throw new HttpError(409, "token_invalid", "Please connect WhatsApp again.");
+  return creds;
 }
 
 export async function markAttention(service, accountId: string, attentionCode: string) {
@@ -67,18 +91,21 @@ export async function cancelQueued(service, accountId: string, errorKey: string)
     .eq("status", "queued");
 }
 
+// Stops this account's app from getting the WABA's webhooks; never throws.
+export async function unsubscribeApp(service, account) {
+  const creds = await accountCredentials(service, account.id).catch(() => null);
+  if (creds) {
+    await graphRequest("DELETE", `${account.waba_id}/subscribed_apps`, creds).catch(() => null);
+  }
+}
+
 // Keeps the account row and its history; only the secret and the queue go.
 export async function retireAccount(
   service,
   account,
   options: { reason: string; byUserId?: string | null; unsubscribe: boolean },
 ) {
-  if (options.unsubscribe) {
-    const token = await accountToken(service, account.id).catch(() => null);
-    if (token) {
-      await graphRequest("DELETE", `${account.waba_id}/subscribed_apps`, token).catch(() => null);
-    }
-  }
+  if (options.unsubscribe) await unsubscribeApp(service, account);
   await cancelQueued(service, account.id, "disconnected");
   await service.from("whatsapp_credentials").delete().eq("account_id", account.id);
   await service

@@ -3786,6 +3786,8 @@ ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS disconnected_by UUID
 ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS disconnected_at TIMESTAMPTZ;
 ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS disconnect_reason TEXT;
 ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS history_sync_started_at TIMESTAMPTZ;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS app_id TEXT;
+ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS webhook_auto BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE whatsapp_accounts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
@@ -3797,7 +3799,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_whatsapp_accounts_tenant_phone
     ON whatsapp_accounts (tenant_id, phone_number_id);
 CREATE INDEX IF NOT EXISTS idx_whatsapp_accounts_waba ON whatsapp_accounts (waba_id);
 
--- The Meta business token and register PIN, AES-256-GCM encrypted by the Edge
+-- The Meta token, register PIN and own-app secret, AES-256-GCM encrypted by the Edge
 -- Functions. RLS on with NO policy = service role only. Removed on disconnect.
 CREATE TABLE IF NOT EXISTS whatsapp_credentials ();
 
@@ -3807,6 +3809,7 @@ ALTER TABLE whatsapp_credentials ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NUL
     CONSTRAINT fk_whatsapp_credentials_tenant REFERENCES tenants(id) ON DELETE CASCADE;
 ALTER TABLE whatsapp_credentials ADD COLUMN IF NOT EXISTS access_token_enc TEXT NOT NULL;
 ALTER TABLE whatsapp_credentials ADD COLUMN IF NOT EXISTS pin_enc TEXT;
+ALTER TABLE whatsapp_credentials ADD COLUMN IF NOT EXISTS app_secret_enc TEXT;
 ALTER TABLE whatsapp_credentials ADD COLUMN IF NOT EXISTS key_version INT NOT NULL DEFAULT 1;
 ALTER TABLE whatsapp_credentials ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE whatsapp_credentials ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();

@@ -1,4 +1,9 @@
-import type { Page, WhatsAppQueueResult } from "@shared/core/types";
+import type {
+  OwnAppConnectResult,
+  Page,
+  WhatsAppQueueResult,
+  WhatsAppWebhookInfo,
+} from "@shared/core/types";
 import type {
   DbWhatsAppAccount,
   DbWhatsAppMessage,
@@ -10,6 +15,7 @@ import { isOnline } from "@/src/core/offline/net/connectivity";
 import type {
   IWhatsAppRepository,
   MessagePageQuery,
+  OwnAppConnectInput,
   QueueInput,
   SignupCompletion,
   SignupResult,
@@ -50,6 +56,16 @@ export class OfflineWhatsAppRepository implements IWhatsAppRepository {
   async startConnect(consent: boolean): Promise<{ url: string }> {
     await this.requireOnline();
     return this.online.startConnect(consent);
+  }
+
+  async connectOwnApp(input: OwnAppConnectInput): Promise<OwnAppConnectResult> {
+    await this.requireOnline();
+    return this.online.connectOwnApp(input);
+  }
+
+  async webhookInfo(): Promise<WhatsAppWebhookInfo> {
+    await this.requireOnline();
+    return this.online.webhookInfo();
   }
 
   async refresh(): Promise<void> {

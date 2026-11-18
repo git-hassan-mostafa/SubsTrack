@@ -10,6 +10,8 @@ import { SectionLabel } from "@/src/shared/components/SectionLabel";
 import { CARD_SURFACE } from "@/src/shared/constants";
 import { useWhatsAppConnection } from "@shared/modules/whatsapp/hooks/useWhatsAppConnection";
 import { CONNECT_FROM_PARAM, CONNECT_FROM_WEB } from "@shared/modules/whatsapp/utils/constants";
+import { OwnAppConnectForm } from "./OwnAppConnectForm";
+import { WebhookSetupBox } from "./WebhookSetupBox";
 
 // On web the page replaces this tab, so it is told to come back in-app.
 async function openConnectPage(url: string) {
@@ -48,6 +50,7 @@ export function WhatsAppConnectionSection() {
               <Text className="text-sm text-amber-800">{connection.attentionText}</Text>
             </View>
           ) : null}
+          {connection.webhookInfo ? <WebhookSetupBox info={connection.webhookInfo} /> : null}
           <InfoRows rows={connection.infoRows} />
           <Text className="text-xs text-gray-500 mt-3 mb-3">
             {t("whatsapp.billing_note")}
@@ -67,6 +70,15 @@ export function WhatsAppConnectionSection() {
               disabled={saving || !configured}
               fullWidth
             />
+            {connection.ownAppOpen ? null : (
+              <Button
+                label={t(connection.usesOwnApp ? "whatsapp.own_app.change_keys" : "whatsapp.own_app.open")}
+                variant="ghost"
+                onPress={connection.openOwnApp}
+                disabled={saving}
+                fullWidth
+              />
+            )}
             <Button
               label={t("whatsapp.disconnect")}
               variant="danger"
@@ -75,6 +87,9 @@ export function WhatsAppConnectionSection() {
               fullWidth
             />
           </View>
+          {connection.ownAppOpen ? (
+            <OwnAppConnectForm ownApp={connection.ownApp} onCancel={connection.closeOwnApp} />
+          ) : null}
         </>
       ) : (
         <>
@@ -102,6 +117,18 @@ export function WhatsAppConnectionSection() {
             disabled={!connection.consent || !configured}
             fullWidth
           />
+          {connection.ownAppOpen ? (
+            <OwnAppConnectForm ownApp={connection.ownApp} onCancel={connection.closeOwnApp} />
+          ) : (
+            <View className="mt-2">
+              <Button
+                label={t("whatsapp.own_app.open")}
+                variant="ghost"
+                onPress={connection.openOwnApp}
+                fullWidth
+              />
+            </View>
+          )}
         </>
       )}
     </View>

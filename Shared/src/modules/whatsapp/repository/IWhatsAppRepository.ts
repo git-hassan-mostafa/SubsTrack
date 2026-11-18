@@ -1,9 +1,11 @@
 import type { BranchFilter } from "@shared/core/constants";
 import type {
+  OwnAppConnectResult,
   Page,
   WhatsAppMessageStatus,
   WhatsAppQueueResult,
   WhatsAppRecipient,
+  WhatsAppWebhookInfo,
 } from "@shared/core/types";
 import type {
   DbWhatsAppAccount,
@@ -40,6 +42,14 @@ export interface SignupResult {
   verifiedName: string | null;
 }
 
+export interface OwnAppConnectInput {
+  consent: boolean;
+  token: string;
+  appSecret: string;
+  phoneNumberId: string | null;
+  pin: string | null;
+}
+
 export interface IWhatsAppRepository {
   findLiveAccount(tenantId: string): Promise<DbWhatsAppAccount | null>;
   findTemplates(accountId: string): Promise<DbWhatsAppTemplate[]>;
@@ -49,6 +59,8 @@ export interface IWhatsAppRepository {
     query: MessagePageQuery,
   ): Promise<Page<DbWhatsAppMessage>>;
   startConnect(consent: boolean): Promise<{ url: string }>;
+  connectOwnApp(input: OwnAppConnectInput): Promise<OwnAppConnectResult>;
+  webhookInfo(): Promise<WhatsAppWebhookInfo>;
   refresh(): Promise<void>;
   submitTemplates(): Promise<number>;
   disconnect(): Promise<void>;

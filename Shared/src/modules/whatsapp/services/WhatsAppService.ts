@@ -3,6 +3,7 @@ import type {
   Currency,
   Customer,
   MonthBill,
+  OwnAppConnectResult,
   Page,
   UnpaidStartRule,
   WhatsAppAccount,
@@ -14,6 +15,7 @@ import type {
   WhatsAppSkipReason,
   WhatsAppTemplate,
   WhatsAppTemplatePurpose,
+  WhatsAppWebhookInfo,
 } from "@shared/core/types";
 import { inChunks } from "@shared/core/utils/chunk";
 import { newId } from "@shared/core/utils/ids";
@@ -32,6 +34,7 @@ import {
 } from "@edge/whatsapp/sijilTemplates";
 import type {
   MessagePageQuery,
+  OwnAppConnectInput,
   SignupCompletion,
   SignupResult,
 } from "@shared/modules/whatsapp/repository/IWhatsAppRepository";
@@ -102,6 +105,14 @@ class WhatsAppService {
   async startConnect(consent: boolean): Promise<string> {
     const { url } = await repositories().whatsApp.startConnect(consent);
     return url;
+  }
+
+  connectOwnApp(input: OwnAppConnectInput): Promise<OwnAppConnectResult> {
+    return repositories().whatsApp.connectOwnApp(input);
+  }
+
+  webhookInfo(): Promise<WhatsAppWebhookInfo> {
+    return repositories().whatsApp.webhookInfo();
   }
 
   refresh(): Promise<void> {

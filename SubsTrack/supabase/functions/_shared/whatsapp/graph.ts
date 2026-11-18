@@ -32,14 +32,33 @@ export class MetaError extends Error {
   }
 }
 
+export interface GraphCredentials {
+  token: string;
+  appSecret: string;
+}
+
+export interface PhoneNumberChoice {
+  phoneNumberId: string;
+  displayPhoneNumber: string | null;
+  verifiedName: string | null;
+}
+
 function appCredentials() {
   const env = requireEnv(["META_APP_ID", "META_APP_SECRET"]);
   return { appId: env.META_APP_ID, appSecret: env.META_APP_SECRET };
 }
 
-// appsecret_proof makes a leaked token useless without our app secret.
-async function appSecretProof(token: string): Promise<string> {
-  return hmacSha256Hex(appCredentials().appSecret, token);
+export function sijilAppSecret(): string {
+  return requireEnv(["META_APP_SECRET"]).META_APP_SECRET;
+}
+
+export function sijilCredentials(token: string): GraphCredentials {
+  return { token, appSecret: sijilAppSecret() };
+}
+
+// appsecret_proof makes a leaked token useless without that app's own secret.
+function appSecretProof(creds: GraphCredentials): Promise<string> {
+  return hmacSha256Hex(creds.appSecret, creds.token);
 }
 
 // A reply cut off mid-body already left our side: a network failure.
@@ -74,24 +93,40 @@ async function parseResponse(response: Response) {
   return body;
 }
 
+async function fetchJson(url: URL) {
+  let response: Response;
+  try {
+    response = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+  } catch (error) {
+    throw new MetaError(
+      error instanceof Error ? error.message : "Network error",
+      null,
+      0,
+      null,
+      true,
+    );
+  }
+  return parseResponse(response);
+}
+
 export async function graphRequest(
   method: "GET" | "POST" | "DELETE",
   path: string,
-  token: string,
+  creds: GraphCredentials,
   options: { query?: Record<string, string>; body?: unknown } = {},
 ) {
   const url = new URL(`${GRAPH_BASE}/${path.replace(/^\//, "")}`);
   for (const [key, value] of Object.entries(options.query ?? {})) {
     url.searchParams.set(key, value);
   }
-  url.searchParams.set("appsecret_proof", await appSecretProof(token));
+  url.searchParams.set("appsecret_proof", await appSecretProof(creds));
 
   let response: Response;
   try {
     response = await fetch(url, {
       method,
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${creds.token}`,
         ...(options.body ? { "Content-Type": "application/json" } : {}),
       },
       body: options.body ? JSON.stringify(options.body) : undefined,
@@ -116,11 +151,26 @@ export async function exchangeCode(code: string): Promise<string> {
   url.searchParams.set("client_id", appId);
   url.searchParams.set("client_secret", appSecret);
   url.searchParams.set("code", code);
-  const body = await parseResponse(
-    await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) }),
-  );
+  const body = await fetchJson(url);
   if (!body?.access_token) throw new MetaError("Meta returned no access token", null, 200, null);
   return body.access_token;
+}
+
+function scopeTargetIds(tokenData, matches: (scope: string) => boolean): string[] {
+  const ids = new Set<string>();
+  for (const scope of tokenData?.granular_scopes ?? []) {
+    if (!matches(String(scope.scope ?? ""))) continue;
+    for (const id of scope.target_ids ?? []) ids.add(String(id));
+  }
+  return [...ids];
+}
+
+export function wabaIdsOfToken(tokenData): string[] {
+  return scopeTargetIds(tokenData, (scope) => scope.startsWith("whatsapp_business"));
+}
+
+export function businessIdsOfToken(tokenData): string[] {
+  return scopeTargetIds(tokenData, (scope) => scope === "business_management");
 }
 
 export async function grantedWabaIds(token: string): Promise<string[] | null> {
@@ -128,26 +178,51 @@ export async function grantedWabaIds(token: string): Promise<string[] | null> {
   const url = new URL(`${GRAPH_BASE}/debug_token`);
   url.searchParams.set("input_token", token);
   url.searchParams.set("access_token", `${appId}|${appSecret}`);
-  const body = await parseResponse(
-    await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) }),
-  );
-  const scopes = body?.data?.granular_scopes;
-  if (!Array.isArray(scopes)) return null;
-  const ids = new Set<string>();
-  for (const scope of scopes) {
-    if (!String(scope.scope ?? "").startsWith("whatsapp_business")) continue;
-    for (const id of scope.target_ids ?? []) ids.add(String(id));
-  }
-  return ids.size > 0 ? [...ids] : null;
+  const ids = wabaIdsOfToken((await fetchJson(url))?.data);
+  return ids.length > 0 ? ids : null;
 }
 
-export async function wabaPhoneNumberIds(wabaId: string, token: string): Promise<string[]> {
-  const body = await graphRequest("GET", `${wabaId}/phone_numbers`, token, {
+// A token inspecting itself: needs nothing but the tenant's own keys.
+export async function inspectOwnToken(creds: GraphCredentials) {
+  const body = await graphRequest("GET", "debug_token", creds, {
+    query: { input_token: creds.token },
+  });
+  return body?.data ?? null;
+}
+
+// Only the real app secret turns into a working app access token.
+export async function assertAppSecret(appId: string, appSecret: string) {
+  const url = new URL(`${GRAPH_BASE}/${appId}`);
+  url.searchParams.set("fields", "id");
+  url.searchParams.set("access_token", `${appId}|${appSecret}`);
+  await fetchJson(url);
+}
+
+export async function ownedWabaIds(businessId: string, creds: GraphCredentials): Promise<string[]> {
+  const body = await graphRequest("GET", `${businessId}/owned_whatsapp_business_accounts`, creds, {
     query: { fields: "id", limit: "100" },
   });
   return (body?.data ?? []).map((row) => String(row.id));
 }
 
-export function fetchPhoneDetails(phoneNumberId: string, token: string) {
-  return graphRequest("GET", phoneNumberId, token, { query: { fields: PHONE_FIELDS } });
+export async function wabaPhoneNumbers(
+  wabaId: string,
+  creds: GraphCredentials,
+): Promise<PhoneNumberChoice[]> {
+  const body = await graphRequest("GET", `${wabaId}/phone_numbers`, creds, {
+    query: { fields: "id,display_phone_number,verified_name", limit: "100" },
+  });
+  return (body?.data ?? []).map((row) => ({
+    phoneNumberId: String(row.id),
+    displayPhoneNumber: row.display_phone_number ?? null,
+    verifiedName: row.verified_name ?? null,
+  }));
+}
+
+export async function wabaPhoneNumberIds(wabaId: string, creds: GraphCredentials): Promise<string[]> {
+  return (await wabaPhoneNumbers(wabaId, creds)).map((phone) => phone.phoneNumberId);
+}
+
+export function fetchPhoneDetails(phoneNumberId: string, creds: GraphCredentials) {
+  return graphRequest("GET", phoneNumberId, creds, { query: { fields: PHONE_FIELDS } });
 }

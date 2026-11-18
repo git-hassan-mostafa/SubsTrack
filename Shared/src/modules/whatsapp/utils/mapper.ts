@@ -29,6 +29,8 @@ export function mapDbWhatsAppAccount(db: DbWhatsAppAccount): WhatsAppAccount {
     nameStatus: db.name_status,
     consentConfirmedAt: db.consent_confirmed_at,
     connectedAt: db.connected_at,
+    appId: db.app_id ?? null,
+    webhookAuto: Boolean(db.webhook_auto),
   };
 }
 

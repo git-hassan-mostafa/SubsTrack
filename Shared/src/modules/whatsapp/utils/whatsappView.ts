@@ -129,6 +129,10 @@ export function accountInfoRows(account: WhatsAppAccount, t: TFn): WhatsAppInfoR
     { label: t("whatsapp.number"), value: account.displayPhoneNumber },
     { label: t("whatsapp.display_name"), value: account.verifiedName },
     {
+      label: t("whatsapp.connected_with"),
+      value: account.appId ? t("whatsapp.connected_with_own_app") : t("whatsapp.connected_with_sijil"),
+    },
+    {
       label: t("whatsapp.quality"),
       value: account.qualityRating
         ? t(`whatsapp.quality_rating.${account.qualityRating}`, { defaultValue: account.qualityRating })
@@ -141,6 +145,11 @@ export function accountInfoRows(account: WhatsAppAccount, t: TFn): WhatsAppInfoR
         : t("whatsapp.daily_limit_unlimited"),
     },
   ];
+}
+
+// Meta refused Sijil setting the webhook, so the admin pastes it in their app.
+export function needsManualWebhook(account: WhatsAppAccount): boolean {
+  return !!account.appId && !account.webhookAuto;
 }
 
 export function skipReasonCounts(skipped: WhatsAppSkipList): [WhatsAppSkipReason, number][] {

@@ -2323,6 +2323,26 @@
     "cancel_batch_confirm": "لن تُرسل رسائل هذه الدفعة التي لا تزال بالانتظار.",
     "filter_all": "الكل",
     "history_empty": "لا توجد رسائل واتساب بعد.",
+    "connected_with": "متصل عبر",
+    "connected_with_sijil": "سجل (التسجيل عبر فيسبوك)",
+    "connected_with_own_app": "تطبيق Meta الخاص بك",
+    "own_app": {
+      "open": "استخدم تطبيق Meta الخاص بي بدلاً من ذلك",
+      "change_keys": "تغيير مفاتيح تطبيق Meta",
+      "title": "تطبيق Meta الخاص بك",
+      "intro": "للأعمال التي لديها تطبيق مطوّر على Meta مع واتساب. الصق المفتاحين أدناه وسيجد سجل الباقي. الرقم المربوط بهذه الطريقة لا يمكن استخدامه في تطبيق واتساب على هاتفك.",
+      "token_label": "رمز الوصول الدائم (مستخدم النظام)",
+      "secret_label": "المفتاح السري للتطبيق",
+      "number_label": "رقم الهاتف",
+      "number_hint": "تطبيق Meta الخاص بك فيه أكثر من رقم. اختر الرقم الذي يرسل منه سجل.",
+      "pin_label": "رمز التحقق بخطوتين",
+      "pin_hint": "هذا الرقم لديه رمز من 6 أرقام. أدخله للإنهاء.",
+      "submit": "ربط",
+      "webhook_title": "خطوة أخيرة في Meta",
+      "webhook_hint": "لم تسمح Meta لسجل بإعداد هذا تلقائياً. في تطبيق Meta افتح WhatsApp ← Configuration ← Webhook، والصق القيمتين، واشترك في messages و message_template_status_update و account_update. ثم اضغط «تحقق مجدداً».",
+      "webhook_url": "رابط الاستدعاء (Callback URL)",
+      "webhook_token": "رمز التحقق (Verify token)"
+    },
     "connect_page": {
       "title": "ربط واتساب بسجل",
       "no_link": "تعمل هذه الصفحة فقط من الرابط الذي يفتحه سجل. في سجل اذهب إلى الإدارة ← واتساب ← ربط واتساب.",
@@ -2367,7 +2387,15 @@
       "too_many_recipients": "عدد الزبائن كبير جداً في طلب واحد.",
       "invalid_customer": "زبون غير معروف.",
       "invalid_phone": "رقم هاتف هذا الزبون غير صحيح.",
-      "server_error": "حدث خطأ ما. حاول مجدداً."
+      "server_error": "حدث خطأ ما. حاول مجدداً.",
+      "own_app_keys_missing": "أدخل رمز الوصول والمفتاح السري للتطبيق.",
+      "own_app_secret_wrong": "المفتاح السري لا يطابق تطبيق هذا الرمز.",
+      "own_app_token_invalid": "رمز الوصول هذا غير صالح.",
+      "own_app_token_expires": "هذا الرمز تنتهي صلاحيته. استخدم رمزاً دائماً لمستخدم النظام.",
+      "own_app_token_permissions": "يحتاج الرمز إلى صلاحيتي whatsapp_business_messaging و whatsapp_business_management.",
+      "own_app_no_waba": "هذا الرمز لا يصل إلى أي حساب واتساب للأعمال. امنح مستخدم النظام صلاحية الوصول إليه من إعدادات Meta للأعمال.",
+      "own_app_no_number": "حساب واتساب للأعمال هذا ليس فيه رقم هاتف بعد. أضف رقماً في Meta أولاً.",
+      "not_own_app": "هذا الربط لا يستخدم تطبيق Meta الخاص بك."
     }
   },
   "why_disabled": {

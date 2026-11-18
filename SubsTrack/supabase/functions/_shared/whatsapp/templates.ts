@@ -1,5 +1,5 @@
 // @ts-nocheck — Deno runtime file.
-import { graphRequest } from "./graph.ts";
+import { type GraphCredentials, graphRequest } from "./graph.ts";
 import { detectParameterFormat, isSendableTemplate, templateParamNames } from "./rules.ts";
 import {
   SIJIL_TEMPLATES,
@@ -44,12 +44,12 @@ function toRow(account, template, syncedAt: string) {
   };
 }
 
-export async function syncTemplates(service, account, token: string) {
+export async function syncTemplates(service, account, creds: GraphCredentials) {
   const syncedAt = new Date().toISOString();
   const rows = [];
   let after: string | null = null;
   do {
-    const page = await graphRequest("GET", `${account.waba_id}/message_templates`, token, {
+    const page = await graphRequest("GET", `${account.waba_id}/message_templates`, creds, {
       query: { fields: TEMPLATE_FIELDS, limit: "100", ...(after ? { after } : {}) },
     });
     for (const template of page?.data ?? []) rows.push(toRow(account, template, syncedAt));
@@ -87,7 +87,7 @@ function sijilComponents(spec, language) {
 }
 
 // Creates missing Sijil templates and resubmits rejected ones.
-export async function submitSijilTemplates(service, account, token: string, log) {
+export async function submitSijilTemplates(service, account, creds: GraphCredentials, log) {
   const { data: existing } = await service
     .from("whatsapp_templates")
     .select("name, language, status, meta_template_id")
@@ -102,7 +102,7 @@ export async function submitSijilTemplates(service, account, token: string, log)
       const components = sijilComponents(spec, language);
       try {
         if (!current || current.status === "DELETED") {
-          await graphRequest("POST", `${account.waba_id}/message_templates`, token, {
+          await graphRequest("POST", `${account.waba_id}/message_templates`, creds, {
             body: {
               name: spec.name,
               language,
@@ -113,7 +113,7 @@ export async function submitSijilTemplates(service, account, token: string, log)
           });
           submitted++;
         } else if (current.status === "REJECTED" && current.meta_template_id) {
-          await graphRequest("POST", current.meta_template_id, token, {
+          await graphRequest("POST", current.meta_template_id, creds, {
             body: { category: "UTILITY", components },
           });
           submitted++;
@@ -128,6 +128,6 @@ export async function submitSijilTemplates(service, account, token: string, log)
       }
     }
   }
-  if (submitted > 0) await syncTemplates(service, account, token);
+  if (submitted > 0) await syncTemplates(service, account, creds);
   return submitted;
 }

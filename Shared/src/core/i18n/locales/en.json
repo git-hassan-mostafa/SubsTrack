@@ -2167,6 +2167,26 @@
     "cancel_batch_confirm": "Messages from this send that are still waiting will not be sent.",
     "filter_all": "All",
     "history_empty": "No WhatsApp messages yet.",
+    "connected_with": "Connected with",
+    "connected_with_sijil": "Sijil (Facebook sign-up)",
+    "connected_with_own_app": "Your own Meta app",
+    "own_app": {
+      "open": "Use my own Meta app instead",
+      "change_keys": "Change Meta app keys",
+      "title": "Your own Meta app",
+      "intro": "For businesses that already have a Meta developer app with WhatsApp. Paste the 2 keys below and Sijil finds the rest. A number connected this way cannot be used in the WhatsApp app on your phone.",
+      "token_label": "Permanent access token (system user)",
+      "secret_label": "App secret",
+      "number_label": "Phone number",
+      "number_hint": "Your Meta app has more than one number. Choose the one Sijil sends from.",
+      "pin_label": "Two-step verification PIN",
+      "pin_hint": "This number already has a 6-digit PIN. Enter it to finish.",
+      "submit": "Connect",
+      "webhook_title": "One more step in Meta",
+      "webhook_hint": "Meta did not let Sijil set this up by itself. In your Meta app open WhatsApp → Configuration → Webhook, paste these 2 values, and subscribe to messages, message_template_status_update and account_update. Then tap Check again.",
+      "webhook_url": "Callback URL",
+      "webhook_token": "Verify token"
+    },
     "connect_page": {
       "title": "Connect WhatsApp to Sijil",
       "no_link": "This page only works from the link Sijil opens. In Sijil go to Admin → WhatsApp → Connect WhatsApp.",
@@ -2211,7 +2231,15 @@
       "too_many_recipients": "Too many customers in one request.",
       "invalid_customer": "Unknown customer.",
       "invalid_phone": "This customer's phone number is not valid.",
-      "server_error": "Something went wrong. Please try again."
+      "server_error": "Something went wrong. Please try again.",
+      "own_app_keys_missing": "Enter the access token and the app secret.",
+      "own_app_secret_wrong": "The app secret does not match the app of this token.",
+      "own_app_token_invalid": "This access token is not valid.",
+      "own_app_token_expires": "This token expires. Use a permanent system user token.",
+      "own_app_token_permissions": "The token needs the whatsapp_business_messaging and whatsapp_business_management permissions.",
+      "own_app_no_waba": "This token cannot reach any WhatsApp Business Account. Give the system user access to it in Meta Business Settings.",
+      "own_app_no_number": "This WhatsApp Business Account has no phone number yet. Add one in Meta first.",
+      "not_own_app": "This connection does not use your own Meta app."
     }
   },
   "why_disabled": {

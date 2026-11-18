@@ -10,6 +10,8 @@ import { CONNECT_FROM_PARAM, CONNECT_FROM_WEB } from "@shared/modules/whatsapp/u
 import { InfoRows } from "@/shared/components/InfoRows";
 import { StatusChip } from "@/shared/components/StatusChip";
 import { SettingsSection } from "@/modules/admin/tenant-settings/components/SettingsSection";
+import { OwnAppConnectForm } from "./OwnAppConnectForm";
+import { WebhookSetupBox } from "./WebhookSetupBox";
 
 // The signup page replaces this tab and is told to come back here, not to the phone app.
 function openConnectPage(url: string) {
@@ -32,7 +34,7 @@ export function WhatsAppConnectionSection() {
           label={t("whatsapp.consent_label")}
           sx={{ alignItems: "flex-start", "& .MuiCheckbox-root": { mt: -1 } }}
         />
-        <Stack direction="row">
+        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
           <Button
             variant="contained"
             loading={saving}
@@ -41,7 +43,15 @@ export function WhatsAppConnectionSection() {
           >
             {t("whatsapp.connect")}
           </Button>
+          {connection.ownAppOpen ? null : (
+            <Button variant="text" onClick={connection.openOwnApp}>
+              {t("whatsapp.own_app.open")}
+            </Button>
+          )}
         </Stack>
+        {connection.ownAppOpen ? (
+          <OwnAppConnectForm ownApp={connection.ownApp} onCancel={connection.closeOwnApp} />
+        ) : null}
       </SettingsSection>
     );
   }
@@ -53,6 +63,7 @@ export function WhatsAppConnectionSection() {
         {account.isCoexistence ? <StatusChip label={t("whatsapp.coexistence")} tone="sky" /> : null}
       </Stack>
       {connection.attentionText ? <Alert severity="warning">{connection.attentionText}</Alert> : null}
+      {connection.webhookInfo ? <WebhookSetupBox info={connection.webhookInfo} /> : null}
       <InfoRows rows={connection.infoRows} />
       <Typography variant="body2" color="text.secondary">
         {t("whatsapp.billing_note")}
@@ -64,10 +75,18 @@ export function WhatsAppConnectionSection() {
         <Button variant="outlined" disabled={saving || !configured} onClick={() => void connection.reconnect()}>
           {t("whatsapp.reconnect")}
         </Button>
+        {connection.ownAppOpen ? null : (
+          <Button variant="outlined" disabled={saving} onClick={connection.openOwnApp}>
+            {t(connection.usesOwnApp ? "whatsapp.own_app.change_keys" : "whatsapp.own_app.open")}
+          </Button>
+        )}
         <Button variant="outlined" color="error" disabled={saving} onClick={() => void connection.disconnect()}>
           {t("whatsapp.disconnect")}
         </Button>
       </Stack>
+      {connection.ownAppOpen ? (
+        <OwnAppConnectForm ownApp={connection.ownApp} onCancel={connection.closeOwnApp} />
+      ) : null}
     </SettingsSection>
   );
 }

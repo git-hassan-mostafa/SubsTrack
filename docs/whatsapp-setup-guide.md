@@ -182,6 +182,37 @@ Until this part is done, only people with a role on your Meta app (step 8) can c
 
 ---
 
+## Part 8 — A tenant who uses their own Meta app (the other way)
+
+Some tenants prefer to use **their own Meta app** instead of Meta's sign-up window. Sijil then needs only **2 values** from them. Sijil finds everything else (the app, the WhatsApp account and the phone number).
+
+**Good to know before choosing this way:**
+
+- The number **cannot** be used in the WhatsApp or WhatsApp Business app on a phone any more. Use a number only for Sijil messages.
+- The tenant does more steps in Meta than with the sign-up window. Most tenants should use the normal way (Part 7).
+
+**You:** SuperAdminWeb → Tenants → turn on **WhatsApp messaging allowed** for them (same as Part 7).
+
+**Send the tenant admin these steps:**
+
+1. Go to **business.facebook.com** and make sure you have a **business portfolio** (create one if not).
+2. Go to **developers.facebook.com** → **My Apps** → **Create app** → type **Business** → link it to your business portfolio.
+3. In the app, add **WhatsApp**. Under **WhatsApp → API Setup**, add your phone number and verify it with the SMS or call code.
+4. Go to **Business Settings → Users → System users** → **Add** a system user (role **Admin**).
+5. On that system user, **Assign assets**: your **app** (full control) and your **WhatsApp account** (full control).
+6. Still on that system user: **Generate new token** → choose your app → expiry **Never** → tick **whatsapp_business_messaging** and **whatsapp_business_management** → copy the token. Keep it safe; Meta shows it once.
+7. In the app: **App settings → Basic** → copy the **App secret** (tap Show). Also fill **Privacy Policy URL** (any public page with your privacy policy).
+8. Switch the app to **Live** at the top of the app page.
+9. In Sijil: **More → Admin → WhatsApp** → choose the language → tick the consent box → **Use my own Meta app instead** → paste the **token** and the **app secret** → **Connect**.
+   - If your app has more than one number, Sijil asks you to choose one.
+   - If the number already has a 6-digit PIN, Sijil asks for it.
+10. If Sijil shows a box **"One more step in Meta"**: in your app open **WhatsApp → Configuration → Webhook**, paste the **Callback URL** and **Verify token** from that box, tap **Verify and save**, then subscribe to **messages**, **message_template_status_update** and **account_update**. Back in Sijil tap **Check again**.
+11. Then continue from Part 7, step 5 (payment method, wait for approved templates, send).
+
+To change the token later: More → Admin → WhatsApp → **Change Meta app keys**.
+
+---
+
 ## If something goes wrong
 
 | What you see | What to check |
@@ -194,3 +225,7 @@ Until this part is done, only people with a role on your Meta app (step 8) can c
 | Templates stay **Waiting** forever | The webhook is not set up (steps 17–18). Tap **Refresh from Meta** to pull the status by hand |
 | Messages stay **Waiting** | One of the three Vault secrets in step 12 is missing or wrong, or the account shows **Needs attention** |
 | Failed: payment method | Step 24, then More → Admin → WhatsApp → **Check again** |
+| Own Meta app: "app secret does not match" | The secret was copied from a different app than the token. Copy both from the same app (Part 8, steps 6–7) |
+| Own Meta app: "this token expires" | The token was made with an expiry. Make a new one with expiry **Never** (Part 8, step 6) |
+| Own Meta app: "cannot reach any WhatsApp Business Account" | The system user was not given the WhatsApp account (Part 8, step 5) |
+| Own Meta app: messages send but never show Delivered / Read | The webhook is not set. Do Part 8, step 10, then **Check again** |

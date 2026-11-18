@@ -1,5 +1,5 @@
 // @ts-nocheck — Deno runtime file.
-import { markAttention, retireAccount } from "../_shared/whatsapp/accounts.ts";
+import { markAttention, ownAppSecret, retireAccount } from "../_shared/whatsapp/accounts.ts";
 import { serviceClient } from "../_shared/whatsapp/auth.ts";
 import { hmacSha256Hex, timingSafeEqual } from "../_shared/whatsapp/crypto.ts";
 import { createLogger, newRequestId, requireEnv } from "../_shared/whatsapp/http.ts";
@@ -40,12 +40,39 @@ function verifyHandshake(url: URL) {
   return text("Forbidden", 403);
 }
 
-async function signatureIsValid(req: Request, raw: string): Promise<boolean> {
-  const { META_APP_SECRET } = requireEnv(["META_APP_SECRET"]);
-  const header = req.headers.get("x-hub-signature-256") ?? "";
-  if (!header.startsWith("sha256=")) return false;
-  const expected = await hmacSha256Hex(META_APP_SECRET, raw);
+async function signatureMatches(secret: string | null, header: string, raw: string): Promise<boolean> {
+  if (!secret || !header.startsWith("sha256=")) return false;
+  const expected = await hmacSha256Hex(secret, raw);
   return timingSafeEqual(header.slice("sha256=".length), expected);
+}
+
+// An own-app WABA signs with its own secret; every other WABA with Sijil's.
+async function secretForWaba(service, wabaId: string): Promise<string | null> {
+  const { data } = await service
+    .from("whatsapp_accounts")
+    .select("id")
+    .eq("waba_id", wabaId)
+    .neq("status", "disconnected")
+    .not("app_id", "is", null)
+    .limit(1)
+    .maybeSingle();
+  if (data) return ownAppSecret(service, data.id);
+  return Deno.env.get("META_APP_SECRET") ?? null;
+}
+
+// Keeps only the entries signed with the secret of the WABA they are about.
+async function verifiedEntries(service, req: Request, raw: string, entries) {
+  const header = req.headers.get("x-hub-signature-256") ?? "";
+  const verdicts = new Map<string, boolean>();
+  const kept = [];
+  for (const entry of entries) {
+    const wabaId = String(entry?.id ?? "");
+    if (!verdicts.has(wabaId)) {
+      verdicts.set(wabaId, await signatureMatches(await secretForWaba(service, wabaId), header, raw));
+    }
+    if (verdicts.get(wabaId)) kept.push(entry);
+  }
+  return kept;
 }
 
 async function accountsFor(service, wabaId: string, phoneNumberId: string | null) {
@@ -240,20 +267,27 @@ Deno.serve(async (req) => {
     if (req.method !== "POST") return text("Method not allowed", 405);
 
     const raw = await req.text();
-    if (!(await signatureIsValid(req, raw))) {
+    let payload;
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      return text("Invalid body", 400);
+    }
+    const service = serviceClient();
+    const entries = Array.isArray(payload?.entry) ? payload.entry : [];
+    const verified = await verifiedEntries(service, req, raw, entries);
+    if (verified.length === 0) {
       log(reqId, "bad_signature");
       return text("Invalid signature", 401);
     }
-    const payload = JSON.parse(raw);
     if (payload?.object !== "whatsapp_business_account") return text("ignored");
 
-    const service = serviceClient();
-    for (const entry of payload.entry ?? []) {
+    for (const entry of verified) {
       for (const change of entry.changes ?? []) {
         await handleChange(service, String(entry.id ?? ""), change);
       }
     }
-    log(reqId, "processed", { entries: payload.entry?.length ?? 0 });
+    log(reqId, "processed", { entries: verified.length });
     return text("ok");
   } catch (error) {
     log(reqId, "error", { message: error instanceof Error ? error.message : String(error) });

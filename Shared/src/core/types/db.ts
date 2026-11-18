@@ -452,6 +452,8 @@ export interface DbWhatsAppAccount {
   name_status: string | null;
   consent_confirmed_at: string | null;
   connected_at: string;
+  app_id: string | null;
+  webhook_auto: boolean | null;
 }
 
 export interface DbWhatsAppTemplate {

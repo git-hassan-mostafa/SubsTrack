@@ -1,6 +1,6 @@
 // @ts-nocheck — Deno runtime file.
-import { accountToken, markAttention } from "./accounts.ts";
-import { graphRequest, MetaError } from "./graph.ts";
+import { accountCredentials, markAttention } from "./accounts.ts";
+import { type GraphCredentials, graphRequest, MetaError } from "./graph.ts";
 import {
   attentionCodeFor,
   backoffMs,
@@ -19,7 +19,7 @@ const DAY_MS = 24 * 60 * 60_000;
 
 interface AccountContext {
   account: { id: string; phone_number_id: string; status: string; messaging_limit_tier: string | null };
-  token: string | null;
+  creds: GraphCredentials | null;
   limit: number;
   reached: number;
   reachedPhones: Set<string>;
@@ -32,20 +32,20 @@ async function loadContext(service, accountId: string): Promise<AccountContext> 
     .select("id, phone_number_id, status, messaging_limit_tier")
     .eq("id", accountId)
     .maybeSingle();
-  const [token, reachedResult] = await Promise.all([
-    account ? accountToken(service, accountId).catch(() => null) : Promise.resolve(null),
+  const [creds, reachedResult] = await Promise.all([
+    account ? accountCredentials(service, accountId).catch(() => null) : Promise.resolve(null),
     service.rpc("whatsapp_reached_last_day", { p_account_id: accountId }),
   ]);
-  if (account?.status === "connected" && !token) {
+  if (account?.status === "connected" && !creds) {
     await markAttention(service, accountId, "token_invalid");
   }
   return {
     account,
-    token,
+    creds,
     limit: tierLimit(account?.messaging_limit_tier),
     reached: reachedResult.data ?? 0,
     reachedPhones: new Set(),
-    blocked: !account || account.status !== "connected" || !token,
+    blocked: !account || account.status !== "connected" || !creds,
   };
 }
 
@@ -153,7 +153,7 @@ async function sendOne(service, context: AccountContext, row) {
     const response = await graphRequest(
       "POST",
       `${context.account.phone_number_id}/messages`,
-      context.token,
+      context.creds,
       {
         body: buildTemplateMessage({
           to: row.to_phone_e164,

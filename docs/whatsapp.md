@@ -1,6 +1,6 @@
 # WhatsApp Cloud API (per-tenant)
 
-Each tenant connects **its own** WABA + phone number via Meta **Embedded Signup v4**; **Meta bills that tenant directly**. Sijil = Meta **Tech Provider**: never holds a credit line, never pays for tenant messages. Receipts still use `wa.me` links (`modules/invoicing`); Cloud API sends **reminders + notices**.
+Each tenant connects **its own** WABA + phone number, two ways: Meta **Embedded Signup v4** (default, Sijil's Meta app) or **own Meta app** (tenant pastes token + app secret, §3b). **Meta bills that tenant directly**. Sijil = Meta **Tech Provider**: never holds a credit line, never pays for tenant messages. Receipts still use `wa.me` links (`modules/invoicing`); Cloud API sends **reminders + notices**.
 
 Read before touching `supabase/functions/whatsapp-*`, `supabase/functions/_shared/whatsapp/`, `Shared/src/modules/whatsapp/`, `SubsTrack/src/modules/whatsapp/`, `Web/src/modules/whatsapp/` or `whatsapp_*` tables. Client rules live once in Shared (`utils/whatsappMenu.ts`, `utils/whatsappView.ts`, `utils/embeddedSignup.ts`, hooks `useWhatsAppActions`/`useSendWhatsAppForm`/`useWhatsAppConnection`/`useEmbeddedSignup`); each app adds icons, layout and how it opens a URL. Gotchas #161–#170. Owner's step-by-step setup + test list: `docs/whatsapp-setup-guide.md`.
 
@@ -16,20 +16,20 @@ Meta ─(X-Hub-Signature-256)→ whatsapp-webhook ─→ statuses, template stat
 
 |Function|Auth|Does|
 |-|-|-|
-|`whatsapp-admin`|JWT, org-wide admin (`set_opt_out`: any admin, own branch)|`start_connect`, `refresh`, `submit_templates`, `disconnect`, `set_opt_out`|
+|`whatsapp-admin`|JWT, org-wide admin (`set_opt_out`: any admin, own branch)|`start_connect`, `connect_own_app`, `webhook_info`, `refresh`, `submit_templates`, `disconnect`, `set_opt_out`|
 |`whatsapp-onboard`|public; one-time session token|`complete` (code → token, ownership check, subscribe, register / coexistence sync, store, templates), `register_pin`|
 |`whatsapp-send`|JWT, admin (branch admin: own branch)|`queue` — validates + inserts rows, replies at once, sends in `EdgeRuntime.waitUntil`; `cancel_batch`|
 |`whatsapp-worker`|`x-worker-secret`|drains due rows (~50 s budget)|
-|`whatsapp-webhook`|public; HMAC-SHA256 of raw body w/ app secret|GET verify handshake; POST events|
+|`whatsapp-webhook`|public; HMAC-SHA256 of raw body w/ the WABA's app secret (§3b)|GET verify handshake; POST events|
 
-Shared server code `_shared/whatsapp/` (`optOuts.ts` records/clears opt-outs for webhook + `whatsapp-admin`). `rules.ts` + `sijilTemplates.ts` are **pure + import-free**: app imports them via `@/supabase/functions/...` (wa.me fallback text, preview, Graph version), `tests/` covers them. Every other shared file is Deno-only.
+Shared server code `_shared/whatsapp/` (`optOuts.ts` records/clears opt-outs for webhook + `whatsapp-admin`; `connect.ts` = `saveAccount` / `setupTemplates` / `setWebhookOverride` for both connect ways; `ownApp.ts` = own-app discovery). `rules.ts` + `sijilTemplates.ts` are **pure + import-free**: app imports them via `@/supabase/functions/...` (wa.me fallback text, preview, Graph version), `tests/` covers them. Every other shared file is Deno-only.
 
 ## 2. Tables (server-only — never mirrored, see docs/offline.md)
 
 |Table|Holds|Client access|
 |-|-|-|
-|`whatsapp_accounts`|one row per (tenant, phone number); `status` connected / needs_attention / disconnected; region, quality, daily tier, consent who/when|SELECT tenant admins|
-|`whatsapp_credentials`|AES-256-GCM token + PIN (`WHATSAPP_TOKEN_KEY`)|none (no policy)|
+|`whatsapp_accounts`|one row per (tenant, phone number); `status` connected / needs_attention / disconnected; region, quality, daily tier, consent who/when; `app_id` (null = Sijil's app), `webhook_auto`|SELECT tenant admins|
+|`whatsapp_credentials`|AES-256-GCM token + PIN + `app_secret_enc` (own app only) (`WHATSAPP_TOKEN_KEY`)|none (no policy)|
 |`whatsapp_connect_sessions`|SHA-256 of one-time link token, 15-min expiry, pending token while PIN asked|none|
 |`whatsapp_templates`|synced from Meta; `is_sijil`, `purpose`, `params`, `supported`|SELECT tenant admins|
 |`whatsapp_messages`|history **and** queue; `variables` only until Meta accepts; read via `findMessagePage` (exact count, `branch_id` = `owned` scope)|SELECT admins, branch-scoped|
@@ -57,6 +57,16 @@ Owner switch `tenants.whatsapp_enabled` (SuperAdminWeb), guarded by `trg_tenants
 - **Template webhooks** via `templateStatusForEvent`: `REINSTATED` / `UNARCHIVED` → `APPROVED`; `FLAGGED` / `LOCKED` / `UNLOCKED` leave status alone (#168). Template whose buttons/header need a value Sijil can't fill (copy-code, dynamic URL, media, OTP, flow, catalog) stored as not supported (`isSendableTemplate`).
 - **Not connected.** One-customer reminder opens `wa.me` w/ same template wording. Bulk sends + notices need a connection.
 - **Connect page.** Trusts `postMessage` only from `facebook.com` or `*.facebook.com`. `FINISH_ONLY_WABA` (admin finished Meta's window w/o phone number) shows own message, never sent to server. Started from web app → page gets `?from=web`, and **Return to Sijil** goes back to Admin → WhatsApp (`/admin/whatsapp` in `Web/`; legacy Expo web = `/more/whatsapp`) in same tab instead of `sijil://`. `Web/` has its own `/whatsapp-connect` (public, outside `SessionGate`, reads options itself); `WhatsAppConnectUrl` decides which one Meta's link opens until H2. Native WhatsApp screen refetches when app returns to front.
+
+## 3b. Own Meta app (alternative to Embedded Signup)
+
+- **Secret rule (ONE place, `accountCredentials` in `accounts.ts`):** account w/ `app_secret_enc` → that secret; else `META_APP_SECRET`. Used for `appsecret_proof` on every Graph call (`graphRequest(method, path, creds)`) and webhook HMAC. #197.
+- **Input = 2 values:** permanent system-user token + app secret. `connect_own_app` (`ownApp.ts`): `debug_token` w/ the token itself → `is_valid`, `app_id`, `expires_at === 0` (else `own_app_token_expires`), both `whatsapp_business_*` scopes; `assertAppSecret` (app token `appId|secret`); WABAs = scope `target_ids`, empty → `business_management` targets → `owned_whatsapp_business_accounts` (max 10); numbers = `{waba}/phone_numbers`.
+- **Stateless steps:** answers `{status: "connected"}` | `{status: "choose_number", numbers}` (several numbers) | `{status: "needs_pin", phoneNumberId}` (status ≠ CONNECTED and register w/ random PIN hit 133005/133006). Client re-sends keys + `phoneNumberId` / `pin` each step; nothing pending stored. Typed PIN wrong → `wrong_pin`.
+- **Webhook:** `setWebhookOverride` = `POST {waba}/subscribed_apps` w/ `override_callback_uri` (`…/whatsapp-webhook?apikey=<anon>`) + global `WHATSAPP_WEBHOOK_VERIFY_TOKEN` → `webhook_auto`. Refused → UI shows URL + token (`webhook_info`) for WhatsApp → Configuration → Webhook; **Check again** retries the override while `webhook_auto = false`.
+- **Switching ways:** `saveAccount` retires the live account when the number changes; app change (popup ↔ own app, same or other number) also unsubscribes the OLD app from the WABA, else its webhooks arrive signed w/ the wrong secret.
+- Coexistence impossible here (Embedded Signup only) → own-app number is API-only. Tenant's app needs a privacy policy URL to go Live; Meta has no API to set it.
+- Client: Shared `useOwnAppConnect` (steps) + pure `utils/ownAppForm.ts`; slice `connectOwnApp` / `loadWebhookInfo` / `webhookInfo`; `needsManualWebhook` in `whatsappView.ts`. Each app: `OwnAppConnectForm` + `WebhookSetupBox` inside `WhatsAppConnectionSection`.
 
 ## 4. Meta setup (SaaS owner, once)
 
@@ -96,6 +106,8 @@ Owner switch `tenants.whatsapp_enabled` (SuperAdminWeb), guarded by `trg_tenants
 6. Wait until templates show **Approved** (minutes, up to 24 h).
 7. Customers → select → **Send on WhatsApp**, or row menu → **Send payment reminder**. Results in More → Admin → **WhatsApp messages**.
 8. Disconnect in More → Admin → WhatsApp. To fully remove access also Meta Business Settings → Integrations → Connected apps.
+
+**Own-app tenant instead (§3b):** developers.facebook.com → Business app → WhatsApp → add + verify number → Business Settings → System users → add, assign app + WABA (full control) → generate token (expiry **Never**, `whatsapp_business_messaging` + `whatsapp_business_management`) → App settings → Basic: copy **App secret**, add privacy policy URL → app **Live** → Sijil: More → Admin → WhatsApp → tick consent → **Use my own Meta app instead** → paste both → Connect. Payment method + templates same as above.
 
 ## 7. Policy notes
 

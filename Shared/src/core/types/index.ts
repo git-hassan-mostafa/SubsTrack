@@ -1019,6 +1019,24 @@ export interface WhatsAppAccount {
   nameStatus: string | null;
   consentConfirmedAt: string | null;
   connectedAt: string;
+  appId: string | null;
+  webhookAuto: boolean;
+}
+
+export interface WhatsAppNumberChoice {
+  phoneNumberId: string;
+  displayPhoneNumber: string | null;
+  verifiedName: string | null;
+}
+
+export type OwnAppConnectResult =
+  | { status: "connected"; displayPhoneNumber: string | null; verifiedName: string | null }
+  | { status: "choose_number"; numbers: WhatsAppNumberChoice[] }
+  | { status: "needs_pin"; phoneNumberId: string };
+
+export interface WhatsAppWebhookInfo {
+  url: string;
+  verifyToken: string;
 }
 
 export type WhatsAppTemplatePurpose =

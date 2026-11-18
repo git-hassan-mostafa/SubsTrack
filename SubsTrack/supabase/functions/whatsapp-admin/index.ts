@@ -1,11 +1,12 @@
 // @ts-nocheck — Deno runtime file.
 import {
-  accountToken,
   phoneDetailsToColumns,
+  requireCredentials,
   requireLiveAccount,
   retireAccount,
 } from "../_shared/whatsapp/accounts.ts";
 import { readAppOptions, requireAdmin, serviceClient } from "../_shared/whatsapp/auth.ts";
+import { setWebhookOverride, webhookTarget } from "../_shared/whatsapp/connect.ts";
 import { randomToken, sha256Hex } from "../_shared/whatsapp/crypto.ts";
 import { fetchPhoneDetails } from "../_shared/whatsapp/graph.ts";
 import {
@@ -17,6 +18,7 @@ import {
   UUID_REGEX,
 } from "../_shared/whatsapp/http.ts";
 import { clearOptOut, recordOptOut } from "../_shared/whatsapp/optOuts.ts";
+import { connectOwnApp, readOwnAppBody } from "../_shared/whatsapp/ownApp.ts";
 import { toE164 } from "../_shared/whatsapp/phone.ts";
 import { submitSijilTemplates, syncTemplates } from "../_shared/whatsapp/templates.ts";
 
@@ -24,10 +26,14 @@ const { log, json, handle } = createLogger("whatsapp-admin");
 const SESSION_MINUTES = 15;
 const REQUIRED_OPTIONS = ["WhatsAppAppId", "WhatsAppConfigId", "WhatsAppConnectUrl"];
 
-async function startConnect(service, caller, body) {
+function requireConsent(body) {
   if (body.consent !== true) {
     throw new HttpError(400, "consent_required", "Please confirm you have your customers' permission first.");
   }
+}
+
+async function startConnect(service, caller, body) {
+  requireConsent(body);
   const options = await readAppOptions(service, REQUIRED_OPTIONS);
   if (REQUIRED_OPTIONS.some((key) => !options[key])) {
     throw new HttpError(409, "not_configured", "WhatsApp is not set up by Sijil yet. Please contact support.");
@@ -45,11 +51,19 @@ async function startConnect(service, caller, body) {
   return { url: url.toString(), expiresInMinutes: SESSION_MINUTES };
 }
 
-async function refresh(service, caller) {
+async function connectWithOwnApp(service, caller, body, reqId) {
+  requireConsent(body);
+  return connectOwnApp(
+    service,
+    { tenantId: caller.tenantId, userId: caller.userId, ...readOwnAppBody(body) },
+    (event, detail) => log(reqId, event, detail),
+  );
+}
+
+async function refresh(service, caller, reqId) {
   const account = await requireLiveAccount(service, caller.tenantId);
-  const token = await accountToken(service, account.id);
-  if (!token) throw new HttpError(409, "token_invalid", "Please connect WhatsApp again.");
-  const details = await fetchPhoneDetails(account.phone_number_id, token);
+  const creds = await requireCredentials(service, account.id);
+  const details = await fetchPhoneDetails(account.phone_number_id, creds);
   const phoneOk = !details?.status || details.status === "CONNECTED";
   await service
     .from("whatsapp_accounts")
@@ -59,19 +73,27 @@ async function refresh(service, caller) {
       attention_code: phoneOk ? null : `phone_${String(details.status).toLowerCase()}`,
     })
     .eq("id", account.id);
-  await syncTemplates(service, account, token);
+  if (account.app_id && !account.webhook_auto) {
+    await setWebhookOverride(service, account, creds, (event, detail) => log(reqId, event, detail));
+  }
+  await syncTemplates(service, account, creds);
   return { ok: true };
 }
 
 async function submitTemplates(service, caller, reqId) {
   const account = await requireLiveAccount(service, caller.tenantId);
-  const token = await accountToken(service, account.id);
-  if (!token) throw new HttpError(409, "token_invalid", "Please connect WhatsApp again.");
-  await syncTemplates(service, account, token);
-  const submitted = await submitSijilTemplates(service, account, token, (event, detail) =>
+  const creds = await requireCredentials(service, account.id);
+  await syncTemplates(service, account, creds);
+  const submitted = await submitSijilTemplates(service, account, creds, (event, detail) =>
     log(reqId, event, detail),
   );
   return { submitted };
+}
+
+async function webhookInfo(service, caller) {
+  const account = await requireLiveAccount(service, caller.tenantId);
+  if (!account.app_id) throw new HttpError(409, "not_own_app", "This connection does not use your own Meta app.");
+  return webhookTarget();
 }
 
 async function disconnect(service, caller) {
@@ -83,7 +105,6 @@ async function disconnect(service, caller) {
   });
   return { ok: true };
 }
-
 async function setOptOut(service, caller, body) {
   const customerId = String(body.customerId ?? "");
   if (!UUID_REGEX.test(customerId)) throw new HttpError(400, "invalid_customer", "Unknown customer.");
@@ -135,7 +156,9 @@ Deno.serve(async (req) => {
 
     const caller = await requireAdmin(req, service, { tenantWide: true });
     if (action === "start_connect") return json(await startConnect(service, caller, body));
-    if (action === "refresh") return json(await refresh(service, caller));
+    if (action === "connect_own_app") return json(await connectWithOwnApp(service, caller, body, reqId));
+    if (action === "refresh") return json(await refresh(service, caller, reqId));
+    if (action === "webhook_info") return json(await webhookInfo(service, caller));
     if (action === "submit_templates") return json(await submitTemplates(service, caller, reqId));
     if (action === "disconnect") return json(await disconnect(service, caller));
     throw new HttpError(400, "unknown_action", "Unknown action.");

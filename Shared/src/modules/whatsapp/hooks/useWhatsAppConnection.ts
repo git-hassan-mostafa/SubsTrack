@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useOwnAppConnect } from "@shared/modules/whatsapp/hooks/useOwnAppConnect";
 import {
   accountAttentionText,
   accountInfoRows,
   accountStatusTone,
+  needsManualWebhook,
 } from "@shared/modules/whatsapp/utils/whatsappView";
 import { confirm } from "@shared/shared/lib/confirm";
 import { useWhatsAppSignupOptions } from "@shared/state/hooks/useOptionSlice";
@@ -16,13 +18,22 @@ export function useWhatsAppConnection(openConnectPage: OpenConnectPage) {
   const { t } = useTranslation();
   const account = useWhatsAppSlice((s) => s.account);
   const saving = useWhatsAppSlice((s) => s.saving);
+  const webhookInfo = useWhatsAppSlice((s) => s.webhookInfo);
   const startConnect = useWhatsAppSlice((s) => s.startConnect);
   const refresh = useWhatsAppSlice((s) => s.refresh);
   const disconnectAccount = useWhatsAppSlice((s) => s.disconnect);
+  const loadWebhookInfo = useWhatsAppSlice((s) => s.loadWebhookInfo);
   const options = useWhatsAppSignupOptions();
   const [consent, setConsent] = useState(false);
+  const [ownAppOpen, setOwnAppOpen] = useState(false);
+  const ownApp = useOwnAppConnect(account ? true : consent, () => setOwnAppOpen(false));
 
   const configured = !!(options.appId && options.configId && options.connectUrl);
+  const manualWebhook = account ? needsManualWebhook(account) : false;
+
+  useEffect(() => {
+    if (manualWebhook && !webhookInfo) void loadWebhookInfo();
+  }, [manualWebhook, webhookInfo, loadWebhookInfo]);
 
   async function connect(confirmed: boolean) {
     const url = await startConnect(confirmed);
@@ -59,6 +70,12 @@ export function useWhatsAppConnection(openConnectPage: OpenConnectPage) {
     reconnect,
     disconnect,
     refresh,
+    ownApp,
+    ownAppOpen,
+    openOwnApp: () => setOwnAppOpen(true),
+    closeOwnApp: () => setOwnAppOpen(false),
+    usesOwnApp: !!account?.appId,
+    webhookInfo: manualWebhook ? webhookInfo : null,
     statusTone: account ? accountStatusTone(account) : null,
     statusLabel: account ? t(`whatsapp.account_status.${account.status}`) : null,
     attentionText: account ? accountAttentionText(account, t) : null,

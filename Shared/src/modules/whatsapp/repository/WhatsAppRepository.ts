@@ -1,4 +1,9 @@
-import type { Page, WhatsAppQueueResult } from "@shared/core/types";
+import type {
+  OwnAppConnectResult,
+  Page,
+  WhatsAppQueueResult,
+  WhatsAppWebhookInfo,
+} from "@shared/core/types";
 import type {
   DbWhatsAppAccount,
   DbWhatsAppMessage,
@@ -12,13 +17,14 @@ import { WhatsAppError } from "@shared/modules/whatsapp/utils/whatsappError";
 import type {
   IWhatsAppRepository,
   MessagePageQuery,
+  OwnAppConnectInput,
   QueueInput,
   SignupCompletion,
   SignupResult,
 } from "@shared/modules/whatsapp/repository/IWhatsAppRepository";
 
 const ACCOUNT_COLUMNS =
-  "id, tenant_id, waba_id, phone_number_id, display_phone_number, verified_name, is_coexistence, status, attention_code, quality_rating, messaging_limit_tier, name_status, consent_confirmed_at, connected_at";
+  "id, tenant_id, waba_id, phone_number_id, display_phone_number, verified_name, is_coexistence, status, attention_code, quality_rating, messaging_limit_tier, name_status, consent_confirmed_at, connected_at, app_id, webhook_auto";
 
 const TEMPLATE_COLUMNS =
   "id, name, language, category, status, rejection_reason, parameter_format, body_text, params, purpose, is_sijil, supported";
@@ -86,6 +92,17 @@ export class WhatsAppRepository
       action: "start_connect",
       consent,
     });
+  }
+
+  async connectOwnApp(input: OwnAppConnectInput): Promise<OwnAppConnectResult> {
+    return this.invokeAsStaff(WHATSAPP_FUNCTIONS.admin, {
+      action: "connect_own_app",
+      ...input,
+    });
+  }
+
+  async webhookInfo(): Promise<WhatsAppWebhookInfo> {
+    return this.invokeAsStaff(WHATSAPP_FUNCTIONS.admin, { action: "webhook_info" });
   }
 
   async refresh(): Promise<void> {

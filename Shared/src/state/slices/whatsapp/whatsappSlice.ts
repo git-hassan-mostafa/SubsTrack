@@ -1,17 +1,20 @@
 import type { StateCreator } from "zustand";
 import type {
+  OwnAppConnectResult,
   WhatsAppAccount,
   WhatsAppLanguage,
   WhatsAppOptOut,
   WhatsAppQueueResult,
   WhatsAppSkipReason,
   WhatsAppTemplate,
+  WhatsAppWebhookInfo,
 } from "@shared/core/types";
 import {
   whatsAppService,
   type RecipientBuildArgs,
   type ReminderPurpose,
 } from "@shared/modules/whatsapp/services/WhatsAppService";
+import type { OwnAppConnectInput } from "@shared/modules/whatsapp/repository/IWhatsAppRepository";
 import type { GlobalState } from "@shared/state/globalStore";
 import { currentDataEpoch, isStaleEpoch } from "@shared/shared/lib/dataEpoch";
 
@@ -24,6 +27,7 @@ export interface WhatsAppSlice {
   account: WhatsAppAccount | null;
   templates: WhatsAppTemplate[];
   optOuts: WhatsAppOptOut[];
+  webhookInfo: WhatsAppWebhookInfo | null;
   loaded: boolean;
   loading: boolean;
   saving: boolean;
@@ -32,6 +36,8 @@ export interface WhatsAppSlice {
   fetchOverview: () => Promise<void>;
   ensureLoaded: () => Promise<void>;
   startConnect: (consent: boolean) => Promise<string | null>;
+  connectOwnApp: (input: OwnAppConnectInput) => Promise<OwnAppConnectResult | null>;
+  loadWebhookInfo: () => Promise<void>;
   refresh: () => Promise<void>;
   submitTemplates: () => Promise<void>;
   disconnect: () => Promise<boolean>;
@@ -83,6 +89,7 @@ export const createWhatsAppSlice: StateCreator<
     account: null,
     templates: [],
     optOuts: [],
+    webhookInfo: null,
     loaded: false,
     loading: false,
     saving: false,
@@ -125,6 +132,25 @@ export const createWhatsAppSlice: StateCreator<
     startConnect: (consent) =>
       run("saving", () => whatsAppService.startConnect(consent)),
 
+    connectOwnApp: async (input) => {
+      const result = await run("saving", () => whatsAppService.connectOwnApp(input));
+      if (result?.status === "connected") {
+        set((state) => {
+          state.whatsapp.webhookInfo = null;
+        });
+        await get().whatsapp.fetchOverview();
+      }
+      return result;
+    },
+
+    loadWebhookInfo: async () => {
+      const info = await run("saving", () => whatsAppService.webhookInfo());
+      if (!info) return;
+      set((state) => {
+        state.whatsapp.webhookInfo = info;
+      });
+    },
+
     refresh: async () => {
       const done = await run("saving", async () => {
         await whatsAppService.refresh();
@@ -150,6 +176,7 @@ export const createWhatsAppSlice: StateCreator<
       set((state) => {
         state.whatsapp.account = null;
         state.whatsapp.templates = [];
+        state.whatsapp.webhookInfo = null;
       });
       return true;
     },
@@ -203,6 +230,7 @@ export const createWhatsAppSlice: StateCreator<
         state.whatsapp.account = null;
         state.whatsapp.templates = [];
         state.whatsapp.optOuts = [];
+        state.whatsapp.webhookInfo = null;
         state.whatsapp.loaded = false;
         state.whatsapp.loading = false;
         state.whatsapp.saving = false;
