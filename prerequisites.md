@@ -11,8 +11,7 @@ Do these in order. A skipped step fails later and looks like a code bug.
 5. **Turn on the auth hook** (Authentication → Hooks → Customize access token → `public.custom_access_token_hook`) — without it the app shows no data.
 6. **Set refresh token reuse interval to `30`** (Authentication → Sessions) — stops collectors being logged out.
 7. **Add function secrets `SERVICE_ROLE_KEY`, `ANON_KEY`, `PORTAL_JWT_SECRET`** (Edge Functions → Secrets) — names must match exactly; never change `PORTAL_JWT_SECRET` later.
-8. **Run `npm run deploy-all-functions`** in `SubsTrack/` — deploys 10 edge functions; redeploy after any change, including `_shared/`.
-9. **Deploy `customer-status` too** — `supabase functions deploy customer-status` in `SubsTrack/`. It is not in `deploy-all-functions`; the Web app's customer list needs it.
+8. **Run `npm run deploy-all-functions`** in `SubsTrack/` — deploys all 11 edge functions (including `customer-status`, which the Web app's customer list needs); redeploy after any change, including `_shared/`.
 
 ## Apps
 

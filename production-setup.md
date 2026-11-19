@@ -34,8 +34,7 @@ Do the parts in order. Step-by-step detail for the first setup is also in [prere
    - Make a random value: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
    - Never change `PORTAL_JWT_SECRET` later — every portal customer would be logged out.
 8. [ ] Install the Supabase CLI → `supabase login` → in `SubsTrack/`: `supabase link --project-ref <prod ref>` → `npm run deploy-all-functions`.
-9. [ ] Then, in `SubsTrack/`: `supabase functions deploy customer-status`.
-   - If the CLI is blocked on your laptop: `cd Web && npm run build-edge`, then paste `SubsTrack/supabase/functions/_dashboard/customer-status/index.ts` in Dashboard → Edge Functions → Editor (name `customer-status`, "Verify JWT" ON).
+9. [ ] `deploy-all-functions` also deploys `customer-status`. If the CLI is blocked on your laptop: `cd Web && npm run build-edge`, then paste `SubsTrack/supabase/functions/_dashboard/customer-status/index.ts` in Dashboard → Edge Functions → Editor (name `customer-status`, "Verify JWT" ON).
 10. [ ] Advisors → Security Advisor → check it is clean.
 11. [ ] Set the options (SuperAdminWeb → Options):
     - `LiraRate`
@@ -57,7 +56,7 @@ Do the parts in order. Step-by-step detail for the first setup is also in [prere
    - Give the app file straight to customers → `npm run build-prod-apk` (makes an `.apk`).
 5. [ ] Back up the signing key: `eas credentials` → download the keystore. Lose it outside Play = you can never update the app.
 6. [ ] Google Play (if used): store listing, privacy policy address (`/privacy/`), Data safety form, account deletion link (`/delete-account/`), content rating, the closed test.
-7. After launch: code-only changes → `npm run ota-prod`. Native changes → a new build.
+7. After launch: code-only changes → `npm run ota-prod`. Native changes → a new build, following [build-checklist.md](build-checklist.md).
 
 ## 4. Web sites (Vercel — one project each, set "Root Directory")
 
