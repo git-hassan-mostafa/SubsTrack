@@ -15,11 +15,11 @@ import {
 } from "./meta";
 import { pruneWindowedTables, pullChanges } from "./pull";
 import { pushDirty } from "./push";
-import { getSyncStatus, setStatus, type SyncStatus } from "./status";
+import { setStatus, type SyncStatus } from "./status";
 import { isTenantInactive } from "./tenantActive";
 
-const PUSH_EVERY_MS = 5 * 60 * 1000;
-const PULL_EVERY_MS = 10 * 60 * 1000;
+const PUSH_EVERY_MS = 10 * 60 * 1000;
+const PULL_GATE_MS = 10 * 60 * 1000;
 
 type SyncStamp = "lastPushAt" | "lastPullAt" | "lastManualSyncAt";
 
@@ -29,11 +29,11 @@ const STAMP_KEYS: Record<SyncStamp, string> = {
   lastManualSyncAt: META_LAST_MANUAL_SYNC_AT,
 };
 
-let running: Promise<void> | null = null;
+let running: Promise<boolean> | null = null;
 let pushing: Promise<void> | null = null;
 let started = false;
 let suspended = false;
-let timers: ReturnType<typeof setInterval>[] = [];
+let pushTimer: ReturnType<typeof setInterval> | null = null;
 
 /** Hold every cycle off during a restore — the pull releases the lock per page. */
 export function suspendSync(): void {
@@ -76,14 +76,14 @@ async function stamp(field: SyncStamp): Promise<void> {
   setStatus(patch);
 }
 
-/** One sync cycle: push local changes up, then pull server changes down. Serialized. */
-export async function runSync(): Promise<void> {
-  if (!IS_OFFLINE_CAPABLE) return;
-  if (suspended) return;
+// Push, then pull; serialized. True only when it reached the server and finished.
+export async function runSync(): Promise<boolean> {
+  if (!IS_OFFLINE_CAPABLE) return false;
+  if (suspended) return false;
   if (running) return running;
   running = (async () => {
     await pushing?.catch(() => undefined);
-    if (!(await canReachServer())) return;
+    if (!(await canReachServer())) return false;
     setStatus({ syncing: true, lastError: null });
     try {
       await pushDirty();
@@ -95,10 +95,12 @@ export async function runSync(): Promise<void> {
         syncing: false,
         lastError: complete ? null : "sync_incomplete",
       });
+      return complete;
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       console.warn("[sync] failed:", message);
       setStatus({ syncing: false, lastError: message });
+      return false;
     }
   })().finally(() => {
     running = null;
@@ -106,11 +108,11 @@ export async function runSync(): Promise<void> {
   return running;
 }
 
-/** App-open trigger: pulls only when the last pull is older than the pull timer. */
+// The only automatic pull (app open); a fresh pull still pushes — see offline.md
 export async function runSyncIfDue(): Promise<void> {
   if (!IS_OFFLINE_CAPABLE || !isOfflineDbReady()) return;
   const last = await getMeta(getDb(), META_LAST_SYNC_AT);
-  if (last && Date.now() - Date.parse(last) < PULL_EVERY_MS) {
+  if (last && Date.now() - Date.parse(last) < PULL_GATE_MS) {
     try {
       await flushPendingWrites();
     } catch {}
@@ -119,21 +121,17 @@ export async function runSyncIfDue(): Promise<void> {
   await runSync();
 }
 
-function restartTimers(): void {
-  for (const timer of timers) clearInterval(timer);
-  timers = [
-    setInterval(
-      () => void flushPendingWrites().catch(() => undefined),
-      PUSH_EVERY_MS,
-    ),
-    setInterval(() => void runSync(), PULL_EVERY_MS),
-  ];
+function restartPushTimer(): void {
+  if (pushTimer) clearInterval(pushTimer);
+  pushTimer = setInterval(
+    () => void flushPendingWrites().catch(() => undefined),
+    PUSH_EVERY_MS,
+  );
 }
 
 async function runManualSync(): Promise<{ ok: boolean; offline: boolean }> {
-  await runSync();
-  if (started) restartTimers();
-  const ok = getSyncStatus().lastError === null;
+  const ok = await runSync();
+  if (started) restartPushTimer();
   if (ok) await stamp("lastManualSyncAt");
   return { ok, offline: false };
 }
@@ -148,7 +146,10 @@ export async function syncNow(): Promise<{ ok: boolean; offline: boolean }> {
 /** Push-only, never pulls: on logout the session may already be another tenant's. */
 export async function flushPendingWrites(): Promise<void> {
   if (!IS_OFFLINE_CAPABLE || suspended) return;
-  if (running) return running;
+  if (running) {
+    await running;
+    return;
+  }
   if (pushing) return pushing;
   pushing = (async () => {
     if (!(await canReachServer())) return;
@@ -174,7 +175,7 @@ export async function resyncFromScratch(): Promise<{
   return runManualSync();
 }
 
-/** Cold start: one due-gated cycle, then push every 5 min and pull every 10 min. */
+// Cold start: one due-gated cycle, then a push every 10 min; no timed pull.
 export async function startSync(cb: () => void): Promise<void> {
   if (!IS_OFFLINE_CAPABLE || started) return;
   started = true;
@@ -187,6 +188,6 @@ export async function startSync(cb: () => void): Promise<void> {
     });
   }
   await runSyncIfDue();
-  restartTimers();
+  restartPushTimer();
   cb();
 }

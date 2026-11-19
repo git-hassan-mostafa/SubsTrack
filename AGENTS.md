@@ -103,7 +103,7 @@ Layers, dependencies **downward only**: Presentation → State → Business Logi
 - **L4 Repository** — **only** layer importing Supabase; snake_case ↔ camelCase; extends `BaseRepository`.
 - **L5 Core** — types, interfaces, constants, utils; imports from none.
 
-**Offline-first (native only; web talks to Supabase directly).** All in SubsTrack (`*.offline.ts` twins + `core/offline/`); services, slices, UI untouched; platform switch = ONE place (`configurePhone.ts`). Mirror returns the **same `Db*` row shapes**. Writes set `_dirty = 1`; sync pushes, then pulls — **latest `updated_at` wins**. An un-pushed row is the only copy of that money → every trigger pushes. Online-only ops throw `RequiresConnectionError` offline. **Read `docs/offline.md` before touching any repository or the sync engine.**
+**Offline-first (native only; web talks to Supabase directly).** All in SubsTrack (`*.offline.ts` twins + `core/offline/`); services, slices, UI untouched; platform switch = ONE place (`configurePhone.ts`). Mirror returns the **same `Db*` row shapes**. Writes set `_dirty = 1`; sync pushes, then pulls — **latest `updated_at` wins**. An un-pushed row is the only copy of that money → every trigger pushes. Push every 10 min, pull only on app open/manual; no push/pull for 7 days → `SyncRequiredScreen`. Online-only ops throw `RequiresConnectionError` offline. **Read `docs/offline.md` before touching any repository or the sync engine.**
 
 **State rules** (detail `docs/architecture.md`):
 - Slice arrays named `items`. **Always pass a selector** — subscribing to a whole slice is banned. Global store via `getStore()`.

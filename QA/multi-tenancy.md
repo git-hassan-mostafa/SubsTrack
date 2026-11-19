@@ -49,11 +49,11 @@ Make two organizations in SuperAdminWeb: **A** (code `orga`) and **B** (code `or
 
 21. (SuperAdminWeb) Turn A off → A's staff see the "organization inactive" screen when they log in, on phone and web; B's staff keep working normally.
 21a. (web) A's staff have the web app open when A is turned off → when they come back to the tab, it shows "organization inactive". Before that, nothing new can be saved.
-21b. (phone) A's collector has the app open when A is turned off → within 5 minutes it shows "organization inactive".
+21b. (phone) A's collector has the app open when A is turned off → within 10 minutes it shows "organization inactive".
 21c. (phone) Turn on airplane mode, collect a payment in A, turn A off, turn the network back on → the payment is NOT lost: it stays on the phone. Turn A back on → it reaches the server once.
 21d. While A is off, an A admin tries to add a user, delete a user or change a password (from an app that was already open) → refused with "This organization is not active."
 22. While A is off, open the customer portal of an A customer with the right password → the same message as a wrong password; B's customer portal still works.
-23. Turn A back on → A's staff see all their data unchanged (phone: within 5 minutes or after reopening; web: after coming back to the tab or reloading).
+23. Turn A back on → A's staff see all their data unchanged (phone: within 10 minutes or after reopening; web: after coming back to the tab or reloading).
 23a. (phone) Change a customer on the web just before A is turned off, then turn A back on → after the phone syncs, it shows that change.
 
 ## New organization

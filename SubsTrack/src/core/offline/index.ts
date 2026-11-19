@@ -10,6 +10,9 @@ export {
   subscribeSyncStatus,
   suspendSync,
   resumeSync,
+  isSyncOverdue,
+  lastServerContactAt,
+  SYNC_REQUIRED_AFTER_DAYS,
 } from "./sync";
 export type { SyncStatus } from "./sync";
 export { getIsOnline, isOnline } from "./net/connectivity";

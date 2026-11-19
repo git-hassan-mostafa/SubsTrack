@@ -7,10 +7,13 @@ import { UpdateBanner } from "@/src/shared/components/UpdateBanner";
 import { QuickActionSheets } from "@/src/modules/quick-actions";
 import { useDismissKeyboardOnNavigate } from "@/src/shared/hooks/useDismissKeyboardOnNavigate";
 import { useTenantGate } from "@/src/shared/hooks/useTenantGate";
+import { useSyncRequired } from "@/src/shared/hooks/useSyncRequired";
+import { SyncRequiredScreen } from "@/src/shared/components/SyncRequiredScreen";
 export default function AppLayout() {
   useDismissKeyboardOnNavigate();
   const user = useAuthSlice((s) => s.user);
   const tenantActive = useTenantGate();
+  const syncRequired = useSyncRequired();
   const loading = useAuthSlice((s) => s.loading);
   if (loading) return <LoadingScreen />;
   if (!user) return <Redirect href="/(auth)/login" />;
@@ -21,6 +24,7 @@ export default function AppLayout() {
       <UpdateBanner />
       <GlobalConfirmDialog />
       <QuickActionSheets />
+      {syncRequired ? <SyncRequiredScreen /> : null}
     </>
   );
 }

@@ -71,6 +71,8 @@ Owner forgot password → SaaS owner: SuperAdminWeb → tenant details → Owner
 
 app/(app)/_layout.tsx
   → !user → login · !tenantActive → TenantInactiveScreen · else tabs
+  phone: no push/pull for 7 days → SyncRequiredScreen covers the tabs
+  (Sync now / Log out) until a sync reaches the server (docs/offline.md)
   tenantActive re-read while open: authSlice.refreshTenantActive() — phone when
   SyncStatus.tenantInactive flips, web when the tab becomes visible (useTenantGate);
   the DATABASE refuses a turned-off org regardless (gotcha #196)

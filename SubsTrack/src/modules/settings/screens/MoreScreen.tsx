@@ -23,9 +23,9 @@ import {
 import { useAuth } from "@shared/modules/authentication/auth/hooks/useAuth";
 import { roleLabelKey } from "@shared/modules/admin/users/utils/userRules";
 import { endSession } from "@shared/shared/lib/session";
-import { IS_OFFLINE_CAPABLE, syncNow } from "@/src/core/offline";
+import { IS_OFFLINE_CAPABLE } from "@/src/core/offline";
 import { useSyncStatus } from "@/src/shared/hooks/useSyncStatus";
-import { refreshActiveData } from "@shared/state/refreshActiveData";
+import { useManualSync } from "@/src/shared/hooks/useManualSync";
 import { formatDateTimeShort } from "@shared/core/utils/date";
 import * as Updates from "expo-updates";
 import Constants from "expo-constants";
@@ -33,8 +33,6 @@ import { useCopyText } from "@/src/shared/hooks/useCopyText";
 import { openUrl } from "@/src/shared/lib/openUrl";
 import { useLegalLinks } from "@shared/state/hooks/useOptionSlice";
 import { AdminSection } from "../components/AdminSection";
-
-type SyncFailure = "offline" | "failed";
 
 // sync failure stays inline; success shows as the new sync time
 export function MoreScreen() {
@@ -52,21 +50,7 @@ export function MoreScreen() {
   const { language, setLanguage } = useLanguageStore();
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
   const { lastPushAt, lastPullAt, lastManualSyncAt } = useSyncStatus();
-  const [manualSyncing, setManualSyncing] = useState(false);
-  const [syncFailure, setSyncFailure] = useState<SyncFailure | null>(null);
-
-  async function handleSyncPress() {
-    if (manualSyncing) return;
-    setSyncFailure(null);
-    setManualSyncing(true);
-    try {
-      const { ok, offline } = await syncNow();
-      setSyncFailure(offline ? "offline" : ok ? null : "failed");
-      refreshActiveData();
-    } finally {
-      setManualSyncing(false);
-    }
-  }
+  const manualSync = useManualSync();
 
   const languageOptions = SUPPORTED_LANGUAGES.map((lang) => ({
     label: LANGUAGE_NAMES[lang],
@@ -161,15 +145,11 @@ export function MoreScreen() {
 
           {IS_OFFLINE_CAPABLE ? (
             <View>
-              {syncFailure ? (
+              {manualSync.error ? (
                 <View className="mx-4">
                   <ErrorBanner
-                    message={
-                      syncFailure === "offline"
-                        ? t("settings.sync_offline")
-                        : t("settings.sync_failed")
-                    }
-                    onDismiss={() => setSyncFailure(null)}
+                    message={manualSync.error}
+                    onDismiss={manualSync.clearError}
                   />
                 </View>
               ) : null}
@@ -177,10 +157,10 @@ export function MoreScreen() {
                 <ListRow
                   icon="sync-outline"
                   title={t("settings.sync_now")}
-                  disabled={manualSyncing}
-                  onPress={() => void handleSyncPress()}
+                  disabled={manualSync.syncing}
+                  onPress={() => void manualSync.sync()}
                   trailing={
-                    manualSyncing ? (
+                    manualSync.syncing ? (
                       <ActivityIndicator size="small" color={COLORS.gray400} />
                     ) : undefined
                   }

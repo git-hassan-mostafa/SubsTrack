@@ -39,6 +39,10 @@ import {
   syncNow,
 } from "@/src/core/offline/sync/engine";
 import { getSyncStatus } from "@/src/core/offline/sync/status";
+import {
+  isSyncOverdue,
+  lastServerContactAt,
+} from "@/src/core/offline/sync/overdue";
 import { CLIENT_VERSION } from "@shared/modules/options/utils/clientVersion";
 
 const MINUTE = 60 * 1000;
@@ -339,7 +343,56 @@ describe("TC-SY-94..97 — a turned-off organization stops syncing, and keeps it
   });
 });
 
-describe("TC-SY-89..90 — push every 5 minutes, pull every 10", () => {
+describe("TC-SY-98..103 — a phone must reach the server at least every 7 days", () => {
+  const DAY = 24 * 60 * MINUTE;
+  const NOW = Date.parse("2026-06-15T12:00:00.000Z");
+  const daysAgo = (days: number) => new Date(NOW - days * DAY).toISOString();
+
+  it("TC-SY-98 a push 6 days ago keeps the app open", () => {
+    expect(
+      isSyncOverdue({ lastPushAt: daysAgo(6), lastPullAt: daysAgo(20) }, NOW),
+    ).toBe(false);
+  });
+
+  it("TC-SY-99 no push and no pull for more than 7 days blocks the app", () => {
+    expect(
+      isSyncOverdue({ lastPushAt: daysAgo(7.1), lastPullAt: daysAgo(9) }, NOW),
+    ).toBe(true);
+  });
+
+  it("TC-SY-100 a recent pull alone is enough", () => {
+    const status = { lastPushAt: daysAgo(10), lastPullAt: daysAgo(1) };
+
+    expect(isSyncOverdue(status, NOW)).toBe(false);
+    expect(lastServerContactAt(status)).toBe(daysAgo(1));
+  });
+
+  it("TC-SY-101 a phone that never synced is not blocked (it is still signing in)", () => {
+    expect(isSyncOverdue({ lastPushAt: null, lastPullAt: null }, NOW)).toBe(
+      false,
+    );
+  });
+
+  it("TC-SY-102 a manual sync that cannot reach the server reports failure", async () => {
+    mockServer.session = { session: null };
+
+    await expect(syncNow()).resolves.toEqual({ ok: false, offline: false });
+    expect(metaStamp("last_manual_sync_at")).toBeUndefined();
+    expect(metaStamp("last_push_at")).toBeUndefined();
+  });
+
+  it("TC-SY-103 a successful manual sync also stamps the push, so it unblocks the app", async () => {
+    await expect(syncNow()).resolves.toEqual({ ok: true, offline: false });
+
+    const pushAt = metaStamp("last_push_at")?.value;
+    expect(typeof pushAt).toBe("string");
+    expect(
+      isSyncOverdue({ lastPushAt: String(pushAt), lastPullAt: null }, Date.now()),
+    ).toBe(false);
+  });
+});
+
+describe("TC-SY-89..90 — push every 10 minutes, pull only when the app opens", () => {
   beforeAll(() => {
     jest.useFakeTimers();
   });
@@ -349,33 +402,33 @@ describe("TC-SY-89..90 — push every 5 minutes, pull every 10", () => {
     jest.useRealTimers();
   });
 
-  it("TC-SY-89 the push timer never pulls; the pull timer does", async () => {
+  it("TC-SY-89 the timer pushes every 10 minutes and never pulls", async () => {
     mockDb = new FakeDb({ sync_meta: stamped(MINUTE) });
     await startSync(() => undefined);
     mockServer.reset();
     const startupPush = getSyncStatus().lastPushAt;
 
-    await jest.advanceTimersByTimeAsync(5 * MINUTE);
-    expect(getSyncStatus().lastPushAt).not.toBe(startupPush);
-    expect(pulled()).toBe(false);
+    await jest.advanceTimersByTimeAsync(9 * MINUTE);
+    expect(getSyncStatus().lastPushAt).toBe(startupPush);
 
-    await jest.advanceTimersByTimeAsync(5 * MINUTE);
-    expect(pulled()).toBe(true);
+    await jest.advanceTimersByTimeAsync(MINUTE);
+    expect(getSyncStatus().lastPushAt).not.toBe(startupPush);
+
+    await jest.advanceTimersByTimeAsync(60 * MINUTE);
+    expect(pulled()).toBe(false);
   });
 
-  it("TC-SY-90 a manual sync restarts both timers", async () => {
-    await jest.advanceTimersByTimeAsync(2 * MINUTE);
+  it("TC-SY-90 a manual sync restarts the push timer", async () => {
+    await jest.advanceTimersByTimeAsync(4 * MINUTE);
     await syncNow();
     const manualPush = getSyncStatus().lastPushAt;
     mockServer.reset();
 
-    await jest.advanceTimersByTimeAsync(4 * MINUTE);
+    await jest.advanceTimersByTimeAsync(9 * MINUTE);
     expect(getSyncStatus().lastPushAt).toBe(manualPush);
 
-    await jest.advanceTimersByTimeAsync(5 * MINUTE);
-    expect(pulled()).toBe(false);
-
     await jest.advanceTimersByTimeAsync(MINUTE);
-    expect(pulled()).toBe(true);
+    expect(getSyncStatus().lastPushAt).not.toBe(manualPush);
+    expect(pulled()).toBe(false);
   });
 });

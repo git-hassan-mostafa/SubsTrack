@@ -15,6 +15,11 @@ export {
   META_ACTIVE_TENANT,
   setMeta,
 } from "./meta";
+export {
+  isSyncOverdue,
+  lastServerContactAt,
+  SYNC_REQUIRED_AFTER_DAYS,
+} from "./overdue";
 export { pruneWindowedTables } from "./pull";
 export { getSyncStatus, subscribeSyncStatus } from "./status";
 export type { SyncStatus } from "./status";

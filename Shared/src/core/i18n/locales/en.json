@@ -107,6 +107,11 @@
     "update": "Update now",
     "not_found": "No update was found. Please contact support."
   },
+  "sync_required": {
+    "title": "Sync needed",
+    "message": "This phone has not synced in the last {{days}} days. Connect to Wi-Fi or mobile data, then tap Sync now. Your saved work stays on this phone.",
+    "last_synced": "Last synced: {{time}}"
+  },
   "home": {
     "title": "Home"
   },

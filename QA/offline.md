@@ -13,3 +13,6 @@ Turn on airplane mode, do the action, turn the network back on and sync. Then ch
 9. Collect money offline, then reopen the app the same day (sync not due yet) → the payment is still pushed to the server.
 10. Two phones write off the same unpaid month offline → after sync there is one written-off bill for that month, not two.
 11. Collect money offline on an old app version, then set MinClientVersion above it and go online → the phone shows "Update needed" and sends nothing; after updating, the payment is pushed once.
+12. Collect money offline, keep the phone offline for more than 7 days (or move the phone's date 8 days ahead), open the app → only the "Sync needed" page shows; Sync now while offline → "No internet connection"; connect and tap Sync now → the app opens and the payment is on the server.
+13. Leave the app in the background for more than 7 days without internet, then come back to it → the "Sync needed" page shows, and after syncing the screen you were on is still there.
+14. With the app open and online, collect money and do nothing else → the payment reaches the server within 10 minutes.
