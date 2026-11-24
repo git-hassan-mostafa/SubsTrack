@@ -187,7 +187,7 @@ describe("parameters and payload", () => {
   it("TC-WA-R-15 the send payload carries our row id so a late webhook can find it", () => {
     const payload = buildTemplateMessage({
       to: "+9613123456",
-      templateName: "sijil_payment_reminder_v1",
+      templateName: "sijil_payment_reminder_v2",
       language: "ar",
       variables: { format: "named", values: [{ name: "customer_name", value: "Rami" }] },
       callbackId: "row-1",

@@ -134,7 +134,7 @@ Start this early. **Business Verification can take a few days.**
     - confirm.
 
     The page then shows "WhatsApp is connected". On the phone, tap **Return to Sijil**.
-23. **Check the connection.** More → Admin → WhatsApp shows **Connected**, the number, quality and "Customers per day". Under **Message templates** there are 8 rows (4 messages × English and Arabic) marked **Waiting**.
+23. **Check the connection.** More → Admin → WhatsApp shows **Connected**, the number, quality and "Customers per day". Under **Message templates** there are 10 rows (5 messages × English and Arabic) marked **Waiting**.
 24. **Add a card in Meta.** [business.facebook.com](https://business.facebook.com) → WhatsApp Manager → Overview → **Add payment method**. Without it every send fails with a payment message.
 25. **Wait for approval.** When the templates show **Approved** (minutes, up to 24 h), tap **Refresh from Meta**.
 26. **Make a test customer.** Create a customer with **your personal WhatsApp number** as the phone, give them a plan, and leave at least one month unpaid.

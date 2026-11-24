@@ -10,6 +10,24 @@ import {
 
 const TEMPLATE_FIELDS = "id,name,language,status,category,components,parameter_format,rejected_reason";
 
+// An old Sijil version (e.g. _v1): hidden, then deleted on the next submit.
+function isRetiredSijilTemplate(name: string): boolean {
+  return name.startsWith(SIJIL_TEMPLATE_PREFIX) && sijilTemplateByName(name) === null;
+}
+
+async function fetchTemplates(account, creds: GraphCredentials) {
+  const templates = [];
+  let after: string | null = null;
+  do {
+    const page = await graphRequest("GET", `${account.waba_id}/message_templates`, creds, {
+      query: { fields: TEMPLATE_FIELDS, limit: "100", ...(after ? { after } : {}) },
+    });
+    templates.push(...(page?.data ?? []));
+    after = page?.paging?.next ? (page?.paging?.cursors?.after ?? null) : null;
+  } while (after);
+  return templates;
+}
+
 function toRow(account, template, syncedAt: string) {
   const body = (template.components ?? []).find(
     (c) => String(c.type).toUpperCase() === "BODY",
@@ -46,15 +64,9 @@ function toRow(account, template, syncedAt: string) {
 
 export async function syncTemplates(service, account, creds: GraphCredentials) {
   const syncedAt = new Date().toISOString();
-  const rows = [];
-  let after: string | null = null;
-  do {
-    const page = await graphRequest("GET", `${account.waba_id}/message_templates`, creds, {
-      query: { fields: TEMPLATE_FIELDS, limit: "100", ...(after ? { after } : {}) },
-    });
-    for (const template of page?.data ?? []) rows.push(toRow(account, template, syncedAt));
-    after = page?.paging?.next ? (page?.paging?.cursors?.after ?? null) : null;
-  } while (after);
+  const rows = (await fetchTemplates(account, creds))
+    .filter((template) => !isRetiredSijilTemplate(template.name))
+    .map((template) => toRow(account, template, syncedAt));
 
   if (rows.length > 0) {
     const { error } = await service
@@ -86,8 +98,32 @@ function sijilComponents(spec, language) {
   ];
 }
 
-// Creates missing Sijil templates and resubmits rejected ones.
+// By name = every language; Meta then blocks that name for 30 days.
+async function deleteRetiredSijilTemplates(account, creds: GraphCredentials, log): Promise<number> {
+  const retired = new Set(
+    (await fetchTemplates(account, creds))
+      .map((template) => template.name)
+      .filter(isRetiredSijilTemplate),
+  );
+  let deleted = 0;
+  for (const name of retired) {
+    try {
+      await graphRequest("DELETE", `${account.waba_id}/message_templates`, creds, { query: { name } });
+      deleted++;
+    } catch (error) {
+      log("template_delete_failed", {
+        template: name,
+        metaCode: error?.code ?? null,
+        message: error?.message ?? String(error),
+      });
+    }
+  }
+  return deleted;
+}
+
+// Deletes old Sijil versions, creates missing Sijil templates, resubmits rejected ones.
 export async function submitSijilTemplates(service, account, creds: GraphCredentials, log) {
+  const deleted = await deleteRetiredSijilTemplates(account, creds, log);
   const { data: existing } = await service
     .from("whatsapp_templates")
     .select("name, language, status, meta_template_id")
@@ -128,6 +164,6 @@ export async function submitSijilTemplates(service, account, creds: GraphCredent
       }
     }
   }
-  if (submitted > 0) await syncTemplates(service, account, creds);
+  if (submitted > 0 || deleted > 0) await syncTemplates(service, account, creds);
   return submitted;
 }
