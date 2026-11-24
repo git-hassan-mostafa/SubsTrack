@@ -2,6 +2,10 @@ import type { OwnAppConnectResult, WhatsAppNumberChoice } from "@shared/core/typ
 import type { OwnAppConnectInput } from "@shared/modules/whatsapp/repository/IWhatsAppRepository";
 import { isSignupPin } from "@shared/modules/whatsapp/utils/embeddedSignup";
 
+export const OWN_APP_HELP_STEP_KEYS: readonly string[] = [1, 2, 3, 4, 5, 6, 7].map(
+  (n) => `whatsapp.own_app.help_step_${n}`,
+);
+
 export type OwnAppStep = "keys" | "choose_number" | "pin";
 
 export interface OwnAppFields {
