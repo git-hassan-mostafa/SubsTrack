@@ -4,11 +4,28 @@ import { defineConfig, loadEnv } from "vite";
 const REQUIRED_ENV = [
   "VITE_SUPPORT_WHATSAPP_NUMBER",
   "VITE_SUPPORT_EMAIL",
-  "VITE_SITE_URL",
   "VITE_SUPABASE_URL",
   "VITE_SUPABASE_ANON_KEY",
 ];
-const URL_ENV = ["VITE_SITE_URL", "VITE_SUPABASE_URL"];
+const URL_ENV = ["VITE_SUPABASE_URL"];
+const DEV_PORT = 3000;
+
+// Vercel sets the project's live domain (custom one first) on every build; see docs/build-and-release.md
+function siteUrl() {
+  const vercelDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  return vercelDomain ? `https://${vercelDomain}` : `http://localhost:${DEV_PORT}`;
+}
+
+function siteUrlPlugin() {
+  const url = siteUrl();
+  return {
+    name: "site-url",
+    transformIndexHtml: {
+      order: "pre",
+      handler: (html) => html.replaceAll("%SITE_URL%", url),
+    },
+  };
+}
 
 // HTML %VITE_X% is left as raw text when a variable is missing, so stop the build instead.
 function assertSiteEnv(env) {
@@ -30,8 +47,9 @@ export default defineConfig(({ mode }) => {
   return {
     root: "./",
     publicDir: "public",
+    plugins: [siteUrlPlugin()],
     server: {
-      port: 3000,
+      port: DEV_PORT,
       open: false,
     },
     build: {
