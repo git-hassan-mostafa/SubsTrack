@@ -38,7 +38,7 @@ One rules file for every AI agent (Claude Code loads it via `CLAUDE.md` = `@AGEN
 End every task with `## Changes Made`: **3–5 bullets**, one short sentence each, results only. No "I updated/changed/completed", process, reasoning, progress, intro, conclusion, filler, self-reference. No implementation detail unless asked.
 
 ### 1.5 Docs are agent-only
-`AGENTS.md` + `docs/*.md` (except `docs/whatsapp-setup-guide.md`) + `tests/README.md` + `Portal/README.md` are read only by AI agents: terse/telegraphic — no filler, history, link markup (`` `path` `` not `[x](../path)`), table padding or hard wrapping; keep every rule, reason, identifier, path, number, gotcha #. Human-facing, plain English: `QA/`, `fix-prompts.md`, `prerequisites.md`, `production-setup.md`, `build-checklist.md`, `docs/whatsapp-setup-guide.md`. `CLAUDE.md` holds ONLY `@AGENTS.md`, never rules.
+`AGENTS.md` + `docs/*.md` (except `docs/whatsapp-setup-guide.md`) + `tests/README.md` + `Portal/README.md` are read only by AI agents: terse/telegraphic — no filler, history, link markup (`` `path` `` not `[x](../path)`), table padding or hard wrapping; keep every rule, reason, identifier, path, number, gotcha #. Human-facing, plain English: `QA/`, `fix-prompts.md`, `prerequisites.md`, `production-setup.md`, `build-checklist.md`, `docs/whatsapp-setup-guide.md`. `CLAUDE.md` holds ONLY `@AGENTS.md`, never rules. New WhatsApp/Meta setup fact, step or error found → same turn into `docs/whatsapp-setup-guide.md` (plain) + `docs/whatsapp.md` (terse).
 
 ### 1.6 Environment (laptop AV blocks spawned tools)
 - `npm install --ignore-scripts` (plain `npm i` dies at a postinstall, half-empty `node_modules`).

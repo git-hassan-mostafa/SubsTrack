@@ -134,17 +134,63 @@ export function webhookTarget() {
   return { url: url.toString(), verifyToken: env.WHATSAPP_WEBHOOK_VERIFY_TOKEN };
 }
 
-// Points an own app's WABA webhooks at Sijil; on refusal the admin pastes them by hand.
+const REQUIRED_WEBHOOK_FIELDS = ["messages", "message_template_status_update", "account_update"];
+
+function logGraphFailure(log: Log, event: string, error) {
+  log(event, { metaCode: error?.code ?? null, message: error?.message ?? String(error) });
+}
+
+function sameEndpoint(a: string, b: string): boolean {
+  try {
+    const left = new URL(a);
+    const right = new URL(b);
+    return left.origin === right.origin && left.pathname === right.pathname;
+  } catch {
+    return false;
+  }
+}
+
+// The admin's hand-pasted webhook lives on the app, readable only with the app token.
+async function appWebhookReachesSijil(account, creds: GraphCredentials, targetUrl: string): Promise<boolean> {
+  if (!account.app_id) return false;
+  const appToken = { token: `${account.app_id}|${creds.appSecret}`, appSecret: creds.appSecret };
+  const body = await graphRequest("GET", `${account.app_id}/subscriptions`, appToken);
+  const subscription = (body?.data ?? []).find(
+    (s) => s.object === "whatsapp_business_account" && s.active !== false,
+  );
+  if (!subscription || !sameEndpoint(String(subscription.callback_url ?? ""), targetUrl)) return false;
+  const fields = new Set((subscription.fields ?? []).map((f) => (typeof f === "string" ? f : f?.name)));
+  return REQUIRED_WEBHOOK_FIELDS.every((field) => fields.has(field));
+}
+
+async function attempt(log: Log, event: string, call: () => Promise<unknown>): Promise<boolean> {
+  try {
+    await call();
+    return true;
+  } catch (error) {
+    logGraphFailure(log, event, error);
+    return false;
+  }
+}
+
+// Events need the app subscribed to the WABA first; the override needs it too.
 export async function setWebhookOverride(service, account, creds: GraphCredentials, log: Log) {
   const target = webhookTarget();
-  let ok = true;
-  try {
-    await graphRequest("POST", `${account.waba_id}/subscribed_apps`, creds, {
-      body: { override_callback_uri: target.url, verify_token: target.verifyToken },
+  const subscribed = await attempt(log, "webhook_subscribe_failed", () =>
+    graphRequest("POST", `${account.waba_id}/subscribed_apps`, creds),
+  );
+  let ok =
+    subscribed &&
+    (await attempt(log, "webhook_override_failed", () =>
+      graphRequest("POST", `${account.waba_id}/subscribed_apps`, creds, {
+        body: { override_callback_uri: target.url, verify_token: target.verifyToken },
+      }),
+    ));
+  if (subscribed && !ok) {
+    ok = await appWebhookReachesSijil(account, creds, target.url).catch((error) => {
+      logGraphFailure(log, "webhook_check_failed", error);
+      return false;
     });
-  } catch (error) {
-    ok = false;
-    log("webhook_override_failed", { metaCode: error?.code ?? null, message: error?.message ?? String(error) });
   }
   await service.from("whatsapp_accounts").update({ webhook_auto: ok }).eq("id", account.id);
   return ok;

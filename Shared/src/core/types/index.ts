@@ -1031,6 +1031,7 @@ export interface WhatsAppNumberChoice {
 
 export type OwnAppConnectResult =
   | { status: "connected"; displayPhoneNumber: string | null; verifiedName: string | null }
+  | { status: "needs_waba" }
   | { status: "choose_number"; numbers: WhatsAppNumberChoice[] }
   | { status: "needs_pin"; phoneNumberId: string };
 

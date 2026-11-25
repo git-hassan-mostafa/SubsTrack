@@ -197,21 +197,37 @@ Some tenants prefer to use **their own Meta app** instead of Meta's sign-up wind
 
 1. Go to **business.facebook.com** and make sure you have a **business portfolio** (create one if not).
 2. Go to **developers.facebook.com** → **My Apps** → **Create app** → type **Business** → link it to your business portfolio.
-3. In the app, add **WhatsApp**. Under **WhatsApp → API Setup**, add your phone number and verify it with the SMS or call code.
+3. In the app, add **WhatsApp**. Under **Connect on WhatsApp → Production setup → Register your WhatsApp phone number → Add phone number** (older dashboards call this **WhatsApp → API Setup**), add your phone number and verify it with the SMS or call code. **Sijil does not verify the number** — this step is the only check, so do it before connecting in Sijil.
+   - Meta asks for business information: **Name** (the display name customers see), **Category** (your type of business; internet or generator → **Other**), **Country**, **Website** and **Time zone**. No website? Use your Facebook or Instagram page link. Use a page that shows your business name, because Business Verification checks it.
+   - **Do not choose "Use a display name with a virtual number instead".** That gives a free Meta **test** number (+1 555…). It may stop working after about 5 messages until the display name is approved. Use it only for testing.
 4. Go to **Business Settings → Users → System users** → **Add** a system user (role **Admin**).
-5. On that system user, **Assign assets**: your **app** (full control) and your **WhatsApp account** (full control).
+5. On that system user, **Assign assets**: your **app** (full control) and your **WhatsApp account** (full control). **Do this before step 6** — a token made before the assets were assigned cannot reach the WhatsApp account. If you cannot see the WhatsApp account in the list, it belongs to another business portfolio: switch portfolio (top left) and make the system user there.
 6. Still on that system user: **Generate new token** → choose your app → expiry **Never** → tick **whatsapp_business_messaging** and **whatsapp_business_management** → copy the token. Keep it safe; Meta shows it once.
+   - To check the token: paste it at [developers.facebook.com/tools/debug/accesstoken](https://developers.facebook.com/tools/debug/accesstoken). Under **Granular scopes** you see either your WhatsApp account's ID or **"Applies to all objects"**. Both are fine.
 7. In the app: **App settings → Basic** → copy the **App secret** (tap Show). Also fill **Privacy Policy URL** (any public page with your privacy policy).
 8. Switch the app to **Live** at the top of the app page.
 9. In Sijil: **More → Admin → WhatsApp** → choose the language → tick the consent box → **Use my own Meta app instead** → paste the **token** and the **app secret** → **Connect**.
    - If your app has more than one number, Sijil asks you to choose one.
    - If the number already has a 6-digit PIN, Sijil asks for it.
+   - If the token does not name your WhatsApp account ("Applies to all objects"), Sijil asks for your **WhatsApp Business Account ID**. Find it in business.facebook.com → **Settings → Accounts → WhatsApp accounts** → click your account (the ID is under its name). Other places: the WhatsApp Manager page address (`waba_id=…`), or developers.facebook.com → your app → **Connect on WhatsApp → Step 1. Try it out**. Meta now also calls it the **Messaging account ID** — same number. Do **not** use the **Phone number ID**; Sijil finds that itself.
 10. If Sijil shows a box **"One more step in Meta"**: in your app open **WhatsApp → Configuration → Webhook**, paste the **Callback URL** and **Verify token** from that box, tap **Verify and save**, then subscribe to **messages**, **message_template_status_update** and **account_update**. Back in Sijil tap **Check again**.
 11. Then continue from Part 7, step 5 (payment method, wait for approved templates, send).
 
 To change the token later: More → Admin → WhatsApp → **Change Meta app keys**.
 
 ---
+
+## Good to know
+
+- **The SIM is needed only once**, to get the code. After connecting, messages go through Meta's servers, not the SIM. You need the SIM again only if Meta asks to verify again or you move the number. If a prepaid SIM expires, the phone company may give the number to someone else — keep it active for a real business number.
+- **Do not use free "receive SMS online" websites.** Meta often refuses them, and anyone can read the code. A **landline** works: choose **Phone call** instead of SMS.
+- **Daily limit:** a new business can start conversations with **250 different customers per 24 hours**. Replies to customers who wrote first are not limited. The limit grows (2,000 → 10,000 → 100,000) with good use and Business Verification. Sijil shows it as "Customers per day".
+- **Templates in Meta:** business.facebook.com → **WhatsApp Manager → Account tools → Message templates**. A new WhatsApp account also gets Meta sample templates (`jaspers_market_...`, `hello_world`). Sijil does not use them; delete them.
+- **Customer phone format:** save it with the country code, for example **+96181446801** (Lebanon = +961, then the number without the first 0). A local number like `81 446 801` also works, but Sijil guesses the country from the tenant's WhatsApp number — with a Meta test number (+1 555…) it guesses the US and the send fails.
+- **Why a message failed:** More → Admin → **WhatsApp messages** shows Meta's reason and code next to **Failed**. Code **131030** = the sending number is a Meta test number and this customer is not in its allowed list (developers.facebook.com → your app → Step 1. Try it out → add the number as a recipient), or use a real number.
+- Code **131058** ("Hello World templates can only be sent from the Public Test Numbers") = you sent Meta's sample `hello_world` template from your own number. Send a Sijil template instead (payment reminder, outage, notice…), and delete `hello_world` in WhatsApp Manager.
+- **One number per tenant.** If the Meta account has several numbers, Sijil asks which one to use. To change it: More → Admin → WhatsApp → **Change Meta app keys**.
+- **Tenants without a business portfolio:** Meta's sign-up window creates one for them. They only need a Facebook account and a business name.
 
 ## If something goes wrong
 
@@ -227,5 +243,9 @@ To change the token later: More → Admin → WhatsApp → **Change Meta app key
 | Failed: payment method | Step 24, then More → Admin → WhatsApp → **Check again** |
 | Own Meta app: "app secret does not match" | The secret was copied from a different app than the token. Copy both from the same app (Part 8, steps 6–7) |
 | Own Meta app: "this token expires" | The token was made with an expiry. Make a new one with expiry **Never** (Part 8, step 6) |
-| Own Meta app: "cannot reach any WhatsApp Business Account" | The system user was not given the WhatsApp account (Part 8, step 5) |
+| Own Meta app: Sijil asks for a "WhatsApp Business Account ID" | Normal when the token says "Applies to all objects". Type the ID from Business Settings → Accounts → WhatsApp accounts (Part 8, step 9) |
+| Own Meta app: "cannot reach this WhatsApp Business Account" | The ID typed is wrong, or the system user was not given that account (Part 8, step 5) |
+| Own Meta app: number sends a few messages then stops | It is a Meta test number ("display name with a virtual number"). Add a real number (Part 8, step 3) |
+| A Sijil template shows **Marketing** with a ⚠ in Meta | Meta changed its category. It costs more. Ask Meta for a review in WhatsApp Manager (within 60 days), or ask for new template wording. Words that ask the customer to buy or renew ("please renew your subscription") are the usual cause |
 | Own Meta app: messages send but never show Delivered / Read | The webhook is not set. Do Part 8, step 10, then **Check again** |
+| Own Meta app: "One more step in Meta" stays after **Check again** | Check in your app's webhook settings: the Callback URL is exactly the one Sijil shows, **Verify and save** showed no error, and **messages**, **message_template_status_update** and **account_update** are all **Subscribed**. Still there? Supabase → Edge Functions → whatsapp-admin → Logs, search `webhook_` to see Meta's reason |

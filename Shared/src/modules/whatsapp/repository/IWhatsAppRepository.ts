@@ -46,6 +46,7 @@ export interface OwnAppConnectInput {
   consent: boolean;
   token: string;
   appSecret: string;
+  wabaId: string | null;
   phoneNumberId: string | null;
   pin: string | null;
 }

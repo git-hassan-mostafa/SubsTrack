@@ -34,6 +34,7 @@ export interface OwnAppRequest {
   userId: string;
   token: string;
   appSecret: string;
+  wabaId: string | null;
   phoneNumberId: string | null;
   pin: string | null;
 }
@@ -48,13 +49,17 @@ export function readOwnAppBody(body): Omit<OwnAppRequest, "tenantId" | "userId">
   if (!token || !appSecret || token.length > MAX_SECRET_LENGTH || appSecret.length > MAX_SECRET_LENGTH) {
     throw new HttpError(400, "own_app_keys_missing", "Enter the access token and the app secret.");
   }
+  const wabaId = body.wabaId ? String(body.wabaId) : null;
+  if (wabaId && !META_ID_REGEX.test(wabaId)) {
+    throw new HttpError(400, "invalid_waba_id", "The WhatsApp Business Account ID must be digits only.");
+  }
   const phoneNumberId = body.phoneNumberId ? String(body.phoneNumberId) : null;
   if (phoneNumberId && !META_ID_REGEX.test(phoneNumberId)) {
     throw new HttpError(400, "invalid_signup", "Unknown phone number.");
   }
   const pin = body.pin ? String(body.pin) : null;
   if (pin && !/^\d{6}$/.test(pin)) throw new HttpError(400, "invalid_pin", "The PIN must be 6 digits.");
-  return { token, appSecret, phoneNumberId, pin };
+  return { token, appSecret, wabaId, phoneNumberId, pin };
 }
 
 // A wrong secret makes Meta reject the appsecret_proof before anything else.
@@ -105,19 +110,37 @@ async function reachableWabaIds(info, creds: GraphCredentials): Promise<string[]
   return [...ids].slice(0, MAX_WABAS);
 }
 
-async function reachableNumbers(info, creds: GraphCredentials): Promise<NumberOnWaba[]> {
-  const wabaIds = await reachableWabaIds(info, creds);
-  if (wabaIds.length === 0) {
-    throw new HttpError(409, "own_app_no_waba", "This token cannot reach any WhatsApp Business Account. Give the system user access to it in Meta Business Settings.");
+async function numbersOnWaba(wabaId: string, creds: GraphCredentials): Promise<NumberOnWaba[]> {
+  const phones = await wabaPhoneNumbers(wabaId, creds);
+  return phones.map((phone) => ({ ...phone, wabaId }));
+}
+
+async function typedWabaNumbers(wabaId: string, creds: GraphCredentials): Promise<NumberOnWaba[]> {
+  try {
+    return await numbersOnWaba(wabaId, creds);
+  } catch (error) {
+    if (error instanceof MetaError && !error.networkFailure) {
+      throw new HttpError(409, "own_app_waba_unreachable", "This token cannot reach this WhatsApp Business Account. Check the ID and that the system user has access to it.");
+    }
+    throw error;
   }
-  const numbers: NumberOnWaba[] = [];
-  for (const wabaId of wabaIds) {
-    for (const phone of await wabaPhoneNumbers(wabaId, creds)) numbers.push({ ...phone, wabaId });
-  }
+}
+
+function assertHasNumbers(numbers: NumberOnWaba[]): NumberOnWaba[] {
   if (numbers.length === 0) {
     throw new HttpError(409, "own_app_no_number", "This WhatsApp Business Account has no phone number yet. Add one in Meta first.");
   }
   return numbers;
+}
+
+// Null = the token names no account, so the admin must type the WABA ID.
+async function candidateNumbers(info, creds: GraphCredentials, wabaId: string | null): Promise<NumberOnWaba[] | null> {
+  if (wabaId) return assertHasNumbers(await typedWabaNumbers(wabaId, creds));
+  const wabaIds = await reachableWabaIds(info, creds);
+  if (wabaIds.length === 0) return null;
+  const numbers: NumberOnWaba[] = [];
+  for (const id of wabaIds) numbers.push(...(await numbersOnWaba(id, creds)));
+  return assertHasNumbers(numbers);
 }
 
 function pickNumber(numbers: NumberOnWaba[], phoneNumberId: string | null): NumberOnWaba | null {
@@ -150,7 +173,8 @@ async function ensureRegistered(phoneNumberId: string, creds: GraphCredentials, 
 export async function connectOwnApp(service, request: OwnAppRequest, log: Log) {
   const creds = { token: request.token, appSecret: request.appSecret };
   const { appId, info } = await inspectKeys(creds);
-  const numbers = await reachableNumbers(info, creds);
+  const numbers = await candidateNumbers(info, creds, request.wabaId);
+  if (!numbers) return { status: "needs_waba" };
   const chosen = pickNumber(numbers, request.phoneNumberId);
   if (!chosen) {
     return {

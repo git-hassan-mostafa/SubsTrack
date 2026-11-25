@@ -50,12 +50,12 @@ export const SIJIL_TEMPLATES: SijilTemplateSpec[] = [
   },
   {
     purpose: "renewal_reminder",
-    name: "sijil_renewal_reminder_v2",
+    name: "sijil_renewal_reminder_v3",
     params: ["customer_name", "business_name", "paid_until"],
     maxLength: { customer_name: 60, business_name: 60, paid_until: 40 },
     body: {
-      en: "Hello {{customer_name}}, your subscription with {{business_name}} is paid until {{paid_until}}. To keep your service active after this date, please renew your subscription. If you have already renewed, please ignore this message.",
-      ar: "مرحباً {{customer_name}}، اشتراكك لدى {{business_name}} مدفوع حتى {{paid_until}}. لاستمرار خدمتك بعد هذا التاريخ، يرجى تجديد اشتراكك. إذا كنت قد جدّدت بالفعل، يرجى تجاهل هذه الرسالة.",
+      en: "Hello {{customer_name}}, this is an account update for your subscription with {{business_name}}. Your subscription is paid until {{paid_until}}, and the next payment is due after this date. If you have already paid, please ignore this message.",
+      ar: "مرحباً {{customer_name}}، هذا تحديث لحساب اشتراكك لدى {{business_name}}. اشتراكك مدفوع حتى {{paid_until}}، والدفعة التالية مستحقة بعد هذا التاريخ. إذا كنت قد دفعت بالفعل، يرجى تجاهل هذه الرسالة.",
     },
     footer: FOOTER,
     examples: {

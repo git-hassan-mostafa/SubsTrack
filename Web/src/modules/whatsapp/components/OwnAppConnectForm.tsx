@@ -70,6 +70,17 @@ export function OwnAppConnectForm({ ownApp, onCancel }: Props) {
         onChange={(event) => ownApp.setAppSecret(event.target.value)}
         fullWidth
       />
+      {ownApp.step === "waba" ? (
+        <TextField
+          label={t("whatsapp.own_app.waba_label")}
+          helperText={t("whatsapp.own_app.waba_hint")}
+          autoComplete="off"
+          value={ownApp.wabaId}
+          onChange={(event) => ownApp.setWabaId(digitsOnly(event.target.value))}
+          slotProps={{ htmlInput: { inputMode: "numeric" } }}
+          fullWidth
+        />
+      ) : null}
       {ownApp.step === "choose_number" ? (
         <SearchableSelect
           label={t("whatsapp.own_app.number_label")}

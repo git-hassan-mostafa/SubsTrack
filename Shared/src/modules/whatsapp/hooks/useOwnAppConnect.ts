@@ -15,15 +15,21 @@ export function useOwnAppConnect(consent: boolean, onConnected: () => void) {
   const clearError = useWhatsAppSlice((s) => s.clearError);
   const [token, setTokenText] = useState("");
   const [appSecret, setAppSecretText] = useState("");
+  const [wabaId, setWabaIdText] = useState("");
   const [pin, setPinText] = useState("");
   const [phoneNumberId, setPhoneNumberId] = useState<string | null>(null);
   const [numbers, setNumbers] = useState<WhatsAppNumberChoice[]>([]);
   const [step, setStep] = useState<OwnAppStep>("keys");
 
-  const input = ownAppInput({ token, appSecret, phoneNumberId, pin }, step, consent);
+  const input = ownAppInput(
+    { token, appSecret, wabaId, phoneNumberId, pin },
+    step,
+    consent,
+  );
 
   function backToKeys() {
     setStep("keys");
+    setWabaIdText("");
     setNumbers([]);
     setPhoneNumberId(null);
     setPinText("");
@@ -57,6 +63,11 @@ export function useOwnAppConnect(consent: boolean, onConnected: () => void) {
     setToken: (value: string) => editKey(setTokenText, value),
     appSecret,
     setAppSecret: (value: string) => editKey(setAppSecretText, value),
+    wabaId,
+    setWabaId: (value: string) => {
+      setWabaIdText(value);
+      clearError();
+    },
     pin,
     setPin: (value: string) => {
       setPinText(value);

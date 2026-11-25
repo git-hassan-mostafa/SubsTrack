@@ -11,6 +11,7 @@ import { needsManualWebhook } from "@shared/modules/whatsapp/utils/whatsappView"
 const KEYS: OwnAppFields = {
   token: "  EAAG-token  ",
   appSecret: " secret ",
+  wabaId: "",
   phoneNumberId: null,
   pin: "",
 };
@@ -40,6 +41,7 @@ describe("ownAppInput", () => {
       consent: true,
       token: "EAAG-token",
       appSecret: "secret",
+      wabaId: null,
       phoneNumberId: null,
       pin: null,
     });
@@ -66,10 +68,27 @@ describe("ownAppInput", () => {
   it("TC-WA-O-05 a typed number is ignored on the keys step", () => {
     expect(ownAppInput({ ...KEYS, phoneNumberId: "200" }, "keys", true)?.phoneNumberId).toBeNull();
   });
+
+  it("TC-WA-O-09 the WABA step needs a typed digits-only id and sends it with no number", () => {
+    expect(ownAppInput(KEYS, "waba", true)).toBeNull();
+    expect(ownAppInput({ ...KEYS, wabaId: "12a4" }, "waba", true)).toBeNull();
+    const input = ownAppInput({ ...KEYS, wabaId: " 1234567 " }, "waba", true);
+    expect(input?.wabaId).toBe("1234567");
+    expect(input?.phoneNumberId).toBeNull();
+  });
+
+  it("TC-WA-O-10 a typed WABA id is re-sent on later steps and ignored on the keys step", () => {
+    const typed = { ...KEYS, wabaId: "1234567", phoneNumberId: "200" };
+    expect(ownAppInput(typed, "choose_number", true)?.wabaId).toBe("1234567");
+    expect(ownAppInput({ ...typed, pin: "123456" }, "pin", true)?.wabaId).toBe("1234567");
+    expect(ownAppInput(typed, "keys", true)?.wabaId).toBeNull();
+    expect(ownAppInput({ ...KEYS, phoneNumberId: "200" }, "choose_number", true)?.wabaId).toBeNull();
+  });
 });
 
 describe("nextOwnAppStep", () => {
   it("TC-WA-O-06 maps each server answer to the next step", () => {
+    expect(nextOwnAppStep({ status: "needs_waba" })).toBe("waba");
     expect(nextOwnAppStep({ status: "choose_number", numbers: [] })).toBe("choose_number");
     expect(nextOwnAppStep({ status: "needs_pin", phoneNumberId: "200" })).toBe("pin");
     expect(nextOwnAppStep({ status: "connected", displayPhoneNumber: null, verifiedName: null })).toBe("done");

@@ -68,6 +68,18 @@ export function OwnAppConnectForm({ ownApp, onCancel }: Props) {
         autoCapitalize="none"
         autoCorrect={false}
       />
+      {ownApp.step === "waba" ? (
+        <>
+          <Text className="text-sm text-gray-600 mb-2">{t("whatsapp.own_app.waba_hint")}</Text>
+          <Input
+            label={t("whatsapp.own_app.waba_label")}
+            value={ownApp.wabaId}
+            onChangeText={ownApp.setWabaId}
+            sanitize={digitsOnly}
+            keyboardType="number-pad"
+          />
+        </>
+      ) : null}
       {ownApp.step === "choose_number" ? (
         <View className="mb-4">
           <Text className="text-sm text-gray-600 mb-2">{t("whatsapp.own_app.number_hint")}</Text>

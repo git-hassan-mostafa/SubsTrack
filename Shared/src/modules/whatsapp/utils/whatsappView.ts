@@ -80,8 +80,15 @@ export function messageCustomerName(message: WhatsAppMessage, t: TFn): string {
   return message.customerName ?? t("whatsapp.unknown_customer");
 }
 
+// A code Sijil has no wording for keeps Meta's own reason visible.
 export function messageErrorText(message: WhatsAppMessage, t: TFn): string | null {
   if (!message.errorKey) return null;
+  if (message.errorKey === "meta_error" && (message.errorTitle || message.errorCode)) {
+    return t("whatsapp.message_error.meta_error_detail", {
+      title: message.errorTitle ?? "",
+      code: message.errorCode ?? "",
+    });
+  }
   return t(`whatsapp.message_error.${message.errorKey}`, {
     defaultValue: message.errorTitle ?? t("whatsapp.message_error.meta_error"),
   });
