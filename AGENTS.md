@@ -93,7 +93,7 @@ End every task with `## Changes Made`: **3–5 bullets**, one short sentence eac
 
 **Stack**: RN 0.86.3 + Expo SDK 57 (React 19.2, Hermes v1, New Architecture only) · Expo Router 57 (never import `@react-navigation/*` — use `expo-router/react-navigation`) · Zustand 5 + immer · NativeWind 4 · Supabase · TS 6 strict · i18next (en/ar, RTL) · sheets via `@expo/ui` (#45). `react-native-gesture-handler` intentionally **3.x** (#140). tsconfig `paths` pins `i18next` + `@supabase/supabase-js` (#188).
 
-Commands (`docs/build-and-release.md`): `npx expo run:android` — **dev client required, Expo Go redboxes**. OTA: `npm run ota-prod`. Rebuild only when something **native** changed. `.env` = local dev only; EAS reads its environment's variables (#187).
+Commands (`docs/build-and-release.md`): `npx expo run:android` — **dev client required, Expo Go redboxes**. OTA: `npm run ota-prod`. Rebuild only when something **native** changed. Merge to `master` auto-runs tests→SQL→functions→OTA (`docs/build-and-release.md` → Auto deploy). `.env` = local dev only; EAS reads its environment's variables (#187).
 
 ## 5. Architecture (MANDATORY)
 Layers, dependencies **downward only**: Presentation → State → Business Logic → Repository → Database; Core imported by all.

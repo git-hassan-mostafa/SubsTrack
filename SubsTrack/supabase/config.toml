@@ -10,6 +10,22 @@ entrypoint = "./functions/create-user/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/create-user/*.html" ]
 
+[functions.delete-user]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/delete-user/index.ts"
+
+[functions.update-user-password]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/update-user-password/index.ts"
+
+# Public: self-service signup calls this with no session yet.
+[functions.create-tenant]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/create-tenant/index.ts"
+
 # Public: the customer portal calls this with no session at all. Must stay
 # verify_jwt = false, and must be deployed with --no-verify-jwt to match.
 [functions.customer-portal]

@@ -1,0 +1,160 @@
+name: Test and deploy
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || 'deploy-production' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: Money tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            Shared/package-lock.json
+            SubsTrack/package-lock.json
+            tests/package-lock.json
+      - name: Install Shared
+        working-directory: Shared
+        run: npm ci
+      - name: Install SubsTrack
+        working-directory: SubsTrack
+        run: npm ci
+      - name: Install tests
+        working-directory: tests
+        run: npm ci
+      - name: Run tests
+        working-directory: tests
+        run: npm test
+
+  changes:
+    name: What changed
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      database: ${{ steps.diff.outputs.database }}
+      functions: ${{ steps.diff.outputs.functions }}
+      app: ${{ steps.diff.outputs.app }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - id: diff
+        name: List changed files
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = "push" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            FILES=$(git diff --name-only "$BEFORE" "$GITHUB_SHA")
+          else
+            FILES=ALL
+          fi
+          printf '%s\n' "$FILES"
+          changed() {
+            [ "$FILES" = ALL ] && return 0
+            printf '%s\n' "$FILES" | grep -v "${2:-^$}" | grep -Eq "$1"
+          }
+          flag() { if changed "$2" "$3"; then echo "$1=true"; else echo "$1=false"; fi; }
+          {
+            flag database '^sql scripts/(migration|script)\.sql$'
+            flag functions '^(SubsTrack/supabase/|Shared/src/|Web/scripts/build-edge\.mjs$)'
+            flag app '^(SubsTrack/|Shared/src/)' '^SubsTrack/supabase/'
+          } >> "$GITHUB_OUTPUT"
+
+  database:
+    name: Database (migration.sql, then script.sql)
+    needs: [test, changes]
+    if: needs.changes.outputs.database == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run migration.sql
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "sql scripts/migration.sql"
+      - name: Run script.sql
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "sql scripts/script.sql"
+
+  functions:
+    name: Edge functions
+    needs: [test, changes, database]
+    if: ${{ !cancelled() && needs.test.result == 'success' && needs.database.result != 'failure' && needs.changes.outputs.functions == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: Web/package-lock.json
+      - name: Install Web
+        working-directory: Web
+        run: npm ci
+      - name: Build the customer-status bundle
+        working-directory: Web
+        run: node scripts/build-edge.mjs
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Deploy every function
+        working-directory: SubsTrack
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF"
+
+  ota:
+    name: OTA update (${{ matrix.channel }})
+    needs: [test, changes, database, functions]
+    if: ${{ !cancelled() && needs.test.result == 'success' && needs.database.result != 'failure' && needs.functions.result != 'failure' && needs.changes.outputs.app == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [preview, production]
+    env:
+      CHANNEL: ${{ matrix.channel }}
+    defaults:
+      run:
+        working-directory: SubsTrack
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: SubsTrack/package-lock.json
+      - name: Install SubsTrack
+        run: npm ci
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Stop if something native changed
+        run: |
+          FINGERPRINT=$(node scripts/print-fingerprint.js android)
+          echo "Runtime fingerprint: $FINGERPRINT"
+          BUILDS=$(eas build:list --platform android --channel "$CHANNEL" --runtime-version "$FINGERPRINT" --status finished --limit 1 --json --non-interactive)
+          if [ "$(printf '%s' "$BUILDS" | jq 'length')" = "0" ]; then
+            echo "::error::Something native changed: no finished $CHANNEL Android build has runtime $FINGERPRINT, so this update would reach no phone. Make a new $CHANNEL build, then run this workflow again."
+            exit 1
+          fi
+      - name: Publish the update
+        run: eas update --channel "$CHANNEL" --environment "$CHANNEL" --platform android --auto --non-interactive
