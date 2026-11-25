@@ -1,14 +1,21 @@
 // @ts-nocheck — Deno runtime file.
 import { parsePhoneNumberFromString } from "https://esm.sh/libphonenumber-js@1/max";
+import { internationalPhoneDigits, toLatinDigits } from "../digits.ts";
 
-// A local number ("03 123456") takes the tenant WhatsApp number's region.
+function validE164(candidate: string, region: string | null): string | null {
+  const parsed = parsePhoneNumberFromString(candidate, region ?? undefined);
+  return parsed && parsed.isValid() ? parsed.number : null;
+}
+
+// A local number tries the sending number's region first, then Lebanon (_shared/digits.ts).
 export function toE164(raw: string | null | undefined, defaultRegion: string | null): string | null {
-  const trimmed = (raw ?? "").trim();
+  const trimmed = toLatinDigits(raw ?? "").trim();
   if (!trimmed) return null;
   const candidate = trimmed.startsWith("00") ? `+${trimmed.slice(2)}` : trimmed;
-  const parsed = parsePhoneNumberFromString(candidate, defaultRegion ?? undefined);
-  if (!parsed || !parsed.isValid()) return null;
-  return parsed.number;
+  const inRegion = validE164(candidate, defaultRegion);
+  if (inRegion) return inRegion;
+  const international = internationalPhoneDigits(trimmed);
+  return international ? validE164(`+${international}`, null) : null;
 }
 
 export function regionOf(displayPhoneNumber: string | null | undefined): string | null {
