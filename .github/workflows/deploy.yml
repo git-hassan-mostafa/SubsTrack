@@ -110,7 +110,7 @@ jobs:
       - name: Build the customer-status bundle
         working-directory: Web
         run: node scripts/build-edge.mjs
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
           version: latest
       - name: Deploy every function
