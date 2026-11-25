@@ -20,7 +20,7 @@ Do these in order. A skipped step fails later and looks like a code bug.
 12. **Set up SuperAdminWeb** (your owner page) — create `SuperAdminWeb/.env` with `VITE_SUPABASE_URL` only, never a key. Put it on Vercel (see `production-setup.md`). When the page opens, you paste the service role key; it stays only in that browser.
 13. **Create `Portal/.env`** — `VITE_PORTAL_FUNCTION_URL` (`<project url>/functions/v1/customer-portal`), `VITE_SUPABASE_ANON_KEY`; on Vercel set them in Environment Variables.
 14. **Build the portal** (`cd Portal && npm install --ignore-scripts && npm run build`) — publish `dist/` to its own subdomain.
-15. **Publish the Website** (`Website/`) — first replace `[COMPANY LEGAL NAME]` and `[ADDRESS]` in `privacy/` and `terms/`, and set the 3 variables from `Website/.env.example` (in `Website/.env` locally, in Vercel for the live site): support WhatsApp number (same as `SupportWhatsAppNumber`), support email, site URL (same as `WebsiteUrl`).
+15. **Publish the Website** (`Website/`) — first replace `[COMPANY LEGAL NAME]` and `[ADDRESS]` in `privacy/` and `terms/`, and set the 5 variables from `Website/.env.example` (in `Website/.env` locally, in Vercel for the live site): support WhatsApp number (same as `SupportWhatsAppNumber`), support email, site URL (same as `WebsiteUrl`), Supabase URL and anon key (same as the phone app's). On Vercel: new project, Root Directory `Website`; `Website/vercel.json` does the rest.
 16. **Review SuperAdminWeb → Options**:
     - `LiraRate`
     - `SupportWhatsAppNumber` — powers "Get help" and "Contact us" on the login screen.
