@@ -70,7 +70,8 @@ var DEFAULT_UNPAID_START_RULE = "month_start";
 var TENANT_SETTING_KEYS = {
 	unpaidStartRule: "UnpaidStartRule",
 	displayCurrencyId: "DisplayCurrencyId",
-	whatsAppLanguage: "WhatsAppLanguage"
+	whatsAppLanguage: "WhatsAppLanguage",
+	trackStock: "TrackStock"
 };
 //#endregion
 //#region ../Shared/src/modules/admin/tenant-settings/utils/unpaidStartRule.ts

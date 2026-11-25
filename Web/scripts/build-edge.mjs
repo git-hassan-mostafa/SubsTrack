@@ -5,6 +5,7 @@ import { build } from "vite";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const app = path.resolve(here, "../..");
 const shared = path.join(app, "Shared/src");
+const sharedTsconfig = path.join(app, "Shared/tsconfig.json");
 const customers = path.join(shared, "modules/customer/customers");
 const functionsDir = path.join(app, "SubsTrack/supabase/functions");
 const fnDir = path.join(functionsDir, "customer-status");
@@ -27,6 +28,7 @@ const sharedOnly = {
 function bundle(outputDir, entry, emptyOutDir, banner) {
   return build({
     configFile: false,
+    tsconfig: sharedTsconfig,
     logLevel: "warn",
     plugins: [sharedOnly],
     resolve: {
